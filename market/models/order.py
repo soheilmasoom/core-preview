@@ -213,9 +213,15 @@ class Order(models.Model):
 
     @property
     def base_wallet(self):
-        return self.symbol.base_asset.get_wallet(
-            account=self.wallet.account, market=self.wallet.market, variant=self.wallet.variant
-        )
+        _base_wallet = getattr(self, '_base_wallet', None)
+
+        if not _base_wallet:
+            _base_wallet = self.symbol.base_asset.get_wallet(
+                account=self.wallet.account, market=self.wallet.market, variant=self.wallet.variant
+            )
+            setattr(self, '_base_wallet', _base_wallet)
+
+        return _base_wallet
 
     @property
     def unfilled_amount(self):
