@@ -362,7 +362,7 @@ class Order(models.Model):
 
         log_prefix = 'MM %s {%s}: ' % (symbol.name, self.id)
 
-        logger.info(log_prefix + f'make match started... {overriding_fill_amount} {timezone.now()}')
+        # logger.info(log_prefix + f'make match started... {overriding_fill_amount} {timezone.now()}')
 
         maker_side = self.get_opposite_side(self.side)
 
@@ -386,7 +386,7 @@ class Order(models.Model):
                 return MatchedTrades()
 
         matching_orders = list(matching_orders)
-        logger.info(log_prefix + f'make match finished fetching matching orders {len(matching_orders)} {timezone.now()}')
+        # logger.info(log_prefix + f'make match finished fetching matching orders {len(matching_orders)} {timezone.now()}')
 
         if not matching_orders:
             if (self.fill_type == Order.MARKET or self.time_in_force in [self.IOC, self.ME_IOC]) and self.status == Order.NEW:
@@ -515,7 +515,7 @@ class Order(models.Model):
                 from gamify.utils import check_prize_achievements, Task
                 check_prize_achievements(account, Task.TRADE)
 
-        logger.info(log_prefix + f'make match finished.  {timezone.now()}')
+        # logger.info(log_prefix + f'make match finished.  {timezone.now()}')
         return MatchedTrades(trades=trades, trade_pairs=trade_pairs, filled_orders=filled_orders)
 
     @classmethod
