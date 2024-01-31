@@ -133,6 +133,7 @@ class Order(models.Model):
         indexes = [
             models.Index(fields=['symbol', 'type', 'status', 'created']),
             models.Index(fields=['symbol', 'status']),
+            models.Index(name='symbol_side_new_orders_ids', fields=['symbol', 'status', 'side'], condition=Q(status='new')),
             models.Index(name='market_new_orders_price_idx', fields=['price'], condition=Q(status='new')),
         ]
         constraints = [
