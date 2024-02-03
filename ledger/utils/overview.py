@@ -7,6 +7,7 @@ from accounting.models import VaultItem, Vault, ReservedAsset
 from accounts.models import Account
 from financial.models import FiatWithdrawRequest
 from ledger.models import Wallet, Prize, Asset
+from ledger.utils.fields import PENDING
 from ledger.utils.price import USDT_IRT
 from ledger.utils.provider import get_provider_requester, BINANCE
 
@@ -82,7 +83,7 @@ class AssetOverview:
             value += self.get_users_asset_value(coin)
 
         pending_withdraws = FiatWithdrawRequest.objects.filter(
-            status=FiatWithdrawRequest.PENDING
+            status=PENDING
         ).aggregate(amount=Sum('amount'))['amount'] or 0
 
         return value - pending_withdraws / self.prices[USDT_IRT]

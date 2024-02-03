@@ -30,7 +30,7 @@ def get_fiat_withdraw_risks(withdraw: FiatWithdrawRequest) -> list:
 
     total_withdraws = FiatWithdrawRequest.objects.filter(
         bank_account__user=user
-    ).exclude(status=FiatWithdrawRequest.CANCELED).aggregate(amount=Sum('amount'))['amount'] or 0
+    ).exclude(status=CANCELED).aggregate(amount=Sum('amount'))['amount'] or 0
 
     expected = Decimal('1.2') * total_deposits
 

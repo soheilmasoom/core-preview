@@ -6,6 +6,7 @@ from django.db import transaction
 from accounts.utils.admin import url_to_edit_object
 from accounts.utils.telegram import send_system_message
 from ledger.models import Transfer
+from ledger.utils.fields import PROCESS, PENDING
 from ledger.utils.provider import get_provider_requester
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ def handle_provider_withdraw(transfer_id: int):
 
         assert not transfer.deposit
         assert transfer.source == Transfer.PROVIDER
-        assert transfer.status == transfer.PROCESSING
+        assert transfer.status == PROCESS
 
         resp = get_provider_requester().new_withdraw(transfer)
 
@@ -32,7 +33,7 @@ def handle_provider_withdraw(transfer_id: int):
 
             return
 
-        transfer.status = transfer.PENDING
+        transfer.status = PENDING
         transfer.save(update_fields=['status'])
 
 

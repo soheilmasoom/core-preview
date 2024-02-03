@@ -36,7 +36,7 @@ def get_crypto_withdraw_irt_value(user: User):
         wallet__account__user=user,
         created__gte=timezone.now() - timedelta(days=1)
     ).exclude(
-        status=Transfer.CANCELED
+        status=CANCELED
     ).values('wallet__asset__symbol').annotate(
         amount=Sum('amount')
     ).values_list('wallet__asset__symbol', 'amount')

@@ -1,4 +1,7 @@
+from enum import Enum
+
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from ledger.utils.fields import get_amount_field
 
@@ -6,6 +9,11 @@ from decimal import Decimal
 
 
 class SystemConfig(models.Model):
+    history = HistoricalRecords()
+
+    TRANSFER_STATUS = ALLOW, BAN, BAN_CRYPTO, BAN_FIAT = 'allow', 'ban', 'ban_crypto', 'ban_fiat'
+
+    name = models.CharField(max_length=32)
     active = models.BooleanField()
     is_consultation_available = models.BooleanField(default=False)
 
@@ -29,6 +37,12 @@ class SystemConfig(models.Model):
     open_pay_id_to_all = models.BooleanField(default=False)
 
     limit_ipg_to_users_without_payment = models.BooleanField(default=False)
+
+    withdraw_status = models.CharField(max_length=16, choices=[(s, s) for s in TRANSFER_STATUS], default=ALLOW)
+    deposit_status = models.CharField(max_length=16, choices=[(s, s) for s in TRANSFER_STATUS], default=ALLOW)
+
+    def __str__(self):
+        return self.name
 
     @classmethod
     def get_system_config(cls) -> 'SystemConfig':

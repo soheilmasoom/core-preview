@@ -144,6 +144,10 @@ def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow
             name = _get_redis_price_key(c) + ':stale'
             spot_price_dict = get_price_redis(allow_stale).hgetall(name)
 
+        if allow_stale and not spot_price_dict and not futures_price_dict:
+            name = _get_redis_price_key(c, market='futures') + ':stale'
+            futures_price_dict = get_price_redis(allow_stale).hgetall(name)
+
             # logger.error('{} price fallback to stale'.format(c))
 
         for s in sides:

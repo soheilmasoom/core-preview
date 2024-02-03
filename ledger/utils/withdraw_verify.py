@@ -14,6 +14,7 @@ from accounts.utils.hijack import get_hijacker_id
 from financial.models import Payment
 from ledger.models import Transfer, Wallet
 from ledger.utils.external_price import BUY
+from ledger.utils.fields import CANCELED
 from ledger.utils.precision import humanize_number
 
 FATA_SAFE_DEBT_IRT_VALUE = -3_000_000
@@ -134,7 +135,7 @@ def get_withdraw_fata_risks(transfer: Transfer) -> list:
         wallet__account=account,
         deposit=False,
     ).exclude(
-        status=Transfer.CANCELED
+        status=CANCELED
     )
 
     if not withdraws.exclude(id=transfer.id).filter(out_address=transfer.out_address):
@@ -157,7 +158,7 @@ def get_withdraw_system_risks(transfer: Transfer) -> list:
     transfers = Transfer.objects.filter(
         wallet__account=account,
     ).exclude(
-        status=Transfer.CANCELED
+        status=CANCELED
     )
 
     withdraws = transfers.filter(deposit=False)

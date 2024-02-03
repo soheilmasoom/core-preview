@@ -12,11 +12,14 @@ from django.utils import timezone
 
 from accounts.models import Account, EmailNotification
 from accounts.models import Notification
+from accounts.utils.admin import url_to_edit_object
+from accounts.utils.telegram import send_system_message
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
 from ledger.models import Trx, Asset
-from ledger.utils.fields import DONE, REFUND
+from ledger.utils.fields import DONE, REFUND, INIT
 from ledger.utils.fields import get_group_id_field, get_status_field
+from ledger.utils.fraud import verify_fiat_deposit
 from ledger.utils.precision import humanize_number, get_presentation_amount
 from ledger.utils.price import get_last_price, USDT_IRT
 from ledger.utils.wallet_pipeline import WalletPipeline
@@ -98,13 +101,13 @@ class Payment(models.Model):
     description = models.CharField(max_length=DESCRIPTION_SIZE, blank=True)
 
     def __str__(self):
-        return f'{self.amount} IRT to {self.user}'
+        return f'{humanize_number(self.amount)} IRT to {self.user}'
 
     def alert_payment(self):
         user = self.user
         title = 'واریز وجه با موفقیت انجام شد'
         payment_amount = humanize_number(get_presentation_amount(Decimal(self.amount)))
-        description = 'مبلغ {} تومان به حساب شما واریز شد'.format(payment_amount)
+        description = 'مبلغ {} تومان به حساب شما واریز شد.'.format(payment_amount)
 
         Notification.send(
             recipient=user,
@@ -124,7 +127,15 @@ class Payment(models.Model):
             }
         )
 
-    def accept(self, pipeline: WalletPipeline, ref_id: int = None):
+    def accept(self, pipeline: WalletPipeline, ref_id: int = None, system_verify: bool = True):
+        if system_verify and not verify_fiat_deposit(self):
+            send_system_message("Verify deposit: %s" % self, link=url_to_edit_object(self))
+
+            self.status = INIT
+            self.ref_id = ref_id
+            self.save(update_fields=['status', 'ref_id'])
+            return
+
         asset = Asset.get(Asset.IRT)
         user = self.user
         account = user.get_account()

@@ -8,6 +8,7 @@ from rest_framework.generics import get_object_or_404, CreateAPIView
 
 from accounts.authentication import CustomTokenAuthentication
 from ledger.models.transfer import Transfer
+from ledger.utils.fields import PENDING, DONE, PROCESS, CANCELED
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 logger = logging.getLogger(__name__)
@@ -29,11 +30,11 @@ class WithdrawSerializer(serializers.ModelSerializer):
         transfer = get_object_or_404(Transfer, id=requester_id)
 
         valid_transitions = [
-            (Transfer.PENDING, Transfer.PENDING),
-            (Transfer.PENDING, Transfer.DONE),
-            # (Transfer.PENDING, Transfer.CANCELED),
-            (Transfer.PROCESSING, Transfer.DONE),
-            # (Transfer.PROCESSING, Transfer.CANCELED),
+            (PENDING, PENDING),
+            (PENDING, DONE),
+            # (PENDING, CANCELED),
+            (PROCESS, DONE),
+            # (PROCESS, CANCELED),
         ]
 
         if transfer.source != Transfer.SELF:
@@ -43,7 +44,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
             })
             raise ValidationError({'requester_id': 'invalid transfer source!'})
 
-        if transfer.status == status and status != Transfer.PENDING:
+        if transfer.status == status and status != PENDING:
             return transfer
 
         if (transfer.status, status) not in valid_transitions:
@@ -53,11 +54,11 @@ class WithdrawSerializer(serializers.ModelSerializer):
             transfer.status = status
             transfer.trx_hash = validated_data.get('trx_hash')
 
-            if status in [Transfer.CANCELED, Transfer.DONE]:
+            if status in [CANCELED, DONE]:
                 pipeline.release_lock(transfer.group_id)
                 transfer.finished_datetime = timezone.now()
 
-            if status == Transfer.DONE:
+            if status == DONE:
                 transfer.build_trx(pipeline)
 
             transfer.save(update_fields=['status', 'trx_hash', 'finished_datetime'])

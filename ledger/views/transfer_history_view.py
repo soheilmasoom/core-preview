@@ -9,6 +9,7 @@ from accounts.authentication import CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from ledger.models import Transfer
 from ledger.models.asset import AssetSerializerMini
+from ledger.utils.fields import INIT
 from ledger.utils.precision import get_presentation_amount
 
 
@@ -38,8 +39,8 @@ class TransferSerializer(serializers.ModelSerializer):
 
     def get_cancelable(self, transfer: Transfer):
         return \
-            transfer.status == Transfer.INIT or \
-            (transfer.status == Transfer.PROCESSING and transfer.in_freeze_time())
+            transfer.status == INIT or \
+            (transfer.status == PROCESS and transfer.in_freeze_time())
 
     class Meta:
         model = Transfer

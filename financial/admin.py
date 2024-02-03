@@ -27,8 +27,9 @@ from financial.utils.encryption import encrypt
 from financial.utils.payment_id_client import get_payment_id_client
 from financial.utils.withdraw import FiatWithdraw
 from gamify.utils import clone_model
-from ledger.utils.fields import PENDING
+from ledger.utils.fields import PENDING, INIT, CANCELED, DONE, PROCESS
 from ledger.utils.precision import humanize_number
+from ledger.utils.wallet_pipeline import WalletPipeline
 from ledger.utils.withdraw_verify import RiskFactor, get_risks_html
 
 
@@ -145,25 +146,25 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
 
     @admin.action(description='تایید برداشت', permissions=['view'])
     def accept_withdraw_request(self, request, queryset):
-        queryset.filter(status=FiatWithdrawRequest.INIT).update(status=FiatWithdrawRequest.PROCESSING)
+        queryset.filter(status=INIT).update(status=PROCESS)
 
     @admin.action(description='رد برداشت', permissions=['view'])
     def reject_withdraw_request(self, request, queryset):
-        valid_qs = queryset.filter(status=FiatWithdrawRequest.INIT)
+        valid_qs = queryset.filter(status=INIT)
 
         for fiat_withdraw in valid_qs:
-            fiat_withdraw.change_status(FiatWithdrawRequest.CANCELED)
+            fiat_withdraw.change_status(CANCELED)
 
     @admin.action(description='Refund', permissions=['change'])
     def refund(self, request, queryset):
-        valid_qs = queryset.filter(status=FiatWithdrawRequest.DONE)
+        valid_qs = queryset.filter(status=DONE)
 
         for fiat_withdraw in valid_qs:
             fiat_withdraw.refund()
 
     @admin.action(description='ارسال دوباره', permissions=['change'])
     def resend_withdraw_request(self, request, queryset):
-        queryset.filter(status=FiatWithdrawRequest.PENDING).update(status=FiatWithdrawRequest.PROCESSING)
+        queryset.filter(status=PENDING).update(status=PROCESS)
 
     def save_model(self, request, obj: FiatWithdrawRequest, form, change):
         if obj.id:
@@ -220,7 +221,7 @@ class PaymentAdmin(admin.ModelAdmin):
     search_fields = ('ref_id', 'paymentrequest__bank_card__card_pan', 'amount', 'paymentrequest__authority',
                      'user__phone', 'user__first_name', 'user__last_name')
     readonly_fields = ('user', 'group_id')
-    actions = ('refund', )
+    actions = ('refund', 'accept_deposit', 'reject_deposit')
 
     @admin.display(description='مقدار')
     def get_amount(self, payment: Payment):
@@ -243,10 +244,27 @@ class PaymentAdmin(admin.ModelAdmin):
 
     @admin.action(description='Refund', permissions=['change'])
     def refund(self, request, queryset):
-        valid_qs = queryset.filter(status=FiatWithdrawRequest.DONE)
+        valid_qs = queryset.filter(status=DONE)
 
         for payment in valid_qs:
             payment.refund()
+
+    @admin.action(description='تایید واریز', permissions=['change'])
+    def accept_deposit(self, request, queryset):
+        queryset = queryset.filter(
+            status=INIT,
+        )
+
+        with WalletPipeline() as pipeline:
+            for payment in queryset:
+                payment.accept(pipeline, ref_id=payment.ref_id, system_verify=False)
+
+    @admin.action(description='رد واریز', permissions=['change'])
+    def reject_deposit(self, request, queryset):
+        for payment in queryset.filter(status=INIT):
+            payment.description = 'Rejected by admin'
+            payment.status = CANCELED
+            payment.save(update_fields=['description', 'status'])
 
 
 class BankCardUserFilter(SimpleListFilter):

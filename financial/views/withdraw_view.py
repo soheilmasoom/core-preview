@@ -2,7 +2,6 @@ import logging
 from datetime import timedelta
 
 from django.conf import settings
-from django.db.models import Sum
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status
@@ -20,6 +19,7 @@ from financial.utils.withdraw_limit import user_reached_fiat_withdraw_limit
 from financial.utils.withdraw_verify import auto_verify_fiat_withdraw
 from ledger.exceptions import InsufficientBalance
 from ledger.models import Asset
+from ledger.utils.fields import PENDING, DONE, CANCELED, INIT, PROCESS
 from ledger.utils.price import get_last_price, USDT_IRT
 from ledger.utils.wallet_pipeline import WalletPipeline
 from ledger.utils.withdraw_verify import can_withdraw
@@ -75,7 +75,7 @@ class WithdrawRequestSerializer(serializers.ModelSerializer):
         #     bank_account=bank_account,
         #     created__gte=today,
         # ).exclude(
-        #     status=FiatWithdrawRequest.CANCELED
+        #     status=CANCELED
         # ).aggregate(amount=Sum('amount'))['amount'] or 0
 
         # todo: move to gateway model
@@ -100,7 +100,7 @@ class WithdrawRequestSerializer(serializers.ModelSerializer):
         try:
             with WalletPipeline() as pipeline:  # type: WalletPipeline
                 withdraw_request = FiatWithdrawRequest.objects.create(
-                    status=FiatWithdrawRequest.INIT,
+                    status=INIT,
                     amount=withdraw_amount,
                     fee_amount=fee_amount,
                     bank_account=bank_account,
@@ -122,7 +122,7 @@ class WithdrawRequestSerializer(serializers.ModelSerializer):
             otp_code.set_code_used()
 
         if auto_verify_fiat_withdraw(withdraw_request) and not settings.DEBUG_OR_TESTING_OR_STAGING:
-            withdraw_request.change_status(FiatWithdrawRequest.PROCESSING)
+            withdraw_request.change_status(PROCESS)
 
         return withdraw_request
 
@@ -144,10 +144,10 @@ class WithdrawRequestView(ModelViewSet):
         if timezone.now() - timedelta(seconds=FiatWithdrawRequest.FREEZE_TIME) > instance.created:
             raise ValidationError('زمان مجاز برای لغو درخواست برداشت گذشته است.')
 
-        if instance.status in (FiatWithdrawRequest.PENDING, FiatWithdrawRequest.DONE):
+        if instance.status in (PENDING, DONE):
             raise ValidationError('امکان لغو درخواست برداشت وجود ندارد.')
 
-        instance.change_status(FiatWithdrawRequest.CANCELED)
+        instance.change_status(CANCELED)
 
         return Response({'msg': 'FiatWithdrawRequest Deleted'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -163,7 +163,7 @@ class WithdrawHistorySerializer(serializers.ModelSerializer):
                   'rial_estimate_receive_time',)
 
     def get_rial_estimate_receive_time(self, withdraw_request: FiatWithdrawRequest):
-        if withdraw_request.status in (FiatWithdrawRequest.INIT, FiatWithdrawRequest.PROCESSING):
+        if withdraw_request.status in (INIT, PROCESS):
 
             gateway = withdraw_request.gateway
 
@@ -173,8 +173,8 @@ class WithdrawHistorySerializer(serializers.ModelSerializer):
         return withdraw_request.receive_datetime
 
     def get_status(self, withdraw: FiatWithdrawRequest):
-        if withdraw.status == FiatWithdrawRequest.INIT:
-            return FiatWithdrawRequest.PROCESSING
+        if withdraw.status == INIT:
+            return PROCESS
         else:
             return withdraw.status
 

@@ -3,7 +3,6 @@ import math
 import time
 import uuid
 from datetime import timedelta
-from decimal import Decimal
 from json import JSONDecodeError
 
 import jdatetime
@@ -13,8 +12,6 @@ from django.utils import timezone
 from urllib3.exceptions import ReadTimeoutError
 
 from accounts.models import User
-from accounts.utils.admin import url_to_admin_list
-from accounts.utils.telegram import send_system_message
 from accounts.verifiers.jibit import Response
 from financial.models import BankAccount, PaymentIdRequest, PaymentId, Gateway
 from financial.models.bank import GeneralBankAccount

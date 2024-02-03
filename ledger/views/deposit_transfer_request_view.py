@@ -2,17 +2,19 @@ import logging
 from decimal import Decimal
 
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, get_object_or_404
 
 from accounts.authentication import CustomTokenAuthentication
+from accounts.utils.admin import url_to_edit_object
+from accounts.utils.telegram import send_system_message
 from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset
 from ledger.models.transfer import Transfer
 from ledger.requester.architecture_requester import get_network_architecture
+from ledger.utils.fields import PENDING, DONE, CANCELED, INIT
+from ledger.utils.fraud import verify_crypto_deposit
 from ledger.utils.price import get_last_price
-from ledger.utils.wallet_pipeline import WalletPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -90,47 +92,28 @@ class DepositSerializer(serializers.ModelSerializer):
 
         status = validated_data.get('status')
 
-        if status not in (Transfer.PENDING, Transfer.DONE, Transfer.CANCELED):
+        if status not in (PENDING, DONE, CANCELED):
             raise ValidationError({'status': 'invalid status %s' % status})
 
-        prev_transfer = Transfer.objects.filter(
+        transfer = Transfer.objects.filter(
             network=network,
             trx_hash=validated_data.get('trx_hash'),
             deposit=True
         ).order_by('-created').first()
 
         valid_transitions = [
-            (Transfer.PENDING, Transfer.DONE),
-            (Transfer.PENDING, Transfer.CANCELED),
+            (PENDING, DONE),
+            (PENDING, CANCELED),
         ]
 
-        if prev_transfer:
-            if prev_transfer.status == status:
-                return prev_transfer
+        if transfer:
+            if transfer.status == status:
+                return transfer
 
-            if (prev_transfer.status, status) not in valid_transitions:
+            if (transfer.status, status) not in valid_transitions:
                 raise ValidationError({
-                    'status': 'invalid status transition (%s -> %s)' % (prev_transfer.status, status)
+                    'status': 'invalid status transition (%s -> %s)' % (transfer.status, status)
                 })
-
-            with WalletPipeline() as pipeline:
-                prev_transfer.status = status
-
-                if status in (Transfer.CANCELED, Transfer.DONE):
-                    prev_transfer.finished_datetime = timezone.now()
-
-                prev_transfer.save(update_fields=['status', 'finished_datetime'])
-
-                if status == Transfer.DONE:
-                    prev_transfer.build_trx(pipeline)
-
-                    user = prev_transfer.wallet.account.user
-                    user.first_crypto_deposit_date = timezone.now()
-                    user.save(update_fields=['first_crypto_deposit_date'])
-
-            prev_transfer.alert_user()
-
-            return prev_transfer
 
         else:
             amount = Decimal(validated_data.get('amount')) / coin_mult
@@ -145,39 +128,28 @@ class DepositSerializer(serializers.ModelSerializer):
             price_usdt = get_last_price(asset.symbol + Asset.USDT)
             price_irt = get_last_price(asset.symbol + Asset.IRT)
 
-            with WalletPipeline() as pipeline:
-                transfer, _ = Transfer.objects.get_or_create(
-                    deposit=True,
-                    trx_hash=validated_data.get('trx_hash'),
-                    network=network,
-                    wallet=wallet,
-                    deposit_address=deposit_address,
-                    out_address=sender_address,
-                    defaults={
-                        'amount': amount,
-                        'usdt_value': amount * price_usdt,
-                        'irt_value': amount * price_irt,
-                        'memo': memo
-                    }
-                )
+            transfer, _ = Transfer.objects.get_or_create(
+                deposit=True,
+                trx_hash=validated_data.get('trx_hash'),
+                network=network,
+                wallet=wallet,
+                deposit_address=deposit_address,
+                out_address=sender_address,
+                defaults={
+                    'amount': amount,
+                    'usdt_value': amount * price_usdt,
+                    'irt_value': amount * price_irt,
+                    'memo': memo
+                }
+            )
 
-                transfer.status = status
+        if not verify_crypto_deposit(transfer):
+            status = INIT
+            send_system_message("Verify deposit: %s" % transfer, link=url_to_edit_object(transfer))
 
-                if status in (Transfer.CANCELED, Transfer.DONE):
-                    transfer.finished_datetime = timezone.now()
+        transfer.change_status(status)
 
-                transfer.save(update_fields=['status', 'finished_datetime'])
-
-                if status == Transfer.DONE:
-                    transfer.build_trx(pipeline)
-
-                    user = transfer.wallet.account.user
-                    user.first_crypto_deposit_date = timezone.now()
-                    user.save(update_fields=['first_crypto_deposit_date'])
-
-                transfer.alert_user()
-
-            return transfer
+        return transfer
 
 
 class DepositTransferUpdateView(CreateAPIView, UserPassesTestMixin):

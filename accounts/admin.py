@@ -234,11 +234,16 @@ class ChangePhoneAdmin(BaseChangeAdmin):
 
 
 @admin.register(SystemConfig)
-class SystemConfigAdmin(admin.ModelAdmin):
-    list_display = ('active', 'is_consultation_available', 'withdraw_fee_min', 'withdraw_fee_max',
-                    'withdraw_fee_percent', 'hedge_irt_by_internal_market')
-    list_editable = ('hedge_irt_by_internal_market', )
-    list_filter = ('active',)
+class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
+    list_display = ('name', 'active', 'withdraw_status', 'deposit_status')
+    list_editable = ('withdraw_status', 'deposit_status')
+
+    default_edit_condition = M.superuser
+
+    fields_edit_conditions = {
+        'withdraw_status': True,
+        'deposit_status': True
+    }
 
 
 @admin.register(User)

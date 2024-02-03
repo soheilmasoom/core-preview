@@ -22,7 +22,7 @@ class WithdrawViewSet(ModelViewSet):
     filterset_fields = ['status']
 
     def perform_destroy(self, transfer: Transfer):
-        if transfer.status != Transfer.INIT and not transfer.in_freeze_time():
+        if transfer.status != INIT and not transfer.in_freeze_time():
             raise ValidationError({'status': 'زمان لازم برای لغو برداشت تمام شده است.'})
 
         transfer.reject()

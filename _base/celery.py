@@ -48,14 +48,14 @@ app.conf.beat_schedule = {
             'expires': 60 * TASK_MULTIPLIER
         },
     },
-    'update_provider_withdraw': {
-        'task': 'ledger.tasks.withdraw.update_provider_withdraw',
-        'schedule': 10 * TASK_MULTIPLIER,
-        'options': {
-            'queue': 'transfer',
-            'expires': 10 * TASK_MULTIPLIER
-        },
-    },
+    # 'update_provider_withdraw': {
+    #     'task': 'ledger.tasks.withdraw.update_provider_withdraw',
+    #     'schedule': 10 * TASK_MULTIPLIER,
+    #     'options': {
+    #         'queue': 'transfer',
+    #         'expires': 10 * TASK_MULTIPLIER
+    #     },
+    # },
 
     'update_withdraws': {
         'task': 'ledger.tasks.withdraw.update_withdraws',

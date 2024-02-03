@@ -8,7 +8,7 @@ from ledger.utils.price import get_last_price
 
 class DepositRecoveryRequest(models.Model):
     created = models.DateTimeField(auto_now_add=True)
-    status = get_status_field(PROCESS)
+    status = get_status_field(default=PROCESS)
     user = models.ForeignKey(User, on_delete=models.PROTECT)
     coin = models.ForeignKey(Asset, on_delete=models.PROTECT)
     network = models.ForeignKey(Network, on_delete=models.PROTECT)

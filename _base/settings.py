@@ -283,8 +283,8 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
 
     'DEFAULT_THROTTLE_RATES': {
-        'burst': '5/min',
-        'sustained': '50/day',
+        'burst': '50/min',
+        'sustained': '500/day',
         # 'burst_api': '40/min',
         # 'sustained_api': '20000/day',
         'burst_api': '200/min',

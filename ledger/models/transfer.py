@@ -15,12 +15,12 @@ from django.dispatch import receiver
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
-from accounts.models import Account, Notification, EmailNotification
+from accounts.models import Account, Notification, EmailNotification, User
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
 from ledger.models import Trx, NetworkAsset, Asset, DepositAddress
 from ledger.models import Wallet, Network
-from ledger.utils.fields import get_amount_field, get_address_field
+from ledger.utils.fields import get_amount_field, get_address_field, CANCELED, DONE, PROCESS, INIT, get_status_field
 from ledger.utils.precision import humanize_number
 from ledger.utils.price import get_last_price
 from ledger.utils.wallet_pipeline import WalletPipeline
@@ -33,8 +33,7 @@ class Transfer(models.Model):
 
     FREEZE_SECONDS = 30
 
-    INIT, PROCESSING, PENDING, CANCELED, DONE = 'init', 'process', 'pending', 'canceled', 'done'
-    STATUS_CHOICES = (INIT, INIT), (PROCESSING, PROCESSING), (PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE)
+    COMPLETE_STATUSES = (CANCELED, DONE)
 
     SELF, INTERNAL, PROVIDER, MANUAL = 'self', 'internal', 'provider', 'manual'
     SOURCE_CHOICES = (SELF, SELF), (INTERNAL, INTERNAL), (PROVIDER, PROVIDER), (MANUAL, MANUAL)
@@ -55,12 +54,7 @@ class Transfer(models.Model):
 
     deposit = models.BooleanField()
 
-    status = models.CharField(
-        default=PROCESSING,
-        max_length=8,
-        choices=STATUS_CHOICES,
-        db_index=True
-    )
+    status = get_status_field()
 
     trx_hash = models.CharField(max_length=128, db_index=True, null=True, blank=True)
 
@@ -175,7 +169,7 @@ class Transfer(models.Model):
                 amount=amount
             )
             sender_transfer = Transfer.objects.create(
-                status=Transfer.DONE,
+                status=DONE,
                 deposit_address=sender_deposit_address,
                 memo=memo,
                 wallet=sender_wallet,
@@ -191,7 +185,7 @@ class Transfer(models.Model):
             )
 
             receiver_transfer = Transfer.objects.create(
-                status=Transfer.DONE,
+                status=DONE,
                 deposit_address=receiver_deposit_address,
                 memo=memo,
                 wallet=receiver_wallet,
@@ -241,7 +235,7 @@ class Transfer(models.Model):
 
         with WalletPipeline() as pipeline:  # type: WalletPipeline
             transfer = Transfer.objects.create(
-                status=Transfer.INIT,
+                status=INIT,
                 wallet=wallet,
                 network=network,
                 amount=amount - commission,
@@ -259,7 +253,7 @@ class Transfer(models.Model):
         from ledger.utils.withdraw_verify import auto_withdraw_verify
 
         if auto_withdraw_verify(transfer):
-            transfer.status = Transfer.PROCESSING
+            transfer.status = PROCESS
             transfer.save(update_fields=['status'])
         else:
             # send_system_message(
@@ -273,7 +267,7 @@ class Transfer(models.Model):
     def alert_user(self):
         user = self.wallet.account.user
 
-        if self.status == Transfer.DONE and user and user.is_active:
+        if self.status == DONE and user and user.is_active:
             if self.deposit:
                 title = 'دریافت شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
                 message = 'از ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
@@ -304,24 +298,63 @@ class Transfer(models.Model):
                 }
             )
 
-    def accept(self, tx_id: str):
+    def accept(self, tx_id: str = None):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
-            self.status = self.DONE
-            self.finished_datetime = timezone.now()
-            self.trx_hash = tx_id
-            self.save(update_fields=['status', 'trx_hash', 'finished_datetime'])
+            transfer = Transfer.objects.select_for_update().get(id=self.id)
+            if transfer.status in self.COMPLETE_STATUSES:
+                return
 
-            pipeline.release_lock(self.group_id)
-            self.build_trx(pipeline)
+            transfer.status = self.DONE
+            transfer.finished_datetime = timezone.now()
 
-        self.alert_user()
+            fields = ['status', 'finished_datetime']
+
+            if tx_id:
+                transfer.trx_hash = tx_id
+                fields.append('trx_hash')
+
+            transfer.save(update_fields=fields)
+
+            if not transfer.deposit:
+                pipeline.release_lock(transfer.group_id)
+
+                # We should alert user when deposit transfer created and when withdraw transfer changes to done
+                transfer.alert_user()
+
+            else:
+                User.objects.filter(
+                    id=transfer.wallet.account.user_id,
+                    first_crypto_deposit_date__isnull=True
+                ).update(
+                    first_crypto_deposit_date=timezone.now()
+                )
+
+            transfer.build_trx(pipeline)
 
     def reject(self):
         with WalletPipeline() as pipeline:
-            pipeline.release_lock(self.group_id)
-            self.status = self.CANCELED
-            self.finished_datetime = timezone.now()
-            self.save(update_fields=['status', 'finished_datetime'])
+            transfer = Transfer.objects.select_for_update().get(id=self.id)
+            if transfer.status in self.COMPLETE_STATUSES:
+                return
+
+            if not transfer.deposit:
+                pipeline.release_lock(transfer.group_id)
+
+            transfer.status = CANCELED
+            transfer.finished_datetime = timezone.now()
+            transfer.save(update_fields=['status', 'finished_datetime'])
+
+    def change_status(self, status: str):
+        if status == DONE:
+            self.accept()
+        elif status == CANCELED:
+            self.reject()
+        else:
+            Transfer.objects.filter(
+                id=self.id
+            ).exclude(
+                status__in=self.COMPLETE_STATUSES
+            ).update(status=status)
 
     class Meta:
         constraints = [
@@ -339,12 +372,12 @@ class Transfer(models.Model):
         else:
             action = 'withdraw'
 
-        return f'{action} {self.amount} {self.asset}'
+        return f'{action} {self.amount} {self.asset} ({self.usdt_value}$)'
 
 
 @receiver(post_save, sender=Transfer)
 def handle_transfer_save(sender, instance, created, **kwargs):
-    if instance.status != Transfer.DONE or settings.DEBUG_OR_TESTING_OR_STAGING:
+    if instance.status != DONE or settings.DEBUG_OR_TESTING_OR_STAGING:
         return
 
     event = TransferEvent(

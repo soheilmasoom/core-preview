@@ -7,7 +7,7 @@ from accounts.models import Forget2FA, ChangePhone, Company
 from accounts.models.user import User
 from financial.models.withdraw_request import FiatWithdrawRequest
 from ledger.models import Transfer
-from ledger.utils.fields import PENDING
+from ledger.utils.fields import PENDING, INIT, PROCESS
 
 
 @staff_member_required
@@ -29,14 +29,14 @@ def dashboard(request):
         ).count()
 
         init_withdraw_requests = FiatWithdrawRequest.objects.filter(
-            status=FiatWithdrawRequest.INIT,
+            status=INIT,
         ).count()
 
         process_withdraw_requests = FiatWithdrawRequest.objects.filter(
-            status=FiatWithdrawRequest.PROCESSING,
+            status=PROCESS,
         ).count()
 
-        crypto_withdraw_count = Transfer.objects.filter(deposit=False, status=Transfer.INIT).count()
+        crypto_withdraw_count = Transfer.objects.filter(deposit=False, status=INIT).count()
 
         context = {
             'brand': settings.BRAND,

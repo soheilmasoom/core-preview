@@ -12,11 +12,12 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from accounts.verifiers.utils import Response
-from financial.models import FiatWithdrawRequest, Gateway, PaymentRequest
+from financial.models import Gateway, PaymentRequest
 from financial.models.withdraw_request import BaseTransfer
 from financial.utils.ach import next_ach_clear_time
 from financial.utils.encryption import encrypt
 from financial.utils.withdraw_limit import is_holiday, time_in_range
+from ledger.utils.fields import PENDING, DONE, CANCELED
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +49,6 @@ class Withdraw:
 
 
 class FiatWithdraw:
-    PROCESSING, PENDING, CANCELED, DONE = 'process', 'pending', 'canceled', 'done'
-
     def __init__(self, gateway: Gateway, verbose: bool = False):
         self.gateway = gateway
         self.verbose = verbose
@@ -143,7 +142,7 @@ class PayirChannel(FiatWithdraw):
 
         return Withdraw(
             tracking_id=str(data['cashout']['id']),
-            status=FiatWithdrawRequest.PENDING,
+            status=PENDING,
             receive_datetime=self.get_estimated_receive_time(timezone.now())
         )
 
@@ -151,16 +150,16 @@ class PayirChannel(FiatWithdraw):
         data = self.collect_api(f'/api/v2/cashouts/track/{transfer.id}')
 
         mapping_status = {
-            3: self.CANCELED,
-            4: self.DONE,
-            5: self.CANCELED
+            3: CANCELED,
+            4: DONE,
+            5: CANCELED
 
         }
         status = data['cashout']['status']
 
         return Withdraw(
             tracking_id='',
-            status=mapping_status.get(int(status), self.PENDING)
+            status=mapping_status.get(int(status), PENDING)
         )
 
     def get_estimated_receive_time(self, created: datetime):
@@ -276,10 +275,10 @@ class ZibalChannel(FiatWithdraw):
 
         if transfer.bank_account.bank not in paya_banks:
             checkout_delay = -1
-            status = FiatWithdrawRequest.DONE
+            status = DONE
         else:
             checkout_delay = 0
-            status = FiatWithdrawRequest.PENDING
+            status = PENDING
 
         try:
             data = self.collect_api('/v1/wallet/checkout/plus', method='POST', data={
@@ -299,21 +298,21 @@ class ZibalChannel(FiatWithdraw):
             if 'این درخواست تسویه قبلا ثبت شده است' in message:
                 return Withdraw(
                     tracking_id='',
-                    status=FiatWithdrawRequest.PENDING,
+                    status=PENDING,
                     receive_datetime=timezone.now() + timedelta(hours=3),
                     message=message,
                 )
             elif 'این حساب مسدود شده و یا قابلیت واریز ندارد' in message:
                 return Withdraw(
                     tracking_id='',
-                    status=FiatWithdrawRequest.CANCELED,
+                    status=CANCELED,
                     receive_datetime=None,
                     message=message,
                 )
             elif 'باقی مانده سقف روزانه تسویه به این شبا' in message:
                 return Withdraw(
                     tracking_id='',
-                    status=FiatWithdrawRequest.CANCELED,
+                    status=CANCELED,
                     receive_datetime=None,
                     message=message,
                 )
@@ -340,17 +339,17 @@ class ZibalChannel(FiatWithdraw):
             details = {}
 
         if data['type'] == 'canceledCheckout':
-            status = self.CANCELED
+            status = CANCELED
         elif data['type'] == 'checkoutQueue':
-            status = self.PENDING
+            status = PENDING
         else:
             mapping_status = {
-                0: self.DONE,
-                1: self.CANCELED,
-                2: self.CANCELED,
+                0: DONE,
+                1: CANCELED,
+                2: CANCELED,
             }
-            status = details.get('checkoutStatus', self.PENDING)
-            status = mapping_status.get(int(status), self.PENDING)
+            status = details.get('checkoutStatus', PENDING)
+            status = mapping_status.get(int(status), PENDING)
 
         return Withdraw(
             tracking_id=details.get('refCode'),
@@ -475,7 +474,7 @@ class JibitChannel(FiatWithdraw):
             if resp.data['errors'][0]['code'] == 'transfer.already_exists':
                 return Withdraw(
                     tracking_id='',
-                    status=FiatWithdrawRequest.PENDING,
+                    status=PENDING,
                 )
 
             else:
@@ -486,7 +485,7 @@ class JibitChannel(FiatWithdraw):
 
         return Withdraw(
             tracking_id='',
-            status=FiatWithdrawRequest.PENDING,
+            status=PENDING,
             receive_datetime=next_ach_clear_time()
         )
 
@@ -495,11 +494,11 @@ class JibitChannel(FiatWithdraw):
         data = resp.get_success_data()
 
         mapping_status = {
-            'CANCELLED': self.CANCELED,
-            'TRANSFERRED': self.DONE,
-            'CANCELLING': self.CANCELED,
-            'FAILED': self.CANCELED,
-            'IN_PROGRESS': self.PENDING
+            'CANCELLED': CANCELED,
+            'TRANSFERRED': DONE,
+            'CANCELLING': CANCELED,
+            'FAILED': CANCELED,
+            'IN_PROGRESS': PENDING
         }
 
         transfer = data['transfers'][0]
@@ -507,10 +506,10 @@ class JibitChannel(FiatWithdraw):
         tracking_id = transfer['bankTransferID'] or ''
 
         channel_status = transfer['state']
-        status = mapping_status.get(channel_status, self.PENDING)
+        status = mapping_status.get(channel_status, PENDING)
 
-        if tracking_id and status == self.PENDING:
-            status = self.DONE
+        if tracking_id and status == PENDING:
+            status = DONE
 
         return Withdraw(
             tracking_id=tracking_id,
@@ -521,12 +520,12 @@ class JibitChannel(FiatWithdraw):
 class JibimoChannel(FiatWithdraw):
 
     STATUS_MAP = {
-        'success': FiatWithdraw.DONE,
-        'wait': FiatWithdraw.PENDING,
-        'rejected': FiatWithdraw.CANCELED,
-        'reversed': FiatWithdraw.CANCELED,
-        'paying': FiatWithdraw.PENDING,
-        'not_sent': FiatWithdraw.PENDING,
+        'success': DONE,
+        'wait': PENDING,
+        'rejected': CANCELED,
+        'reversed': CANCELED,
+        'paying': PENDING,
+        'not_sent': PENDING,
     }
 
     def _get_token(self):
@@ -736,7 +735,7 @@ class PaystarChannel(FiatWithdraw):
 
         return Withdraw(
             tracking_id='',
-            status=FiatWithdrawRequest.PENDING,
+            status=PENDING,
             receive_datetime=next_ach_clear_time()
         )
 
@@ -749,12 +748,12 @@ class PaystarChannel(FiatWithdraw):
         data = resp.get_success_data()[0]
 
         mapping_status = {
-            'pending': self.PENDING,
-            'success': self.DONE,
-            'failed': self.CANCELED
+            'pending': PENDING,
+            'success': DONE,
+            'failed': CANCELED
         }
 
-        status = mapping_status.get(data['status'], self.PENDING)
+        status = mapping_status.get(data['status'], PENDING)
 
         return Withdraw(
             tracking_id=data['ref_code'],

@@ -13,6 +13,8 @@ from ledger.utils.precision import normalize_fraction, AMOUNT_PRECISION
 PROCESS, PENDING, CANCELED, DONE, REFUND = 'process', 'pending', 'canceled', 'done', 'refund'
 INIT, REJECTED, VERIFIED = 'init', 'rejected', 'verified'
 
+STATUS_CHOICES = (INIT, INIT), (PROCESS, PROCESS), (PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE)
+
 
 def get_amount_field(default: Union[Decimal, int] = None, max_digits: int = None, decimal_places: int = None,
                      null: bool = False, validators: tuple = (MinValueValidator(0),), verbose_name: str = None):
@@ -47,8 +49,9 @@ def get_status_field(default=PENDING):
     return models.CharField(
         default=default,
         max_length=8,
+        db_index=True,
         choices=[
-            (PROCESS, 'در حال پردازش'), (PENDING, 'در انتظار تایید'), (CANCELED, 'لغو شده'), (DONE, 'انجام شده'),
+            (INIT, 'در حال بررسی'), (PROCESS, 'در حال پردازش'), (PENDING, 'در انتظار تایید'), (CANCELED, 'لغو شده'), (DONE, 'انجام شده'),
             (REFUND, 'برگشت')
         ]
     )
