@@ -521,7 +521,7 @@ class Order(models.Model):
                 from gamify.utils import check_prize_achievements, Task
                 check_prize_achievements(account, Task.TRADE)
 
-        # logger.info(log_prefix + f'make match finished.  {timezone.now()}')
+        logger.info(log_prefix + f'make match finished.  {timezone.now()}')
         return MatchedTrades(trades=trades, trade_pairs=trade_pairs, filled_orders=filled_orders)
 
     @classmethod

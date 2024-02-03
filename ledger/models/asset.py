@@ -108,14 +108,15 @@ class Asset(models.Model):
 
         wallet, created = Wallet.objects.get_or_create(
             asset=self,
-            variant=variant,
             market=market,
+            variant=variant,
             **account_filter,
             defaults={
                 'check_balance': account_type == Account.ORDINARY,
                 'expiration': expiration,
             }
         )
+
         return wallet
 
     @classmethod
