@@ -9,7 +9,7 @@ from accounts.authentication import CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from ledger.models import Transfer
 from ledger.models.asset import AssetSerializerMini
-from ledger.utils.fields import INIT
+from ledger.utils.fields import INIT, PROCESS
 from ledger.utils.precision import get_presentation_amount
 
 

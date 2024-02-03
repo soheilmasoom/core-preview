@@ -304,7 +304,7 @@ class Transfer(models.Model):
             if transfer.status in self.COMPLETE_STATUSES:
                 return
 
-            transfer.status = self.DONE
+            transfer.status = DONE
             transfer.finished_datetime = timezone.now()
 
             fields = ['status', 'finished_datetime']

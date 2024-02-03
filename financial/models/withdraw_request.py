@@ -130,7 +130,7 @@ class FiatWithdrawRequest(BaseTransfer):
 
         logger.info(f'FiatRequest {self.id} status: {status}')
 
-        if status in (FiatWithdraw.DONE, FiatWithdraw.CANCELED):
+        if status in (DONE, CANCELED):
             self.change_status(status)
 
         if not self.ref_id and withdraw_data.tracking_id:

@@ -106,7 +106,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
         'get_withdraw_request_user', 'get_withdraw_request_receive_time', 'get_user', 'login_activity',
         'get_withdraw_request_receive_time', 'get_withdraw_request_withdraw_time'
     )
-    search_fields = ('bank_account__iban', 'bank_account__user__phone')
+    search_fields = ('bank_account__iban', 'bank_account__user__phone', 'group_id', 'ref_id')
 
     list_display = ('created', 'bank_account', 'get_user', 'status', 'amount', 'gateway', 'ref_id')
 
@@ -193,7 +193,7 @@ class PaymentRequestUserFilter(SimpleListFilter):
 @admin.register(PaymentRequest)
 class PaymentRequestAdmin(admin.ModelAdmin):
     list_display = ('created', 'gateway', 'bank_card', 'amount', 'authority', 'payment')
-    search_fields = ('bank_card__card_pan', 'amount', 'authority')
+    search_fields = ('bank_card__card_pan', 'amount', 'authority', 'group_id')
     readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity')
     list_filter = (PaymentRequestUserFilter,)
 
@@ -435,7 +435,7 @@ class ManualTransferAdmin(admin.ModelAdmin):
 @admin.register(PaymentIdRequest)
 class PaymentIdRequestAdmin(admin.ModelAdmin):
     list_display = ('created', 'owner', 'status', 'amount', 'get_user', 'external_ref', 'source_iban', 'deposit_time')
-    search_fields = ('owner__pay_id', 'owner__user__phone', 'external_ref', 'source_iban', 'bank_ref')
+    search_fields = ('owner__pay_id', 'owner__user__phone', 'external_ref', 'source_iban', 'bank_ref', 'group_id')
     list_filter = ('status',)
     actions = ('accept', 'reject')
     readonly_fields = ('owner', 'get_user', 'payment')
