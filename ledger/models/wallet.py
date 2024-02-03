@@ -48,9 +48,6 @@ class Wallet(models.Model):
         return '%s Wallet %s %s [%s] %s' % (market_verbose, self.asset, self.variant, self.account, self.balance)
 
     class Meta:
-        indexes = [
-            models.Index(fields=['account', 'asset', 'variant', 'market'], name="wallet_get_idx"),
-        ]
         constraints = [
             UniqueConstraint(
                 name='uniqueness_without_variant_constraint',

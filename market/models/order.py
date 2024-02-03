@@ -133,7 +133,6 @@ class Order(models.Model):
         indexes = [
             models.Index(fields=['symbol', 'type', 'status', 'created']),
             models.Index(fields=['symbol', 'status']),
-            models.Index(name='symbol_side_new_orders_ids', fields=['symbol', 'status', 'side'], condition=Q(status='new')),
             models.Index(name='market_new_orders_price_idx', fields=['price'], condition=Q(status='new')),
         ]
         constraints = [
@@ -369,7 +368,7 @@ class Order(models.Model):
 
         log_prefix = 'MM %s {%s}: ' % (symbol.name, self.id)
 
-        # logger.info(log_prefix + f'make match started... {overriding_fill_amount} {timezone.now()}')
+        logger.info(log_prefix + f'make match started... {overriding_fill_amount} {timezone.now()}')
 
         maker_side = self.get_opposite_side(self.side)
 
@@ -393,7 +392,7 @@ class Order(models.Model):
                 return MatchedTrades()
 
         matching_orders = list(matching_orders)
-        # logger.info(log_prefix + f'make match finished fetching matching orders {len(matching_orders)} {timezone.now()}')
+        logger.info(log_prefix + f'make match finished fetching matching orders {len(matching_orders)} {timezone.now()}')
 
         if not matching_orders:
             if (self.fill_type == Order.MARKET or self.time_in_force in [self.IOC, self.ME_IOC]) and self.status == Order.NEW:

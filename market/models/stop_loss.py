@@ -96,8 +96,8 @@ class StopLoss(models.Model):
         ).exclude(id=order.stop_loss_id)
 
         log_prefix = 'MM %s {%s}: ' % (order.symbol.name, order.id)
-        # logger.info(
-        #     log_prefix + f'to trigger stop loss: {list(to_trigger_stop_loss_qs.values_list("id", flat=True))} {timezone.now()}')
+        logger.info(
+            log_prefix + f'to trigger stop loss: {list(to_trigger_stop_loss_qs.values_list("id", flat=True))} {timezone.now()}')
 
         for stop_loss in to_trigger_stop_loss_qs:
             if stop_loss.oco:
