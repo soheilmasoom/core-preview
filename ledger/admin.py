@@ -302,7 +302,7 @@ class OTCRequestUserFilter(SimpleListFilter):
 class OTCRequestAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_username', 'symbol', 'side', 'price', 'amount', 'fee_amount', 'fee_revenue')
     readonly_fields = ('account', 'login_activity')
-    search_fields = ('token', 'symbol__name')
+    search_fields = ('token', 'symbol__name', 'account__user__phone')
     list_filter = (OTCRequestUserFilter,)
 
     @admin.display(description='user')
@@ -536,7 +536,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             old = models.Transfer.objects.get(id=obj.id)
 
             if old.status != DONE:
-                old.accept(obj.trx_hash)
+                old.accept()
 
         obj.save()
 

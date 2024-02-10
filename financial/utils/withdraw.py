@@ -82,6 +82,9 @@ class FiatWithdraw:
     def update_missing_payments(self, gateway: Gateway):
         pass
 
+    def get_instant_banks(self, gateway: Gateway):
+        pass
+
     def is_active(self):
         return bool(self.gateway.withdraw_api_secret_encrypted)
 

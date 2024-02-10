@@ -41,6 +41,8 @@ class NetworkAsset(models.Model):
 
     expected_hw_balance = get_amount_field(default=0)
 
+    max_allowed_daily_deposit_value = models.PositiveIntegerField(null=True, blank=True)
+
     def can_deposit_enabled(self) -> bool:
         return self.network.can_deposit and self.can_deposit and self.hedger_deposit_enable
 

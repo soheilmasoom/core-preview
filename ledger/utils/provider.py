@@ -149,7 +149,7 @@ class ProviderRequester:
             buy_amount = -buy_amount
             side = SELL
 
-        round_digits = -int(log10(step_size))
+        round_digits = min(-int(log10(step_size)), 8)
 
         order_amount = round(buy_amount, round_digits)
 
@@ -194,7 +194,7 @@ class ProviderRequester:
                 )
 
         if hedge_price:
-            hedge_price = floor_precision(hedge_price, -int(log10(market_info.tick_size)))
+            hedge_price = floor_precision(hedge_price, min(-int(log10(market_info.tick_size)), 8))
 
         order = self.new_order(
             request_id=request_id,
@@ -216,13 +216,14 @@ class ProviderRequester:
             'coin': asset.symbol,
             'scope': scope,
             'amount': str(amount),
-            'side': side
+            'side': side,
+            'price': price and str(price)
         }
 
-        if price:
-            data['price'] = str(price)
-
         resp = self.collect_api('/api/v1/orders/', method='POST', data=data, timeout=15)
+
+        if not resp.success:
+            logger.info('provider new order failed with status=%s and %s' % (resp.status_code, resp.data))
 
         return resp.success
 

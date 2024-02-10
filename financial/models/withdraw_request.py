@@ -88,6 +88,8 @@ class FiatWithdrawRequest(BaseTransfer):
             )
 
     def create_withdraw_request(self):
+        from financial.utils.withdraw import NoChannelError
+
         if not verify_fiat_withdraw(self):
             logger.info('Ignoring fiat withdraw due to not verified')
             return
@@ -102,7 +104,10 @@ class FiatWithdrawRequest(BaseTransfer):
         from financial.utils.withdraw import ProviderError
         from financial.utils.withdraw import FiatWithdraw
 
-        api_handler = FiatWithdraw.get_withdraw_channel(self.gateway)
+        try:
+            api_handler = FiatWithdraw.get_withdraw_channel(self.gateway)
+        except NoChannelError:
+            return
 
         self.withdraw_datetime = timezone.now()
 

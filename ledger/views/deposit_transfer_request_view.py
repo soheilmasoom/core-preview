@@ -144,6 +144,8 @@ class DepositSerializer(serializers.ModelSerializer):
                 }
             )
 
+            transfer.alert_user()
+
         if not verify_crypto_deposit(transfer):
             status = INIT
             send_system_message("Verify deposit: %s" % transfer, link=url_to_edit_object(transfer))

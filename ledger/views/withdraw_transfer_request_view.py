@@ -50,19 +50,8 @@ class WithdrawSerializer(serializers.ModelSerializer):
         if (transfer.status, status) not in valid_transitions:
             raise ValidationError({'status': 'invalid status transition (%s -> %s)' % (transfer.status, status)})
 
-        with WalletPipeline() as pipeline:
-            transfer.status = status
-            transfer.trx_hash = validated_data.get('trx_hash')
-
-            if status in [CANCELED, DONE]:
-                pipeline.release_lock(transfer.group_id)
-                transfer.finished_datetime = timezone.now()
-
-            if status == DONE:
-                transfer.build_trx(pipeline)
-
-            transfer.save(update_fields=['status', 'trx_hash', 'finished_datetime'])
-            transfer.alert_user()
+        Transfer.objects.filter(id=transfer.id).update(trx_hash=validated_data.get('trx_hash'))
+        transfer.change_status(status)
 
         return transfer
 

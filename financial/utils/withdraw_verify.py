@@ -3,13 +3,16 @@ from decimal import Decimal
 
 from django.db.models import Sum
 
-from financial.models import FiatWithdrawRequest, Payment, Gateway
+from financial.models import FiatWithdrawRequest, Payment
 from ledger.utils.fields import CANCELED
-from ledger.utils.withdraw_verify import RiskFactor
+from ledger.utils.withdraw_verify import RiskFactor, get_common_system_risks
 
 
 def auto_verify_fiat_withdraw(withdraw: FiatWithdrawRequest):
-    risks = get_fiat_withdraw_risks(withdraw)
+    system_risks = get_fiat_withdraw_risks(withdraw)
+    common_system_risks = get_common_system_risks(withdraw.bank_account.user.get_account())
+
+    risks = [*common_system_risks, *system_risks]
 
     if risks:
         withdraw.risks = list(map(dataclasses.asdict, risks))
@@ -43,7 +46,7 @@ def get_fiat_withdraw_risks(withdraw: FiatWithdrawRequest) -> list:
             )
         )
 
-    gateway = Gateway.get_active_withdraw()
+    gateway = withdraw.gateway
     if gateway.max_auto_withdraw_amount is not None and withdraw.amount > gateway.max_auto_withdraw_amount:
         risks.append(
             RiskFactor(

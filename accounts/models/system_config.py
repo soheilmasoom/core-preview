@@ -41,6 +41,8 @@ class SystemConfig(models.Model):
     withdraw_status = models.CharField(max_length=16, choices=[(s, s) for s in TRANSFER_STATUS], default=ALLOW)
     deposit_status = models.CharField(max_length=16, choices=[(s, s) for s in TRANSFER_STATUS], default=ALLOW)
 
+    default_max_allowed_coin_network_daily_deposit_value = models.PositiveSmallIntegerField(default=300)
+
     def __str__(self):
         return self.name
 

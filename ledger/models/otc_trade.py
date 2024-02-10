@@ -105,7 +105,7 @@ class OTCTrade(models.Model):
 
             if not fok_success:
                 if otc_trade.otc_request.symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
-                    logger.warning('Hedge otc from market failed', extra={
+                    logger.warning(f'Hedge otc from market failed in {otc_request.symbol}', extra={
                         'otc_request_id': otc_request.id
                     })
                     raise HedgeError

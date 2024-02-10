@@ -93,7 +93,11 @@ class WithdrawRequestSerializer(serializers.ModelSerializer):
             logger.info('FiatRequest rejected due to max withdraw limit reached. user=%s' % user.id)
             raise ValidationError({'amount': 'شما به سقف برداشت ریالی خود رسیده اید.'})
 
-        gateway = Gateway.get_active_withdraw()
+        gateway = Gateway.get_active_withdraw(iban=iban)
+
+        if not gateway:
+            raise ValidationError('در حال حاضر امکان برداشت وجود ندارد.')
+
         fee_amount = gateway.get_withdraw_fee(amount=amount)
         withdraw_amount = amount - fee_amount
 

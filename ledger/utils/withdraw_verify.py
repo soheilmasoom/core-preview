@@ -8,11 +8,11 @@ from django.db.models import Sum, Max
 from django.utils import timezone
 
 from accounts.admin_guard.utils.html import get_table_html
-from accounts.models import Account, User
+from accounts.models import Account, User, SystemConfig
 from accounts.models.login_activity import LoginActivity
 from accounts.utils.hijack import get_hijacker_id
 from financial.models import Payment
-from ledger.models import Transfer, Wallet
+from ledger.models import Transfer, Wallet, NetworkAsset
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import CANCELED
 from ledger.utils.precision import humanize_number
@@ -33,10 +33,12 @@ def auto_withdraw_verify(transfer: Transfer) -> bool:
     if transfer.wallet.account.user.withdraw_limit_whitelist:
         return True
 
+    common_system_risks = get_common_system_risks(transfer.wallet.account)
+
     system_risks = get_withdraw_system_risks(transfer)
     fata_risks = get_withdraw_fata_risks(transfer)
 
-    risks = [*system_risks, *fata_risks]
+    risks = [*common_system_risks, *system_risks, *fata_risks]
 
     if risks:
         transfer.risks = list(map(dataclasses.asdict, risks))
@@ -55,6 +57,7 @@ class RiskFactor:
     MULTIPLE_DEVICES = 'multiple-devices'
 
     DAY_HIGH_WITHDRAW = 'day-high-withdraw-value'
+    DAY_HIGH_CRYPTO_PAIR_DEPOSIT = 'day-high-crypto-pair-deposit'
     MONTH_HIGH_WITHDRAW = 'month-high-withdraw-value'
     WITHDRAW_VALUE_PEAK = 'withdraw-value-peak'
     HIGH_DEPOSITS_VALUE = 'high-deposits-value'
@@ -82,6 +85,41 @@ def get_risks_html(risks: List[RiskFactor]):
         data.append(risk_dict)
 
     return get_table_html(RiskFactor.__dict__['__annotations__'].keys(), data)
+
+
+def get_common_system_risks(account: Account) -> list:
+    risks = []
+    config = SystemConfig.get_system_config()
+
+    transfers = Transfer.objects.filter(
+        wallet__account=account,
+    ).exclude(
+        status=CANCELED
+    )
+
+    deposits = transfers.filter(
+        deposit=True,
+        created__gte=timezone.now() - timedelta(days=1)
+    ).values('network', 'wallet__asset').annotate(value=Sum('usdt_value'))
+
+    for deposit in deposits:
+        network_asset = NetworkAsset.objects.get(network_id=deposit['network'], asset_id=deposit['wallet__asset'])
+
+        max_allowed = network_asset.max_allowed_daily_deposit_value
+
+        if max_allowed is None:
+            max_allowed = config.default_max_allowed_coin_network_daily_deposit_value
+
+        if deposit['value'] > max_allowed:
+            risks.append(
+                RiskFactor(
+                    reason=RiskFactor.DAY_HIGH_CRYPTO_PAIR_DEPOSIT,
+                    value=float(deposit['value']),
+                    expected=max_allowed
+                )
+            )
+
+    return risks
 
 
 def get_withdraw_fata_risks(transfer: Transfer) -> list:

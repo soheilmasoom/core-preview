@@ -53,6 +53,7 @@ class DepositRecoveryRequest(models.Model):
                 out_address='',
                 deposit=True,
                 price_usdt=self.amount * price_usdt,
-                price_irt=self.amount * price_irt
+                price_irt=self.amount * price_irt,
+                trx_hash=self.trx_hash,
             )
-            transfer.accept(tx_id=self.trx_hash)
+            transfer.accept()

@@ -256,8 +256,6 @@ class JibitClient(BaseClient):
 
 class MockClient(BaseClient):
     def create_payment_id(self, user: User) -> PaymentId:
-        gateway = Gateway.get_active_pay_id_deposit()
-
         destination, _ = GeneralBankAccount.objects.get_or_create(
             iban='IR760120020000008992439961',
             defaults={
@@ -268,7 +266,7 @@ class MockClient(BaseClient):
         )
 
         pay_id, _ = PaymentId.objects.get_or_create(
-            gateway=gateway,
+            gateway=self.gateway,
             user=user,
             defaults={
                 'pay_id': f'1111100000{user.id}',

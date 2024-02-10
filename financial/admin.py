@@ -35,18 +35,23 @@ from ledger.utils.withdraw_verify import RiskFactor, get_risks_html
 
 @admin.register(Gateway)
 class GatewayAdmin(admin.ModelAdmin):
-    list_display = ('name', 'type', 'active', 'deposit_priority', 'active_for_staff',
-                    'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable',
-                    'suspended', 'get_balance', 'get_min_deposit_amount', 'get_max_deposit_amount')
+    list_display = (
+        'name', 'type', 'active', 'deposit_priority', 'withdraw_priority',
+        'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable', 'get_free', 'get_balance',
+        'get_min_deposit_amount', 'get_max_deposit_amount', 'suspended', 'active_for_staff',
+    )
     list_editable = ('active', 'active_for_staff', 'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable',
-                     'deposit_priority', 'suspended')
+                     'deposit_priority', 'withdraw_priority', 'suspended')
     readonly_fields = ('get_balance', 'get_min_deposit_amount', 'get_max_deposit_amount')
     list_filter = ('active', 'type')
 
     @admin.display(description='balance')
     def get_balance(self, gateway: Gateway):
-        v = VaultItem.objects.filter(vault__type=Vault.GATEWAY, vault__key=gateway.id).first()
-        return v and v.value_irt
+        return int(gateway.get_balance())
+
+    @admin.display(description='free')
+    def get_free(self, gateway: Gateway):
+        return int(gateway.get_free())
 
     @admin.display(description='min deposit')
     def get_min_deposit_amount(self, gateway: Gateway):
@@ -289,7 +294,7 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'card_pan', 'get_username', 'verified', 'deleted')
     list_filter = (BankCardUserFilter,)
     search_fields = ('card_pan', )
-    readonly_fields = ('user', )
+    raw_id_fields = ('user',)
 
     actions = ['verify_bank_cards', 'verify_bank_cards_manual', 'reject_bank_cards_manual']
 
@@ -349,7 +354,7 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'iban', 'get_username', 'verified', 'deleted')
     list_filter = (BankUserFilter, )
     search_fields = ('iban', )
-    readonly_fields = ('user', )
+    raw_id_fields = ('user',)
 
     actions = ['verify_bank_accounts_manual', 'verify_bank_accounts_auto', 'reject_bank_accounts_manual']
 
@@ -458,19 +463,32 @@ class PaymentIdRequestAdmin(admin.ModelAdmin):
 
 
 @admin.register(PaymentId)
-class PaymentIdAdmin(admin.ModelAdmin):
+class PaymentIdAdmin(AdvancedAdmin):
     list_display = ('created', 'updated', 'user', 'pay_id', 'verified', 'deleted')
     search_fields = ('user__phone', 'pay_id')
     list_filter = ('verified',)
-    readonly_fields = ('user', )
+    readonly_fields = ('group_id', )
     actions = ('check_status', )
-    list_editable = ('deleted', )
+    raw_id_fields = ('user',)
+
+    default_edit_condition = M('id')
+    fields_edit_conditions = {
+        'gateway': True,
+        'user': True
+    }
 
     @admin.action(description='Check Status', permissions=['view'])
     def check_status(self, request, queryset):
         for payment_id in queryset.filter(verified=False):
             client = get_payment_id_client(payment_id.gateway)
             client.check_payment_id_status(payment_id)
+
+    def save_model(self, request, obj, form, change):
+        if not obj.id:
+            client = get_payment_id_client(obj.gateway)
+            client.create_payment_id(obj.user)
+        else:
+            obj.save()
 
 
 @admin.register(GeneralBankAccount)

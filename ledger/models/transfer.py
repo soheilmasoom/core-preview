@@ -267,7 +267,7 @@ class Transfer(models.Model):
     def alert_user(self):
         user = self.wallet.account.user
 
-        if self.status == DONE and user and user.is_active:
+        if user and user.is_active:
             if self.deposit:
                 title = 'دریافت شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
                 message = 'از ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
@@ -298,7 +298,7 @@ class Transfer(models.Model):
                 }
             )
 
-    def accept(self, tx_id: str = None):
+    def accept(self):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
             transfer = Transfer.objects.select_for_update().get(id=self.id)
             if transfer.status in self.COMPLETE_STATUSES:
@@ -307,13 +307,7 @@ class Transfer(models.Model):
             transfer.status = DONE
             transfer.finished_datetime = timezone.now()
 
-            fields = ['status', 'finished_datetime']
-
-            if tx_id:
-                transfer.trx_hash = tx_id
-                fields.append('trx_hash')
-
-            transfer.save(update_fields=fields)
+            transfer.save(update_fields=['status', 'finished_datetime'])
 
             if not transfer.deposit:
                 pipeline.release_lock(transfer.group_id)

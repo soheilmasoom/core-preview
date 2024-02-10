@@ -1,14 +1,16 @@
 import logging
 from decimal import Decimal
-from typing import Type
+from typing import Type, Union
 
-from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 
+from accounting.models import VaultItem, Vault
 from accounts.models import User, SystemConfig
 from financial.models import BankCard, Payment, PaymentRequest
+from financial.utils.admin import MultiSelectArrayField
+from financial.utils.bank import BANK_INFO, get_bank_from_iban
 from financial.utils.encryption import decrypt
 from ledger.models import FastBuyToken
 from ledger.utils.fields import DONE, get_amount_field
@@ -60,6 +62,7 @@ class Gateway(models.Model):
     wallet_id = models.CharField(blank=True, max_length=256)
 
     deposit_priority = models.SmallIntegerField(default=1)
+    withdraw_priority = models.SmallIntegerField(default=1)
 
     ipg_fee_min = models.SmallIntegerField(default=120)
     ipg_fee_max = models.SmallIntegerField(default=4000)
@@ -68,6 +71,10 @@ class Gateway(models.Model):
     batch_id = models.CharField(max_length=20, null=True, blank=True)
 
     suspended = models.BooleanField(default=False)
+
+    instant_withdraw_banks = MultiSelectArrayField(
+        base_field=models.CharField(choices=[(bank.slug, bank.slug) for bank in BANK_INFO], max_length=16), default=list()
+    )
 
     @property
     def withdraw_api_secret(self):
@@ -92,6 +99,14 @@ class Gateway(models.Model):
     @property
     def payment_id_secret(self):
         return decrypt(self.payment_id_secret_encrypted)
+
+    def get_balance(self) -> Decimal:
+        v = VaultItem.objects.filter(vault__type=Vault.GATEWAY, vault__key=self.id).first()
+        return v.balance
+
+    def get_free(self) -> Decimal:
+        v = VaultItem.objects.filter(vault__type=Vault.GATEWAY, vault__key=self.id).first()
+        return v.free
 
     @classmethod
     def get_withdraw_fee(cls, amount):
@@ -139,8 +154,21 @@ class Gateway(models.Model):
             return gateway.get_concrete_gateway()
 
     @classmethod
-    def get_active_withdraw(cls) -> 'Gateway':
-        return Gateway.objects.filter(active=True, withdraw_enable=True).order_by('id').first()
+    def get_active_withdraw(cls, iban: str) -> Union['Gateway', None]:
+        gateways = list(Gateway.objects.filter(active=True, withdraw_enable=True).order_by('-withdraw_priority', 'id'))
+
+        if len(gateways) == 0:
+            return None
+        elif len(gateways) == 1:
+            return gateways[0]
+        else:
+            bank = get_bank_from_iban(iban).slug
+
+            for g in gateways:
+                if bank in g.instant_withdraw_banks:
+                    return g
+            else:
+                return gateways[0]
 
     @classmethod
     def get_active_pay_id_deposit(cls) -> 'Gateway':
