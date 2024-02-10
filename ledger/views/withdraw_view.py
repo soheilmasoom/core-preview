@@ -8,7 +8,7 @@ from rest_framework.generics import get_object_or_404, CreateAPIView, ListAPIVie
 from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.authentication import WithdrawTokenAuthentication, CustomTokenAuthentication
+from accounts.authentication import WithdrawTokenAuthentication
 from accounts.models import VerificationCode, LoginActivity
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
@@ -240,7 +240,6 @@ class FeedbackSerializer(serializers.ModelSerializer):
 
 
 class WithdrawFeedbackViewSet(ModelViewSet):
-    authentication_classes = [CustomTokenAuthentication]
     serializer_class = FeedbackSerializer
 
     def get_queryset(self):
