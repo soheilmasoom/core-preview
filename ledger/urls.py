@@ -30,7 +30,8 @@ urlpatterns = [
     path('v1/wallets/<slug:symbol>/', views.WalletViewSet.as_view({'get': 'retrieve'})),
     path('v1/wallets/<slug:symbol>/balance/', views.WalletBalanceView.as_view()),
     path('v1/withdraw/feedback/categories/', views.FeedbackCategories.as_view()),
-    path('v1/withdraw/feedback/', views.WithdrawFeedbackSubmitView.as_view()),
+    path('v1/withdraw/feedback/', views.WithdrawFeedbackViewSet.as_view({'post': 'create'})),
+    path('v1/withdraw/feedback/<int:pk>/', views.WithdrawFeedbackViewSet.as_view({'patch': 'partial_update'})),
 
     path('v1/deposit/address/', views.DepositAddressView.as_view()),
 

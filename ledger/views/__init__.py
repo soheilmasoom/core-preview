@@ -29,6 +29,6 @@ from .wallet_view import WalletViewSet, WalletBalanceView, BriefNetworkAssetsVie
 from .wallets_overview import WalletsOverviewAPIView
 from .withdraw_transfer_request_view import WithdrawTransferUpdateView
 from .withdraw_view import WithdrawView
-from .withdraw_view import WithdrawView, FeedbackCategories, WithdrawFeedbackSubmitView
+from .withdraw_view import WithdrawView, FeedbackCategories, WithdrawFeedbackViewSet
 from .withdraw_viewset import WithdrawViewSet
 from .deposit_recovery_view import DepositRecoveryView

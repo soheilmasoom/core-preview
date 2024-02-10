@@ -5,9 +5,10 @@ from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404, CreateAPIView, ListAPIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.authentication import WithdrawTokenAuthentication
+from accounts.authentication import WithdrawTokenAuthentication, CustomTokenAuthentication
 from accounts.models import VerificationCode, LoginActivity
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
@@ -231,12 +232,17 @@ class FeedbackSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WithdrawFeedback
-        fields = ('category', 'description',)
+        fields = ('id', 'category', 'description',)
         extra_kwargs = {
             'category': {'required': True, 'write_only': True},
             'description': {'required': False, 'write_only': True},
         }
 
 
-class WithdrawFeedbackSubmitView(CreateAPIView):
+class WithdrawFeedbackViewSet(ModelViewSet):
+    authentication_classes = [CustomTokenAuthentication]
     serializer_class = FeedbackSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return WithdrawFeedback.objects.filter(user=user)
