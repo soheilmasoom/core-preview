@@ -138,21 +138,10 @@ class AssetListSerializer(serializers.ModelSerializer):
         return get_symbol_presentation_price(asset.symbol + 'IRT', free * price, trunc_zero=True)
 
     def get_can_deposit(self, asset: Asset):
-        if asset.symbol == Asset.IRT:
-            return True
-
-        return NetworkAsset.objects.filter(asset=asset, network__can_deposit=True, can_deposit=True).exists()
+        return asset.symbol in self.context['deposit_enable_coins']
 
     def get_can_withdraw(self, asset: Asset):
-        if asset.symbol == Asset.IRT:
-            return True
-
-        return NetworkAsset.objects.filter(
-            asset=asset,
-            network__can_withdraw=True,
-            hedger_withdraw_enable=True,
-            can_withdraw=True,
-        ).exists()
+        return asset.symbol in self.context['withdraw_enable_coins']
 
     def get_logo(self, asset: Asset):
         return settings.MINIO_STORAGE_STATIC_URL + '/coins/%s.png' % asset.symbol
@@ -288,6 +277,24 @@ class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
         symbols = get_coins_symbols(coins)
         ctx['prices'] = get_prices(symbols, side=SELL, allow_stale=True)
         ctx['last_prices'] = get_last_prices(symbols)
+
+        withdraw_enable_coins = set(NetworkAsset.objects.filter(
+            asset__symbol__in=coins,
+            network__can_withdraw=True,
+            hedger_withdraw_enable=True,
+            can_withdraw=True,
+        ).values_list('asset__symbol', flat=True)) | {'IRT'}
+
+        ctx['withdraw_enable_coins'] = withdraw_enable_coins
+
+        deposit_enable_coins = set(NetworkAsset.objects.filter(
+            asset__symbol__in=coins,
+            network__can_deposit=True,
+            hedger_deposit_enable=True,
+            can_deposit=True,
+        ).values_list('asset__symbol', flat=True)) | {'IRT'}
+
+        ctx['deposit_enable_coins'] = deposit_enable_coins
 
         return ctx
 

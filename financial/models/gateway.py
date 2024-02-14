@@ -25,8 +25,8 @@ class GatewayFailed(Exception):
 class Gateway(models.Model):
     BASE_URL = None
 
-    TYPES = MANUAL, ZARINPAL, PAYIR, ZIBAL, JIBIT, JIBIMO, PAYSTAR = \
-        'manual', 'zarinpal', 'payir', 'zibal', 'jibit', 'jibimo', 'paystar'
+    TYPES = MANUAL, ZARINPAL, PAYIR, ZIBAL, JIBIT, JIBIMO, PAYSTAR, NOVINPAL = \
+        'manual', 'zarinpal', 'payir', 'zibal', 'jibit', 'jibimo', 'paystar', 'novinpal'
 
     name = models.CharField(max_length=128)
     type = models.CharField(
@@ -73,7 +73,9 @@ class Gateway(models.Model):
     suspended = models.BooleanField(default=False)
 
     instant_withdraw_banks = MultiSelectArrayField(
-        base_field=models.CharField(choices=[(bank.slug, bank.slug) for bank in BANK_INFO], max_length=16), default=list()
+        base_field=models.CharField(choices=[(bank.slug, bank.slug) for bank in BANK_INFO], max_length=16),
+        default=list(),
+        blank=True,
     )
 
     @property
@@ -100,13 +102,13 @@ class Gateway(models.Model):
     def payment_id_secret(self):
         return decrypt(self.payment_id_secret_encrypted)
 
-    def get_balance(self) -> Decimal:
+    def get_balance(self) -> Union[Decimal, None]:
         v = VaultItem.objects.filter(vault__type=Vault.GATEWAY, vault__key=self.id).first()
-        return v.balance
+        return v and v.balance
 
-    def get_free(self) -> Decimal:
+    def get_free(self) -> Union[Decimal, None]:
         v = VaultItem.objects.filter(vault__type=Vault.GATEWAY, vault__key=self.id).first()
-        return v.free
+        return v and v.free
 
     @classmethod
     def get_withdraw_fee(cls, amount):
@@ -154,21 +156,30 @@ class Gateway(models.Model):
             return gateway.get_concrete_gateway()
 
     @classmethod
-    def get_active_withdraw(cls, iban: str) -> Union['Gateway', None]:
+    def get_active_withdraw(cls, iban: str, amount: int) -> Union['Gateway', None]:
         gateways = list(Gateway.objects.filter(active=True, withdraw_enable=True).order_by('-withdraw_priority', 'id'))
 
-        if len(gateways) == 0:
+        if not gateways:
             return None
+
         elif len(gateways) == 1:
             return gateways[0]
-        else:
-            bank = get_bank_from_iban(iban).slug
 
-            for g in gateways:
-                if bank in g.instant_withdraw_banks:
-                    return g
-            else:
-                return gateways[0]
+        with_balance_gateways = [g for g in gateways if (g.get_free() or 0) >= amount]
+
+        if not with_balance_gateways:
+            return gateways[0]
+
+        elif len(with_balance_gateways) == 1:
+            return with_balance_gateways[0]
+
+        bank = get_bank_from_iban(iban).slug
+
+        for g in with_balance_gateways:
+            if bank in g.instant_withdraw_banks:
+                return g
+        else:
+            return with_balance_gateways[0]
 
     @classmethod
     def get_active_pay_id_deposit(cls) -> 'Gateway':
@@ -176,7 +187,9 @@ class Gateway(models.Model):
 
     @classmethod
     def get_gateway_class(cls, type: str) -> Type['Gateway']:
-        from financial.models import ZarinpalGateway, PaydotirGateway, ZibalGateway, JibitGateway, PaystarGateway
+        from financial.models import ZarinpalGateway, PaydotirGateway, ZibalGateway, JibitGateway, PaystarGateway, \
+            NovinpalGateway
+
         mapping = {
             cls.ZARINPAL: ZarinpalGateway,
             cls.PAYIR: PaydotirGateway,
@@ -184,6 +197,7 @@ class Gateway(models.Model):
             cls.JIBIT: JibitGateway,
             # cls.JIBIMO: JibimoGateway,
             cls.PAYSTAR: PaystarGateway,
+            cls.NOVINPAL: NovinpalGateway,
         }
 
         return mapping.get(type)

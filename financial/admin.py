@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils.safestring import mark_safe
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from import_export import resources
@@ -47,11 +48,15 @@ class GatewayAdmin(admin.ModelAdmin):
 
     @admin.display(description='balance')
     def get_balance(self, gateway: Gateway):
-        return int(gateway.get_balance())
+        balance = gateway.get_balance()
+        if balance is not None:
+            return int(balance)
 
     @admin.display(description='free')
     def get_free(self, gateway: Gateway):
-        return int(gateway.get_free())
+        free = gateway.get_free()
+        if free is not None:
+            return int(free)
 
     @admin.display(description='min deposit')
     def get_min_deposit_amount(self, gateway: Gateway):
@@ -115,7 +120,8 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
 
     list_display = ('created', 'bank_account', 'get_user', 'status', 'amount', 'gateway', 'ref_id')
 
-    actions = ('accept_withdraw_request', 'reject_withdraw_request', 'refund', 'resend_withdraw_request')
+    actions = ('accept_withdraw_request', 'reject_withdraw_request', 'refund', 'resend_withdraw_request',
+               'change_to_active_gateway')
 
     @admin.display(description='نام و نام خانوادگی')
     def get_withdraw_request_user(self, withdraw_request: FiatWithdrawRequest):
@@ -170,6 +176,13 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
     @admin.action(description='ارسال دوباره', permissions=['change'])
     def resend_withdraw_request(self, request, queryset):
         queryset.filter(status=PENDING).update(status=PROCESS)
+
+    @admin.action(description='آپدیت درگاه برداشت', permissions=['change'])
+    def change_to_active_gateway(self, request, queryset):
+        with transaction.atomic():
+            for withdraw in queryset.filter(status=PROCESS).select_for_update():  # type: FiatWithdrawRequest
+                withdraw.gateway = Gateway.get_active_withdraw(withdraw.bank_account.iban, withdraw.amount)
+                withdraw.save(update_fields=['gateway'])
 
     def save_model(self, request, obj: FiatWithdrawRequest, form, change):
         if obj.id:

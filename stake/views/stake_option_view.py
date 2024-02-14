@@ -29,7 +29,7 @@ class StakeOptionSerializer(serializers.ModelSerializer):
         if 'filled' not in self.context:
             return
 
-        return self.context['filled'].get(stake_option.id, 0) / stake_option.total_cap * 100
+        return round(self.context['filled'].get(stake_option.id, 0) / stake_option.total_cap * 100, 2)
 
     def get_apr(self, stake_option: StakeOption):
         return get_presentation_amount(stake_option.apr)
@@ -95,9 +95,12 @@ class StakeOptionGroupedSerializer(serializers.Serializer):
 
     def get_variants(self, asset: Asset):
         serialized_options = [
-            StakeOptionSerializerMini(instance=option, context=self.context).data
+            StakeOptionSerializerMini(instance=option, context={}).data
             for option in asset.stakeoption_set.filter(enable=True).order_by('-apr')
         ]
+
+        serialized_options.sort(key=lambda option: (option['enable'], option['apr']), reverse=True)
+
         return serialized_options
 
     def get_min_apr(self, asset: Asset):

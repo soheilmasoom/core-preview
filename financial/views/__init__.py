@@ -11,3 +11,4 @@ from .jibimo_callback_veiw import JibimoCallbackView
 from .paystar_callback_veiw import PaystarCallbackView
 from .gateway_info_view import GatewayInfoView
 from .payment_id_view import PaymentIdViewsSet
+from .novinpal_callback_view import NovinpalCallbackView
