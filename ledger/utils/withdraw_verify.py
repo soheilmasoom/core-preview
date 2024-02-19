@@ -64,6 +64,7 @@ class RiskFactor:
     HIGH_TRANSFERS_COUNT = 'high-transfers-count'
     HIGH_WITHDRAW = 'high-withdraw'
     AUTO_WITHDRAW_CEIL = 'auto-withdraw-ceil'
+    SMALL_TRADE_RATIO = 'small-trade-ratio'
 
     TYPE_SYSTEM, TYPE_FATA = 'system', 'fata'
 
