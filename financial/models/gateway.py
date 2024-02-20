@@ -37,6 +37,8 @@ class Gateway(models.Model):
 
     active = models.BooleanField(default=False)
     active_for_staff = models.BooleanField(default=False)
+    active_for_trusted = models.BooleanField(default=False)
+
     ipg_deposit_enable = models.BooleanField(default=True)
     pay_id_deposit_enable = models.BooleanField(default=False)
     withdraw_enable = models.BooleanField(default=False)
@@ -117,12 +119,20 @@ class Gateway(models.Model):
                    config.withdraw_fee_min)
 
     @classmethod
-    def _find_best_deposit_gateway(cls, user: User = None, amount: Decimal = 0) -> 'Gateway':
-        if user and user.is_staff:
+    def _find_best_deposit_gateway(cls, user: User, amount: Decimal = 0) -> 'Gateway':
+        if user.is_staff:
             gateway = Gateway.objects.filter(active_for_staff=True, ipg_deposit_enable=True).order_by('id').first()
 
             if gateway:
                 return gateway
+
+        trusted_gateway = Gateway.objects.filter(active_for_trusted=True, ipg_deposit_enable=True).order_by('id').first()
+
+        if trusted_gateway:
+            payments = user.payment_set.filter(status=DONE)
+
+            if payments.count() >= 2 and (payments.aggregate(sum=Sum('amount'))['sum'] or 0) >= 10_000_000:
+                return trusted_gateway
 
         gateways = Gateway.objects.filter(active=True, ipg_deposit_enable=True).order_by('-deposit_priority')
 
@@ -149,7 +159,7 @@ class Gateway(models.Model):
         return gateway
 
     @classmethod
-    def get_active_deposit(cls, user: User = None, amount: Decimal = 0) -> 'Gateway':
+    def get_active_deposit(cls, user: User, amount: Decimal = 0) -> 'Gateway':
         gateway = cls._find_best_deposit_gateway(user, amount)
 
         if gateway:

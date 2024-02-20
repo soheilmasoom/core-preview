@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from celery import shared_task
+from django.db.models import Q
 from django.utils import timezone
 
 from financial.models import Gateway, Payment, PaymentId
@@ -24,13 +25,12 @@ def handle_missing_payments():
         payment.paymentrequest.get_gateway().verify(payment)
 
     # update missing payments
-    gateway = Gateway.get_active_deposit()
-
-    try:
-        channel = FiatWithdraw.get_withdraw_channel(gateway)
-        channel.update_missing_payments(gateway)
-    except NoChannelError:
-        pass
+    for gateway in Gateway.objects.filter(Q(active=True) | Q(active_for_trusted=True), ipg_deposit_enable=True):
+        try:
+            channel = FiatWithdraw.get_withdraw_channel(gateway)
+            channel.update_missing_payments(gateway)
+        except NoChannelError:
+            pass
 
 
 @shared_task(queue='finance')

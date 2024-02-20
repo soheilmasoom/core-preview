@@ -58,6 +58,9 @@ class FiatWithdrawRequest(BaseTransfer):
     risks = models.JSONField(null=True, blank=True)
     login_activity = models.ForeignKey('accounts.LoginActivity', on_delete=models.SET_NULL, null=True, blank=True)
 
+    accepted_datetime = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    accepted_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True)
+
     @property
     def total_amount(self):
         return self.amount + self.fee_amount

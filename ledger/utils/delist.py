@@ -27,6 +27,9 @@ def sell_all_assets_to_irt(asset: Asset):
     wallets = Wallet.objects.filter(asset=asset, balance__gt=0, market=Wallet.SPOT, account__type=Account.ORDINARY)
 
     with WalletPipeline() as pipeline:
+        asset.enable = False
+        asset.save(update_fields=['enable'])
+
         for wallet in wallets:
             amount = wallet.balance
             irt_amount = amount * price
@@ -50,7 +53,7 @@ def sell_all_assets_to_irt(asset: Asset):
                 Notification.send(
                     recipient=wallet.account.user,
                     title='تبدیل خودکار توکن {}'.format(asset.symbol),
-                    message='با توجه به اطلاع‌رسانی‌های مکرر قبلی مبنی بر حذف توکن {}، مقدار {} {} به {} تومان تبدیل شد.'.format(
+                    message='با توجه به اطلاع‌رسانی‌های قبلی مبنی بر حذف توکن {}، مقدار {} {} به {} تومان تبدیل شد.'.format(
                         asset.symbol, humanize_number(amount), asset.name_fa,
                         humanize_number(int(irt_amount))
                     ),

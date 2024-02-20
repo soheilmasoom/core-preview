@@ -12,6 +12,9 @@ urlpatterns = [
         'get': 'list',
         'delete': 'destroy',
     })),
+    path('v1/assets/bookmark/', views.BookmarkAssetsViewSet.as_view({
+        'put': 'update'
+    })),
     path('v1/price/alert/bulk/', views.BulkAssetAlertViewSet.as_view({
         'post': 'create',
         'get': 'list',
@@ -83,13 +86,11 @@ urlpatterns = [
 
     path('v1/wallet/balance/', views.BalanceInfoView.as_view()),
     path('v1/funds/overview/', views.WalletsOverviewAPIView.as_view()),
-    path('v1/bookmark/assets/', views.BookmarkAssetsAPIView.as_view()),
 
     path('v1/transfer/deposit/', views.DepositTransferUpdateView.as_view()),
     path('v1/transfer/withdraw/', views.WithdrawTransferUpdateView.as_view()),
 
     path('v1/convert/dust/', views.ConvertDustView.as_view()),
-    path('v1/bookmark/assets/', views.BookmarkAssetsAPIView.as_view()),
     path('v1/pnl/overview/', views.PNLOverview.as_view()),
 
     path('v1/fast_buy/', views.FastBuyTokenAPI.as_view()),

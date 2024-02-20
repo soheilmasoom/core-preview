@@ -15,6 +15,13 @@ class PaymentId(models.Model):
 
     gateway = models.ForeignKey('financial.Gateway', on_delete=models.PROTECT)
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
+    master = models.ForeignKey(
+        to='accounts.User',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='+'
+    )
     pay_id = models.CharField(max_length=32, validators=[validate_integer])
     verified = models.BooleanField(default=False)
 
@@ -76,11 +83,14 @@ class PaymentIdRequest(models.Model):
             if req.payment or req.status != PENDING:
                 return
 
+            payment_id = req.owner
+
             req.payment = Payment.objects.create(
                 group_id=req.group_id,
-                user=req.owner.user,
+                user=payment_id.master or payment_id.user,
                 amount=req.amount,
                 fee=req.fee,
+                source=Payment.PAY_ID,
             )
             req.payment.accept(pipeline, req.bank_ref)
 

@@ -1,4 +1,10 @@
+from datetime import timedelta
+
+from django.db.models import Sum
+from django.utils import timezone
+
 from accounts.models import SystemConfig
+from ledger.utils.fields import DONE
 
 
 def _ban_transfer(crypto: bool, deposit: bool) -> bool:
@@ -35,8 +41,19 @@ def verify_fiat_withdraw(transfer=None) -> bool:
     return True
 
 
-def verify_fiat_deposit(payment=None) -> bool:
+def verify_fiat_deposit(payment) -> bool:
     if _ban_transfer(crypto=False, deposit=True):
+        return False
+
+    from financial.models import Payment
+
+    payments_sum = Payment.objects.filter(
+        created__gte=timezone.now() - timedelta(days=1),
+        user=payment.user,
+        status=DONE
+    ).aggregate(sum=Sum('amount'))['sum'] or 0
+
+    if payments_sum > SystemConfig.get_system_config().fiat_daily_auto_verify_limit:
         return False
 
     return True

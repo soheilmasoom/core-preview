@@ -160,8 +160,6 @@ class AssetSerializerBuilder(AssetSerializerMini):
 
 @method_decorator(cache_page(10), name='dispatch')
 class AssetsViewSet(ModelViewSet):
-
-    authentication_classes = ()
     permission_classes = ()
     filter_backends = [DjangoFilterBackend]
 
@@ -217,6 +215,14 @@ class AssetsViewSet(ModelViewSet):
 
             if category_name == 'new-coins':
                 queryset = queryset.order_by(F('publish_date').desc(nulls_last=True))[:100]
+
+            elif category_name == 'favorite-coins':
+                if self.request.user.is_authenticated:
+                    account = self.request.user.get_account()
+                    queryset = account.bookmark_assets.all()
+                else:
+                    queryset = queryset.none()
+
             else:
                 category = get_object_or_404(CoinCategory, name=category_name)
                 queryset = queryset.filter(coincategory=category)

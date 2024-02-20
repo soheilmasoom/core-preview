@@ -6,6 +6,7 @@ from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from import_export import resources
@@ -103,7 +104,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
 
     fieldsets = (
         ('اطلاعات درخواست', {'fields': ('created', 'status', 'amount', 'fee_amount', 'ref_id', 'bank_account',
-         'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time', 'gateway', 'get_risks')}),
+         'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time', 'gateway', 'get_risks', 'accepted_by')}),
         ('اطلاعات کاربر', {'fields': (
             'get_withdraw_request_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
         )}),
@@ -114,7 +115,8 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
     readonly_fields = (
         'created', 'bank_account', 'amount', 'get_withdraw_request_iban', 'fee_amount', 'get_risks',
         'get_withdraw_request_user', 'get_withdraw_request_receive_time', 'get_user', 'login_activity',
-        'get_withdraw_request_receive_time', 'get_withdraw_request_withdraw_time'
+        'get_withdraw_request_receive_time', 'get_withdraw_request_withdraw_time', 'status', 'ref_id', 'gateway',
+        'accepted_by', 'accepted_datetime'
     )
     search_fields = ('bank_account__iban', 'bank_account__user__phone', 'group_id', 'ref_id')
 
@@ -157,7 +159,11 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
 
     @admin.action(description='تایید برداشت', permissions=['view'])
     def accept_withdraw_request(self, request, queryset):
-        queryset.filter(status=INIT).update(status=PROCESS)
+        queryset.filter(status=INIT).update(
+            status=PROCESS,
+            accepted_datetime=timezone.now(),
+            accepted_by=request.user
+        )
 
     @admin.action(description='رد برداشت', permissions=['view'])
     def reject_withdraw_request(self, request, queryset):
@@ -214,6 +220,17 @@ class PaymentRequestAdmin(admin.ModelAdmin):
     search_fields = ('bank_card__card_pan', 'amount', 'authority', 'group_id')
     readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity')
     list_filter = (PaymentRequestUserFilter,)
+    actions = ('verify', )
+
+    @admin.action(description='Verify', permissions=['change'])
+    def verify(self, request, queryset):
+        for payment_request in queryset:
+            payment = payment_request.payment
+
+            if not payment:
+                payment = payment_request.get_or_create_payment()
+
+            payment_request.get_gateway().verify(payment)
 
 
 class PaymentUserFilter(SimpleListFilter):
@@ -234,12 +251,13 @@ class PaymentUserFilter(SimpleListFilter):
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_amount', 'get_fee', 'status', 'ref_id', 'ref_status',
-                    'get_card_pan', 'get_user',)
-    list_filter = (PaymentUserFilter, 'status', )
+                    'source', 'get_card_pan', 'get_user',)
+    list_filter = (PaymentUserFilter, 'status', 'source')
     search_fields = ('ref_id', 'paymentrequest__bank_card__card_pan', 'amount', 'paymentrequest__authority',
                      'user__phone', 'user__first_name', 'user__last_name')
-    readonly_fields = ('user', 'group_id')
+    readonly_fields = ('group_id', )
     actions = ('refund', 'accept_deposit', 'reject_deposit')
+    raw_id_fields = ('user', )
 
     @admin.display(description='مقدار')
     def get_amount(self, payment: Payment):
@@ -477,8 +495,8 @@ class PaymentIdRequestAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentId)
 class PaymentIdAdmin(AdvancedAdmin):
-    list_display = ('created', 'updated', 'user', 'pay_id', 'verified', 'deleted')
-    search_fields = ('user__phone', 'pay_id')
+    list_display = ('created', 'updated', 'user', 'master', 'pay_id', 'verified', 'deleted')
+    search_fields = ('user__phone', 'pay_id', 'master__phone', )
     list_filter = ('verified',)
     readonly_fields = ('group_id', )
     actions = ('check_status', )
@@ -489,6 +507,12 @@ class PaymentIdAdmin(AdvancedAdmin):
         'gateway': True,
         'user': True
     }
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "master":
+            kwargs["queryset"] = User.objects.filter(userfeatureperm__feature=UserFeaturePerm.PAY_ID_MASTER)
+
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     @admin.action(description='Check Status', permissions=['view'])
     def check_status(self, request, queryset):

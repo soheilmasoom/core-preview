@@ -43,6 +43,8 @@ class SystemConfig(models.Model):
 
     default_max_allowed_coin_network_daily_deposit_value = models.PositiveSmallIntegerField(default=300)
 
+    fiat_daily_auto_verify_limit = models.PositiveIntegerField(default=200_000_000)
+
     def __str__(self):
         return self.name
 

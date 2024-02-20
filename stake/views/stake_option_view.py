@@ -95,7 +95,7 @@ class StakeOptionGroupedSerializer(serializers.Serializer):
 
     def get_variants(self, asset: Asset):
         serialized_options = [
-            StakeOptionSerializerMini(instance=option, context={}).data
+            StakeOptionSerializerMini(instance=option, context=self.context).data
             for option in asset.stakeoption_set.filter(enable=True).order_by('-apr')
         ]
 
