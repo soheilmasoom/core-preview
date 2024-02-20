@@ -13,7 +13,8 @@ urlpatterns = [
         'delete': 'destroy',
     })),
     path('v1/assets/bookmark/', views.BookmarkAssetsViewSet.as_view({
-        'put': 'update'
+        'put': 'update',
+        'get': 'list',
     })),
     path('v1/price/alert/bulk/', views.BulkAssetAlertViewSet.as_view({
         'post': 'create',
