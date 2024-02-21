@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from ledger.models import Asset, Wallet, NetworkAsset, CoinCategory
+from ledger.models import Asset, NetworkAsset, CoinCategory
 from ledger.models.asset import AssetSerializerMini
 from ledger.utils.coins_info import get_coins_info
 from ledger.utils.external_price import SELL
@@ -155,7 +155,7 @@ class AssetSerializerBuilder(AssetSerializerMini):
         return Serializer
 
 
-@method_decorator(cache_page(10), name='dispatch')
+@method_decorator(cache_page(30), name='dispatch')
 class AssetsViewSet(ModelViewSet):
     authentication_classes = ()
     permission_classes = ()
