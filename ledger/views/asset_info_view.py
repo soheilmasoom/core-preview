@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from ledger.models import Asset, Wallet, NetworkAsset, CoinCategory
+from ledger.models import Asset, NetworkAsset, CoinCategory
 from ledger.models.asset import AssetSerializerMini
 from ledger.utils.coins_info import get_coins_info
 from ledger.utils.external_price import SELL
@@ -56,9 +56,6 @@ class AssetSerializerBuilder(AssetSerializerMini):
 
     def get_market_irt_enable(self, asset: Asset):
         return asset.symbol in self.context['enable_irt_market_list']
-
-    def get_bookmark_assets(self, asset: Asset):
-        return asset.id in self.context['bookmark_assets']
 
     def get_cap(self, asset) -> CoinInfo:
         return self.context['cap_info'].get(asset.symbol, CoinInfo())
@@ -158,19 +155,14 @@ class AssetSerializerBuilder(AssetSerializerMini):
         return Serializer
 
 
-@method_decorator(cache_page(10), name='dispatch')
+@method_decorator(cache_page(30), name='dispatch')
 class AssetsViewSet(ModelViewSet):
+    authentication_classes = ()
     permission_classes = ()
     filter_backends = [DjangoFilterBackend]
 
     def get_serializer_context(self):
-
         ctx = super().get_serializer_context()
-
-        if self.request.user.is_authenticated:
-            ctx['bookmark_assets'] = set(self.request.user.get_account().bookmark_assets.values_list('id', flat=True))
-        else:
-            ctx['bookmark_assets'] = set()
 
         ctx['enable_irt_market_list'] = get_irt_market_asset_symbols()
 
@@ -215,13 +207,6 @@ class AssetsViewSet(ModelViewSet):
 
             if category_name == 'new-coins':
                 queryset = queryset.order_by(F('publish_date').desc(nulls_last=True))[:100]
-
-            elif category_name == 'favorite-coins':
-                if self.request.user.is_authenticated:
-                    account = self.request.user.get_account()
-                    queryset = account.bookmark_assets.all()
-                else:
-                    queryset = queryset.none()
 
             else:
                 category = get_object_or_404(CoinCategory, name=category_name)

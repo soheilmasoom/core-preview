@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import Account
@@ -31,6 +32,13 @@ class BookmarkAssetsSerializer(serializers.ModelSerializer):
 
 class BookmarkAssetsViewSet(ModelViewSet):
     serializer_class = BookmarkAssetsSerializer
+
+    def list(self, request, *args, **kwargs):
+        account = self.request.user.get_account()
+
+        return Response({
+            'coins': list(account.bookmark_assets.values_list('symbol', flat=True))
+        })
 
     def get_object(self):
         return self.request.user.get_account()
