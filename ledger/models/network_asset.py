@@ -28,7 +28,7 @@ class NetworkAsset(models.Model):
     hedger_deposit_enable = models.BooleanField(default=True)
 
     can_deposit = models.BooleanField(default=False)
-    can_withdraw = models.BooleanField(default=True)
+    can_withdraw = models.BooleanField(default=False)
 
     allow_provider_withdraw = models.BooleanField(default=True)
     update_fee_with_provider = models.BooleanField(default=True)
