@@ -9,7 +9,7 @@ from accounts.authentication import CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from ledger.models import Transfer
 from ledger.models.asset import AssetSerializerMini
-from ledger.utils.fields import INIT, PROCESS
+from ledger.utils.fields import INIT, PROCESS, REFUND
 from ledger.utils.precision import get_presentation_amount
 
 
@@ -65,6 +65,8 @@ class WithdrawHistoryView(ListAPIView):
         queryset = Transfer.objects.filter(
             wallet__account=self.request.user.get_account(),
             deposit=False,
+        ).exclude(
+            status=REFUND
         ).order_by('-created')
 
         if 'coin' in query_params:
@@ -82,6 +84,8 @@ class DepositHistoryView(WithdrawHistoryView):
         queryset = Transfer.objects.filter(
             wallet__account=self.request.user.get_account(),
             deposit=True,
+        ).exclude(
+            status=REFUND
         ).order_by('-created')
 
         if 'coin' in query_params:

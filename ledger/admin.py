@@ -529,7 +529,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     )
     exclude = ('risks',)
 
-    actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit')
+    actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit', 'refund_deposit')
 
     def save_model(self, request, obj: models.Transfer, form, change):
         if obj.id and obj.status == DONE:
@@ -624,6 +624,11 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     def reject_deposit(self, request, queryset):
         for transfer in queryset.filter(deposit=False, status=INIT):
             transfer.reject()
+
+    @admin.action(description='Refund Deposit', permissions=['change'])
+    def refund_deposit(self, request, queryset):
+        for transfer in queryset.filter(deposit=True, status=DONE):
+            transfer.revert()
 
 
 class CryptoAccountTypeFilter(SimpleListFilter):

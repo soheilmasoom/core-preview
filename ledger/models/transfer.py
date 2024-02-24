@@ -20,9 +20,11 @@ from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
 from ledger.models import Trx, NetworkAsset, Asset, DepositAddress
 from ledger.models import Wallet, Network
-from ledger.utils.fields import get_amount_field, get_address_field, CANCELED, DONE, PROCESS, INIT, get_status_field
+from ledger.utils.fields import get_amount_field, get_address_field, CANCELED, DONE, PROCESS, INIT, get_status_field, \
+    REFUND
 from ledger.utils.precision import humanize_number
 from ledger.utils.price import get_last_price
+from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 logger = logging.getLogger(__name__)
@@ -338,11 +340,25 @@ class Transfer(models.Model):
             transfer.finished_datetime = timezone.now()
             transfer.save(update_fields=['status', 'finished_datetime'])
 
+    def revert(self):
+        with WalletPipeline() as pipeline:
+            transfer = Transfer.objects.select_for_update().get(id=self.id)
+
+            if transfer.status != DONE:
+                return
+
+            transfer.status = REFUND
+            transfer.save(update_fields=['status'])
+
+            revert_trx_group(pipeline, self.group_id)
+
     def change_status(self, status: str):
         if status == DONE:
             self.accept()
         elif status == CANCELED:
             self.reject()
+        elif status == REFUND:
+            self.revert()
         else:
             Transfer.objects.filter(
                 id=self.id
