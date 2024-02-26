@@ -272,7 +272,7 @@ class DepositAddressAdmin(admin.ModelAdmin):
     list_display = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     readonly_fields = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     list_filter = ('network', DepositAddressUserFilter)
-    search_fields = ('address',)
+    search_fields = ('address', 'address_key__account__user__phone', 'address_key__memo')
 
     @admin.display(description='memo')
     def get_memo(self, deposit_address: models.DepositAddress):
