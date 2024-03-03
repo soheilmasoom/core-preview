@@ -985,38 +985,38 @@ class AlertTriggerAdmin(admin.ModelAdmin):
 
 @admin.register(DepositRecoveryRequest)
 class DepositRecoveryRequestAdmin(admin.ModelAdmin):
-    list_display = ('coin', 'amount', 'get_description',)
-    list_filter = ('status', 'coin',)
-    readonly_fields = ('created', 'status', 'user', 'receiver_address', 'coin', 'network', 'amount', 'image',)
-    actions = ('accept_requests', 'reject_requests', 'final_accept_requests',)
+    list_display = ('created', 'asset', 'network', 'amount', 'memo', 'status', 'get_user')
+    list_filter = ('status', 'asset',)
+    readonly_fields = ('created', 'image', 'verifier')
+    actions = ('verify_requests', 'reject_requests', 'accept_requests',)
     raw_id_fields = ('user',)
+    search_fields = ('asset__symbol', 'network__symbol', 'user__phone', 'receiver_address', 'trx_hash')
 
-    @admin.display(description='description')
-    def get_description(self, deposit_request: DepositRecoveryRequest):
-        n = 300
-        description = deposit_request.description
-        if len(description) > n:
-            return description[:n] + '...'
-        else:
-            return description
+    @admin.display(description='User')
+    def get_user(self, deposit_recovery: DepositRecoveryRequest):
+        user = deposit_recovery.user
+        link = url_to_edit_object(user)
+        return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
 
     @admin.action(description='تایید نهایی', permissions=['change'])
-    def final_accept_requests(self, request, queryset):
+    def accept_requests(self, request, queryset):
         qs = queryset.filter(status=PENDING)
         for req in qs:
             req.create_transfer()
 
     @admin.action(description='تایید اولیه', permissions=['view'])
-    def accept_requests(self, request, queryset):
-        qs = queryset.filter(status=PROCESS)
-        for req in qs:
-            req.accept()
+    def verify_requests(self, request, queryset):
+        queryset.filter(status=PROCESS).update(
+            status=PENDING,
+            verifier=request.user
+        )
 
     @admin.action(description='رد اطلاعات', permissions=['view'])
     def reject_requests(self, request, queryset):
-        qs = queryset.filter(status=PROCESS)
-        for req in qs:
-            req.reject()
+        queryset.filter(status=PROCESS).update(
+            status=CANCELED,
+            verifier=request.user
+        )
 
 
 @admin.register(TokenRebrand)

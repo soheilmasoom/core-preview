@@ -436,7 +436,7 @@ class MarketingCostAdmin(admin.ModelAdmin):
 
 
 class ManualTransferForm(forms.ModelForm):
-    otp = forms.IntegerField(required=False)
+    otp = forms.IntegerField(required=True)
 
     class Meta:
         model = ManualTransfer
@@ -451,7 +451,7 @@ class ManualTransferAdmin(admin.ModelAdmin):
     readonly_fields = ('status', 'group_id', 'ref_id')
 
     def save_model(self, request, obj: ManualTransfer, form, change):
-        totp = form.cleaned_data.pop('otp', None)
+        totp = form.cleaned_data['otp']
         device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
 
         if not (device and device.verify_token(totp)) and not settings.DEBUG_OR_TESTING_OR_STAGING:

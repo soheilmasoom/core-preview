@@ -4,7 +4,7 @@ from django.db.models import Sum
 from django.utils.safestring import mark_safe
 
 from accounts.models import User
-from accounts.utils.admin import url_to_admin_list
+from accounts.utils.admin import url_to_admin_list, url_to_edit_object
 from ledger.utils.precision import get_presentation_amount
 from .models import StakeRequest, StakeRevenue, StakeOption
 
@@ -77,7 +77,7 @@ class StakeRequestAdmin(admin.ModelAdmin):
 
     def get_user(self, stake_request: StakeRequest):
         user = stake_request.account.user
-        link = url_to_admin_list(User) + '{}/change'.format(user.id)
+        link = url_to_edit_object(user)
         return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
     get_user.short_description = 'user'
 
@@ -117,7 +117,7 @@ class StakeRevenueAdmin(admin.ModelAdmin):
 
     def get_user(self, stake_revenue: StakeRevenue):
         user = stake_revenue.stake_request.account.user
-        link = url_to_admin_list(User) + '{}/change'.format(user.id)
+        link = url_to_edit_object(user)
         return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
     get_user.short_description = 'user'
 
