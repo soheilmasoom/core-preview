@@ -11,7 +11,7 @@ from multimedia.fields import ImageField
 
 
 class DepositRecoverySerializer(ModelSerializer):
-    coin = CoinField(required=True)
+    coin = CoinField(source='asset', required=True)
     network = NetworkField(required=True)
     image = ImageField(write_only=True)
 
