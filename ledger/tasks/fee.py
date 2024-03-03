@@ -1,7 +1,7 @@
 import logging
 
 from celery import shared_task
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Q
 from django.utils import timezone
 
 from ledger.models import NetworkAsset
@@ -14,9 +14,8 @@ logger = logging.getLogger()
 def update_network_fees(network_assets: QuerySet = None):
     if not network_assets:
         network_assets = NetworkAsset.objects.filter(
-            update_fee_with_provider=True,
-            can_withdraw=True,
-        )
+            Q(can_withdraw=True) | Q(can_deposit=True),
+        ).distinct()
 
     now = timezone.now()
 

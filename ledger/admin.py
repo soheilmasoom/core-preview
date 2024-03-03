@@ -222,13 +222,12 @@ class NetworkAdmin(admin.ModelAdmin):
 @admin.register(NetworkAsset)
 class NetworkAssetAdmin(admin.ModelAdmin):
     list_display = ('network', 'asset', 'get_withdraw_fee', 'get_withdraw_min', 'get_withdraw_max', 'get_deposit_min',
-                    'can_deposit', 'can_withdraw', 'allow_provider_withdraw', 'hedger_withdraw_enable',
-                    'update_fee_with_provider', 'last_provider_update', 'expected_hw_balance')
+                    'can_deposit', 'can_withdraw', 'update_fee_with_provider', 'last_provider_update',
+                    'expected_hw_balance', 'hedger_withdraw_enable', 'hedger_deposit_enable',)
     search_fields = ('asset__symbol',)
-    list_editable = ('can_deposit', 'can_withdraw', 'allow_provider_withdraw', 'hedger_withdraw_enable',
-                     'update_fee_with_provider', 'expected_hw_balance')
-    list_filter = ('can_deposit', 'can_withdraw', 'network', 'allow_provider_withdraw', 'hedger_withdraw_enable',
-                   'update_fee_with_provider', )
+    list_editable = ('can_deposit', 'can_withdraw', 'update_fee_with_provider', 'expected_hw_balance')
+    list_filter = ('can_deposit', 'can_withdraw', 'network',
+                   'update_fee_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable')
     actions = ('update_fees', )
 
     @admin.display(description='withdraw_fee', ordering='withdraw_fee')
@@ -247,7 +246,7 @@ class NetworkAssetAdmin(admin.ModelAdmin):
     def get_deposit_min(self, network_asset: NetworkAsset):
         return get_presentation_amount(network_asset.deposit_min)
 
-    @admin.action(description='Update Fees', permissions=['change'])
+    @admin.action(description='Update With Provider', permissions=['change'])
     def update_fees(self, request, queryset):
         update_network_fees(queryset)
 
