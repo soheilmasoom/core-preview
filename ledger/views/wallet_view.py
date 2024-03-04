@@ -462,7 +462,7 @@ class ConvertDustView(APIView):
                 free = wallet.get_free()
                 free_irt_value = free * price
 
-                if Decimal(0) < free_irt_value < Decimal('10000'):
+                if Decimal(0) < free_irt_value < Decimal('100_000'):
                     logger.info('Converting dust %s' % wallet)
 
                     pipeline.new_trx(
