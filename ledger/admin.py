@@ -219,6 +219,27 @@ class NetworkAdmin(admin.ModelAdmin):
     ordering = ('-can_withdraw', '-can_deposit')
 
 
+class NetworkAssetFilter(admin.SimpleListFilter):
+    title = 'فعال'
+    parameter_name = 'active'
+
+    def lookups(self, request, model_admin):
+        return [('yes', 'بله'), ('no', 'خیر')]
+
+    def queryset(self, request, queryset):
+        active = request.GET.get('active')
+
+        if active is not None:
+            q = Q(can_deposit=True, network__can_deposit=True) | Q(can_withdraw=True, network__can_withdraw=True)
+
+            if active != 'yes':
+                q = ~q
+
+            queryset = queryset.filter(q)
+
+        return queryset
+
+
 @admin.register(NetworkAsset)
 class NetworkAssetAdmin(admin.ModelAdmin):
     list_display = ('network', 'asset', 'get_withdraw_fee', 'get_withdraw_min', 'get_withdraw_max', 'get_deposit_min',
@@ -226,7 +247,7 @@ class NetworkAssetAdmin(admin.ModelAdmin):
                     'expected_hw_balance', 'hedger_withdraw_enable', 'hedger_deposit_enable',)
     search_fields = ('asset__symbol',)
     list_editable = ('can_deposit', 'can_withdraw', 'update_fee_with_provider', 'expected_hw_balance')
-    list_filter = ('can_deposit', 'can_withdraw', 'network',
+    list_filter = (NetworkAssetFilter, 'can_deposit', 'can_withdraw', 'network',
                    'update_fee_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable')
     actions = ('update_fees', )
 
