@@ -14,7 +14,8 @@ logger = logging.getLogger()
 def update_network_fees(network_assets: QuerySet = None):
     if not network_assets:
         network_assets = NetworkAsset.objects.filter(
-            Q(can_withdraw=True) | Q(can_deposit=True),
+            Q(can_withdraw=True, network__can_withdraw=True) | Q(can_deposit=True, network__can_deposit=True),
+            asset__enable=True,
         ).distinct()
 
     now = timezone.now()

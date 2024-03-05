@@ -24,8 +24,8 @@ class NetworkAsset(models.Model):
     withdraw_max = get_amount_field()
     withdraw_precision = models.PositiveSmallIntegerField()
 
-    hedger_withdraw_enable = models.BooleanField(default=True)
-    hedger_deposit_enable = models.BooleanField(default=True)
+    hedger_withdraw_enable = models.BooleanField(default=False)
+    hedger_deposit_enable = models.BooleanField(default=False)
 
     can_deposit = models.BooleanField(default=False)
     can_withdraw = models.BooleanField(default=False)
