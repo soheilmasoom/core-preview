@@ -10,7 +10,7 @@ from ledger.utils.wallet_pipeline import WalletPipeline
 
 
 class JibitGateway(Gateway):
-    BASE_URL = 'https://napi.jibit.cloud/ppg'
+    BASE_URL = 'https://napi.jibit.ir/ppg'
     _token = None
 
     def _get_token(self, force_renew: bool = False):
@@ -83,7 +83,7 @@ class JibitGateway(Gateway):
 
     @classmethod
     def get_payment_url(cls, payment_request: PaymentRequest):
-        return 'https://napi.jibit.cloud/ppg/v3/purchases/{}/payments'.format(payment_request.authority)
+        return 'https://napi.jibit.ir/ppg/v3/purchases/{}/payments'.format(payment_request.authority)
 
     def _verify(self, payment: Payment, **kwargs):
         payment_request = payment.paymentrequest

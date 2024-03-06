@@ -19,7 +19,7 @@ JIBIT_TOKEN_KEY = 'jibit-token'
 
 
 class JibitRequester:
-    BASE_URL = 'https://napi.jibit.cloud/ide'
+    BASE_URL = 'https://napi.jibit.ir/ide'
 
     RESULT_MAP = {
         'mobileNumber.not_valid': 'INVALID_DATA',

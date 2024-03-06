@@ -45,7 +45,7 @@ class BaseClient:
 
 
 class JibitClient(BaseClient):
-    BASE_URL = 'https://napi.jibit.cloud/pip'
+    BASE_URL = 'https://napi.jibit.ir/pip'
     _token = None
 
     def _get_token(self, force_renew: bool = False):
