@@ -37,6 +37,7 @@ class AssetListSerializer(serializers.ModelSerializer):
     can_withdraw = serializers.SerializerMethodField()
 
     free = serializers.SerializerMethodField()
+    free_irt = serializers.SerializerMethodField()
 
     pin_to_top = serializers.SerializerMethodField()
 
@@ -121,6 +122,18 @@ class AssetListSerializer(serializers.ModelSerializer):
         free = max(Decimal(), wallet.get_free() + self.get_debt(asset))
         return get_coin_presentation_balance(asset.symbol, free)
 
+    def get_free_irt(self, asset: Asset):
+        free = Decimal(self.get_free(asset))
+
+        if not free:
+            return 0
+
+        price = self._get_last_price_irt(asset.symbol)
+        if not price:
+            return
+
+        return get_symbol_presentation_price(asset.symbol + 'IRT', free * price, trunc_zero=True)
+
     def get_can_deposit(self, asset: Asset):
         return asset.symbol in self.context['deposit_enable_coins']
 
@@ -141,7 +154,7 @@ class AssetListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Asset
-        fields = ('symbol', 'precision', 'free', 'balance', 'balance_irt', 'balance_usdt',
+        fields = ('symbol', 'precision', 'free', 'free_irt', 'balance', 'balance_irt', 'balance_usdt',
                   'can_deposit', 'can_withdraw', 'trade_enable', 'pin_to_top', 'market_irt_enable',
                   'name', 'name_fa', 'logo', 'original_symbol', 'original_name_fa', 'step_size',)
 
@@ -449,7 +462,7 @@ class ConvertDustView(APIView):
                 free = wallet.get_free()
                 free_irt_value = free * price
 
-                if Decimal(0) < free_irt_value < Decimal('10000'):
+                if Decimal(0) < free_irt_value < Decimal('100_000'):
                     logger.info('Converting dust %s' % wallet)
 
                     pipeline.new_trx(

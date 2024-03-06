@@ -83,19 +83,28 @@ class OTCInfoView(APIView):
         except NoPriceError:
             raise ValidationError('در حال حاضر امکان معامله این ارز دیجیتال وجود ندارد.')
 
+        symbol = otc.symbol
+
         risky = False
-        category = otc.symbol.asset.spread_category
+        category = symbol.asset.spread_category
 
         if category and category.name == 'high-risk':
             risky = True
 
+        if otc.side == BUY:
+            from_precision, to_precision = Asset.PRECISION, symbol.step_size
+        else:
+            from_precision, to_precision = symbol.step_size, Asset.PRECISION
+
         return Response({
-            'base_asset': otc.symbol.base_asset.symbol,
-            'asset': otc.symbol.asset.symbol,
+            'base_asset': symbol.base_asset.symbol,
+            'asset': symbol.asset.symbol,
             'side': otc.side,
             'price': get_symbol_presentation_price(otc.symbol.name, otc.price),
             'to_price': otc.price if otc.side == BUY else 1 / otc.price,
             'risky': risky,
+            'from_precision': from_precision,
+            'to_precision': to_precision,
         })
 
 

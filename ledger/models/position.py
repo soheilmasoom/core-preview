@@ -299,9 +299,6 @@ class MarginPosition(models.Model):
         if self.side == SHORT:
             loss_amount = (to_close_amount - free_amount) * Decimal('1.05') * price
             if loss_amount > 0:
-                if not charge_insurance:
-                    logger.warning(f"Position:{self.id} charged in close mode !!!")
-
                 pipeline.new_trx(
                     sender=self.get_insurance_wallet(),
                     receiver=self.base_wallet,
@@ -335,6 +332,9 @@ class MarginPosition(models.Model):
 
         charged_amount = 0
         if self.side == SHORT:
+            if not charge_insurance and remaining_base_asset < loss_amount:
+                logger.warning(f"Position:{self.id} charged in close mode !!!")
+
             if remaining_base_asset > 0 and loss_amount > 0:
                 pipeline.new_trx(
                     self.base_wallet,
@@ -370,20 +370,28 @@ class MarginPosition(models.Model):
                 self.amount = 0
                 self.status = self.CLOSED
             else:
+
                 filled_amount = liquidation_order.filled_amount if self.side == SHORT else liquidation_order.filled_amount * liquidation_order.price
-                self.amount = max(self.debt_amount - filled_amount, Decimal('0'))
-                logger.warning(f'Position:{self.id} doesnt close in Liquidation Process Due to Order'
-                               f' filled amount{liquidation_order.filled_amount}/{self.debt_amount}')
+
+                loan_wallet = self.loan_wallet
+                debt_amount = -loan_wallet.balance + pipeline.get_wallet_balance_diff(loan_wallet.id)
+
+                self.amount = max(debt_amount - filled_amount, Decimal('0'))
+
+                if not charge_insurance:
+                    logger.warning(f'Position:{self.id} doesnt close in Liquidation Process Due to Order'
+                                   f' filled amount{filled_amount}/{debt_amount}')
 
             if liquidation_order.filled_amount == 0 and liquidation_order.status == Order.CANCELED:
                 self.status = self.OPEN
-                logger.warning(f"Position:{self.id} liquidation order:{liquidation_order.id} didnt fill")
+                logger.warning(f"Position:{self.id} closing order:{liquidation_order.id} didnt fill")
         else:
             self.amount = 0
             self.status = self.CLOSED
 
         self.save(update_fields=['amount', 'status'])
         self.set_liquidation_price(pipeline)
+
         if charge_insurance:
             from ledger.utils.margin import alert_liquidate
             alert_liquidate(self)

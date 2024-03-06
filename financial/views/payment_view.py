@@ -4,7 +4,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, get_object_or_404, ListAPIView
 from rest_framework.pagination import LimitOffsetPagination
 
-from accounts.models import LoginActivity
+from accounts.models import LoginActivity, SystemConfig
 from accounts.permissions import IsBasicVerified
 from financial.models import BankCard, PaymentRequest, Payment
 from financial.models.bank_card import BankCardSerializer
@@ -34,7 +34,12 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
         from financial.models import Gateway
         gateway = Gateway.get_active_deposit(user, amount=amount)
 
-        if not user.is_staff and gateway.suspended:
+        suspended = gateway.suspended
+
+        if not suspended and SystemConfig.get_system_config().limit_ipg_to_users_without_payment:
+            suspended = user.first_fiat_deposit_date is None
+
+        if suspended:
             raise ValidationError('در حال حاضر امکان واریز ریال، فقط به صورت شناسه واریز وجود دارد. برای استفاده از این امکان از نسخه وب صرافی استفاده کنید.')
 
         if amount < gateway.min_deposit_amount:

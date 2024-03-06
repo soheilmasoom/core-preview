@@ -16,6 +16,7 @@ from ledger.models import OTCRequest, Trx, Wallet, Asset
 from ledger.utils.external_price import SELL, BUY
 from ledger.utils.fields import get_amount_field
 from ledger.utils.precision import floor_precision, get_symbol_presentation_price
+from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 from market.exceptions import NegativeGapRevenue
 from market.models import Trade, PairSymbol
@@ -294,24 +295,7 @@ class OTCTrade(models.Model):
         with WalletPipeline() as pipeline:
             self.status = self.REVERT
             self.save(update_fields=['status'])
-
-            for trx in Trx.objects.filter(group_id=self.group_id):
-                if trx.receiver.has_balance(trx.amount):
-                    pipeline.new_trx(
-                        sender=trx.receiver,
-                        receiver=trx.sender,
-                        amount=trx.amount,
-                        group_id=trx.group_id,
-                        scope=Trx.REVERT
-                    )
-                else:
-                    pipeline.new_trx(
-                        sender=trx.receiver.asset.get_wallet(trx.receiver.account, market=Wallet.DEBT),
-                        receiver=trx.sender,
-                        amount=trx.amount,
-                        group_id=trx.group_id,
-                        scope=Trx.REVERT
-                    )
+            revert_trx_group(pipeline, self.group_id)
 
             from market.models import Trade
             Trade.objects.filter(group_id=self.group_id).update(status=Trade.REVERT)

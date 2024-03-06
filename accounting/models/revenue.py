@@ -15,7 +15,7 @@ class TradeRevenue(models.Model):
 
     OTC_MARKET, OTC_PROVIDER, TAKER, MAKER, USER, MANUAL = 'otc-m', 'otc-p', 'taker', 'maker', 'user', 'manual'
 
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
     symbol = models.ForeignKey('market.PairSymbol', on_delete=models.PROTECT)
     account = models.ForeignKey('accounts.Account', on_delete=models.PROTECT)
     side = models.CharField(max_length=8, choices=BaseTrade.SIDE_CHOICES)

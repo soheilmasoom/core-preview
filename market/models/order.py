@@ -184,38 +184,42 @@ class Order(models.Model):
 
     @classmethod
     def bulk_cancel_simple_orders(cls, to_cancel_orders: QuerySet):
-        orders = to_cancel_orders.filter(oco__isnull=True, status=cls.NEW).only('id', 'symbol_id')
+        orders = list(to_cancel_orders.filter(oco__isnull=True, status=cls.NEW).values('id', 'symbol_id'))
 
         with WalletPipeline() as pipeline:  # type: WalletPipeline
-            PairSymbol.objects.select_for_update().filter(id__in=orders.values_list('symbol_id', flat=True))
-            order_queryset = Order.objects.filter(id__in=orders.values_list('id', flat=True)).only('group_id', 'id')
+            list(PairSymbol.objects.select_for_update().filter(id__in=[o['symbol_id'] for o in orders]))
+            orders = Order.open_objects.filter(id__in=[o['id'] for o in orders]).only('group_id', 'id')  # to sync with symbol lock
 
             ids = []
-            for order in order_queryset:
+            for order in orders:
                 ids.append(order.id)
-                order.status = cls.CANCELED
                 pipeline.release_lock(key=order.group_id)
-
                 pipeline.add_market_cache_data(order.symbol, [order], side=order.side, canceled=True)
 
-            Order.objects.bulk_update(order_queryset, ['status'])
+            orders.update(status=cls.CANCELED)
 
             from market.models import CancelRequest
 
             cancel_requests = []
             ids = set(ids).difference(set(CancelRequest.objects.filter(order_id__in=ids).values_list('order_id', flat=True)))
 
-            for id in ids:
+            for _id in ids:
                 cancel_requests.append(
-                    CancelRequest(order_id=id)
+                    CancelRequest(order_id=_id)
                 )
             CancelRequest.objects.bulk_create(cancel_requests)
 
     @property
     def base_wallet(self):
-        return self.symbol.base_asset.get_wallet(
-            account=self.wallet.account, market=self.wallet.market, variant=self.wallet.variant
-        )
+        _base_wallet = getattr(self, '_base_wallet', None)
+
+        if not _base_wallet:
+            _base_wallet = self.symbol.base_asset.get_wallet(
+                account=self.wallet.account, market=self.wallet.market, variant=self.wallet.variant
+            )
+            setattr(self, '_base_wallet', _base_wallet)
+
+        return _base_wallet
 
     @property
     def unfilled_amount(self):
