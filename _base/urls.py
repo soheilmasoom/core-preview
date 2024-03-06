@@ -30,6 +30,7 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('admin/dashboard/', dashboard),
+    path('admin/hijack/', include('hijack.urls')),
     path('admin/', admin.site.urls),
 
     path('api/v1/health/ready/', HealthView.as_view()),
@@ -43,7 +44,6 @@ urlpatterns = [
     path('api/v2/stake/', include('stake.urls_v2')),
     path('api/v1/gamify/', include('gamify.urls')),
     path('api/', include('ledger.urls')),
-    path('admin/hijack/', include('hijack.urls')),
     path('robots.txt', TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
 
     path('tinymce/', include('tinymce.urls')),
