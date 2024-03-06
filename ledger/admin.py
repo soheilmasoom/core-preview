@@ -219,16 +219,37 @@ class NetworkAdmin(admin.ModelAdmin):
     ordering = ('-can_withdraw', '-can_deposit')
 
 
+class NetworkAssetFilter(admin.SimpleListFilter):
+    title = 'فعال'
+    parameter_name = 'active'
+
+    def lookups(self, request, model_admin):
+        return [('yes', 'بله'), ('no', 'خیر')]
+
+    def queryset(self, request, queryset):
+        active = request.GET.get('active')
+
+        if active is not None:
+            q = Q(asset__enable=True) & \
+                (Q(can_deposit=True, network__can_deposit=True) | Q(can_withdraw=True, network__can_withdraw=True))
+
+            if active != 'yes':
+                q = ~q
+
+            queryset = queryset.filter(q)
+
+        return queryset
+
+
 @admin.register(NetworkAsset)
 class NetworkAssetAdmin(admin.ModelAdmin):
     list_display = ('network', 'asset', 'get_withdraw_fee', 'get_withdraw_min', 'get_withdraw_max', 'get_deposit_min',
-                    'can_deposit', 'can_withdraw', 'allow_provider_withdraw', 'hedger_withdraw_enable',
-                    'update_fee_with_provider', 'last_provider_update', 'expected_hw_balance')
+                    'can_deposit', 'can_withdraw', 'update_fee_with_provider', 'last_provider_update',
+                    'expected_hw_balance', 'hedger_withdraw_enable', 'hedger_deposit_enable',)
     search_fields = ('asset__symbol',)
-    list_editable = ('can_deposit', 'can_withdraw', 'allow_provider_withdraw', 'hedger_withdraw_enable',
-                     'update_fee_with_provider', 'expected_hw_balance')
-    list_filter = ('can_deposit', 'can_withdraw', 'network', 'allow_provider_withdraw', 'hedger_withdraw_enable',
-                   'update_fee_with_provider', )
+    list_editable = ('can_deposit', 'can_withdraw', 'update_fee_with_provider', 'expected_hw_balance')
+    list_filter = (NetworkAssetFilter, 'can_deposit', 'can_withdraw', 'network',
+                   'update_fee_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable')
     actions = ('update_fees', )
 
     @admin.display(description='withdraw_fee', ordering='withdraw_fee')
@@ -247,7 +268,7 @@ class NetworkAssetAdmin(admin.ModelAdmin):
     def get_deposit_min(self, network_asset: NetworkAsset):
         return get_presentation_amount(network_asset.deposit_min)
 
-    @admin.action(description='Update Fees', permissions=['change'])
+    @admin.action(description='Update With Provider', permissions=['change'])
     def update_fees(self, request, queryset):
         update_network_fees(queryset)
 
@@ -272,7 +293,7 @@ class DepositAddressAdmin(admin.ModelAdmin):
     list_display = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     readonly_fields = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     list_filter = ('network', DepositAddressUserFilter)
-    search_fields = ('address',)
+    search_fields = ('address', 'address_key__account__user__phone', 'address_key__memo')
 
     @admin.display(description='memo')
     def get_memo(self, deposit_address: models.DepositAddress):
@@ -529,7 +550,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     )
     exclude = ('risks',)
 
-    actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit')
+    actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit', 'refund_deposit')
 
     def save_model(self, request, obj: models.Transfer, form, change):
         if obj.id and obj.status == DONE:
@@ -624,6 +645,11 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     def reject_deposit(self, request, queryset):
         for transfer in queryset.filter(deposit=False, status=INIT):
             transfer.reject()
+
+    @admin.action(description='Refund Deposit', permissions=['change'])
+    def refund_deposit(self, request, queryset):
+        for transfer in queryset.filter(deposit=True, status=DONE):
+            transfer.revert()
 
 
 class CryptoAccountTypeFilter(SimpleListFilter):
@@ -985,38 +1011,38 @@ class AlertTriggerAdmin(admin.ModelAdmin):
 
 @admin.register(DepositRecoveryRequest)
 class DepositRecoveryRequestAdmin(admin.ModelAdmin):
-    list_display = ('coin', 'amount', 'get_description',)
-    list_filter = ('status', 'coin',)
-    readonly_fields = ('created', 'status', 'user', 'receiver_address', 'coin', 'network', 'amount', 'image',)
-    actions = ('accept_requests', 'reject_requests', 'final_accept_requests',)
+    list_display = ('created', 'asset', 'network', 'amount', 'memo', 'status', 'get_user')
+    list_filter = ('status', 'asset',)
+    readonly_fields = ('created', 'image', 'verifier')
+    actions = ('verify_requests', 'reject_requests', 'accept_requests',)
     raw_id_fields = ('user',)
+    search_fields = ('asset__symbol', 'network__symbol', 'user__phone', 'receiver_address', 'trx_hash')
 
-    @admin.display(description='description')
-    def get_description(self, deposit_request: DepositRecoveryRequest):
-        n = 300
-        description = deposit_request.description
-        if len(description) > n:
-            return description[:n] + '...'
-        else:
-            return description
+    @admin.display(description='User')
+    def get_user(self, deposit_recovery: DepositRecoveryRequest):
+        user = deposit_recovery.user
+        link = url_to_edit_object(user)
+        return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
 
     @admin.action(description='تایید نهایی', permissions=['change'])
-    def final_accept_requests(self, request, queryset):
+    def accept_requests(self, request, queryset):
         qs = queryset.filter(status=PENDING)
         for req in qs:
             req.create_transfer()
 
     @admin.action(description='تایید اولیه', permissions=['view'])
-    def accept_requests(self, request, queryset):
-        qs = queryset.filter(status=PROCESS)
-        for req in qs:
-            req.accept()
+    def verify_requests(self, request, queryset):
+        queryset.filter(status=PROCESS).update(
+            status=PENDING,
+            verifier=request.user
+        )
 
     @admin.action(description='رد اطلاعات', permissions=['view'])
     def reject_requests(self, request, queryset):
-        qs = queryset.filter(status=PROCESS)
-        for req in qs:
-            req.reject()
+        queryset.filter(status=PROCESS).update(
+            status=CANCELED,
+            verifier=request.user
+        )
 
 
 @admin.register(TokenRebrand)

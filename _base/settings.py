@@ -392,4 +392,5 @@ TINYMCE_JS_URL = os.path.join(MINIO_STORAGE_STATIC_URL, "tinymce/tinymce.min.js"
 
 EXCLUSIVE_SMS_NUMBER = config('EXCLUSIVE_SMS_NUMBER', default=None)
 
-LOGIN_URL = PANEL_URL + '/auth/login'
+LOGIN_URL = PANEL_URL + '/auth/login/'
+LOGIN_REDIRECT_URL = '/admin/'

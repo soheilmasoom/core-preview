@@ -104,7 +104,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
 
     fieldsets = (
         ('اطلاعات درخواست', {'fields': ('created', 'status', 'amount', 'fee_amount', 'ref_id', 'bank_account',
-         'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time', 'gateway', 'get_risks')}),
+         'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time', 'gateway', 'get_risks', 'accepted_by')}),
         ('اطلاعات کاربر', {'fields': (
             'get_withdraw_request_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
         )}),
@@ -116,6 +116,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
         'created', 'bank_account', 'amount', 'get_withdraw_request_iban', 'fee_amount', 'get_risks',
         'get_withdraw_request_user', 'get_withdraw_request_receive_time', 'get_user', 'login_activity',
         'get_withdraw_request_receive_time', 'get_withdraw_request_withdraw_time', 'status', 'ref_id', 'gateway',
+        'accepted_by', 'accepted_datetime'
     )
     search_fields = ('bank_account__iban', 'bank_account__user__phone', 'group_id', 'ref_id')
 
@@ -435,7 +436,7 @@ class MarketingCostAdmin(admin.ModelAdmin):
 
 
 class ManualTransferForm(forms.ModelForm):
-    otp = forms.IntegerField(required=False)
+    otp = forms.IntegerField(required=True)
 
     class Meta:
         model = ManualTransfer
@@ -450,7 +451,7 @@ class ManualTransferAdmin(admin.ModelAdmin):
     readonly_fields = ('status', 'group_id', 'ref_id')
 
     def save_model(self, request, obj: ManualTransfer, form, change):
-        totp = form.cleaned_data.pop('otp', None)
+        totp = form.cleaned_data['otp']
         device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
 
         if not (device and device.verify_token(totp)) and not settings.DEBUG_OR_TESTING_OR_STAGING:

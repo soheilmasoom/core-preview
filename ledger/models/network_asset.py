@@ -24,11 +24,11 @@ class NetworkAsset(models.Model):
     withdraw_max = get_amount_field()
     withdraw_precision = models.PositiveSmallIntegerField()
 
-    hedger_withdraw_enable = models.BooleanField(default=True)
-    hedger_deposit_enable = models.BooleanField(default=True)
+    hedger_withdraw_enable = models.BooleanField(default=False)
+    hedger_deposit_enable = models.BooleanField(default=False)
 
     can_deposit = models.BooleanField(default=False)
-    can_withdraw = models.BooleanField(default=True)
+    can_withdraw = models.BooleanField(default=False)
 
     allow_provider_withdraw = models.BooleanField(default=True)
     update_fee_with_provider = models.BooleanField(default=True)
@@ -58,15 +58,23 @@ class NetworkAsset(models.Model):
     class Meta:
         unique_together = ('asset', 'network')
         constraints = [
-            CheckConstraint(check=Q(withdraw_fee__gte=0, withdraw_min__gte=0, withdraw_max__gte=0), name='check_ledger_network_amounts', ),
+            CheckConstraint(
+                check=Q(withdraw_fee__gte=0, withdraw_min__gte=0, withdraw_max__gte=0),
+                name='check_ledger_network_amounts'
+            ),
         ]
 
     def update_with_provider(self, info: NetworkInfo, now: datetime):
-        symbol_pair = (self.network.symbol, self.asset.symbol)
-        withdraw_fee = info.withdraw_fee
-        withdraw_min = info.withdraw_min
+        self.hedger_withdraw_enable = info.withdraw_enable
+        self.hedger_deposit_enable = info.deposit_enable
+        self.last_provider_update = now
 
-        if symbol_pair not in [('TRX', 'USDT'), ('TRX', 'TRX'), ('BSC', 'USDT'), ('BNB', 'USDT'), ('SOL', 'USDT')]:
+        to_update_fields = ['hedger_withdraw_enable', 'hedger_deposit_enable', 'last_provider_update']
+
+        if self.update_fee_with_provider:
+            withdraw_fee = info.withdraw_fee
+            withdraw_min = info.withdraw_min
+
             withdraw_fee *= Decimal('1.5')
             withdraw_min = max(withdraw_min, 2 * withdraw_fee)
 
@@ -85,14 +93,10 @@ class NetworkAsset(models.Model):
                 info.withdraw_min + withdraw_fee - info.withdraw_fee
             )
 
-        self.withdraw_fee = withdraw_fee
-        self.withdraw_min = withdraw_min
-        self.withdraw_max = info.withdraw_max
-        self.hedger_withdraw_enable = info.withdraw_enable
-        self.hedger_deposit_enable = info.deposit_enable
-        self.last_provider_update = now
+            self.withdraw_fee = withdraw_fee
+            self.withdraw_min = withdraw_min
+            self.withdraw_max = info.withdraw_max
 
-        self.save(update_fields=[
-            'withdraw_fee', 'withdraw_min', 'withdraw_max', 'hedger_withdraw_enable', 'hedger_deposit_enable',
-            'last_provider_update',
-        ])
+            to_update_fields.extend(['withdraw_fee', 'withdraw_min', 'withdraw_max'])
+
+        self.save(update_fields=to_update_fields)

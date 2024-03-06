@@ -3,7 +3,7 @@ from .asset_alert_view import AssetAlertViewSet, BulkAssetAlertViewSet, PriceNot
 from .asset_info_view import AssetsViewSet, AssetOverviewAPIView, MarginAssetInterestView
 from .asset_info_view import AssetsViewSet, AssetOverviewAPIView
 from .balance_information import BalanceInfoView
-from .bookmark_asset import BookmarkAssetsAPIView
+from .bookmark_asset import BookmarkAssetsViewSet
 from .coin_category_list_view import CoinCategoryListView
 from .deposit_address_view import DepositAddressView
 from .deposit_address_view import DepositAddressView

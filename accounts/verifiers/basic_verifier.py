@@ -264,7 +264,7 @@ def verify_bank_account(bank_account: BankAccount, retry: int = 2) -> Union[bool
 
     verified = False
 
-    if len(owners) >= 1:
+    if bank_account.deposit_status == BankAccount.ACTIVE and len(owners) >= 1:
         owner = owners[0]
         owner_full_name = owner['firstName'] + ' ' + owner['lastName']
         verified = name_similarity(owner_full_name, user.get_legal_name())

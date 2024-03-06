@@ -56,7 +56,11 @@ def get_fiat_withdraw_risks(withdraw: FiatWithdrawRequest) -> list:
             )
         )
 
-    total_withdraws = FiatWithdrawRequest.objects.exclude(status=CANCELED).aggregate(sum=Sum('amount'))['sum'] or 0
+    total_withdraws = FiatWithdrawRequest.objects.filter(
+        bank_account__user=user
+    ).exclude(
+        status=CANCELED
+    ).aggregate(sum=Sum('amount'))['sum'] or 0
     account_trade_volume = withdraw.bank_account.user.account.trade_volume_irt
 
     if total_withdraws > account_trade_volume * 2 and total_withdraws > 2_000_000:
