@@ -84,6 +84,8 @@ if settings.DEBUG_OR_TESTING:
             withdraw_precision=withdraw_precision,
             can_deposit=True,
             can_withdraw=True,
+            hedger_withdraw_enable=True,
+            hedger_deposit_enable=True
         )
         return network_asset
 
