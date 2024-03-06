@@ -118,12 +118,6 @@ class OrderAdmin(admin.ModelAdmin):
     def cancel_order(self, request, queryset):
         Order.cancel_orders(queryset.filter(status=Order.NEW))
 
-    def get_queryset(self, request):
-        qs = Order.objects.all()
-        if not any('status' in i for i in request.GET.keys()):
-            qs = qs.filter(status=Order.NEW)
-        return qs
-
 
 @admin.register(CancelRequest)
 class CancelRequestAdmin(admin.ModelAdmin):
