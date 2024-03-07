@@ -311,6 +311,10 @@ class MarginPosition(models.Model):
             to_close_amount = floor_precision(free_amount, self.symbol.step_size)
 
         liquidation_order = None
+        logger.info(f'Position:{self.id} liquidate amount:{to_close_amount} price:{price} side:{side} '
+                    f'to_close_amount:{to_close_amount} free_amount:{free_amount} loss_amount:{loss_amount} '
+                    f'charge_insurance:{charge_insurance}')
+
         if to_close_amount > 0:
             liquidation_order = new_order(
                 pipeline=pipeline,
@@ -336,6 +340,7 @@ class MarginPosition(models.Model):
                 logger.warning(f"Position:{self.id} charged in close mode !!!")
 
             if remaining_base_asset > 0 and loss_amount > 0:
+                logger.warning(f"Position:{self.id} charging")
                 pipeline.new_trx(
                     self.base_wallet,
                     self.get_insurance_wallet(),
@@ -345,7 +350,9 @@ class MarginPosition(models.Model):
                 )
                 charged_amount = min(loss_amount, remaining_base_asset) - loss_amount
         else:
-            if remaining_base_asset < 0:
+            if remaining_base_asset < 0 and charge_insurance:
+                logger.warning(f"Position:{self.id} charging")
+
                 pipeline.new_trx(
                     sender=self.get_insurance_wallet(),
                     receiver=self.base_wallet,
