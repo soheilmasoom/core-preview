@@ -34,6 +34,8 @@ class JibitCallbackView(TemplateView):
 
         if payment.status == PENDING:
             if status == 'FAILED':
+                logger.info(f'Jibit deposit (payment={payment.id}) canceled due to failed status')
+
                 payment.status = CANCELED
                 payment.save()
             else:

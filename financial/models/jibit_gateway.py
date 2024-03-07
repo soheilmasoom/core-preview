@@ -104,6 +104,7 @@ class JibitGateway(Gateway):
                 payment.accept(pipeline)
 
         else:
+            logger.info(f'Jibit deposit (payment={payment.id}) canceled due to verification: {status}')
             payment.status = CANCELED
             payment.save(update_fields=['status', 'ref_status'])
 
