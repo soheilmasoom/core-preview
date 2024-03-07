@@ -456,7 +456,7 @@ class WalletBalanceFilter(SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == 'non_zero':
-            queryset = queryset.filter(balance__gt=0)
+            queryset = queryset.exclude(balance=0)
         return queryset
 
 
