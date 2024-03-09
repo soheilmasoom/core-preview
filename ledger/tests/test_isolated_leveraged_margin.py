@@ -153,7 +153,6 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         assertion(negetive_wallets, Decimal('0'))
         assertion(mp.status, MarginPosition.CLOSED)
 
-
     def test_short_sell_3x(self):
         self.transfer_usdt_api(TO_TRANSFER_USDT / 2)
         loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE / 2
