@@ -185,22 +185,8 @@ class MarginClosePositionView(APIView):
 
         try:
             with WalletPipeline() as pipeline:
-                # PairSymbol.objects.select_for_update().get(id=position.symbol_id)
-                # position.liquidate(pipeline=pipeline, charge_insurance=False)
 
-                if position.side == SHORT:
-                    side = BUY
-                else:
-                    side = SELL
-
-                price = Order.get_market_price(position.symbol, Order.get_opposite_side(side))
-                if price:
-                    if side == BUY:
-                        price *= Decimal('0.95')
-                    else:
-                        price *= Decimal('1.05')
-                    price = floor_precision(price, position.symbol.step_size)
-
+                side = BUY if position.side == SHORT else SELL
                 amount = abs(position.asset_wallet.balance) * serializer.data.get('percentage', 100) / 100
 
                 new_order(
@@ -215,8 +201,7 @@ class MarginClosePositionView(APIView):
                     pass_min_notional=True,
                     order_type=Order.ORDINARY,
                     parent_lock_group_id=uuid4(),
-                    margin_position=position,
-                    price=price
+                    margin_position=position
                 )
 
                 return Response(200)
