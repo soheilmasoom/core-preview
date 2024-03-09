@@ -315,6 +315,7 @@ class MarginPosition(models.Model):
                     f'to_close_amount:{to_close_amount} free_amount:{free_amount} loss_amount:{loss_amount} '
                     f'charge_insurance:{charge_insurance}')
 
+        is_liquidation_order_filled = False
         if to_close_amount > 0:
             liquidation_order = new_order(
                 pipeline=pipeline,
@@ -330,6 +331,11 @@ class MarginPosition(models.Model):
                 parent_lock_group_id=group_id,
                 margin_position=self
             )
+            is_liquidation_order_filled = liquidation_order.filled_amount == liquidation_order.amount
+            if not is_liquidation_order_filled:
+                logger.info(f'position:{self.id} terminate position due to partial fill')
+                self.status = self.TERMINATING
+                self.save(update_fields=['status'])
 
         self.base_wallet.refresh_from_db()
         remaining_base_asset = self.base_wallet.balance + pipeline.get_wallet_balance_diff(self.base_wallet.id)
@@ -350,7 +356,7 @@ class MarginPosition(models.Model):
                 )
                 charged_amount = min(loss_amount, remaining_base_asset) - loss_amount
         else:
-            if remaining_base_asset < 0 and charge_insurance:
+            if remaining_base_asset < 0 and charge_insurance and is_liquidation_order_filled:
                 logger.warning(f"Position:{self.id} charging")
 
                 pipeline.new_trx(
@@ -370,7 +376,7 @@ class MarginPosition(models.Model):
                 type=MarginHistoryModel.INSURANCE_FEE
             )
 
-        if liquidation_order:
+        if liquidation_order and is_liquidation_order_filled:
             liquidation_order.refresh_from_db()
 
             if liquidation_order.filled_amount >= to_close_amount:
