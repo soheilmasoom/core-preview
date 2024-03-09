@@ -123,7 +123,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'bank_account', 'get_user', 'status', 'amount', 'gateway', 'ref_id')
 
     actions = ('accept_withdraw_request', 'reject_withdraw_request', 'refund', 'resend_withdraw_request',
-               'change_to_active_gateway')
+               'change_to_active_gateway', 'accept_manual')
 
     @admin.display(description='نام و نام خانوادگی')
     def get_withdraw_request_user(self, withdraw_request: FiatWithdrawRequest):
@@ -178,6 +178,13 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
 
         for fiat_withdraw in valid_qs:
             fiat_withdraw.refund()
+
+    @admin.action(description='Accept Manual', permissions=['change'])
+    def accept_manual(self, request, queryset):
+        valid_qs = queryset.filter(gateway__type=Gateway.MANUAL).exclude(ref_id='')
+
+        for fiat_withdraw in valid_qs:
+            fiat_withdraw.change_status(DONE)
 
     @admin.action(description='ارسال دوباره', permissions=['change'])
     def resend_withdraw_request(self, request, queryset):
