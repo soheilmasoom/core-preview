@@ -188,10 +188,9 @@ class MarginClosePositionView(APIView):
                 # PairSymbol.objects.select_for_update().get(id=position.symbol_id)
                 # position.liquidate(pipeline=pipeline, charge_insurance=False)
 
-                amount = position.asset_wallet.balance
+                amount = abs(position.asset_wallet.balance)
                 if position.side == SHORT:
                     side = BUY
-                    amount *= -1
                 else:
                     side = SELL
 
