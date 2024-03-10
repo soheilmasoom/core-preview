@@ -317,6 +317,14 @@ class MarginPosition(models.Model):
 
         is_liquidation_order_filled = False
         if to_close_amount > 0:
+            price = Order.get_market_price(self.symbol, Order.get_opposite_side(side))
+            if price:
+                if side == BUY:
+                    price *= Decimal('1.05')
+                else:
+                    price *= Decimal('0.95')
+                price = floor_precision(price, self.symbol.step_size)
+
             liquidation_order = new_order(
                 pipeline=pipeline,
                 symbol=self.symbol,
@@ -329,11 +337,15 @@ class MarginPosition(models.Model):
                 pass_min_notional=True,
                 order_type=Order.LIQUIDATION if charge_insurance else Order.ORDINARY,
                 parent_lock_group_id=group_id,
-                margin_position=self
+                margin_position=self,
+                price=price
             )
-            is_liquidation_order_filled = liquidation_order.filled_amount == liquidation_order.amount
+            liquidation_order.refresh_from_db()
+            is_liquidation_order_filled = liquidation_order.filled_amount == liquidation_order.amount and liquidation_order.status == Order.FILLED
             if not is_liquidation_order_filled:
-                logger.info(f'position:{self.id} terminate position due to partial fill')
+                logger.info(f'position:{self.id} terminate position due to partial fill, '
+                            f'{liquidation_order.filled_amount}/{liquidation_order.amount}')
+
                 self.status = self.TERMINATING
                 self.save(update_fields=['status'])
 
