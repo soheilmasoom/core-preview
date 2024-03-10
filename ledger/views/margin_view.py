@@ -122,7 +122,7 @@ class MarginTransferSerializer(serializers.ModelSerializer):
 
             if (base == Asset.USDT and user_total_equity >= sys_config.total_user_margin_usdt_base) or \
                     (base == Asset.IRT and user_total_equity >= sys_config.total_user_margin_irt_base):
-                raise ValidationError('Cant place margin order Due to reach total Equity limit')
+                raise ValidationError('Cant place margin order Due to reach total user Equity limit')
 
         if attrs['type'] in [MarginTransfer.POSITION_TO_MARGIN, MarginTransfer.MARGIN_TO_POSITION]:
             if symbol.base_asset != attrs['asset']:
