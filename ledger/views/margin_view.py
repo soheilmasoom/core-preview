@@ -189,9 +189,9 @@ class MarginPositionInfoView(APIView):
         sys_config = SystemConfig.get_system_config()
 
         if symbol_model.base_asset.symbol == USDT:
-            user_available_equity = user_total_equity - sys_config.total_user_margin_usdt_base
+            user_available_equity = sys_config.total_user_margin_usdt_base - user_total_equity
         else:
-            user_available_equity = user_total_equity - sys_config.total_user_margin_irt_base
+            user_available_equity = sys_config.total_user_margin_irt_base - user_total_equity
 
         user_available_equity = max(0, user_available_equity * Decimal('0.99'))
 
