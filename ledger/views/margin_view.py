@@ -19,7 +19,7 @@ from ledger.models import MarginTransfer, Asset, Wallet, MarginPosition, MarginL
 from ledger.models.asset import CoinField, AssetSerializerMini
 from ledger.models.margin import SymbolField
 from ledger.models.position import MarginHistoryModel
-from ledger.utils.external_price import LONG
+from ledger.utils.external_price import LONG, USDT
 from ledger.utils.fields import get_serializer_amount_field
 from ledger.utils.margin import check_margin_view_permission
 from ledger.utils.precision import floor_precision, get_presentation_amount, get_margin_coin_presentation_balance
@@ -179,15 +179,33 @@ class MarginPositionInfoView(APIView):
 
         margin_leverage, _ = MarginLeverage.objects.get_or_create(account=account)
 
+        user_total_equity = MarginPosition.objects.filter(
+            account=account,
+            status__in=[MarginPosition.TERMINATING, MarginPosition.OPEN],
+            symbol__base_asset=symbol_model.base_asset
+        ).annotate(base_asset_value=F('asset_wallet__balance') * F('symbol__last_trade_price')).\
+            aggregate(total_equity=Sum('base_asset_value') + Sum('base_wallet__balance'))['total_equity'] or 0
+
+        sys_config = SystemConfig.get_system_config()
+
+        if symbol_model.base_asset.symbol == USDT:
+            user_available_equity = user_total_equity - sys_config.total_user_margin_usdt_base
+        else:
+            user_available_equity = user_total_equity - sys_config.total_user_margin_irt_base
+
+        user_available_equity = max(0, user_available_equity * Decimal('0.99'))
+
         data = {
-            'max_buy_volume': free * margin_leverage.leverage,
-            'max_sell_volume': free * margin_leverage.leverage / symbol_model.last_trade_price
+            'max_buy_volume': min(free * margin_leverage.leverage, user_available_equity),
+            'max_sell_volume': min(free * margin_leverage.leverage / symbol_model.last_trade_price, user_available_equity)
         }
 
         data["max_buy_volume"] = get_margin_coin_presentation_balance(symbol_model.base_asset.symbol,
-                                                               max(Decimal('0'), data['max_buy_volume']) * Decimal('0.99'))
+                                                                      max(Decimal('0'),
+                                                                          data['max_buy_volume']) * Decimal('0.99'))
         data["max_sell_volume"] = get_margin_coin_presentation_balance(symbol_model.asset.symbol,
-                                                                max(Decimal('0'), data['max_sell_volume']) * Decimal('0.99'))
+                                                                       max(Decimal('0'),
+                                                                           data['max_sell_volume']) * Decimal('0.99'))
         return Response(data)
 
 
