@@ -197,7 +197,7 @@ class MarginPositionInfoView(APIView):
 
         data = {
             'max_buy_volume': min(free * margin_leverage.leverage, user_available_equity),
-            'max_sell_volume': min(free * margin_leverage.leverage / symbol_model.last_trade_price, user_available_equity)
+            'max_sell_volume': min(free * margin_leverage.leverage, user_available_equity) / symbol_model.last_trade_price,
         }
 
         data["max_buy_volume"] = get_margin_coin_presentation_balance(symbol_model.base_asset.symbol,
