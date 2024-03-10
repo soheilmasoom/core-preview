@@ -115,7 +115,7 @@ def check_margin_order(account, attrs):
 
         if (base == USDT and total_equity >= sys_config.total_margin_usdt_base) or \
                 (base == IRT and total_equity >= sys_config.total_margin_irt_base):
-            raise ValidationError('Cant place margin order Due to reach total Equity limit')
+            raise ValidationError('در حال حاضر امکان ایجاد موقعیت تعهدی وجود ندارد.')
 
         user_total_equity = MarginPosition.objects.filter(
             account=account,
@@ -129,4 +129,4 @@ def check_margin_order(account, attrs):
 
         if (base == USDT and user_total_equity >= sys_config.total_user_margin_usdt_base) or \
                 (base == IRT and user_total_equity >= sys_config.total_user_margin_irt_base):
-            raise ValidationError('Cant place margin order Due to reach total user Equity limit')
+            raise ValidationError('شما به سقف میزان سفارش تعهدی رسیده‌اید.')

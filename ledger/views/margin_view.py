@@ -109,21 +109,6 @@ class MarginTransferSerializer(serializers.ModelSerializer):
         if attrs['type'] not in [MarginTransfer.SPOT_TO_MARGIN, MarginTransfer.MARGIN_TO_SPOT] and not symbol:
             raise ValidationError({'symbol': 'بازار را وارد کنید'})
 
-        if attrs['type'] == MarginTransfer.SPOT_TO_MARGIN:
-            user_total_equity = MarginPosition.objects.filter(
-                account=self.context['request'].user.get_account(),
-                status__in=[MarginPosition.TERMINATING, MarginPosition.OPEN],
-                symbol__base_asset=attrs.get('asset')
-            ).annotate(base_asset_value=F('asset_wallet__balance') * F('symbol__last_trade_price')).\
-                aggregate(total_equity=Sum('base_asset_value') + Sum('base_wallet__balance'))['total_equity'] or 0
-
-            base = attrs.get('asset').symbol
-            sys_config = SystemConfig.get_system_config()
-
-            if (base == Asset.USDT and user_total_equity >= sys_config.total_user_margin_usdt_base) or \
-                    (base == Asset.IRT and user_total_equity >= sys_config.total_user_margin_irt_base):
-                raise ValidationError('Cant place margin order Due to reach total user Equity limit')
-
         if attrs['type'] in [MarginTransfer.POSITION_TO_MARGIN, MarginTransfer.MARGIN_TO_POSITION]:
             if symbol.base_asset != attrs['asset']:
                 asset = symbol.base_asset.name_fa
