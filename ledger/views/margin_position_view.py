@@ -1,4 +1,5 @@
 from decimal import Decimal
+from uuid import uuid4
 
 import django_filters
 from django.db.models import Sum
@@ -11,13 +12,14 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from ledger.exceptions import SmallDepthError, InsufficientBalance
-from ledger.models import MarginPosition, MarginHistoryModel
+from ledger.models import MarginPosition, MarginHistoryModel, Wallet
 from ledger.models.asset import AssetSerializerMini
-from ledger.utils.external_price import SHORT, LONG
+from ledger.utils.external_price import SHORT, LONG, SELL, BUY
 from ledger.utils.precision import floor_precision, get_margin_coin_presentation_balance
 from ledger.utils.wallet_pipeline import WalletPipeline
 from market.models import Order, PairSymbol
 from market.serializers.symbol_serializer import SymbolSerializer
+from market.utils.order_utils import new_order
 
 
 class MarginPositionSerializer(AssetSerializerMini):
@@ -151,6 +153,7 @@ class MarginPositionViewSet(ModelViewSet):
 
 class MarginClosePositionSerializer(serializers.Serializer):
     id = serializers.IntegerField()
+    percentage = serializers.IntegerField(min_value=1, max_value=100, default=100, required=False)
 
     def __init__(self, *args, **kwargs):
         super(MarginClosePositionSerializer, self).__init__(*args, **kwargs)
@@ -182,8 +185,26 @@ class MarginClosePositionView(APIView):
 
         try:
             with WalletPipeline() as pipeline:
-                PairSymbol.objects.select_for_update().get(id=position.symbol_id)
-                position.liquidate(pipeline=pipeline, charge_insurance=False)
+
+                side = BUY if position.side == SHORT else SELL
+                amount = abs(position.asset_wallet.balance) * serializer.data.get('percentage', 100) / 100
+
+                new_order(
+                    pipeline=pipeline,
+                    symbol=position.symbol,
+                    account=position.account,
+                    amount=amount,
+                    fill_type=Order.MARKET,
+                    side=side,
+                    market=Wallet.MARGIN,
+                    variant=position.group_id,
+                    pass_min_notional=True,
+                    order_type=Order.ORDINARY,
+                    parent_lock_group_id=uuid4(),
+                    margin_position=position
+                )
+
+                return Response(200)
         except SmallDepthError:
             return Response({'Error': 'به علت عمق کم بازار معامله انجام نشد'}, 400)
         except InsufficientBalance:
