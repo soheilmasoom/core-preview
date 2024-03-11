@@ -87,7 +87,7 @@ class DepositSerializer(serializers.ModelSerializer):
 
         network_asset = get_object_or_404(NetworkAsset, asset=asset, network=network)
 
-        if not network_asset.can_deposit_enabled():
+        if not network_asset.can_deposit_enabled(check_provider=False):
             raise ValidationError({'deposit_enable': 'false'})
 
         status = validated_data.get('status')
@@ -146,11 +146,24 @@ class DepositSerializer(serializers.ModelSerializer):
 
             transfer.alert_user()
 
-        if not verify_crypto_deposit(transfer):
+        description = ''
+
+        if not network_asset.can_deposit_enabled():
             status = INIT
+            description = 'init reason: provider deposit is not enable!'
+
+        elif not verify_crypto_deposit(transfer):
+            status = INIT
+            description = 'init reason: crypto verify failed!'
+
+        if status == INIT:
             send_system_message("Verify deposit: %s" % transfer, link=url_to_edit_object(transfer))
 
         transfer.change_status(status)
+
+        if description:
+            transfer.comment = description
+            transfer.save(update_fields=['comment'])
 
         return transfer
 

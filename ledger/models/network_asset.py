@@ -43,11 +43,15 @@ class NetworkAsset(models.Model):
 
     max_allowed_daily_deposit_value = models.PositiveIntegerField(null=True, blank=True)
 
-    def can_deposit_enabled(self) -> bool:
-        return self.network.can_deposit and self.can_deposit and self.hedger_deposit_enable
+    def can_deposit_enabled(self, check_provider: bool = True) -> bool:
+        system_enable = self.network.can_deposit and self.can_deposit
 
-    def can_withdraw_enabled(self) -> bool:
-        return self.network.can_withdraw and self.can_withdraw and self.hedger_withdraw_enable
+        return system_enable and (not check_provider or self.hedger_deposit_enable)
+
+    def can_withdraw_enabled(self, check_provider: bool = True) -> bool:
+        system_enable = self.network.can_withdraw and self.can_withdraw
+
+        return system_enable and (not check_provider or self.hedger_withdraw_enable)
 
     def get_min_deposit(self) -> Union[Decimal, None]:
         return self.deposit_min
