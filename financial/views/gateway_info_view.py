@@ -58,7 +58,7 @@ class GatewaySerializer(serializers.ModelSerializer):
 
     def get_suspended(self, gateway):
         if not gateway.suspended and SystemConfig.get_system_config().limit_ipg_to_users_without_payment:
-            return self.context['request'].user.first_fiat_deposit_date is None
+            return self.context['request'].user.get_fiat_deposits() < 10_000_000
 
         return gateway.suspended
 

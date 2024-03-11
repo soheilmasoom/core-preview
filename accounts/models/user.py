@@ -25,6 +25,7 @@ from accounts.utils.telegram import send_support_message
 from accounts.utils.validation import PHONE_MAX_LENGTH
 from accounts.validators import mobile_number_validator, national_card_code_validator, telephone_number_validator
 from accounts.utils.mask import get_masked_phone
+from ledger.utils.fields import DONE
 
 
 class CustomUserManager(UserManager):
@@ -418,6 +419,11 @@ class User(AbstractUser):
             return company.name
         else:
             return self.get_full_name()
+
+    def get_fiat_deposits(self) -> int:
+        from financial.models import Payment
+
+        return Payment.objects.filter(user=self, status=DONE).aggregate(s=Sum('amount'))['s'] or 0
 
 
 @receiver(post_save, sender=User)

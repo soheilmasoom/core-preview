@@ -37,7 +37,7 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
         suspended = gateway.suspended
 
         if not suspended and SystemConfig.get_system_config().limit_ipg_to_users_without_payment:
-            suspended = user.first_fiat_deposit_date is None
+            suspended = user.get_fiat_deposits() < 10_000_000
 
         if suspended:
             raise ValidationError('در حال حاضر امکان واریز ریال، فقط به صورت شناسه واریز وجود دارد. برای استفاده از این امکان از نسخه وب صرافی استفاده کنید.')
