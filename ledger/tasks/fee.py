@@ -13,10 +13,7 @@ logger = logging.getLogger()
 @shared_task(queue='celery')
 def update_network_fees(network_assets: QuerySet = None):
     if not network_assets:
-        network_assets = NetworkAsset.objects.filter(
-            Q(can_withdraw=True, network__can_withdraw=True) | Q(can_deposit=True, network__can_deposit=True),
-            asset__enable=True,
-        ).distinct()
+        network_assets = NetworkAsset.objects.filter(NetworkAsset.get_active_q()).distinct()
 
     now = timezone.now()
 

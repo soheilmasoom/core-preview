@@ -56,6 +56,16 @@ class NetworkAsset(models.Model):
     def get_min_deposit(self) -> Union[Decimal, None]:
         return self.deposit_min
 
+    @classmethod
+    def get_active_q(cls, active: bool = True) -> Q:
+        q = Q(asset__enable=True) & \
+            (Q(can_deposit=True, network__can_deposit=True) | Q(can_withdraw=True, network__can_withdraw=True))
+
+        if not active:
+            q = ~q
+
+        return q
+
     def __str__(self):
         return '%s - %s' % (self.network, self.asset)
 

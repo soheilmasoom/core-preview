@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -30,7 +33,15 @@ class PriceHealthView(APIView):
                     missing_prices.append(s)
 
         if missing_prices:
-            errors['missing prices'] = missing_prices
+            errors['missing_prices'] = missing_prices
+
+        stale_network_assets = NetworkAsset.objects.filter(
+            NetworkAsset.get_active_q(),
+            last_provider_update__lt=timezone.now() - timedelta(hours=6)
+        ).count()
+
+        if stale_network_assets:
+            errors['stale_network_assets'] = stale_network_assets
 
         if errors:
             return Response({'status': 'dead', 'errors': errors})

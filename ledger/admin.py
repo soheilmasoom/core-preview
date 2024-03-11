@@ -230,13 +230,7 @@ class NetworkAssetFilter(admin.SimpleListFilter):
         active = request.GET.get('active')
 
         if active is not None:
-            q = Q(asset__enable=True) & \
-                (Q(can_deposit=True, network__can_deposit=True) | Q(can_withdraw=True, network__can_withdraw=True))
-
-            if active != 'yes':
-                q = ~q
-
-            queryset = queryset.filter(q)
+            queryset = queryset.filter(NetworkAsset.get_active_q(active=active == 'yes'))
 
         return queryset
 
