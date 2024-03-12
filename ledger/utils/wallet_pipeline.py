@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from decimal import Decimal
 from typing import Union
@@ -11,6 +12,8 @@ from market.utils.redis import MarketStreamCache
 
 DECIMAL = 8
 
+logger = logging.getLogger(__name__)
+
 
 def sorted_flatten_dict(data: dict) -> list:
     if not data:
@@ -22,7 +25,7 @@ def sorted_flatten_dict(data: dict) -> list:
 class WalletPipeline(Atomic):
     TRADE, WITHDRAW, STAKE = 'trade', 'withdraw', 'stake'
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = True):
         super(WalletPipeline, self).__init__(using=None, savepoint=True, durable=False)
         self.verbose = verbose
 
@@ -190,10 +193,10 @@ class WalletPipeline(Atomic):
 
     def _execute(self):
         if self.verbose:
-            print('wallet_update', self._build_wallet_updates())
-            print('lock_update', self._build_lock_updates())
-            print('new locks count', len(self._locks))
-            print('new trxs', len(self._trxs))
+            logger.info('wallet_update: ', self._build_wallet_updates())
+            logger.info('lock_update: ', self._build_lock_updates())
+            logger.info('new locks: ', self._locks)
+            logger.info('new trxs len: ', len(self._trxs))
 
         from ledger.models import Wallet, BalanceLock, Trx
 
@@ -210,4 +213,3 @@ class WalletPipeline(Atomic):
             BalanceLock.objects.bulk_create(list(self._locks.values()))
 
         self._market_cache.execute()
-
