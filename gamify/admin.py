@@ -73,10 +73,11 @@ class UserMissionExpiredFilter(SimpleListFilter):
 
 @admin.register(UserMission)
 class UserMissionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'mission', 'finished', 'expired', 'get_expiration')
+    list_display = ('created', 'user', 'mission', 'finished', 'expired', 'get_expiration')
     list_filter = ('mission', 'finished', UserMissionExpiredFilter)
     actions = ('check_achievement', )
     raw_id_fields = ('user', )
+    search_fields = ('user__phone', )
 
     @admin.display(description='expiration', ordering='mission__expiration')
     def get_expiration(self, user_mission: UserMission):
