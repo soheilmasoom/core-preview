@@ -193,10 +193,10 @@ class WalletPipeline(Atomic):
 
     def _execute(self):
         if self.verbose:
-            logger.info('wallet_update: ', self._build_wallet_updates())
-            logger.info('lock_update: ', self._build_lock_updates())
-            logger.info('new locks: ', self._locks)
-            logger.info('new trxs len: ', len(self._trxs))
+            logger.info(f'wallet_update: {self._build_wallet_updates()}')
+            logger.info(f'lock_update: {self._build_lock_updates()}')
+            logger.info(f'new locks: {self._locks}')
+            logger.info(f'new trxs len: {len(self._trxs)}')
 
         from ledger.models import Wallet, BalanceLock, Trx
 
