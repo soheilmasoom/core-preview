@@ -17,6 +17,8 @@ from financial.models.bank_card import BankCard, BankAccount
 from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
 from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_crypto_withdraw_irt_value
+from gamify.models import Task
+from gamify.utils import check_prize_achievements
 from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import PENDING
@@ -333,7 +335,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     ordering = ('-id', )
     actions = (
         'verify_user_name', 'reject_user_name', 'archive_users', 'unarchive_users', 'reevaluate_basic_verify',
-        'verify_user', 'reject_user'
+        'verify_user', 'reject_user', 'check_achievements'
     )
     readonly_fields = (
         'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet',
@@ -399,6 +401,14 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     @admin.action(description='خارج کردن از بایگانی', permissions=['view'])
     def unarchive_users(self, request, queryset):
         queryset.update(archived=False)
+
+    @admin.action(description='بررسی جایزه ماموریت‌ها', permissions=['view'])
+    def check_achievements(self, request, queryset):
+        for user in queryset:
+            account = user.get_account()
+
+            for task_type in Task.TYPES:
+                check_prize_achievements(account, task_type)
 
     @admin.display(description='2fa', boolean=True)
     def is_2fa_active(self, user: User):

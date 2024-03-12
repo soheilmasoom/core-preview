@@ -186,20 +186,13 @@ class Achievement(models.Model):
 
 
 class Task(models.Model):
-    VERIFY_LEVEL2 = 'verify_level2'
-    DEPOSIT = 'deposit'
-    TRADE = 'trade'
-    WEEKLY_TRADE = 'weekly_trade'
-    REFERRAL = 'referral'
-    SET_EMAIL = 'set_email'
-
-    SCOPE_CHOICES = ((VERIFY_LEVEL2, VERIFY_LEVEL2), (DEPOSIT, DEPOSIT), (TRADE, TRADE), (REFERRAL, REFERRAL),
-                    (SET_EMAIL, SET_EMAIL), (WEEKLY_TRADE, WEEKLY_TRADE))
+    TYPES = VERIFY_LEVEL2, DEPOSIT, TRADE, WEEKLY_TRADE, REFERRAL, SET_EMAIL = \
+        'verify_level2', 'deposit', 'trade', 'weekly_trade', 'referral', 'set_email'
 
     BOOL, NUMBER = 'bool', 'number'
 
     mission = models.ForeignKey(MissionTemplate, on_delete=models.CASCADE)
-    scope = models.CharField(max_length=16, choices=SCOPE_CHOICES)
+    scope = models.CharField(max_length=16, choices=[(s, s) for s in TYPES])
 
     order = models.PositiveSmallIntegerField(default=0)
     type = models.CharField(max_length=8, default=NUMBER, choices=((BOOL, BOOL), (NUMBER, NUMBER)))
