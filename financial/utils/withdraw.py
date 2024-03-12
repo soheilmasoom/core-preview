@@ -11,7 +11,7 @@ import requests
 from django.core.cache import cache
 from django.utils import timezone
 
-from accounts.verifiers.utils import Response
+from accounts.verifiers.utils import Response, ServerError
 from financial.models import Gateway, PaymentRequest
 from financial.models.withdraw_request import BaseTransfer
 from financial.utils.ach import next_ach_clear_time
@@ -20,10 +20,6 @@ from financial.utils.withdraw_limit import is_holiday, time_in_range
 from ledger.utils.fields import PENDING, DONE, CANCELED
 
 logger = logging.getLogger(__name__)
-
-
-class ServerError(Exception):
-    pass
 
 
 class ProviderError(Exception):
@@ -632,7 +628,7 @@ class JibimoChannel(FiatWithdraw):
 
     def get_wallet_data(self) -> Wallet:
         resp = self.collect_api('/v2/business/refresh')
-        user = resp.data['user']
+        user = resp.get_success_data()['user']
 
         balance = int(float(user['balance']) - float(user['reserved']))
 

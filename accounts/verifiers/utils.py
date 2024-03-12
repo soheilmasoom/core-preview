@@ -3,7 +3,9 @@ from typing import Union
 
 from django.utils.baseconv import base64
 
-from accounts.verifiers.finotech import ServerError
+
+class ServerError(Exception):
+    pass
 
 
 @dataclass

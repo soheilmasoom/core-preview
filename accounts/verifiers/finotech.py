@@ -19,10 +19,6 @@ token_cache = caches['token']
 FINOTECH_TOKEN_KEY = 'finotech-token'
 
 
-class ServerError(Exception):
-    pass
-
-
 class FinotechRequester:
     def __init__(self, user):
         self._user = user

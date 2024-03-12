@@ -5,7 +5,9 @@ from decimal import Decimal
 from django.utils import timezone
 
 from accounting.models import Vault, Account
+from accounting.models.periodic_fetcher import FetchError
 from accounting.models.vault import VaultData, AssetPrice, VaultItem, ReservedAsset
+from accounts.verifiers.utils import ServerError
 from financial.models import Gateway
 from financial.utils.withdraw import FiatWithdraw
 from ledger.models import Asset
@@ -79,9 +81,11 @@ def update_provider_vaults(now: datetime, prices: dict):
 
 
 def update_hot_wallet_vault(now: datetime, prices: dict):
-    logger.info('updating hotwallet vaults')
-
-    data = get_internal_asset_deposits()
+    try:
+        data = get_internal_asset_deposits()
+    except FetchError:
+        logger.info('updating hot wallet vaults ignored due to fetch error')
+        return
 
     vault, _ = Vault.objects.get_or_create(
         type=Vault.HOT_WALLET,
@@ -112,8 +116,6 @@ def update_hot_wallet_vault(now: datetime, prices: dict):
 
 
 def update_gateway_vaults(now: datetime, prices: dict):
-    logger.info('updating gateway vaults')
-
     for gateway in Gateway.objects.exclude(withdraw_api_secret_encrypted=''):
         vault, _ = Vault.objects.get_or_create(
             type=Vault.GATEWAY,
@@ -125,22 +127,24 @@ def update_gateway_vaults(now: datetime, prices: dict):
             }
         )
 
-        try:
-            handler = FiatWithdraw.get_withdraw_channel(gateway)
-            wallet = handler.get_wallet_data()
-            balance = Decimal(wallet.balance)
+        handler = FiatWithdraw.get_withdraw_channel(gateway)
 
-            vault.update_vault_all_items(now, [
-                VaultData(
-                    coin=Asset.IRT,
-                    balance=balance,
-                    free=Decimal(wallet.free),
-                    value_usdt=balance / prices[USDT_IRT],
-                    value_irt=balance
-                )
-            ])
-        except:
-            pass
+        try:
+            wallet = handler.get_wallet_data()
+        except (ServerError, TimeoutError):
+            continue
+
+        balance = Decimal(wallet.balance)
+
+        vault.update_vault_all_items(now, [
+            VaultData(
+                coin=Asset.IRT,
+                balance=balance,
+                free=Decimal(wallet.free),
+                value_usdt=balance / prices[USDT_IRT],
+                value_irt=balance
+            )
+        ])
 
 
 def update_cold_wallet_vaults(now: datetime, prices: dict):

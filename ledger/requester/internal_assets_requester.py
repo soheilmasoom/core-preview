@@ -4,6 +4,7 @@ from decimal import Decimal
 import requests
 from django.conf import settings
 
+from accounting.models.periodic_fetcher import FetchError
 from ledger.utils.cache import cache_for
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,10 @@ class InternalAssetsRequester:
             timeout=30
         )
 
-        if resp.ok:
-            return resp.json()
+        if not resp.ok:
+            raise FetchError
+
+        return resp.json()
 
     def get_hot_wallets(self) -> list:
         if settings.DEBUG_OR_TESTING_OR_STAGING:
@@ -44,8 +47,10 @@ class InternalAssetsRequester:
             timeout=30
         )
 
-        if resp.ok:
-            return resp.json()
+        if not resp.ok:
+            raise FetchError
+
+        return resp.json()
 
 
 @cache_for(60)

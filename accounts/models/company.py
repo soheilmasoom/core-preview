@@ -5,6 +5,7 @@ from django.db import models, transaction
 from accounts.utils.similarity import clean_persian_name
 from accounts.validators import company_national_id_validator
 from accounts.models import User
+from accounts.verifiers.utils import ServerError
 from ledger.utils.fields import get_verify_status_field, REJECTED, VERIFIED
 
 import logging
@@ -35,7 +36,6 @@ class Company(models.Model):
     status = get_verify_status_field()
 
     def verify_and_fetch_company_data(self, retry: int = 2):
-        from accounts.verifiers.finotech import ServerError
         from accounts.verifiers.zibal import ZibalRequester
         requester = ZibalRequester(user=self.user)
         try:
