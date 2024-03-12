@@ -138,10 +138,12 @@ class MissionsAPIView(ListAPIView):
     serializer_class = UserMissionSerializer
 
     def get_queryset(self):
-        if is_app(self.request):
-            return UserMission.objects.filter(user=self.request.user, mission__achievement__asset__isnull=False)
+        queryset = UserMission.objects.filter(user=self.request.user)
 
-        return UserMission.objects.filter(user=self.request.user)
+        if is_app(self.request):
+            queryset = queryset.filter(mission__achievement__asset__isnull=False)
+
+        return queryset
 
 
 class ActiveMissionsAPIView(RetrieveAPIView):

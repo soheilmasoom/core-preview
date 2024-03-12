@@ -405,10 +405,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     @admin.action(description='بررسی جایزه ماموریت‌ها', permissions=['view'])
     def check_achievements(self, request, queryset):
         for user in queryset:
-            account = user.get_account()
-
-            for task_type in Task.TYPES:
-                check_prize_achievements(account, task_type)
+            check_prize_achievements(user.get_account())
 
     @admin.display(description='2fa', boolean=True)
     def is_2fa_active(self, user: User):

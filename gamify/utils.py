@@ -24,7 +24,6 @@ def check_prize_achievements(account: Account, task_scope: str = None):
     try:
         user_missions = UserMission.objects.filter(
             user=account.user,
-            mission__active=True,
             finished=False,
             **extra,
         )
