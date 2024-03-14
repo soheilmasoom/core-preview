@@ -45,7 +45,7 @@ class Notification(models.Model):
     ORDINARY, REPLACEABLE, DIFF = 'ord', 'rep', 'dif'
     TYPE_CHOICE = ((ORDINARY, ORDINARY), (REPLACEABLE, REPLACEABLE), (DIFF, DIFF))
 
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(default=timezone.now)
     read_date = models.DateTimeField(null=True, blank=True)
 
     recipient = models.ForeignKey(to='accounts.User', on_delete=models.CASCADE)
