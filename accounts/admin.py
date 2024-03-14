@@ -819,7 +819,8 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_username', 'level', 'title', 'message', 'push_status')
     list_filter = ('level', )
     search_fields = ('title', 'message', 'group_id', 'recipient__phone')
-    readonly_fields = ('recipient', 'group_id')
+    readonly_fields = ('group_id', )
+    raw_id_fields = ('recipient', )
 
     @admin.display(description='user')
     def get_username(self, notification: Notification):
