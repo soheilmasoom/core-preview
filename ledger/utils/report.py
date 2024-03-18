@@ -3,12 +3,14 @@ from typing import List
 from django.db.models import Q
 
 from accounting.models import Account
-from ledger.models import Trx
+from ledger.models import Trx, Wallet
 from ledger.utils.precision import get_presentation_amount
 
 
 def export_transactions(account: Account) -> List[dict]:
-    transactions = Trx.objects.filter(Q(sender__account=account) | Q(receiver__account=account)).distinct().values(
+    transactions = Trx.objects.filter(
+        Q(sender__account=account) | Q(receiver__account=account)
+    ).exclude(receiver__market=Wallet.VOUCHER).distinct().values(
         'id', 'created', 'sender__account', 'receiver__account', 'amount', 'sender__asset__symbol', 'scope'
     ).order_by('id')
 

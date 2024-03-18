@@ -6,7 +6,6 @@ from django.db import models
 from django.db.models import CheckConstraint, Q, F, UniqueConstraint
 
 from ledger.exceptions import InsufficientBalance, InsufficientDebt
-from ledger.utils.external_price import SELL
 from ledger.utils.fields import get_amount_field, get_group_id_field
 from ledger.utils.wallet_pipeline import WalletPipeline
 
