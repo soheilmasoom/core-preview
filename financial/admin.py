@@ -612,6 +612,7 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
     resource_classes = [BankPaymentRequestResource]
     list_editable = ('destination_id', 'ref_id')
     inlines = (BankPaymentRequestReceiptInline, )
+    search_fields = ('group_id', )
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "user":
