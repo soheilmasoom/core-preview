@@ -11,7 +11,8 @@ def export_transactions(account: Account) -> List[dict]:
     transactions = Trx.objects.filter(
         Q(sender__account=account) | Q(receiver__account=account)
     ).exclude(receiver__market=Wallet.VOUCHER).distinct().values(
-        'id', 'created', 'sender__account', 'receiver__account', 'amount', 'sender__asset__symbol', 'scope'
+        'id', 'created', 'sender__account', 'sender__market', 'receiver__account', 'receiver__market', 'amount',
+        'sender__asset__symbol', 'scope'
     ).order_by('id')
 
     response = []
@@ -23,16 +24,18 @@ def export_transactions(account: Account) -> List[dict]:
                 'created': trx['created'].strftime('%Y-%m-%d %H:%M:%S'),
                 'coin': trx['sender__asset__symbol'],
                 'amount': get_presentation_amount(-trx['amount']),
-                'scope': Trx.SCOPES_VERBOSE[trx['scope']]
+                'scope': Trx.SCOPES_VERBOSE[trx['scope']],
+                'wallet_type': trx['sender__market'],
             })
 
         if trx['receiver__account'] == account.id:
             response.append({
                 'id': trx['id'],
-                'created': trx['created'].strftime('%Y-%m-%dT%H:%M:%S'),
+                'created': trx['created'].strftime('%Y-%m-%d %H:%M:%S'),
                 'coin': trx['sender__asset__symbol'],
                 'amount': get_presentation_amount(trx['amount']),
-                'scope': Trx.SCOPES_VERBOSE[trx['scope']]
+                'scope': Trx.SCOPES_VERBOSE[trx['scope']],
+                'wallet_type': trx['receiver__market'],
             })
 
     return response

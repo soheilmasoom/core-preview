@@ -419,11 +419,10 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
 
-        writer.writerow(['id', 'date', 'coin', 'amount', 'reason'])
+        writer.writerow(['id', 'date', 'wallet', 'coin', 'amount', 'reason'])
         for user in queryset:
             for trx in export_transactions(user.get_account()):
-                print(trx)
-                writer.writerow([trx['id'], trx['created'], trx['coin'], trx['amount'], trx['scope']])
+                writer.writerow([trx['id'], trx['created'], trx['wallet_type'], trx['coin'], trx['amount'], trx['scope']])
 
         return response
 
