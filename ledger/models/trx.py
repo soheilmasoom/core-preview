@@ -16,6 +16,7 @@ class Trx(models.Model):
     MARGIN_BORROW = 'b'
     MARGIN_INSURANCE = 'mi'
     MARGIN_INTEREST = 'in'
+    CLOSE_MARGIN = 'cm'
     FAST_LIQUID = 'fl'
     LIQUID = 'l'
     COMMISSION = 'c'
@@ -26,14 +27,40 @@ class Trx(models.Model):
     RESERVE = 'rs'
     STAKE_REVENUE = 'sr'
     STAKE = 'st'
-    FIX = 'fx'
     STAKE_FEE = 'sf'
-    CLOSE_MARGIN = 'cm'
+    FIX = 'fx'
     DEBT_CLEAR = 'dc'
     DUST = 'du'
     MANUAL = 'mn'
     DELIST = 'dl'
     REBRAND = 'rb'
+
+    SCOPES_VERBOSE = {
+        TRADE: 'trade',
+        TRANSFER: 'transfer',
+        MARGIN_TRANSFER: 'margin_transfer',
+        MARGIN_BORROW: 'margin_borrow',
+        MARGIN_INSURANCE: 'margin_insurance',
+        MARGIN_INTEREST: 'margin_interest',
+        CLOSE_MARGIN: 'close_margin',
+        FAST_LIQUID: 'fast_liquid',
+        LIQUID: 'liquid',
+        COMMISSION: 'fee',
+        PRIZE: 'prize',
+        REVERT: 'revert',
+        AIRDROP: 'airdrop',
+        SEIZE: 'seize',
+        RESERVE: 'reserve',
+        STAKE_REVENUE: 'stake_revenue',
+        STAKE: 'stake',
+        STAKE_FEE: 'stake_fee',
+        FIX: 'fix',
+        DEBT_CLEAR: 'debt_clear',
+        DUST: 'dust',
+        MANUAL: 'manual',
+        DELIST: 'delist',
+        REBRAND: 'rebrand',
+    }
 
     created = models.DateTimeField(auto_now_add=True)
 
@@ -45,14 +72,7 @@ class Trx(models.Model):
 
     scope = models.CharField(
         max_length=2,
-        choices=(
-            (TRADE, 'trade'), (TRANSFER, 'transfer'), (MARGIN_TRANSFER, 'margin transfer'),
-            (MARGIN_BORROW, 'margin borrow'), (COMMISSION, 'commission'), (LIQUID, 'liquid'),
-            (FAST_LIQUID, 'fast liquid'), (PRIZE, 'prize'), (REVERT, 'revert'), (AIRDROP, 'airdrop'),
-            (STAKE, 'stake'), (STAKE_REVENUE, 'stake revenue'), (STAKE_FEE, 'stake fee'), (RESERVE, 'reserve'),
-            (DUST, 'dust'), (MANUAL, 'manual'), (DELIST, 'delist'), (REBRAND, 'rebrand'),
-            (MARGIN_INSURANCE, 'margin_insurance'), (MARGIN_INTEREST, 'margin_interest')
-        )
+        choices=SCOPES_VERBOSE.items()
     )
 
     def revert(self, pipeline):
