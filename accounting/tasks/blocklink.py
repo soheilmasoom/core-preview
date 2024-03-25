@@ -68,12 +68,17 @@ def blocklink_income_fetcher(start: datetime, end: datetime):
                 }
             )
 
+        if price:
+            dust_value = dust_cost * price
+        else:
+            dust_value = 0
+
         BlocklinkDustCost.objects.update_or_create(
             network=network,
             defaults={
                 'coin': coin,
                 'amount': dust_cost,
-                'usdt_value': dust_cost * price
+                'usdt_value': dust_value
             }
         )
 
