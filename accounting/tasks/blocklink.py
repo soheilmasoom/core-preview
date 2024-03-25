@@ -52,13 +52,18 @@ def blocklink_income_fetcher(start: datetime, end: datetime):
         dust_cost = Decimal(data.get('dust_cost', 0))
 
         if not is_zero_by_precision(fee_amount + fee_income):
+            if price:
+                fee_cost = price * fee_amount
+            else:
+                fee_cost = 0
+
             BlocklinkIncome.objects.get_or_create(
                 start=start,
                 network=network,
                 coin=coin,
                 defaults={
                     'real_fee_amount': fee_amount,
-                    'fee_cost': price * fee_amount,
+                    'fee_cost': fee_cost,
                     'fee_income': fee_income
                 }
             )
