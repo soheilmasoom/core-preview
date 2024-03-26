@@ -289,8 +289,8 @@ REST_FRAMEWORK = {
         # 'sustained_api': '20000/day',
         # 'burst_api': '200/min',
         # 'sustained_api': '200000/day',
-        'burst_api': '50/min',
-        'sustained_api': '10000/day',
+        'burst_api': '100/min',
+        'sustained_api': '1000/day',
     },
     'EXCEPTION_HANDLER': 'accounts.throttle.custom_exception_handler'
 }
