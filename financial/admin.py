@@ -512,7 +512,8 @@ class PaymentIdAdmin(AdvancedAdmin):
     default_edit_condition = M('id')
     fields_edit_conditions = {
         'gateway': True,
-        'user': True
+        'user': True,
+        'full_name': True
     }
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
