@@ -25,7 +25,7 @@ class BaseClient:
     def __init__(self, gateway):
         self.gateway = gateway
 
-    def create_payment_id(self, user: User) -> PaymentId:
+    def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
         raise NotImplementedError
 
     def create_payment_request(self, external_ref: str) -> PaymentIdRequest:
@@ -103,7 +103,7 @@ class JibitClient(BaseClient):
 
         return Response(data=resp_json, success=resp.ok, status_code=resp.status_code)
     
-    def create_payment_id(self, user: User) -> PaymentId:
+    def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
         existing = PaymentId.objects.filter(user=user, gateway=self.gateway, deleted=False).first()
         if existing:
             return existing
@@ -113,19 +113,20 @@ class JibitClient(BaseClient):
         bank_accounts = BankAccount.objects.filter(user=user, verified=True)
         ibans = list(bank_accounts.values_list('iban', flat=True))
 
-        owners = bank_accounts.order_by('owners')[0].owners
-        if owners:
-            owner = owners[0]
-            owner_full_name = owner['firstName'] + ' ' + owner['lastName']
-        else:
-            owner_full_name = user.get_full_name()
+        if not full_name:
+            owners = bank_accounts.order_by('owners')[0].owners
+            if owners:
+                owner = owners[0]
+                full_name = owner['firstName'] + ' ' + owner['lastName']
+            else:
+                full_name = user.get_full_name()
 
         group_id = uuid.uuid4()
 
         resp = self._collect_api('/v1/paymentIds', method='POST', data={
             'callbackUrl': host_url + f'/api/v1/finance/paymentId/callback/jibit/',
             'merchantReferenceNumber': str(group_id),
-            'userFullName': owner_full_name,
+            'userFullName': full_name,
             'userIbans': ibans,
             'userMobile': '09121234567',
         })
@@ -150,6 +151,7 @@ class JibitClient(BaseClient):
             destination=destination,
             provider_status=resp.data['registryStatus'],
             provider_reason=resp.data.get('failReason') or '',
+            full_name=full_name,
         )
 
         if not payment_id.verified:

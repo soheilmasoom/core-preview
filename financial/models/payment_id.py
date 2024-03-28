@@ -32,6 +32,8 @@ class PaymentId(models.Model):
     provider_status = models.CharField(max_length=256, blank=True)
     provider_reason = models.CharField(max_length=256, blank=True)
 
+    full_name = models.CharField(max_length=256, blank=True)
+
     def __str__(self):
         return self.pay_id
 
