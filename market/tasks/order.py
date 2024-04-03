@@ -21,7 +21,7 @@ def check_maker_order_price():
     for symbol in symbols:
         if symbol.name != 'USDTIRT':
             price = fetch_external_price(symbol=symbol.asset.symbol + USDT, side=side)
-            price = price if symbol.base_asset == USDT else (price and usdt_irt_price and price * usdt_irt_price)
+            price = price if symbol.base_asset.symbol == USDT else (price and usdt_irt_price and price * usdt_irt_price)
         else:
             price = usdt_irt_price
 
