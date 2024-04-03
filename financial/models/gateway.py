@@ -69,6 +69,7 @@ class Gateway(models.Model):
     ipg_fee_min = models.SmallIntegerField(default=120)
     ipg_fee_max = models.SmallIntegerField(default=4000)
     ipg_fee_percent = get_amount_field(default=Decimal('0.02'))
+    ipg_callback_host = models.URLField(blank=True)
 
     batch_id = models.CharField(max_length=20, null=True, blank=True)
 

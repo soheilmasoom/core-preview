@@ -16,12 +16,14 @@ class ZibalGateway(Gateway):
     BASE_URL = 'https://gateway.zibal.ir'
 
     def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
+        callback_host = self.ipg_callback_host or settings.HOST_URL
+
         resp = requests.post(
             self.BASE_URL + '/v1/request',
             json={
                 'merchant': self.merchant_id,
                 'amount': amount * 10,
-                'callbackUrl': settings.HOST_URL + reverse('finance:zibal-callback'),
+                'callbackUrl': callback_host + reverse('finance:zibal-callback'),
                 'description': 'افزایش اعتبار',
                 'allowedCards': bank_card.card_pan
             },

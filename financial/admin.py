@@ -81,6 +81,9 @@ class GatewayAdmin(admin.ModelAdmin):
             if getattr(old_gateway, key, '') != value:
                 setattr(gateway, key, encrypt(value))
 
+        if gateway.ipg_callback_host.endswith('/'):
+            gateway.ipg_callback_host = gateway.ipg_callback_host[:-1]
+
         gateway.save()
 
 
