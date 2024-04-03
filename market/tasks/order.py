@@ -36,4 +36,5 @@ def check_maker_order_price():
             logger.warning(f'{len(orders)} Order Out of price range Warning, {symbol.name}:{side}', extra={
                 'orders': orders
             })
+            logger.info(f'{len(orders)} Order Out of price range Warning, {symbol.name}:{side}, {orders}')
             Order.bulk_cancel_simple_orders(orders)
