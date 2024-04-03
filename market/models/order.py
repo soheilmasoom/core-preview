@@ -661,8 +661,8 @@ class Order(models.Model):
 
             elif trades[0].account_id != trades[1].account_id:
                 if hedger_prefix:
-                    taker = trades[1] if trades[0].is_maker else trades[0]
-                    hedge_key = f'{hedger_prefix}-{taker.id}'
+                    # taker = trades[1] if trades[0].is_maker else trades[0]
+                    hedge_key = f'{hedger_prefix}-{trades[0].id}'
                 else:
                     hedge_key = ''
 
