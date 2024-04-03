@@ -33,5 +33,7 @@ def check_maker_order_price():
                 side=side,
                 account_id__in=[MARKET_MAKER_ACCOUNT_ID, TRADER_ACCOUNT_ID]
             )
-            logger.warning(f'{len(orders)} Order Out of price range Warning, {symbol.name}:{side}')
+            logger.warning(f'{len(orders)} Order Out of price range Warning, {symbol.name}:{side}', extra={
+                'orders': orders
+            })
             Order.bulk_cancel_simple_orders(orders)
