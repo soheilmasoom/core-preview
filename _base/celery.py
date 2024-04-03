@@ -110,6 +110,15 @@ app.conf.beat_schedule = {
         },
     },
 
+    'check_maker_order_price': {
+        'task': 'market.tasks.order.check_maker_order_price',
+        'schedule': 30,
+        'options': {
+            'queue': 'celery',
+            'expires': 30
+        },
+    },
+
     'collect_margin_interest': {
         'task': 'ledger.tasks.margin.collect_margin_interest',
         'schedule': crontab(hour='4,12,20', minute=30),
