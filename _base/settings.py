@@ -283,14 +283,10 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
 
     'DEFAULT_THROTTLE_RATES': {
-        'burst': '50/min',
-        'sustained': '500/day',
-        # 'burst_api': '40/min',
-        # 'sustained_api': '20000/day',
-        # 'burst_api': '200/min',
-        # 'sustained_api': '200000/day',
-        'burst_api': '60/min',
-        'sustained_api': '10000/day',
+        'auth_burst': '50/min',
+        'auth_sustained': '500/day',
+        'api_burst': '60/min',
+        'api_sustained': '10000/day',  # only for custom token
     },
     'EXCEPTION_HANDLER': 'accounts.throttle.custom_exception_handler'
 }
