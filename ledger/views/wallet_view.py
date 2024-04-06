@@ -522,4 +522,4 @@ class DustsHistoryView(ListAPIView):
             account=self.request.user.get_account()
         )
         return (Trx.objects.filter(Q(sender__in=wallets) | Q(receiver__in=wallets), scope=Trx.DUST)
-                .prefetch_related('sender__asset', 'sender__asset__account')).order_by('-created')
+                .prefetch_related('sender__asset', 'sender__account')).order_by('-created')
