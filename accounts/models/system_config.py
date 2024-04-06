@@ -45,6 +45,8 @@ class SystemConfig(models.Model):
 
     fiat_daily_auto_verify_limit = models.PositiveIntegerField(default=200_000_000)
 
+    clean_maker_order_by_price = models.BooleanField(default=False)
+
     def __str__(self):
         return self.name
 

@@ -5,6 +5,7 @@ from celery import shared_task
 from django.db.models import Q
 
 from _base.settings import TRADER_ACCOUNT_ID, MARKET_MAKER_ACCOUNT_ID
+from accounts.models import SystemConfig
 from ledger.utils.external_price import fetch_external_price, USDT, BUY, SELL
 from market.models import PairSymbol, Order
 
@@ -14,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 @shared_task(queue='celery')
 def check_maker_order_price():
+    if not SystemConfig.get_system_config().clean_maker_order_by_price:
+        return
+
     symbols = PairSymbol.objects.filter(enable=True).order_by('?')[:3]
     side = BUY if random.randint(0, 1) == 0 else SELL
     usdt_irt_price = fetch_external_price(symbol='USDTIRT', side=side)
