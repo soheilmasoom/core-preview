@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 @shared_task(queue='celery')
 def check_maker_order_price():
-    if not SystemConfig.get_system_config().clean_maker_order_by_price:
+    if not SystemConfig.get_system_config().market_maker_emergency_break:
         return
 
     symbols = PairSymbol.objects.filter(enable=True).order_by('?')[:3]

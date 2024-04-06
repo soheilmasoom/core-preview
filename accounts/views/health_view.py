@@ -68,7 +68,8 @@ class HealthCheckView(APIView):
                 bucket_name = config(f'{service}BACKUP_BUCKET_NAME')
                 objects = client.list_objects(bucket_name, recursive=True)
                 latest_object = max(objects, key=lambda obj: obj.last_modified)
-                if latest_object and latest_object.last_modified < timezone.now() - timedelta(hours=1):
+                if (latest_object and latest_object.last_modified < timezone.now() - timedelta(hours=1) or
+                        latest_object.size < 1024):
                     unhealthy_services.append(service + 'BACKUP_FAILED')
             except Exception:
                 unhealthy_services.append(service + 'BACKUP_FAILED')
