@@ -536,7 +536,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'usdt_value', 'get_remaining_time_to_pass_48h', 'get_jalali_created', 'get_jalali_finished', 'out_address',
     )
     search_fields = ('trx_hash', 'out_address', 'wallet__asset__symbol', 'wallet__account__user__phone')
-    list_filter = ('deposit', 'status', 'source', TransferUserFilter,)
+    list_filter = ('deposit', 'status', 'source', TransferUserFilter, 'network')
     readonly_fields = (
         'deposit_address', 'network', 'wallet', 'created', 'accepted_datetime', 'finished_datetime', 'get_risks',
         'out_address', 'memo', 'amount', 'irt_value', 'usdt_value', 'deposit', 'group_id', 'login_activity',

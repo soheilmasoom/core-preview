@@ -43,16 +43,23 @@ class CustomUserRateThrottle(UserRateThrottle):
 
 
 class BurstRateThrottle(CustomUserRateThrottle):
-    scope = 'burst'
+    scope = 'auth_burst'
 
 
 class SustainedRateThrottle(CustomUserRateThrottle):
-    scope = 'sustained'
+    scope = 'auth_sustained'
 
 
 class BursAPIRateThrottle(CustomUserRateThrottle):
-    scope = 'burst_api'
+    scope = 'api_burst'
 
 
 class SustainedAPIRateThrottle(CustomUserRateThrottle):
-    scope = 'sustained_api'
+    scope = 'api_sustained'
+
+    def allow_request(self, request, view):
+        authenticator = getattr(request, 'successful_authenticator', None)
+        if isinstance(authenticator, CustomTokenAuthentication):
+            return super().allow_request(request, view)
+        else:
+            return True

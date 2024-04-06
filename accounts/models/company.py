@@ -76,7 +76,7 @@ class Company(models.Model):
                 content='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.',
                 content_html='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.'
             )
-            Notification.objects.create(
+            Notification.send(
                 recipient=self.user,
                 title='تایید درخواست',
                 message='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.'
@@ -94,7 +94,7 @@ class Company(models.Model):
                 content='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.',
                 content_html='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.'
             )
-            Notification.objects.create(
+            Notification.send(
                 recipient=self.user,
                 title='رد درخواست',
                 message='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.'

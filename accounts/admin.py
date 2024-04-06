@@ -1,9 +1,12 @@
+import csv
+
 from decouple import config
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import Q
 from django.db.models import Sum
+from django.http import HttpResponse
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from jalali_date.admin import ModelAdminJalaliMixin
@@ -23,6 +26,7 @@ from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import PENDING
 from ledger.utils.precision import humanize_number
+from ledger.utils.report import export_transactions
 from market.models import Trade, ReferralTrx, Order
 from stake.models import StakeRequest
 from .admin_guard import M
@@ -335,7 +339,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     ordering = ('-id', )
     actions = (
         'verify_user_name', 'reject_user_name', 'archive_users', 'unarchive_users', 'reevaluate_basic_verify',
-        'verify_user', 'reject_user', 'check_achievements'
+        'verify_user', 'reject_user', 'check_achievements', 'export_transactions'
     )
     readonly_fields = (
         'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet',
@@ -406,6 +410,21 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     def check_achievements(self, request, queryset):
         for user in queryset:
             check_prize_achievements(user.get_account())
+
+    @admin.action(description='خروجی تراکنش', permissions=['view'])
+    def export_transactions(self, request, queryset):
+        meta = self.model._meta
+
+        response = HttpResponse(content_type='text/csv charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+
+        writer.writerow(['id', 'date', 'wallet', 'coin', 'amount', 'reason'])
+        for user in queryset:
+            for trx in export_transactions(user.get_account()):
+                writer.writerow([trx['id'], trx['created'], trx['wallet_type'], trx['coin'], trx['amount'], trx['scope']])
+
+        return response
 
     @admin.display(description='2fa', boolean=True)
     def is_2fa_active(self, user: User):
@@ -819,7 +838,8 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_username', 'level', 'title', 'message', 'push_status')
     list_filter = ('level', )
     search_fields = ('title', 'message', 'group_id', 'recipient__phone')
-    readonly_fields = ('recipient', 'group_id')
+    readonly_fields = ('group_id', )
+    raw_id_fields = ('recipient', )
 
     @admin.display(description='user')
     def get_username(self, notification: Notification):

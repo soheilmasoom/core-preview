@@ -4,4 +4,4 @@ WORKDIR /app
 ADD ./requirements.txt ./
 RUN pip install -r ./requirements.txt
 ADD ./ ./
-CMD python manage.py compilemessages && gunicorn --workers 6 --timeout 120 --bind 0.0.0.0:8000 _base.wsgi
+CMD python manage.py compilemessages && gunicorn --workers 10 --timeout 120 --bind 0.0.0.0:8000 _base.wsgi

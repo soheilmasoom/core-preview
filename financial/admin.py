@@ -81,6 +81,9 @@ class GatewayAdmin(admin.ModelAdmin):
             if getattr(old_gateway, key, '') != value:
                 setattr(gateway, key, encrypt(value))
 
+        if gateway.ipg_callback_host.endswith('/'):
+            gateway.ipg_callback_host = gateway.ipg_callback_host[:-1]
+
         gateway.save()
 
 
@@ -512,7 +515,8 @@ class PaymentIdAdmin(AdvancedAdmin):
     default_edit_condition = M('id')
     fields_edit_conditions = {
         'gateway': True,
-        'user': True
+        'user': True,
+        'full_name': True
     }
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -527,10 +531,10 @@ class PaymentIdAdmin(AdvancedAdmin):
             client = get_payment_id_client(payment_id.gateway)
             client.check_payment_id_status(payment_id)
 
-    def save_model(self, request, obj, form, change):
+    def save_model(self, request, obj: PaymentId, form, change):
         if not obj.id:
             client = get_payment_id_client(obj.gateway)
-            client.create_payment_id(obj.user)
+            client.create_payment_id(obj.user, obj.full_name)
         else:
             obj.save()
 
@@ -612,6 +616,7 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
     resource_classes = [BankPaymentRequestResource]
     list_editable = ('destination_id', 'ref_id')
     inlines = (BankPaymentRequestReceiptInline, )
+    search_fields = ('group_id', )
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "user":

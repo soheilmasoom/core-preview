@@ -10,6 +10,7 @@ from rest_framework import permissions
 
 from accounts.views import HealthView, PriceHealthView
 from accounts.views.dashboard import dashboard
+from accounts.views.health_view import HealthCheckView
 
 if not settings.DEBUG_OR_TESTING_OR_STAGING:
     admin.site.__class__ = OTPAdminSite
@@ -35,6 +36,7 @@ urlpatterns = [
 
     path('api/v1/health/ready/', HealthView.as_view()),
     path('api/v1/health/price/', PriceHealthView.as_view()),
+    path('api/v1/health/check/', HealthCheckView.as_view()),
     path('api/v1/accounts/', include('accounts.urls')),
     path('analytics/', include('analytics.urls')),
     path('api/v1/media/', include('multimedia.urls')),

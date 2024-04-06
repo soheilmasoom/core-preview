@@ -22,13 +22,13 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task()
-def fill_revenue_filled_prices():
+def fill_revenue_filled_prices(max_hours: int = 3):
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return
 
     trade_revenues = TradeRevenue.objects.filter(
         gap_revenue__isnull=True,
-        created__gte=timezone.now() - timedelta(hours=3),
+        created__gte=timezone.now() - timedelta(hours=max_hours),
     ).order_by('id').prefetch_related('symbol__asset', 'symbol__base_asset')
 
     delegated_hedges = defaultdict(list)
