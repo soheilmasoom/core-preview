@@ -361,10 +361,10 @@ class WalletBalanceView(APIView, DelegatedAccountMixin):
 
         if market == Wallet.SPOT:
             debt_wallet = Wallet.objects.filter(
-               asset=asset,
-               account=account,
-               market=Wallet.DEBT,
-               variant__isnull=True
+                asset=asset,
+                account=account,
+                market=Wallet.DEBT,
+                variant__isnull=True
             ).first()
 
             if debt_wallet:
@@ -489,3 +489,37 @@ class ConvertDustView(APIView):
             raise ValidationError('هیچ گزینه‌ای برای تبدیل خرد وجود ندارد.')
 
         return Response({'msg': 'convert_dust success'}, status=status.HTTP_200_OK)
+
+
+class DustsHistorySerializer(serializers.ModelSerializer):
+    asset = serializers.SerializerMethodField()
+    is_sender = serializers.SerializerMethodField()
+
+    def get_asset(self, trx: Trx):
+        return trx.sender.asset.symbol
+
+    def get_is_sender(self, trx: Trx):
+        return trx.sender.account == self.context.get('account')
+
+    class Meta:
+        model = Trx
+        fields = ('asset', 'is_sender', 'amount')
+
+
+class DustsHistoryView(ListAPIView):
+    serializer_class = DustsHistorySerializer
+
+    def get_serializer_context(self):
+        return {
+            **super(DustsHistoryView, self).get_serializer_context(),
+            'account': self.request.user.get_account()
+        }
+
+    def get_queryset(self):
+        wallets = Wallet.objects.filter(
+            market=Wallet.SPOT,
+            variant__isnull=True,
+            account=self.request.user.get_account()
+        )
+        return (Trx.objects.filter(Q(sender__in=wallets) | Q(receiver__in=wallets), scope=Trx.DUST)
+                .prefetch_related('wallet__asset__symbol', 'wallet__asset__account')).order_by('-created')
