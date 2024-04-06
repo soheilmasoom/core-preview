@@ -503,7 +503,7 @@ class DustsHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Trx
-        fields = ('asset', 'is_sender', 'amount')
+        fields = ('asset', 'is_sender', 'amount', 'created')
 
 
 class DustsHistoryView(ListAPIView):
