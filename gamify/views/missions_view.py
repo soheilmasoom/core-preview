@@ -140,8 +140,8 @@ class MissionsAPIView(ListAPIView):
     def get_queryset(self):
         queryset = UserMission.objects.filter(user=self.request.user)
 
-        # if is_app(self.request):
-        #     queryset = queryset.filter(mission__achievement__asset__isnull=False)
+        if is_app(self.request):
+            queryset = queryset.filter(mission__achievement__asset__isnull=False)
 
         return queryset
 
