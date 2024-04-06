@@ -92,6 +92,7 @@ urlpatterns = [
     path('v1/transfer/withdraw/', views.WithdrawTransferUpdateView.as_view()),
 
     path('v1/convert/dust/', views.ConvertDustView.as_view()),
+    path('v1/dusts/', views.DustsHistoryView.as_view()),
     path('v1/pnl/overview/', views.PNLOverview.as_view()),
 
     path('v1/fast_buy/', views.FastBuyTokenAPI.as_view()),
