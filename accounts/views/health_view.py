@@ -54,7 +54,10 @@ class PriceHealthView(APIView):
 
 
 class HealthCheckView(APIView):
-    def get(self, requests):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def get(self, request):
         unhealthy_services = []
 
         for service in ['MASTERKEY_', 'BLOCKLINK_', 'PROVIDER_']:
