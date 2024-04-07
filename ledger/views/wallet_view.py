@@ -500,7 +500,7 @@ class DustsHistorySerializer(serializers.ModelSerializer):
 
     def get_amount(self, trx: Trx):
         cof = -1 if trx.sender.account == self.context.get('account') else 1
-        return trx.amount * cof
+        return get_presentation_amount(trx.amount * cof)
 
     class Meta:
         model = Trx
