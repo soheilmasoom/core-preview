@@ -1,10 +1,9 @@
-from datetime import timedelta
+from django.db.models import Sum, F
 
 from django.db.models import Sum, F
 
-from accounting.models import TradeRevenue
 from accounts.models import Account, User
-from financial.models import PaymentRequest
+from financial.models import Payment
 from gamify.models import Task, UserMission
 from ledger.models import Transfer, OTCTrade
 from ledger.utils.fields import DONE
@@ -32,9 +31,9 @@ class DepositGoal(BaseGoalType):
     name = Task.DEPOSIT
 
     def get_progress(self, account: Account):
-        fiat_deposit = PaymentRequest.objects.filter(
-            payment__status=DONE,
-            bank_card__user=account.user
+        fiat_deposit = Payment.objects.filter(
+            status=DONE,
+            user=account.user
         ).aggregate(sum=Sum('amount'))['sum'] or 0
 
         if fiat_deposit >= self.task.max:
