@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from accounts.models import Account, EmailNotification
 from accounts.models import Notification
-from accounts.utils.admin import url_to_edit_object
+from accounts.utils.admin import url_to_admin_list
 from accounts.utils.telegram import send_system_message
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
@@ -134,7 +134,7 @@ class Payment(models.Model):
 
     def accept(self, pipeline: WalletPipeline, ref_id: int = None, system_verify: bool = True):
         if system_verify and not verify_fiat_deposit(self):
-            send_system_message("Verify deposit: %s" % self, link=url_to_edit_object(self))
+            send_system_message("Verify deposit: %s" % self, link=url_to_admin_list(self, {'status__exact': 'init'}))
 
             self.status = INIT
             self.ref_id = ref_id

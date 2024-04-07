@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, get_object_or_404
 
 from accounts.authentication import CustomTokenAuthentication
-from accounts.utils.admin import url_to_edit_object
+from accounts.utils.admin import url_to_admin_list
 from accounts.utils.telegram import send_system_message
 from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset
 from ledger.models.transfer import Transfer
@@ -157,7 +157,9 @@ class DepositSerializer(serializers.ModelSerializer):
             description = 'init reason: crypto verify failed!'
 
         if status == INIT:
-            send_system_message("Verify deposit: %s" % transfer, link=url_to_edit_object(transfer))
+            send_system_message("Verify deposit: %s" % transfer, link=url_to_admin_list(
+                transfer, {'status__exact': 'init', 'deposit': True}
+            ))
 
         transfer.change_status(status)
 

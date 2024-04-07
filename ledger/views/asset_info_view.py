@@ -49,6 +49,7 @@ class AssetSerializerBuilder(AssetSerializerMini):
     can_withdraw = serializers.SerializerMethodField()
 
     description = serializers.SerializerMethodField()
+    trading_view_symbol = serializers.SerializerMethodField()
 
     class Meta:
         model = Asset
@@ -131,6 +132,13 @@ class AssetSerializerBuilder(AssetSerializerMini):
         if content:
             return content.get_html()
 
+    def get_trading_view_symbol(self, asset: Asset):
+        if asset.trading_view_symbol:
+            return asset.trading_view_symbol
+        else:
+            base = 'USD' if asset.symbol == 'USDT' else 'USDT'
+            return (asset.original_symbol or asset.symbol) + base
+
     @classmethod
     def create_serializer(cls,  prices: bool = True, extra_info: bool = True):
         fields = AssetSerializerMini.Meta.fields
@@ -144,7 +152,7 @@ class AssetSerializerBuilder(AssetSerializerMini):
                 'price_usdt', 'price_irt', 'change_1h', 'change_24h', 'change_7d',
                 'cmc_rank', 'market_cap', 'volume_24h', 'circulating_supply', 'high_24h',
                 'low_24h', 'trend_url', 'min_withdraw_amount', 'min_withdraw_fee', 'can_deposit', 'can_withdraw',
-                'market_irt_enable', 'description',
+                'market_irt_enable', 'trading_view_symbol', 'description',
             ]
 
         class Serializer(cls):

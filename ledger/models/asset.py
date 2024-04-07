@@ -44,6 +44,7 @@ class Asset(models.Model):
 
     symbol = models.CharField(max_length=16, unique=True, db_index=True)
     original_symbol = models.CharField(max_length=16, blank=True)
+    trading_view_symbol = models.CharField(max_length=32, blank=True)
 
     enable = models.BooleanField(default=False)
     order = models.SmallIntegerField(default=0, db_index=True)
@@ -181,7 +182,7 @@ class AssetSerializerMini(serializers.ModelSerializer):
     class Meta:
         model = Asset
         fields = ('symbol', 'precision', 'step_size', 'name', 'name_fa', 'logo', 'original_symbol',
-                  'original_name_fa')
+                  'original_name_fa', 'trading_view_symbol')
 
 
 class CoinField(serializers.CharField):
