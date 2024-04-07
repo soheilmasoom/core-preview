@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 
 @shared_task(queue='celery')
 def check_maker_order_price(dry_run=True):
+    logger.info('check_maker_order_price')
     if not SystemConfig.get_system_config().market_maker_emergency_break:
+        logger.info('check_maker_order_price canceled due to system config')
         return
 
     symbols = PairSymbol.objects.filter(enable=True)
@@ -50,8 +52,8 @@ def check_maker_order_price(dry_run=True):
                         check_maker_order_price(dry_run=False)
                         return
                     else:
-                        logger.warning(f'{len(orders)} Order Out of price range Warning, {symbol.name}:{side}', extra={
-                            'orders': orders
-                        })
-                        logger.info(f'{len(orders)} Order Out of price range Warning, {symbol.name}:{side}, {orders}')
+                        logger.warning(f'{len(orders)} Order Out of price range Warning, {symbol.name}:{side},'
+                                       f' {[i.id for i in orders]}')
+                        logger.info(f'{len(orders)} Order Out of price range Warning, {symbol.name}:{side},'
+                                    f' {[i.id for i in orders]}')
                         Order.bulk_cancel_simple_orders(orders)
