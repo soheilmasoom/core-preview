@@ -1,6 +1,10 @@
+import requests
 from datetime import timedelta
 
+from decouple import config
+from django.conf import settings
 from django.utils import timezone
+from minio import Minio
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -45,5 +49,32 @@ class PriceHealthView(APIView):
 
         if errors:
             return Response({'status': 'dead', 'errors': errors})
+        else:
+            return Response({'status': 'healthy!'})
+
+
+class HealthCheckView(APIView):
+    def get(self, requests):
+        unhealthy_services = []
+
+        for service in ['MASTERKEY_', 'BLOCKLINK_', 'PROVIDER_']:
+            try:
+                client = Minio(
+                    config(f'{service}MINIO_CDN_ENDPOINT'),
+                    access_key=config(f'{service}MINIO_ACCESS_KEY'),
+                    secret_key=config(f'{service}MINIO_SECRET_KEY'),
+                    secure=False
+                )
+                bucket_name = config(f'{service}BACKUP_BUCKET_NAME')
+                objects = client.list_objects(bucket_name, recursive=True)
+                latest_object = max(objects, key=lambda obj: obj.last_modified)
+                if (latest_object and latest_object.last_modified < timezone.now() - timedelta(hours=1) or
+                        latest_object.size < 1024):
+                    unhealthy_services.append(service + 'BACKUP_FAILED')
+            except Exception:
+                unhealthy_services.append(service + 'BACKUP_FAILED')
+
+        if unhealthy_services:
+            return Response({'status': 'dead', 'errors': unhealthy_services})
         else:
             return Response({'status': 'healthy!'})
