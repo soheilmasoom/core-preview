@@ -493,17 +493,18 @@ class ConvertDustView(APIView):
 
 class DustsHistorySerializer(serializers.ModelSerializer):
     asset = serializers.SerializerMethodField()
-    is_sender = serializers.SerializerMethodField()
+    amount = serializers.SerializerMethodField()
 
     def get_asset(self, trx: Trx):
         return trx.sender.asset.symbol
 
-    def get_is_sender(self, trx: Trx):
-        return trx.sender.account == self.context.get('account')
+    def get_amount(self, trx: Trx):
+        cof = -1 if trx.sender.account == self.context.get('account') else 1
+        return trx.amount * cof
 
     class Meta:
         model = Trx
-        fields = ('asset', 'is_sender', 'amount', 'created')
+        fields = ('asset', 'amount', 'created')
 
 
 class DustsHistoryView(ListAPIView):

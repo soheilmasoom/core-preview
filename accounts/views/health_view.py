@@ -58,6 +58,7 @@ class HealthCheckView(APIView):
         unhealthy_services = []
 
         for service in ['MASTERKEY_', 'BLOCKLINK_', 'PROVIDER_']:
+            service += 'BACKUP_'
             try:
                 client = Minio(
                     config(f'{service}MINIO_CDN_ENDPOINT'),
@@ -65,7 +66,7 @@ class HealthCheckView(APIView):
                     secret_key=config(f'{service}MINIO_SECRET_KEY'),
                     secure=False
                 )
-                bucket_name = config(f'{service}BACKUP_BUCKET_NAME')
+                bucket_name = config(f'{service}BUCKET_NAME')
                 objects = client.list_objects(bucket_name, recursive=True)
                 latest_object = max(objects, key=lambda obj: obj.last_modified)
                 if (latest_object and latest_object.last_modified < timezone.now() - timedelta(hours=1) or
