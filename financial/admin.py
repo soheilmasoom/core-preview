@@ -51,13 +51,13 @@ class GatewayAdmin(admin.ModelAdmin):
     def get_balance(self, gateway: Gateway):
         balance = gateway.get_balance()
         if balance is not None:
-            return int(balance)
+            return humanize_number(balance)
 
     @admin.display(description='free')
     def get_free(self, gateway: Gateway):
         free = gateway.get_free()
         if free is not None:
-            return int(free)
+            return humanize_number(free)
 
     @admin.display(description='min deposit')
     def get_min_deposit_amount(self, gateway: Gateway):
