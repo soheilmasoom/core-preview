@@ -250,6 +250,9 @@ class ZibalChannel(FiatWithdraw):
         return resp_data['data']
 
     def get_wallet_data(self) -> Wallet:
+        if not self.gateway.wallet_id:
+            return Wallet(balance=0, free=0)
+
         balance_data = self.collect_api(f'/v1/wallet/balance', method='POST', data={
             "id": int(self.gateway.wallet_id)
         })
