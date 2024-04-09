@@ -2,12 +2,15 @@ import logging
 from decimal import Decimal
 from uuid import uuid4
 
+import django_filters
 from django.conf import settings
 from django.db.models import Q
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.generics import get_object_or_404
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
@@ -15,7 +18,7 @@ from rest_framework.viewsets import ModelViewSet
 from _base.settings import SYSTEM_ACCOUNT_ID
 from accounts.views.jwt_views import DelegatedAccountMixin
 from ledger.models import Wallet, DepositAddress, NetworkAsset, Trx
-from ledger.models.asset import Asset
+from ledger.models.asset import Asset, AssetSerializerMini
 from ledger.utils.external_price import BUY, SELL
 from ledger.utils.fields import get_irt_market_asset_symbols
 from ledger.utils.precision import get_presentation_amount, get_symbol_presentation_price, \
@@ -492,11 +495,8 @@ class ConvertDustView(APIView):
 
 
 class DustsHistorySerializer(serializers.ModelSerializer):
-    asset = serializers.SerializerMethodField()
+    asset = AssetSerializerMini(source='sender.asset', read_only=True)
     amount = serializers.SerializerMethodField()
-
-    def get_asset(self, trx: Trx):
-        return trx.sender.asset.symbol
 
     def get_amount(self, trx: Trx):
         cof = -1 if trx.sender.account == self.context.get('account') else 1
@@ -504,11 +504,23 @@ class DustsHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Trx
-        fields = ('asset', 'amount', 'created')
+        fields = ('id', 'asset', 'amount', 'created')
+
+
+class AssetFilter(django_filters.FilterSet):
+    coin = django_filters.CharFilter(field_name='sender__asset__symbol', lookup_expr='iexact')
+
+    class Meta:
+        model = Trx
+        fields = ('coin',)
 
 
 class DustsHistoryView(ListAPIView):
     serializer_class = DustsHistorySerializer
+    pagination_class = LimitOffsetPagination
+
+    filter_backends = [DjangoFilterBackend]
+    filter_class = AssetFilter
 
     def get_serializer_context(self):
         return {
