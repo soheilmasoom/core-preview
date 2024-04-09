@@ -496,9 +496,6 @@ class DustsHistorySerializer(serializers.ModelSerializer):
     asset = AssetSerializerMini(source='sender.asset', read_only=True)
     amount = serializers.SerializerMethodField()
 
-    def get_asset(self, trx: Trx):
-        return trx.sender.asset.symbol
-
     def get_amount(self, trx: Trx):
         cof = -1 if trx.sender.account == self.context.get('account') else 1
         return get_presentation_amount(trx.amount * cof)
