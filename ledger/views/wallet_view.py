@@ -2,8 +2,10 @@ import logging
 from decimal import Decimal
 from uuid import uuid4
 
+import django_filters
 from django.conf import settings
 from django.db.models import Q
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView
@@ -505,9 +507,20 @@ class DustsHistorySerializer(serializers.ModelSerializer):
         fields = ('id', 'asset', 'amount', 'created')
 
 
+class AssetFilter(django_filters.FilterSet):
+    symbol = django_filters.CharFilter(field_name='sender__asset__symbol', lookup_expr='iexact')
+
+    class Meta:
+        model = Trx
+        fields = ('symbol',)
+
+
 class DustsHistoryView(ListAPIView):
     serializer_class = DustsHistorySerializer
     pagination_class = LimitOffsetPagination
+
+    filter_backends = [DjangoFilterBackend]
+    filter_class = AssetFilter
 
     def get_serializer_context(self):
         return {
