@@ -508,11 +508,11 @@ class DustsHistorySerializer(serializers.ModelSerializer):
 
 
 class AssetFilter(django_filters.FilterSet):
-    symbol = django_filters.CharFilter(field_name='sender__asset__symbol', lookup_expr='iexact')
+    coin = django_filters.CharFilter(field_name='sender__asset__symbol', lookup_expr='iexact')
 
     class Meta:
         model = Trx
-        fields = ('symbol',)
+        fields = ('coin',)
 
 
 class DustsHistoryView(ListAPIView):
