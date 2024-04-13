@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from collections import defaultdict
 from random import random
 from time import sleep
@@ -7,7 +8,6 @@ from time import sleep
 import msgpack
 from django.core.wsgi import get_wsgi_application
 from django.db.models import F, Sum
-from django.utils import timezone
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "_base.settings")
 application = get_wsgi_application()
@@ -41,7 +41,7 @@ def main():
                     'symbol': symbol.name,
                     'bids': Order.get_formatted_orders(bids, symbol, BUY),
                     'asks': Order.get_formatted_orders(asks, symbol, SELL),
-                    'created': str(timezone.now().astimezone())
+                    'timestamp': int(time.time() * 1_000)
                 }
                 pipeline.hset('market_depth_snapshot', symbol.name, msgpack.packb(depth))
                 pipeline.set('market_depth_snapshot_liveness', 1, 60)
