@@ -11,6 +11,7 @@ from health.models import AlertType, AlertTrigger
 class AlertTypeAdmin(admin.ModelAdmin):
     list_display = ('type', 'get_status', 'warning_threshold', 'error_threshold')
     readonly_fields = ('get_status', 'get_description', 'get_type_help', )
+    ordering = ('id', )
 
     @admin.display(description='status', )
     def get_status(self, alert_type: AlertType):
