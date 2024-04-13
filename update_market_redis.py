@@ -41,7 +41,7 @@ def main():
                     'symbol': symbol.name,
                     'bids': Order.get_formatted_orders(bids, symbol, BUY),
                     'asks': Order.get_formatted_orders(asks, symbol, SELL),
-                    'created': str(timezone.now())
+                    'created': str(timezone.now().astimezone())
                 }
                 pipeline.hset('market_depth_snapshot', symbol.name, msgpack.packb(depth))
                 pipeline.set('market_depth_snapshot_liveness', 1, 60)
