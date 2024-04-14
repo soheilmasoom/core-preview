@@ -60,6 +60,11 @@ def update_provider_vaults(now: datetime, prices: dict):
 
             balances = balances_data['balances']
             real_value = balances_data['real_value'] and Decimal(balances_data['real_value'])
+            extra_info = balances_data.get('extra')
+
+            if vault.extra != extra_info:
+                vault.extra = extra_info
+                vault.save(update_fields=['extra'])
 
             if not balances:
                 continue
