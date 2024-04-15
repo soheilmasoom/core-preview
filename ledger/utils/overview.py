@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db.models import Sum
 
-from accounting.models import VaultItem, Vault, ReservedAsset
+from accounting.models import VaultItem, Vault, ReservedAsset, TempCredit
 from accounts.models import Account
 from financial.models import FiatWithdrawRequest
 from ledger.models import Wallet, Prize, Asset
@@ -17,14 +17,19 @@ class AssetOverview:
         self.provider = get_provider_requester()
         self._binance_futures = self.provider.get_futures_info(BINANCE)
 
-        wallets = Wallet.objects.filter(
+        wallets = dict(Wallet.objects.filter(
             account__type=Account.ORDINARY
         ).exclude(
             market__in=(Wallet.VOUCHER, Wallet.DEBT)
         ).exclude(
             account__owned=True
-        ).values('asset__symbol').annotate(amount=Sum('balance'))
-        self.users_balances = {w['asset__symbol']: w['amount'] for w in wallets}
+        ).values('asset__symbol').annotate(amount=Sum('balance')).values_list('asset__symbol', 'amount'))
+
+        temp_credits = dict(TempCredit.objects.values('asset__symbol').annotate(
+            amount=Sum('amount')
+        ).values_list('asset__symbol', 'amount'))
+
+        self.users_balances = {coin: wallets.get(coin, 0) + temp_credits.get(coin, 0) for coin in wallets}
 
         self.prices = prices
 
