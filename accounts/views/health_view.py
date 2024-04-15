@@ -1,14 +1,13 @@
-import requests
 from datetime import timedelta
 
 from decouple import config
-from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 from minio import Minio
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ledger.models import NetworkAsset
+from ledger.models import NetworkAsset, MarginPosition, MarginHistoryModel
 from ledger.utils.external_price import fetch_external_price, SIDES
 
 
@@ -74,6 +73,16 @@ class HealthCheckView(APIView):
             if (latest_object and latest_object.last_modified < timezone.now() - timedelta(days=1) or
                     latest_object.size < 1024):
                 unhealthy_services.append(service + 'BACKUP_FAILED')
+
+        position_ids = set(MarginHistoryModel.objects.filter(created__gte=timezone.now() - timedelta(days=1), type=MarginHistoryModel.INTEREST_FEE).values_list('id', flat=True))
+
+        missed_position = set(MarginPosition.objects.filter(status=MarginPosition.OPEN, liquidation_price__isnull=False).exclude(id__in=position_ids).values_list('id', flat=True))
+        if missed_position:
+            unhealthy_services.append(f'Missed position INTEREST_FEE: {missed_position}')
+
+        lost_positions = set(MarginPosition.objects.filter(~Q(asset_wallet__balance=0), status=MarginPosition.OPEN, liquidation_price__isnull=True).values_list('id', flat=True))
+        if lost_positions:
+            unhealthy_services.append(f'Lost position liquidation price: {lost_positions}')
 
         if unhealthy_services:
             return Response({'status': 'dead', 'errors': unhealthy_services})

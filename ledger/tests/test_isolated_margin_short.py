@@ -353,29 +353,18 @@ class ShortIsolatedMarginTestCase(TestCase):
         for i in MarginHistoryModel.objects.filter(position=mp):
             print(i.amount, i.type)
 
-    def test_short_sell_liquidate(self):
+    def test_short_sell6(self):
         self.transfer_usdt_api(TO_TRANSFER_USDT)
         loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE / 2
         self.print_wallets(self.account)
         self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
 
         with WalletPipeline() as pipeline:
-            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT,
-                      price=BTC_USDT_PRICE)
+            balance = self.usdt.get_wallet(self.account2).balance / BTC_USDT_PRICE
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=balance, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=balance, market=Wallet.SPOT, price=BTC_USDT_PRICE + 1)
 
-        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
-        self.print_wallets(self.account)
-
-        with WalletPipeline() as pipeline:
-            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount * 2, market=Wallet.SPOT,
-                      price=mp.liquidation_price)
-            new_order(pipeline, self.btcusdt, self.account3, side=BUY, amount=loan_amount/2, market=Wallet.SPOT,
-                      price=mp.liquidation_price)
-
-        self.print_wallets(self.account)
-        mp.refresh_from_db()
-        print('mp', mp.debt_amount, mp.total_balance, mp.liquidation_price, mp.side, mp.status, mp.equity)
-
+        self.place_order(amount=loan_amount * Decimal('1.003'), side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE + 1, is_open_position=False)
         self.assert_liquidation(self.account, self.btcusdt)
 
     def test_short_sell_liquidate2(self):
