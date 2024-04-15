@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from simple_history.admin import SimpleHistoryAdmin
 
 from accounting.models import Account, AccountTransaction, TransactionAttachment, Vault, VaultItem, ReservedAsset, \
-    AssetPrice, TradeRevenue, PeriodicFetcher, BlocklinkIncome, BlocklinkDustCost
+    AssetPrice, TradeRevenue, PeriodicFetcher, BlocklinkIncome, BlocklinkDustCost, TempCredit
 from accounting.models.provider_income import ProviderIncome
 from gamify.utils import clone_model
 from ledger.utils.precision import humanize_number
@@ -158,3 +158,18 @@ class BlocklinkIncomeAdmin(admin.ModelAdmin):
 @admin.register(BlocklinkDustCost)
 class BlocklinkDustCostAdmin(admin.ModelAdmin):
     list_display = ('updated', 'network', 'amount', 'usdt_value',)
+
+
+@admin.register(TempCredit)
+class TempCreditAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
+    list_display = ('get_username', 'asset', 'amount')
+    ordering = ('user', 'asset')
+    search_fields = ('user__phone', 'user__first_name', 'user__last_name', 'asset__symbol')
+    list_editable = ('amount', )
+    raw_id_fields = ('user', )
+
+    @admin.display(description='user', ordering='user')
+    def get_username(self, credit: TempCredit):
+        return mark_safe(
+            f'<span dir="ltr">{credit.user}</span>'
+        )

@@ -25,6 +25,8 @@ def get_price_redis(allow_stale: bool):
     if settings.MASTER_PRICE_CACHE_LOCATION and _master_price_redis is None:
         _master_price_redis = Redis.from_url(settings.MASTER_PRICE_CACHE_LOCATION, decode_responses=True)
 
+    return _master_price_redis
+
     if not allow_stale:
         if not _price_redis.hgetall('price:btcusdt'):
             return _master_price_redis

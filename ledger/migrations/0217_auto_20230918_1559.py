@@ -21,6 +21,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('ledger', '0216_merge_20230911_1209'),
+        ('accounts', '0142_historicaluser_is_price_notif_on_and_more'),
     ]
 
     operations = [

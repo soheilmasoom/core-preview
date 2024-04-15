@@ -38,6 +38,8 @@ class Vault(models.Model):
 
     expected_max_value = models.PositiveIntegerField(null=True, blank=True)
 
+    extra = models.JSONField(null=True)
+
     def __str__(self):
         return '%s %s %s' % (self.type, self.name, self.market)
 

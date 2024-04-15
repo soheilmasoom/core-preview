@@ -196,7 +196,7 @@ class VaultLowBaseBalanceAlert(BaseAlertHandler):
         )
 
         return [
-            f'{vi} ({int(vi.balance)} < {int(vi.expected_min_balance * threshold)})' for vi in vault_items
+            f'{vi} ({int(vi.free)} < {int(vi.expected_min_balance * threshold)})' for vi in vault_items
         ]
 
 

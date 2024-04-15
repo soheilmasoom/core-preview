@@ -265,7 +265,7 @@ class PaymentAdmin(admin.ModelAdmin):
     list_filter = (PaymentUserFilter, 'status', 'source')
     search_fields = ('ref_id', 'paymentrequest__bank_card__card_pan', 'amount', 'paymentrequest__authority',
                      'user__phone', 'user__first_name', 'user__last_name')
-    readonly_fields = ('group_id', )
+    readonly_fields = ('group_id', 'user', 'amount', 'fee', 'status', 'source')
     actions = ('refund', 'accept_deposit', 'reject_deposit')
     raw_id_fields = ('user', )
 
