@@ -95,7 +95,9 @@ class Asset(models.Model):
         if isinstance(account, int):
             account_filter = {'account_id': account}
 
-            if account in (SYSTEM_ACCOUNT_ID, OTC_ACCOUNT_ID):
+            if account in (settings.SYSTEM_ACCOUNT_ID, settings.OTC_ACCOUNT_ID, settings.MARKET_MAKER_ACCOUNT_ID,
+                           settings.TRADER_ACCOUNT_ID, settings.REVERT_HELPER_ACCOUNT, settings.MARGIN_POOL_ACCOUNT,
+                           settings.MARGIN_INSURANCE_ACCOUNT):
                 account_type = Account.SYSTEM
             else:
                 account_type = Account.ORDINARY
