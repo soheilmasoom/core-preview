@@ -22,7 +22,7 @@ from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
 from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_crypto_withdraw_irt_value
 from gamify.utils import check_prize_achievements
-from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet
+from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import PENDING
 from ledger.utils.precision import humanize_number
@@ -310,7 +310,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 'get_open_order_address', 'get_deposit_address', 'get_bank_card_link',
                 'get_bank_account_link', 'get_finotech_request_link', 'get_staking_link',
                 'get_user_with_same_national_code', 'get_referred_user', 'get_login_activity_link',
-                'get_notifications_link', 'get_prizes_link', 'get_bots_link', 'get_totp'
+                'get_notifications_link', 'get_prizes_link', 'get_bots_link', 'get_totp', 'get_dust'
             )
         }),
         (_('اطلاعات مالی کاربر'), {'fields': (
@@ -353,7 +353,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'get_revenue_of_referred', 'get_open_order_address', 'get_selfie_image_uploaded', 'get_referred_user',
         'get_login_activity_link', 'get_last_trade', 'get_total_balance_irt_admin', 'get_order_link',
         'get_notifications_link', 'get_staking_link', 'get_prizes_link', 'get_suspended',
-        'suspension_reason', 'get_bots_link', 'is_2fa_active', 'get_totp'
+        'suspension_reason', 'get_bots_link', 'is_2fa_active', 'get_totp', 'get_dust'
     )
     preserve_filters = ('archived', )
 
@@ -556,6 +556,11 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         link = settings.HOST_URL + '/admin/otp_totp/totpdevice/?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_totp.short_description = 'لیست totp'
+
+    def get_dust(self, user: User):
+        link = url_to_admin_list(Trx) + '?account_dust={}'.format(user.get_account().id)
+        return mark_safe("<a href='%s'>دیدن</a>" % link)
+    get_dust.short_description = 'لیست تراکنش های خرد'
 
     def get_sum_of_value_buy_sell(self, user: User):
         if not hasattr(user, 'account'):
