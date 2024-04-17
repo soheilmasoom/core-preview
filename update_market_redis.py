@@ -38,8 +38,8 @@ def main():
 
                 depth = {
                     'symbol': symbol.name,
-                    'bids': Order.get_formatted_orders(bids, symbol, BUY),
-                    'asks': Order.get_formatted_orders(asks, symbol, SELL),
+                    'bids': Order.get_formatted_orders(bids, symbol, BUY)[:60],
+                    'asks': Order.get_formatted_orders(asks, symbol, SELL)[:60],
                 }
                 pipeline.hset('market_depth_snapshot', symbol.name, msgpack.packb(depth))
                 pipeline.set('market_depth_snapshot_liveness', 1, 60)
