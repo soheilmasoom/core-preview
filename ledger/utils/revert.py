@@ -40,14 +40,14 @@ def revert_trx_group_via_revert_helper(pipeline: WalletPipeline, account: Accoun
         )
 
     for trx in trx_list.filter(receiver__account=account):
-        sender = trx.sender
+        sender = trx.receiver
 
         if not sender.has_balance(trx.amount):
-            sender = sender.asset.get_wallet(trx.sender.account, market=Wallet.DEBT)
+            sender = sender.asset.get_wallet(sender.account, market=Wallet.DEBT)
 
         pipeline.new_trx(
             sender=sender,
-            receiver=trx.sender.asset.get_wallet(settings.REVERT_HELPER_ACCOUNT),
+            receiver=sender.asset.get_wallet(settings.REVERT_HELPER_ACCOUNT),
             amount=trx.amount,
             group_id=group_id,
             scope=Trx.REVERT
