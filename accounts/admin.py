@@ -1,6 +1,7 @@
 import csv
 
 from decouple import config
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
@@ -20,7 +21,6 @@ from financial.models.bank_card import BankCard, BankAccount
 from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
 from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_crypto_withdraw_irt_value
-from gamify.models import Task
 from gamify.utils import check_prize_achievements
 from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet
 from ledger.utils.external_price import BUY
@@ -32,7 +32,6 @@ from stake.models import StakeRequest
 from .admin_guard import M
 from .admin_guard.admin import AdvancedAdmin
 from .models import User, Account, Notification, FinotechRequest, Company, LevelGrants
-from .models.change_requests import BaseChangeRequest
 from .models.login_activity import LoginActivity
 from .models.sms_notification import SmsNotification
 from .models.user_feature_perm import UserFeaturePerm
@@ -311,7 +310,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 'get_open_order_address', 'get_deposit_address', 'get_bank_card_link',
                 'get_bank_account_link', 'get_finotech_request_link', 'get_staking_link',
                 'get_user_with_same_national_code', 'get_referred_user', 'get_login_activity_link',
-                'get_notifications_link', 'get_prizes_link', 'get_bots_link'
+                'get_notifications_link', 'get_prizes_link', 'get_bots_link', 'get_totp'
             )
         }),
         (_('اطلاعات مالی کاربر'), {'fields': (
@@ -354,7 +353,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'get_revenue_of_referred', 'get_open_order_address', 'get_selfie_image_uploaded', 'get_referred_user',
         'get_login_activity_link', 'get_last_trade', 'get_total_balance_irt_admin', 'get_order_link',
         'get_notifications_link', 'get_staking_link', 'get_prizes_link', 'get_suspended',
-        'suspension_reason', 'get_bots_link', 'is_2fa_active'
+        'suspension_reason', 'get_bots_link', 'is_2fa_active', 'get_totp'
     )
     preserve_filters = ('archived', )
 
@@ -552,6 +551,11 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         link = url_to_admin_list(Wallet) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_wallet.short_description = 'لیست کیف‌ها'
+
+    def get_totp(self, user: User):
+        link = settings.HOST_URL + '/admin/otp_totp/totpdevice/?user={}'.format(user.id)
+        return mark_safe("<a href='%s'>دیدن</a>" % link)
+    get_totp.short_description = 'لیست totp'
 
     def get_sum_of_value_buy_sell(self, user: User):
         if not hasattr(user, 'account'):
