@@ -10,7 +10,7 @@ from django.utils import timezone
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import get_group_id_field
 from ledger.utils.precision import floor_precision, decimal_to_str
-from ledger.utils.revert import revert_trx_group
+from ledger.utils.revert import revert_trx_group_via_revert_helper
 from market.models import BaseTrade
 
 logger = logging.getLogger(__name__)
@@ -153,12 +153,9 @@ class Trade(BaseTrade):
         return top_prices
 
     def revert(self):
-        raise NotImplementedError('This code has bug in which to users trade with each other, revert affects both!')
-
         from ledger.utils.wallet_pipeline import WalletPipeline
-        from ledger.models import Trx, Wallet
 
         with WalletPipeline() as pipeline:
             self.status = self.REVERT
             self.save(update_fields=['status'])
-            revert_trx_group(pipeline, self.group_id)
+            revert_trx_group_via_revert_helper(pipeline, self.account, self.group_id)

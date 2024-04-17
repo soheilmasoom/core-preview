@@ -390,13 +390,33 @@ class OTCTradeAdmin(admin.ModelAdmin):
             otc.revert()
 
 
+class DustAccountTrxFilter(SimpleListFilter):
+    title = 'کاربر'
+    parameter_name = 'account_dust'
+
+    def lookups(self, request, model_admin):
+        return [(1, 1)]
+
+    def queryset(self, request, queryset):
+        account_id = request.GET.get('account_dust')
+        if account_id is not None:
+            wallets = Wallet.objects.filter(
+                market=Wallet.SPOT,
+                variant__isnull=True,
+                account_id=account_id
+            )
+            return queryset.filter(Q(sender__in=wallets) | Q(receiver__in=wallets), scope=Trx.DUST)
+        else:
+            return queryset
+
+
 @admin.register(models.Trx)
 class TrxAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_masked_sender', 'get_masked_receiver', 'amount', 'scope', 'group_id')
     search_fields = (
         'sender__asset__symbol', 'sender__account__user__phone', 'receiver__account__user__phone', 'group_id')
     readonly_fields = ('sender', 'receiver',)
-    list_filter = ('scope',)
+    list_filter = ('scope', DustAccountTrxFilter)
 
     @admin.display(description='sender')
     def get_masked_sender(self, trx: Trx):
