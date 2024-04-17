@@ -356,6 +356,10 @@ class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
 class WalletBalanceView(APIView, DelegatedAccountMixin):
     def get(self, request, *args, **kwargs):
         market = request.query_params.get('market', Wallet.SPOT)
+
+        if market not in Wallet.MARKETS:
+            return Response({'error': 'Invalid market'}, status=status.HTTP_400_BAD_REQUEST)
+
         asset = get_object_or_404(Asset, symbol=kwargs['symbol'].upper())
         account, variant = self.get_account_variant(self.request)
         wallet = asset.get_wallet(account, market=market, variant=variant)
