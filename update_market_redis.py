@@ -34,13 +34,13 @@ def main():
                 per_symbol_orders[order['symbol'], order['side']].append(order)
 
             for symbol in PairSymbol.objects.filter(enable=True):
-                bids = Order.quantize_values(symbol, per_symbol_orders.get((symbol.id, BUY), [])[:60])
-                asks = Order.quantize_values(symbol, per_symbol_orders.get((symbol.id, SELL), [])[:60])
+                bids = Order.quantize_values(symbol, per_symbol_orders.get((symbol.id, BUY), []))
+                asks = Order.quantize_values(symbol, per_symbol_orders.get((symbol.id, SELL), []))
 
                 depth = {
                     'symbol': symbol.name,
-                    'bids': Order.get_formatted_orders(bids, symbol, BUY),
-                    'asks': Order.get_formatted_orders(asks, symbol, SELL),
+                    'bids': Order.get_formatted_orders(bids, symbol, BUY)[:60],
+                    'asks': Order.get_formatted_orders(asks, symbol, SELL)[:60],
                     'timestamp': int(time.time() * 1_000)
                 }
                 pipeline.hset('market_depth_snapshot', symbol.name, msgpack.packb(depth))
