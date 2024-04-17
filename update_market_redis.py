@@ -33,8 +33,8 @@ def main():
                 per_symbol_orders[order['symbol'], order['side']].append(order)
 
             for symbol in PairSymbol.objects.filter(enable=True):
-                bids = Order.quantize_values(symbol, per_symbol_orders.get((symbol.id, BUY), []))
-                asks = Order.quantize_values(symbol, per_symbol_orders.get((symbol.id, SELL), []))
+                bids = Order.quantize_values(symbol, per_symbol_orders.get((symbol.id, BUY)[:60], []))
+                asks = Order.quantize_values(symbol, per_symbol_orders.get((symbol.id, SELL)[:60], []))
 
                 depth = {
                     'symbol': symbol.name,
