@@ -162,7 +162,7 @@ class BlocklinkDustCostAdmin(admin.ModelAdmin):
 
 @admin.register(TempCredit)
 class TempCreditAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ('get_username', 'asset', 'amount')
+    list_display = ('get_username', 'asset', 'amount', 'get_amount')
     ordering = ('user', 'asset')
     search_fields = ('user__phone', 'user__first_name', 'user__last_name', 'asset__symbol')
     list_editable = ('amount', )
@@ -173,3 +173,7 @@ class TempCreditAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
         return mark_safe(
             f'<span dir="ltr">{credit.user}</span>'
         )
+
+    @admin.display(description='amount', ordering='amount')
+    def get_amount(self, credit: TempCredit):
+        return humanize_number(credit.amount)
