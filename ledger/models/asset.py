@@ -183,7 +183,7 @@ class AssetSerializerMini(serializers.ModelSerializer):
 
     class Meta:
         model = Asset
-        fields = ('symbol', 'precision', 'step_size', 'name', 'name_fa', 'logo', 'original_symbol',
+        fields = ('id', 'symbol', 'precision', 'step_size', 'name', 'name_fa', 'logo', 'original_symbol',
                   'original_name_fa', 'trading_view_symbol')
 
 
