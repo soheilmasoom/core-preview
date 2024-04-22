@@ -660,7 +660,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         for transfer in queryset.filter(deposit=False, status=INIT):
             transfer.reject()
 
-    @admin.action(description='Refund Deposit', permissions=['change'])
+    @admin.action(description='Revert Deposit', permissions=['change'])
     def refund_deposit(self, request, queryset):
         for transfer in queryset.filter(deposit=True, status=DONE):
             transfer.revert()
