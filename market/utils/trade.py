@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
@@ -18,6 +19,8 @@ from ledger.utils.wallet_pipeline import WalletPipeline
 from market.models import Order, Trade, BaseTrade, PairSymbol
 from market.models import ReferralTrx
 from market.utils.price import get_symbol_prices
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -104,13 +107,14 @@ def _update_trading_positions(trading_positions, pipeline):
         is_close_position = (trade_info.loan_type == Order.LIQUIDATION or
                              (floor_precision(position.asset_wallet.balance +
                                               pipeline.get_wallet_balance_diff(position.asset_wallet.id),
-                                              position.symbol.step_size) == Decimal('0') and
+                                              position.symbol.step_size) >= Decimal('0') and
                               trade_info.loan_type != BORROW)) and \
                             floor_precision(position.loan_wallet.balance
                                             + pipeline.get_wallet_balance_diff(position.loan_wallet.id),
                                             position.symbol.step_size) >= Decimal('0')
 
         if is_close_position:
+            logger.info(f"Closing position:{position.id}")
             position.convert_dust(pipeline)
 
             position.status = MarginPosition.CLOSED

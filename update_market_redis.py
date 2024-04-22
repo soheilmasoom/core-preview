@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from collections import defaultdict
 from random import random
 from time import sleep
@@ -40,6 +41,7 @@ def main():
                     'symbol': symbol.name,
                     'bids': Order.get_formatted_orders(bids, symbol, BUY)[:60],
                     'asks': Order.get_formatted_orders(asks, symbol, SELL)[:60],
+                    'timestamp': int(time.time() * 1_000)
                 }
                 pipeline.hset('market_depth_snapshot', symbol.name, msgpack.packb(depth))
                 pipeline.set('market_depth_snapshot_liveness', 1, 60)

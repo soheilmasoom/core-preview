@@ -8,6 +8,7 @@ from decouple import config
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import UniqueConstraint, Q, Sum
+from simple_history.models import HistoricalRecords
 
 from _base.settings import SYSTEM_ACCOUNT_ID
 from accounts.models import Account, SystemConfig
@@ -25,6 +26,8 @@ MARGIN_POOL_ACCOUNT = config('MARGIN_POOL_ACCOUNT', cast=int)
 
 
 class MarginPosition(models.Model):
+    history = HistoricalRecords()
+
     OPEN, CLOSED, TERMINATING = 'open', 'closed', 'terminating'
     STATUS_LIST = [OPEN, CLOSED, TERMINATING]
     STATUS_CHOICES = [(OPEN, OPEN), (CLOSED, CLOSED), (TERMINATING, TERMINATING)]
@@ -137,7 +140,10 @@ class MarginPosition(models.Model):
             else:
                 raise NotImplementedError
         else:
-            self.liquidation_price = None
+            if debt_amount <= Decimal('0'):
+                self.liquidate(pipeline)
+            else:
+                self.liquidation_price = None
 
     def rebalance(self, pipeline, price: Decimal = None):
         from ledger.models import Wallet
@@ -145,7 +151,7 @@ class MarginPosition(models.Model):
         debt_amount = self.debt_amount - pipeline.get_wallet_balance_diff(self.loan_wallet.id)
         total_balance = self.total_balance + pipeline.get_wallet_balance_diff(self.margin_wallet.id)
 
-        if total_balance and debt_amount:
+        if total_balance and debt_amount > 0:
             if self.side == SHORT:
                 liquidation_price = total_balance / debt_amount * self.get_ratio()
                 ratio = Decimal(1 - self.liquidation_price / liquidation_price)
@@ -160,6 +166,9 @@ class MarginPosition(models.Model):
             return
 
         if amount > Decimal('0'):
+            logger.info(f"Rebalance Position:{self.id}, debt_amount:{debt_amount}, total_balance:{total_balance}, "
+                        f"previous liquidation_price:{self.liquidation_price}, ratio:{ratio}")
+
             group_id = uuid.uuid4()
             pipeline.new_trx(
                 sender=self.base_wallet,
@@ -267,6 +276,8 @@ class MarginPosition(models.Model):
 
         to_close_amount = ceil_precision((self.debt_amount - loan_wallet_balance_diff)
                                          / (1 - self.symbol.get_fee_rate(self.account, is_maker=False)), self.symbol.step_size)
+        to_close_amount = max(to_close_amount, Decimal('0'))
+
         if self.side == SHORT:
             side = BUY
             price = get_depth_price(
@@ -483,7 +494,7 @@ class MarginPosition(models.Model):
         if price is None:
             return
 
-        free = self.asset_wallet.get_free() + pipeline.get_wallet_balance_diff(self.asset_wallet.id)
+        free = self.asset_wallet.balance + pipeline.get_wallet_balance_diff(self.asset_wallet.id)
 
         if free > 0:
             pipeline.new_trx(

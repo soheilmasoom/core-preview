@@ -406,7 +406,7 @@ class JibitChannel(FiatWithdraw):
         request_kwargs = {
             'url': url,
             'timeout': timeout,
-            'headers': {'Authorization': 'Bearer ' + self._get_token()},
+            'headers': {'Authorization': f'Bearer {self._get_token()}'},
         }
 
         try:
@@ -674,7 +674,7 @@ class PaystarChannel(FiatWithdraw):
         request_kwargs = {
             'url': url,
             'timeout': timeout,
-            'headers': {'Authorization': 'Bearer ' + self._get_token()},
+            'headers': {'Authorization': f'Bearer {self._get_token()}'},
         }
 
         try:

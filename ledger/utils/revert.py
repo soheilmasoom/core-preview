@@ -30,7 +30,7 @@ def revert_trx_group(pipeline: WalletPipeline, group_id: UUID, allow_debt: bool 
 def revert_trx_group_via_revert_helper(pipeline: WalletPipeline, account: Account, group_id: UUID):
     trx_list = Trx.objects.filter(group_id=group_id)
 
-    for trx in trx_list.filter(sender=account):
+    for trx in trx_list.filter(sender__account=account):
         pipeline.new_trx(
             sender=trx.sender.asset.get_wallet(settings.REVERT_HELPER_ACCOUNT),
             receiver=trx.sender,
@@ -39,15 +39,15 @@ def revert_trx_group_via_revert_helper(pipeline: WalletPipeline, account: Accoun
             scope=Trx.REVERT
         )
 
-    for trx in trx_list.filter(receiver=account):
-        sender = trx.sender
+    for trx in trx_list.filter(receiver__account=account):
+        sender = trx.receiver
 
         if not sender.has_balance(trx.amount):
-            sender = sender.asset.get_wallet(trx.sender.account, market=Wallet.DEBT)
+            sender = sender.asset.get_wallet(sender.account, market=Wallet.DEBT)
 
         pipeline.new_trx(
             sender=sender,
-            receiver=trx.sender.asset.get_wallet(settings.REVERT_HELPER_ACCOUNT),
+            receiver=sender.asset.get_wallet(settings.REVERT_HELPER_ACCOUNT),
             amount=trx.amount,
             group_id=group_id,
             scope=Trx.REVERT
