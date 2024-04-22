@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from decimal import Decimal
 
 import requests
@@ -55,14 +56,17 @@ class InternalAssetsRequester:
 
 @cache_for(60)
 def get_internal_asset_deposits() -> dict:
-    assets = InternalAssetsRequester().get_assets()
+    assets = InternalAssetsRequester().get_assets(with_network=True)
 
     if not assets:
         return {}
 
-    return {
-        asset['coin']: Decimal(asset['amount']) for asset in assets
-    }
+    result = defaultdict(dict)
+
+    for asset in assets:
+        result[asset['network']][asset['coin']] = Decimal(asset['amount'])
+
+    return result
 
 
 @cache_for(60)
