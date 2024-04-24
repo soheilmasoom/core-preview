@@ -46,6 +46,7 @@ from ledger.utils.withdraw_verify import RiskFactor, get_risks_html
 from market.utils.fix import create_symbols_for_asset
 from .models import Asset, BalanceLock
 from .tasks import update_network_fees
+from .utils.coins_info import get_coins_info
 from .utils.price import get_last_price
 from .utils.wallet_pipeline import WalletPipeline
 
@@ -72,7 +73,7 @@ class AssetAdmin(AdvancedAdmin):
     list_editable = ('enable', 'order', 'trend', 'trade_enable', 'hedge', 'price_page')
     search_fields = ('symbol',)
     ordering = ('-enable', '-pin_to_top', '-trend', 'order')
-    actions = ('setup_asset',)
+    actions = ('setup_asset', 'update_rank_by_cmc')
     readonly_fields = ('distribution_factor',)
     inlines = (CoinCategoryInline, )
 
@@ -158,7 +159,7 @@ class AssetAdmin(AdvancedAdmin):
 
         return humanize_number(hedge_value_abs)
 
-    @admin.action(description='Setup Asset', permissions=['view'])
+    @admin.action(description='Setup Asset', permissions=['change'])
     def setup_asset(self, request, queryset):
         from ledger.models import NetworkAsset
         now = timezone.now()
@@ -191,6 +192,19 @@ class AssetAdmin(AdvancedAdmin):
                 ns.update_with_provider(info, now)
 
             create_symbols_for_asset(asset)
+
+    @admin.action(description='Update Rank by CMC', permissions=['change'])
+    def update_rank_by_cmc(self, request, queryset):
+        coins_info = get_coins_info()
+
+        for asset in queryset:
+            info = coins_info.get(asset.symbol)
+
+            rank = info and info.cmc_rank
+
+            if rank:
+                asset.order = rank
+                asset.save(update_fields=['order'])
 
 
 @admin.register(FeedbackCategory)

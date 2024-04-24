@@ -145,13 +145,6 @@ class Asset(models.Model):
         else:
             return 1
 
-    @property
-    def future_symbol(self):
-        if self.symbol == 'SHIB':
-            return '1000SHIB'
-        else:
-            return self.symbol
-
 
 class AssetSerializer(serializers.ModelSerializer):
     class Meta:
