@@ -2,7 +2,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 import django_filters
-from django.db.models import Sum
+from django.db.models import Sum, F
 from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers
@@ -127,6 +127,40 @@ class MarginPositionSerializer(AssetSerializerMini):
                   'asset_total')
 
 
+class MarginPositionDetailedSerializer(MarginPositionSerializer):
+    closed_time = serializers.SerializerMethodField()
+    average_closed_price = serializers.SerializerMethodField()
+    closed_volume = serializers.SerializerMethodField()
+    closing_pnl = serializers.SerializerMethodField()
+
+    def get_closing_side(self, instance):
+        return BUY if instance.side == SHORT else SELL
+
+    def get_closing_orders(self, instance):
+        return instance.order_set.filter(side=self.get_closing_side(instance), filled_amount__gt=0)
+
+    def get_closed_time(self, instance: MarginPosition):
+        if instance.status == MarginPosition.CLOSED:
+            last_trade = instance.trade_set.filter(side=self.get_closing_side(instance)).order_by('-created').first()
+            return last_trade and last_trade.created
+        return None
+
+    def get_average_closed_price(self, instance: MarginPosition):
+        return self.get_closing_orders(instance). \
+            annotate(value=F('filled_amount') * F('price')). \
+            aggregate(sum=Sum('value') / Sum('filled_amount'))['sum'] or 0
+
+    def get_closed_volume(self, instance: MarginPosition):
+        return self.get_closing_orders(instance).aggregate(sum=Sum('filled_amount'))['sum'] or 0
+
+    def get_closing_pnl(self, instance: MarginPosition):
+        return instance.marginhistorymodel_set.filter(type=MarginHistoryModel.PNL).aggregate(sum=Sum('amount'))['sum'] or 0
+
+    class Meta:
+        model = MarginPosition
+        fields = ('closed_time', 'average_closed_price', 'closing_pnl', 'closed_volume', )
+
+
 class MarginPositionFilter(django_filters.FilterSet):
     symbol = django_filters.CharFilter(field_name='symbol__name', lookup_expr='iexact')
     created_after = django_filters.DateTimeFilter(field_name='created', lookup_expr='gte')
@@ -138,17 +172,28 @@ class MarginPositionFilter(django_filters.FilterSet):
 
 
 class MarginPositionViewSet(ModelViewSet):
-    serializer_class = MarginPositionSerializer
     filter_backends = [DjangoFilterBackend]
     filter_class = MarginPositionFilter
 
+    def get_serializer_class(self):
+        if self.request.GET.get('stat') == '1':
+            return MarginPositionDetailedSerializer
+        return MarginPositionSerializer
+
     def get_queryset(self):
-        return MarginPosition.objects.filter(
+        stat = self.request.GET.get('stat', '0')
+        queryset = MarginPosition.objects.filter(
             account=self.request.user.get_account(),
             liquidation_price__isnull=False,
-            status=MarginPosition.OPEN
-        ).order_by('-created').prefetch_related('base_wallet', 'asset_wallet', 'symbol', 'symbol__base_asset',
-                                                'symbol__asset')
+        )
+        prefetch_fields = ['base_wallet', 'asset_wallet', 'symbol', 'symbol__base_asset', 'symbol__asset']
+
+        if stat == '0':
+            queryset = queryset.filter(status=MarginPosition.OPEN)
+        elif stat == '1':
+            prefetch_fields.extend(['order_set', 'trade_set', 'marginhistorymodel_set'])
+
+        return queryset.order_by('-created').prefetch_related(*prefetch_fields)
 
 
 class MarginClosePositionSerializer(serializers.Serializer):
