@@ -124,7 +124,7 @@ class MarginPositionSerializer(AssetSerializerMini):
     def get_deadline(self, instance):
         if instance.liquidation_price:
             sys = SystemConfig.get_system_config()
-            return instance.created_at + instance.position_deadline
+            return instance.created + instance.position_deadline
         return None
 
     class Meta:
