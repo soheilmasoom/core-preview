@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
@@ -182,6 +183,7 @@ class MarginPositionFilter(django_filters.FilterSet):
 class MarginPositionViewSet(ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filter_class = MarginPositionFilter
+    pagination_class = LimitOffsetPagination
 
     def get_serializer_class(self):
         if self.request.GET.get('stat') == '1':
