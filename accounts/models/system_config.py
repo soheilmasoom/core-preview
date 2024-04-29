@@ -34,7 +34,7 @@ class SystemConfig(models.Model):
     total_user_margin_irt_base = get_amount_field(default=Decimal('500_000_000'))
     liquidation_level = get_amount_field(default=Decimal('1.1'))
     insurance_fee = get_amount_field(default=Decimal('0.02'))
-    position_deadline = models.DurationField(default=timedelta(days=1))
+    position_deadline = models.DurationField(default=timedelta(days=30))
 
     open_pay_id_to_all = models.BooleanField(default=False)
 
