@@ -2,7 +2,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 import django_filters
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Q
 from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers
@@ -158,7 +158,7 @@ class MarginPositionDetailedSerializer(MarginPositionSerializer):
 
     class Meta:
         model = MarginPosition
-        fields = ('closed_time', 'average_closed_price', 'closing_pnl', 'closed_volume', )
+        fields = (*MarginPositionSerializer.Meta.fields, 'closed_time', 'average_closed_price', 'closing_pnl', 'closed_volume', )
 
 
 class MarginPositionFilter(django_filters.FilterSet):
@@ -191,6 +191,9 @@ class MarginPositionViewSet(ModelViewSet):
         if stat == '0':
             queryset = queryset.filter(status=MarginPosition.OPEN)
         elif stat == '1':
+            queryset = queryset.filter(
+                Q(trade__isnull=False) | Q(status=MarginPosition.OPEN, liquidation_price__isnull=False)
+            )
             prefetch_fields.extend(['order_set', 'trade_set', 'marginhistorymodel_set'])
 
         return queryset.order_by('-created').prefetch_related(*prefetch_fields)
