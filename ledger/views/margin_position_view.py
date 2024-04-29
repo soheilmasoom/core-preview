@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
+from accounts.models import SystemConfig
 from ledger.exceptions import SmallDepthError, InsufficientBalance
 from ledger.models import MarginPosition, MarginHistoryModel, Wallet
 from ledger.models.asset import AssetSerializerMini
@@ -38,6 +39,7 @@ class MarginPositionSerializer(AssetSerializerMini):
     average_price = serializers.SerializerMethodField()
     current_price = serializers.SerializerMethodField()
     volume = serializers.SerializerMethodField()
+    deadline = serializers.SerializerMethodField()
 
     def get_margin_ratio(self, instance: MarginPosition):
         debt = Decimal(self.get_base_debt(instance))
@@ -119,12 +121,18 @@ class MarginPositionSerializer(AssetSerializerMini):
         amount *= -1 if instance.side == SHORT else 1
         return get_margin_coin_presentation_balance(instance.symbol.base_asset.symbol, self.get_current_price(instance) * amount)
 
+    def get_deadline(self, instance):
+        if instance.liquidation_price:
+            sys = SystemConfig.get_system_config()
+            return instance.created_at + instance.position_deadline
+        return None
+
     class Meta:
         model = MarginPosition
         fields = ('created', 'account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'free_amount',
                   'average_price', 'liquidation_price', 'side', 'status', 'id', 'margin_ratio', 'balance', 'base_debt',
                   'asset_debt', 'leverage', 'coin_amount', 'pnl', 'current_price', 'volume', 'equity', 'base_total',
-                  'asset_total')
+                  'asset_total', 'deadline')
 
 
 class MarginPositionDetailedSerializer(MarginPositionSerializer):
@@ -223,36 +231,11 @@ class MarginClosePositionView(APIView):
         serializer.is_valid(raise_exception=True)
         position = serializer.position
 
-        queryset = Order.objects.filter(
-            status=Order.NEW,
-            account=position.account,
-            symbol=position.symbol,
-            wallet__market=position.asset_wallet.MARGIN
-        )
-        Order.cancel_orders(queryset)
-
         try:
-            with WalletPipeline() as pipeline:
+            amount = abs(position.asset_wallet.balance) * serializer.data.get('percentage', 100) / 100
+            position.close(amount=amount)
+            return Response(200)
 
-                side = BUY if position.side == SHORT else SELL
-                amount = abs(position.asset_wallet.balance) * serializer.data.get('percentage', 100) / 100
-
-                new_order(
-                    pipeline=pipeline,
-                    symbol=position.symbol,
-                    account=position.account,
-                    amount=amount,
-                    fill_type=Order.MARKET,
-                    side=side,
-                    market=Wallet.MARGIN,
-                    variant=position.group_id,
-                    pass_min_notional=True,
-                    order_type=Order.ORDINARY,
-                    parent_lock_group_id=uuid4(),
-                    margin_position=position
-                )
-
-                return Response(200)
         except SmallDepthError:
             return Response({'Error': 'به علت عمق کم بازار معامله انجام نشد'}, 400)
         except InsufficientBalance:
