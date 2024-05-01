@@ -153,10 +153,14 @@ class ProviderRequester:
 
         order_amount = round(buy_amount, round_digits)
 
-        price = get_price(
-            asset.symbol + Asset.USDT,
-            side=BUY
-        )
+        if hedge_price:
+            price = hedge_price
+        else:
+            price = get_price(
+                asset.symbol + Asset.USDT,
+                side=BUY
+            )
+
         min_notional = market_info.min_notional * Decimal('1.1')
 
         if order_amount * price < min_notional:
