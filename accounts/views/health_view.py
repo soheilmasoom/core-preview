@@ -74,13 +74,13 @@ class HealthCheckView(APIView):
                     latest_object.size < 1024):
                 unhealthy_services.append(service + 'BACKUP_FAILED')
 
-        position_ids = set(MarginHistoryModel.objects.filter(created__gte=timezone.now() - timedelta(days=1), type=MarginHistoryModel.INTEREST_FEE).values_list('id', flat=True))
+        position_ids = set(MarginHistoryModel.objects.filter(created__gte=timezone.now() - timedelta(days=1), type=MarginHistoryModel.INTEREST_FEE).values_list('position_id', flat=True))
 
         missed_position = set(MarginPosition.objects.filter(status=MarginPosition.OPEN, liquidation_price__isnull=False).exclude(id__in=position_ids).values_list('id', flat=True))
         if missed_position:
             unhealthy_services.append(f'Missed position INTEREST_FEE: {missed_position}')
 
-        lost_positions = set(MarginPosition.objects.filter(~Q(asset_wallet__balance=0), status=MarginPosition.OPEN, liquidation_price__isnull=True).values_list('id', flat=True))
+        lost_positions = set(MarginPosition.objects.filter(~Q(asset_wallet__balance=0), status=MarginPosition.OPEN, liquidation_price__isnull=True).exclude(trade__isnull=True).values_list('id', flat=True))
         if lost_positions:
             unhealthy_services.append(f'Lost position liquidation price: {lost_positions}')
 

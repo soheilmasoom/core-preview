@@ -159,8 +159,8 @@ def alert_risky_position():
 
 @shared_task(queue='margin')
 def check_position_health():
-    for position in MarginPosition.objects.filter(status=MarginPosition.OPEN) \
-            .prefetch_related('asset_wallet', 'base_wallet', 'symbol'):
+    for position in (MarginPosition.objects.filter(status=MarginPosition.OPEN)
+            .exclude(trade__isnull=True).prefetch_related('asset_wallet', 'base_wallet', 'symbol')):
         margin = position.base_debt_amount + position.base_total_balance
         if margin < 0:
             logger.warning(f"Position{position.id} margin:{margin} is negative !!!")
