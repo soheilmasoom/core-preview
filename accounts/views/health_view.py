@@ -80,7 +80,7 @@ class HealthCheckView(APIView):
         if missed_position:
             unhealthy_services.append(f'Missed position INTEREST_FEE: {missed_position}')
 
-        lost_positions = set(MarginPosition.objects.filter(~Q(asset_wallet__balance=0), status=MarginPosition.OPEN, liquidation_price__isnull=True).values_list('id', flat=True))
+        lost_positions = set(MarginPosition.objects.filter(~Q(asset_wallet__balance=0), status=MarginPosition.OPEN, liquidation_price__isnull=True).exclude(trade__isnull=True).values_list('id', flat=True))
         if lost_positions:
             unhealthy_services.append(f'Lost position liquidation price: {lost_positions}')
 
