@@ -196,6 +196,13 @@ class BankAccountSerializer(serializers.ModelSerializer):
         if BankAccount.live_objects.filter(user=user, iban=iban).exists():
             raise ValidationError('این شماره شبا قبلا ثبت شده است.')
 
+        old = BankAccount.objects.filter(user=user, iban=iban, deleted=True).order_by('id').last()
+
+        if old:
+            old.deleted = False
+            old.save(update_fields=['deleted'])
+            return old
+
         bank_account = super().create(validated_data)
 
         from financial.tasks.verify import verify_bank_account_task
