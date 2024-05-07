@@ -395,7 +395,8 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'iban', 'get_username', 'verified', 'deleted')
     list_filter = (BankUserFilter, )
     search_fields = ('iban', )
-    raw_id_fields = ('user',)
+    raw_id_fields = ('user', )
+    readonly_fields = ('rejected_by', )
 
     actions = ['verify_bank_accounts_manual', 'verify_bank_accounts_auto', 'reject_bank_accounts_manual']
 
@@ -412,14 +413,15 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     def verify_bank_accounts_manual(self, request, queryset):
         for bank_account in queryset:
             bank_account.verified = True
-            bank_account.save()
+            bank_account.save(update_fields=['verified'])
             bank_account.user.verify_level2_if_not()
 
     @admin.action(description='رد شماره شبا')
     def reject_bank_accounts_manual(self, request, queryset):
         for bank_account in queryset:
             bank_account.verified = False
-            bank_account.save()
+            bank_account.rejected_by = request.user
+            bank_account.save(update_fields=['verified', 'rejected_by'])
 
             user = bank_account.user
 

@@ -87,7 +87,7 @@ class BankAccount(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
-    user = models.ForeignKey(to='accounts.User', on_delete=models.PROTECT)
+    user = models.ForeignKey(to='accounts.User', on_delete=models.PROTECT, related_name='bank_accounts')
 
     iban = models.CharField(
         max_length=26,
@@ -119,6 +119,8 @@ class BankAccount(models.Model):
 
     objects = models.Manager()
     live_objects = LiveManager()
+
+    rejected_by = models.ForeignKey(to='accounts.User', on_delete=models.PROTECT, null=True, blank=True)
 
     def __str__(self):
         return self.iban[:6] + '********' + self.iban[-5:] + ' ' + self.bank
