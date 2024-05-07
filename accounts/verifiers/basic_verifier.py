@@ -3,34 +3,36 @@ import logging
 from django.conf import settings
 from django.template import loader
 
-from accounts.models import User
+from accounts.models import User, Notification
 from accounts.utils.admin import url_to_edit_object
 from accounts.utils.similarity import name_similarity
 from accounts.utils.similarity import split_names
 from accounts.utils.telegram import send_support_message
-from accounts.verifiers.utils import *
-from accounts.verifiers.zibal import ZibalRequester
 from accounts.verifiers.jibit import JibitRequester
+from accounts.verifiers.utils import *
 from financial.models import BankCard, BankAccount
 
 logger = logging.getLogger(__name__)
 
 
-def send_shahkar_rejection_message(user, resp):
+def send_shahkar_rejection_message(user):
     from accounts.tasks.send_sms import send_kavenegar_exclusive_sms
+
+    Notification.send(
+        recipient=user,
+        title='مالکیت سیم‌کارت',
+        message="کاربر گرامی، مالکیت سیم‌کارت شما جهت ارتقا به سطح 3 تایید نشد.",
+        link="/account/verification/advanced"
+    )
+
     context = {
         'brand': settings.BRAND,
     }
     content = loader.render_to_string(
         'accounts/notif/sms/shahkar_rejection_message.txt',
-        context=context)
+        context=context
+    )
     send_kavenegar_exclusive_sms(phone=user.phone, content=content)
-    logger.info(f'user: {user.id} mobile number and national code did not match', extra={
-        'user': user,
-        'resp': resp.data,
-        'phone': user.phone,
-        'national_code': user.national_code
-    })
 
 
 def shahkar_check(user: User, phone: str, national_code: str) -> Union[bool, None]:
@@ -38,10 +40,10 @@ def shahkar_check(user: User, phone: str, national_code: str) -> Union[bool, Non
     resp = requester.matching(phone_number=phone, national_code=national_code)
     if resp.success:
         if not resp.data.is_matched:
-            send_shahkar_rejection_message(user, resp)
+            send_shahkar_rejection_message(user)
         return resp.data.is_matched
     elif resp.data.code == 'INVALID_DATA':
-        send_shahkar_rejection_message(user, resp)
+        send_shahkar_rejection_message(user)
         return False
     else:
         logger.warning('shahkar not succeeded', extra={
