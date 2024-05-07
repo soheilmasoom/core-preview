@@ -130,10 +130,10 @@ app.conf.beat_schedule = {
 
     'terminate_positions': {
         'task': 'ledger.tasks.margin.terminate_positions',
-        'schedule': crontab(hour='4,12,20', minute=30),
+        'schedule': 20 * TASK_MULTIPLIER,
         'options': {
             'queue': 'margin',
-            'expires': 3600
+            'expires': 20 * TASK_MULTIPLIER
         },
     },
 
