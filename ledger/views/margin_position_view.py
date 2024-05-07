@@ -206,7 +206,7 @@ class MarginPositionViewSet(ModelViewSet):
             )
             prefetch_fields.extend(['order_set', 'trade_set', 'marginhistorymodel_set'])
 
-        return queryset.order_by('-created').prefetch_related(*prefetch_fields)
+        return queryset.distinct('id').order_by('-id').prefetch_related(*prefetch_fields)
 
 
 class MarginClosePositionSerializer(serializers.Serializer):
