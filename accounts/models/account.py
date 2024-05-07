@@ -48,6 +48,7 @@ class Account(models.Model):
 
     custom_maker_fee = get_amount_field(null=True)
     custom_taker_fee = get_amount_field(null=True)
+    custom_max_margin_leverage = models.SmallIntegerField(null=True)
 
     def is_system(self) -> bool:
         return self.type == self.SYSTEM
@@ -55,6 +56,11 @@ class Account(models.Model):
     def is_ordinary_user(self) -> bool:
         # be careful about new market maker account, should be ordinary if dont want to hedge in Core 
         return not bool(self.type)
+
+    def get_max_margin_leverage(self):
+        from accounts.models import SystemConfig
+        sys_config = SystemConfig.get_system_config()
+        return self.custom_max_margin_leverage or sys_config.max_margin_leverage
 
     @classmethod
     def system(cls) -> 'Account':
