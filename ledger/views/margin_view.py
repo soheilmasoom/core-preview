@@ -253,7 +253,7 @@ class MarginPositionHistoryView(ListAPIView):
 class LeverageViewSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
-        max_leverage = SystemConfig.get_system_config().max_margin_leverage
+        max_leverage = self.context['request'].user.get_account().get_max_margin_leverage()
 
         if not 1 <= Decimal(attrs.get('leverage')) <= max_leverage:
             raise ValidationError(f'ضریب باید عددی صحیحی بین 1 و {max_leverage} باشد.')
@@ -267,7 +267,7 @@ class LeverageViewSerializer(serializers.ModelSerializer):
 
 class MarginLeverageView(APIView):
     def post(self, request):
-        serializer = LeverageViewSerializer(data=request.data)
+        serializer = LeverageViewSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         data = serializer.data
 
@@ -282,10 +282,9 @@ class MarginLeverageView(APIView):
 
     def get(self, request):
         margin_leverage, _ = MarginLeverage.objects.get_or_create(account=request.user.account)
-        sys_config = SystemConfig.get_system_config()
 
         return Response({
             "leverage": margin_leverage.leverage,
-            "max_leverage": sys_config.max_margin_leverage
+            "max_leverage": request.user.get_account().get_max_margin_leverage()
         }, 200)
 

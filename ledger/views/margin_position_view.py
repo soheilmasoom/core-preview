@@ -2,15 +2,17 @@ from decimal import Decimal
 from uuid import uuid4
 
 import django_filters
-from django.db.models import Sum
+from django.db.models import Sum, F, Q
 from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
+from accounts.models import SystemConfig
 from ledger.exceptions import SmallDepthError, InsufficientBalance
 from ledger.models import MarginPosition, MarginHistoryModel, Wallet
 from ledger.models.asset import AssetSerializerMini
@@ -38,6 +40,7 @@ class MarginPositionSerializer(AssetSerializerMini):
     average_price = serializers.SerializerMethodField()
     current_price = serializers.SerializerMethodField()
     volume = serializers.SerializerMethodField()
+    deadline = serializers.SerializerMethodField()
 
     def get_margin_ratio(self, instance: MarginPosition):
         debt = Decimal(self.get_base_debt(instance))
@@ -119,12 +122,52 @@ class MarginPositionSerializer(AssetSerializerMini):
         amount *= -1 if instance.side == SHORT else 1
         return get_margin_coin_presentation_balance(instance.symbol.base_asset.symbol, self.get_current_price(instance) * amount)
 
+    def get_deadline(self, instance):
+        if instance.liquidation_price:
+            sys = SystemConfig.get_system_config()
+            return instance.created + sys.position_deadline
+        return None
+
     class Meta:
         model = MarginPosition
         fields = ('created', 'account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'free_amount',
                   'average_price', 'liquidation_price', 'side', 'status', 'id', 'margin_ratio', 'balance', 'base_debt',
                   'asset_debt', 'leverage', 'coin_amount', 'pnl', 'current_price', 'volume', 'equity', 'base_total',
-                  'asset_total')
+                  'asset_total', 'deadline')
+
+
+class MarginPositionDetailedSerializer(MarginPositionSerializer):
+    closed_time = serializers.SerializerMethodField()
+    average_closed_price = serializers.SerializerMethodField()
+    closed_volume = serializers.SerializerMethodField()
+    closing_pnl = serializers.SerializerMethodField()
+
+    def get_closing_side(self, instance):
+        return BUY if instance.side == SHORT else SELL
+
+    def get_closing_orders(self, instance):
+        return instance.order_set.filter(side=self.get_closing_side(instance), filled_amount__gt=0)
+
+    def get_closed_time(self, instance: MarginPosition):
+        if instance.status == MarginPosition.CLOSED:
+            last_trade = instance.trade_set.filter(side=self.get_closing_side(instance)).order_by('-created').first()
+            return last_trade and last_trade.created
+        return None
+
+    def get_average_closed_price(self, instance: MarginPosition):
+        return self.get_closing_orders(instance). \
+            annotate(value=F('filled_amount') * F('price')). \
+            aggregate(sum=Sum('value') / Sum('filled_amount'))['sum'] or 0
+
+    def get_closed_volume(self, instance: MarginPosition):
+        return self.get_closing_orders(instance).aggregate(sum=Sum('filled_amount'))['sum'] or 0
+
+    def get_closing_pnl(self, instance: MarginPosition):
+        return instance.marginhistorymodel_set.filter(type=MarginHistoryModel.PNL).aggregate(sum=Sum('amount'))['sum'] or 0
+
+    class Meta:
+        model = MarginPosition
+        fields = (*MarginPositionSerializer.Meta.fields, 'closed_time', 'average_closed_price', 'closing_pnl', 'closed_volume', )
 
 
 class MarginPositionFilter(django_filters.FilterSet):
@@ -138,17 +181,32 @@ class MarginPositionFilter(django_filters.FilterSet):
 
 
 class MarginPositionViewSet(ModelViewSet):
-    serializer_class = MarginPositionSerializer
     filter_backends = [DjangoFilterBackend]
     filter_class = MarginPositionFilter
+    pagination_class = LimitOffsetPagination
+
+    def get_serializer_class(self):
+        if self.request.GET.get('stat') == '1':
+            return MarginPositionDetailedSerializer
+        return MarginPositionSerializer
 
     def get_queryset(self):
-        return MarginPosition.objects.filter(
+        stat = self.request.GET.get('stat', '0')
+        queryset = MarginPosition.objects.filter(
             account=self.request.user.get_account(),
             liquidation_price__isnull=False,
-            status=MarginPosition.OPEN
-        ).order_by('-created').prefetch_related('base_wallet', 'asset_wallet', 'symbol', 'symbol__base_asset',
-                                                'symbol__asset')
+        )
+        prefetch_fields = ['base_wallet', 'asset_wallet', 'symbol', 'symbol__base_asset', 'symbol__asset']
+
+        if stat == '0':
+            queryset = queryset.filter(status=MarginPosition.OPEN)
+        elif stat == '1':
+            queryset = queryset.filter(
+                Q(trade__isnull=False) | Q(status=MarginPosition.OPEN, liquidation_price__isnull=False)
+            )
+            prefetch_fields.extend(['order_set', 'trade_set', 'marginhistorymodel_set'])
+
+        return queryset.distinct('id').order_by('-id').prefetch_related(*prefetch_fields)
 
 
 class MarginClosePositionSerializer(serializers.Serializer):
@@ -175,36 +233,11 @@ class MarginClosePositionView(APIView):
         serializer.is_valid(raise_exception=True)
         position = serializer.position
 
-        queryset = Order.objects.filter(
-            status=Order.NEW,
-            account=position.account,
-            symbol=position.symbol,
-            wallet__market=position.asset_wallet.MARGIN
-        )
-        Order.cancel_orders(queryset)
-
         try:
-            with WalletPipeline() as pipeline:
+            amount = abs(position.asset_wallet.balance) * serializer.data.get('percentage', 100) / 100
+            position.close(amount=amount)
+            return Response(200)
 
-                side = BUY if position.side == SHORT else SELL
-                amount = abs(position.asset_wallet.balance) * serializer.data.get('percentage', 100) / 100
-
-                new_order(
-                    pipeline=pipeline,
-                    symbol=position.symbol,
-                    account=position.account,
-                    amount=amount,
-                    fill_type=Order.MARKET,
-                    side=side,
-                    market=Wallet.MARGIN,
-                    variant=position.group_id,
-                    pass_min_notional=True,
-                    order_type=Order.ORDINARY,
-                    parent_lock_group_id=uuid4(),
-                    margin_position=position
-                )
-
-                return Response(200)
         except SmallDepthError:
             return Response({'Error': 'به علت عمق کم بازار معامله انجام نشد'}, 400)
         except InsufficientBalance:

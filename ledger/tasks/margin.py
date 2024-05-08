@@ -6,7 +6,7 @@ from celery import shared_task
 from django.db.models import F
 from django.utils import timezone
 
-from accounts.models import Account, Notification, EmailNotification
+from accounts.models import Account, Notification, EmailNotification, SystemConfig
 from accounts.tasks import send_message_by_kavenegar
 from accounts.utils.admin import url_to_edit_object
 from accounts.utils.telegram import send_support_message
@@ -137,6 +137,17 @@ def collect_margin_interest():
 
     for position in to_liquid_long_positions:
         position.liquidate(pipeline)
+
+
+@shared_task(queue='margin')
+def terminate_positions():
+    sys = SystemConfig.get_system_config()
+    for position in MarginPosition.objects.filter(
+            status=MarginPosition.OPEN,
+            liquidation_price__isnull=False,
+            created__lte=timezone.now() - sys.position_deadline
+    ):
+        position.close()
 
 
 @shared_task(queue='margin')
