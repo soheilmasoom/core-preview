@@ -149,3 +149,7 @@ class Response:
             raise ServerError(err)
 
         return self.data
+
+    @property
+    def ok(self):
+        return 200 <= self.status_code < 400

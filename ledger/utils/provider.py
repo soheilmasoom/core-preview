@@ -101,7 +101,8 @@ class ProviderRequester:
 
     def get_futures_info(self, exchange: str) -> dict:
         resp = self.collect_api('/api/v1/futures/', timeout=30, data={'exchange': exchange})
-        return resp.data
+        if resp.ok:
+            return resp.data
 
     def get_network_info(self, coin: str, network: str = None) -> List[NetworkInfo]:
         params = {'coin': coin}

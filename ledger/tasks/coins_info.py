@@ -12,7 +12,7 @@ def populate_coins_info():
     fetch_key = 'coins_info_fetching'
 
     if cache.get(fetch_key):
-        print('ignored')
+        print('updating coins info ignored')
         return
 
     cache.set(fetch_key, 1, 60)
