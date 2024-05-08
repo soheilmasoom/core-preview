@@ -146,10 +146,14 @@ class StakeOptionGroupedAPIView(StakeOptionAPIView):
     serializer_class = StakeOptionGroupedSerializer
 
     def get_queryset(self):
+        q = Q(enable=True, stakeoption__enable=True)
+        type = self.request.GET.get('type')
+        if type:
+            q &= Q(stakeoption__type=type)
+
         return sorted(
             Asset.objects.filter(
-                enable=True,
-                stakeoption__enable=True
+                q
             ).prefetch_related('stakeoption_set').order_by('id', '-stakeoption__apr').distinct('id'),
             key=lambda asset: -asset.stakeoption_set.aggregate(max_apr=Max('apr'))['max_apr']
         )
