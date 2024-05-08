@@ -137,7 +137,7 @@ class StakeOptionGroupedAPIView(StakeOptionAPIView):
     permission_classes = []
 
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = []
+    filterset_fields = ['landing', 'type']
 
     serializer_class = StakeOptionGroupedSerializer
 
