@@ -48,7 +48,7 @@ class Account(models.Model):
 
     custom_maker_fee = get_amount_field(null=True)
     custom_taker_fee = get_amount_field(null=True)
-    custom_max_margin_leverage = models.SmallIntegerField(null=True)
+    custom_max_margin_leverage = models.SmallIntegerField(null=True, blank=True)
 
     def is_system(self) -> bool:
         return self.type == self.SYSTEM
