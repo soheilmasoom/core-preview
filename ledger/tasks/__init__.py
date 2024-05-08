@@ -1,4 +1,4 @@
-from .margin import check_margin_level, collect_margin_interest, alert_risky_position, check_position_health
+from .margin import check_margin_level, collect_margin_interest, alert_risky_position, check_position_health, terminate_positions
 from .withdraw import create_provider_withdraw, update_provider_withdraw, update_withdraws, create_withdraw
 from .fee import update_network_fees
 from .pnl import create_pnl_histories

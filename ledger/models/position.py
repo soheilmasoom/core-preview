@@ -12,7 +12,7 @@ from simple_history.models import HistoricalRecords
 
 from _base.settings import SYSTEM_ACCOUNT_ID
 from accounts.models import Account, SystemConfig
-from ledger.models import Trx
+from ledger.models import Trx, Wallet
 from ledger.utils.external_price import SHORT, LONG, BUY, SELL, get_other_side
 from ledger.utils.fields import get_amount_field
 from ledger.utils.precision import floor_precision, ceil_precision
@@ -519,6 +519,35 @@ class MarginPosition(models.Model):
                 group_id=group_id,
                 type=MarginHistoryModel.DUST,
                 account=self.account
+            )
+
+    def close(self, amount=None):
+        from market.models import Order
+        from market.utils.order_utils import new_order
+        from ledger.utils.wallet_pipeline import WalletPipeline
+
+        queryset = Order.objects.filter(
+            status=Order.NEW,
+            account=self.account,
+            symbol=self.symbol,
+            wallet__market=self.asset_wallet.MARGIN
+        )
+        Order.cancel_orders(queryset)
+
+        with WalletPipeline() as pipeline:
+            new_order(
+                pipeline=pipeline,
+                symbol=self.symbol,
+                account=self.account,
+                amount=amount or abs(self.asset_wallet.balance),
+                fill_type=Order.MARKET,
+                side=BUY if self.side == SHORT else SELL,
+                market=Wallet.MARGIN,
+                variant=self.group_id,
+                pass_min_notional=True,
+                order_type=Order.ORDINARY,
+                parent_lock_group_id=uuid.uuid4(),
+                margin_position=self
             )
 
 

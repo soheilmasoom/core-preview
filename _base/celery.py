@@ -127,6 +127,16 @@ app.conf.beat_schedule = {
             'expires': 3600
         },
     },
+
+    'terminate_positions': {
+        'task': 'ledger.tasks.margin.terminate_positions',
+        'schedule': 20 * TASK_MULTIPLIER,
+        'options': {
+            'queue': 'margin',
+            'expires': 20 * TASK_MULTIPLIER
+        },
+    },
+
     'alert_risky_position': {
         'task': 'ledger.tasks.margin.alert_risky_position',
         'schedule': 20 * TASK_MULTIPLIER,
@@ -135,6 +145,7 @@ app.conf.beat_schedule = {
             'expires': 20 * TASK_MULTIPLIER
         },
     },
+
     'check_position_health': {
         'task': 'ledger.tasks.margin.check_position_health',
         'schedule': 600 * TASK_MULTIPLIER,
