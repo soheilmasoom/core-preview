@@ -768,7 +768,7 @@ class AccountAdmin(admin.ModelAdmin):
         ('اطلاعات', {'fields': (
             'name', 'user', 'type', 'primary', 'owned', 'trade_volume_irt', 'get_wallet',
             'get_total_balance_irt_admin', 'get_total_balance_usdt_admin', 'referred_by',
-            'custom_maker_fee', 'custom_taker_fee'
+            'custom_maker_fee', 'custom_taker_fee', 'custom_max_margin_leverage'
         )}),
     )
     readonly_fields = ('user', 'get_wallet', 'get_total_balance_irt_admin', 'get_total_balance_usdt_admin',
