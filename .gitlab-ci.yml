@@ -129,9 +129,9 @@ tgju_deploy_production:
 #    - 'darkube deploy --token ${TGJU_CELERY_TRANSFER_TOKEN}
 #      --app-id ${TGJU_CELERY_TRANSFER_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
 #      --job-id "${CI_JOB_ID}"'
-#    - 'darkube deploy --token ${TGJU_SOCKET_PROVIDER_DEPLOY_TOKEN}
-#      --app-id ${TGJU_SOCKET_PROVIDER_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
-#      --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${TGJU_ORDERBOOK_DEPLOY_TOKEN}
+      --app-id ${TGJU_ORDERBOOK_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
 #    - 'darkube deploy --token ${TGJU_NOTIF_MANAGER_DEPLOY_TOKEN}
 #      --app-id ${TGJU_NOTIF_MANAGER_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
 #      --job-id "${CI_JOB_ID}"'
