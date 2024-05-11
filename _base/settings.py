@@ -368,7 +368,7 @@ JALALI_DATE_DEFAULTS = {
     },
 }
 
-SYSTEM_ACCOUNT_ID = config('SYSTEM_ACCOUNT_ID', default=1)
+SYSTEM_ACCOUNT_ID = config('SYSTEM_ACCOUNT_ID', default=1, cast=int)
 OTC_ACCOUNT_ID = config('OTC_ACCOUNT', cast=int)
 MARKET_MAKER_ACCOUNT_ID = config('MARKET_MAKER_ACCOUNT_ID', cast=int, default=0)
 TRADER_ACCOUNT_ID = config('TRADER_ACCOUNT_ID', cast=int, default=0)
