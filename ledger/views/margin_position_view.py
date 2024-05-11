@@ -205,7 +205,7 @@ class MarginPositionViewSet(ModelViewSet):
 
         elif stat == '1':
             queryset = queryset.filter(
-                Q(trade__isnull=False) | open_position_q
+                Q(trade__isnull=False) & (Q(status=MarginPosition.CLOSED) | open_position_q)
             )
             prefetch_fields.extend(['order_set', 'trade_set', 'marginhistorymodel_set'])
 
