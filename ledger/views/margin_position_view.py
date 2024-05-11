@@ -194,15 +194,16 @@ class MarginPositionViewSet(ModelViewSet):
         stat = self.request.GET.get('stat', '0')
         queryset = MarginPosition.objects.filter(
             account=self.request.user.get_account(),
-            liquidation_price__isnull=False,
         )
         prefetch_fields = ['base_wallet', 'asset_wallet', 'symbol', 'symbol__base_asset', 'symbol__asset']
+        open_position_q = Q(status=MarginPosition.OPEN, liquidation_price__isnull=False)
 
         if stat == '0':
-            queryset = queryset.filter(status=MarginPosition.OPEN)
+            queryset = queryset.filter(open_position_q)
+
         elif stat == '1':
             queryset = queryset.filter(
-                Q(trade__isnull=False) | Q(status=MarginPosition.OPEN, liquidation_price__isnull=False)
+                Q(trade__isnull=False) | open_position_q
             )
             prefetch_fields.extend(['order_set', 'trade_set', 'marginhistorymodel_set'])
 
