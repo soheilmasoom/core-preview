@@ -102,7 +102,9 @@ class MarginPositionSerializer(AssetSerializerMini):
         return floor_precision(abs(instance.asset_wallet.get_free()), instance.symbol.step_size)
 
     def get_liquidation_price(self, instance):
-        return floor_precision(instance.liquidation_price, instance.symbol.tick_size)
+        if instance.liquidation_price:
+            return floor_precision(instance.liquidation_price, instance.symbol.tick_size)
+        return None
 
     def get_average_price(self, instance):
         return floor_precision(instance.average_price, instance.symbol.tick_size)
@@ -194,15 +196,16 @@ class MarginPositionViewSet(ModelViewSet):
         stat = self.request.GET.get('stat', '0')
         queryset = MarginPosition.objects.filter(
             account=self.request.user.get_account(),
-            liquidation_price__isnull=False,
         )
         prefetch_fields = ['base_wallet', 'asset_wallet', 'symbol', 'symbol__base_asset', 'symbol__asset']
+        open_position_q = Q(status=MarginPosition.OPEN, liquidation_price__isnull=False)
 
         if stat == '0':
-            queryset = queryset.filter(status=MarginPosition.OPEN)
+            queryset = queryset.filter(open_position_q)
+
         elif stat == '1':
             queryset = queryset.filter(
-                Q(trade__isnull=False) | Q(status=MarginPosition.OPEN, liquidation_price__isnull=False)
+                Q(trade__isnull=False) & (Q(status=MarginPosition.CLOSED) | open_position_q)
             )
             prefetch_fields.extend(['order_set', 'trade_set', 'marginhistorymodel_set'])
 
