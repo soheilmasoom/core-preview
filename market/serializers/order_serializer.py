@@ -113,9 +113,9 @@ class OrderSerializer(serializers.ModelSerializer):
         except SmallDepthError:
             raise ValidationError('در حال حاضر امکان سفارش‌گذاری وجود ندارد.')
         except Exception as e:
-            logger.error('failed placing order', extra={'exp': e, 'order': validated_data})
-            # if settings.DEBUG_OR_TESTING_OR_STAGING:
-            raise e
+            logger.exception('failed placing order', extra={'exp': e, 'order': validated_data})
+            if settings.DEBUG_OR_TESTING_OR_STAGING:
+                raise e
             raise APIException(_('Could not place order'))
         finally:
             if matched_trades and matched_trades.to_cancel_stoploss:
