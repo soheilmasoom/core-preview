@@ -195,17 +195,25 @@ class MarginPositionInfoView(APIView):
 
         user_available_equity = max(0, user_available_equity * Decimal('0.99'))
 
+        max_buy = min(free * margin_leverage.leverage, user_available_equity)
+
+        max_sell = 0
+        if symbol_model.last_trade_price:
+            max_sell = max_buy / symbol_model.last_trade_price
+
         data = {
-            'max_buy_volume': min(free * margin_leverage.leverage, user_available_equity),
-            'max_sell_volume': min(free * margin_leverage.leverage, user_available_equity) / symbol_model.last_trade_price,
+            'max_buy_volume': max_buy,
+            'max_sell_volume': max_sell,
         }
 
-        data["max_buy_volume"] = get_margin_coin_presentation_balance(symbol_model.base_asset.symbol,
-                                                                      max(Decimal('0'),
-                                                                          data['max_buy_volume']) * Decimal('0.99'))
-        data["max_sell_volume"] = get_margin_coin_presentation_balance(symbol_model.asset.symbol,
-                                                                       max(Decimal('0'),
-                                                                           data['max_sell_volume']) * Decimal('0.99'))
+        data["max_buy_volume"] = get_margin_coin_presentation_balance(
+            symbol_model.base_asset.symbol, max(Decimal('0'), data['max_buy_volume']) * Decimal('0.99')
+        )
+
+        data["max_sell_volume"] = get_margin_coin_presentation_balance(
+            symbol_model.asset.symbol, max(Decimal('0'), data['max_sell_volume']) * Decimal('0.99')
+        )
+
         return Response(data)
 
 
