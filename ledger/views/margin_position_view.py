@@ -102,7 +102,9 @@ class MarginPositionSerializer(AssetSerializerMini):
         return floor_precision(abs(instance.asset_wallet.get_free()), instance.symbol.step_size)
 
     def get_liquidation_price(self, instance):
-        return floor_precision(instance.liquidation_price, instance.symbol.tick_size)
+        if instance.liquidation_price:
+            return floor_precision(instance.liquidation_price, instance.symbol.tick_size)
+        return None
 
     def get_average_price(self, instance):
         return floor_precision(instance.average_price, instance.symbol.tick_size)
