@@ -46,3 +46,8 @@ GRANT SELECT ON accounts_users TO metabase;
 rabbitmqctl add_vhost my_vhost
 rabbitmqctl set_permissions -p my_vhost rabbitmq ".*" ".*" ".*"
 ```
+
+
+# Elasticmail
+to upload a file see [here](https://api.elasticemail.com/public/help/legacy#File_Upload)
+using ```https://restfox.dev/```
