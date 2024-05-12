@@ -26,7 +26,7 @@ class SystemConfig(models.Model):
     hedge_coin_otc_from_internal_market = models.BooleanField(default=True)
 
     max_margin_leverage = models.SmallIntegerField(default=5)
-    default_margin_leverage = models.SmallIntegerField(default=3)
+    default_margin_leverage = models.SmallIntegerField(default=1)
 
     total_margin_usdt_base = get_amount_field(default=Decimal('10_000'))
     total_margin_irt_base = get_amount_field(default=Decimal('500_000_000'))
