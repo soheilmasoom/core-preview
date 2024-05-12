@@ -25,7 +25,7 @@ def create_snapshot(now: datetime, prices: dict):
         margin_insurance=overview.get_margin_insurance_balance(),
         prize=overview.get_all_prize_value(),
 
-        binance_margin_ratio=overview.get_binance_margin_ratio(),
+        binance_margin_ratio=overview.get_binance_margin_ratio() or 0,
     )
 
     assets = Asset.live_objects.all()
