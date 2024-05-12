@@ -702,6 +702,7 @@ class CryptoAccountTypeFilter(SimpleListFilter):
 class MarginTransferAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'amount', 'type',)
     search_fields = ('group_id',)
+    readonly_fields = ('account', )
 
 
 @admin.register(models.AddressBook)
