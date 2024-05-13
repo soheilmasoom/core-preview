@@ -171,7 +171,7 @@ class MarginPositionDetailedSerializer(MarginPositionSerializer):
     def get_status(self, instance: MarginPosition):
         if instance.status == MarginPosition.OPEN:
             if self.get_closed_volume(instance) > 0:
-                return 'partiality_closed'
+                return 'partially_closed'
         return instance.status
 
     class Meta:
