@@ -143,6 +143,7 @@ class MarginPositionDetailedSerializer(MarginPositionSerializer):
     average_closed_price = serializers.SerializerMethodField()
     closed_volume = serializers.SerializerMethodField()
     closing_pnl = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
 
     def get_closing_side(self, instance):
         return BUY if instance.side == SHORT else SELL
@@ -167,9 +168,15 @@ class MarginPositionDetailedSerializer(MarginPositionSerializer):
     def get_closing_pnl(self, instance: MarginPosition):
         return instance.marginhistorymodel_set.filter(type=MarginHistoryModel.PNL).aggregate(sum=Sum('amount'))['sum'] or 0
 
+    def get_status(self, instance: MarginPosition):
+        if instance.status == MarginPosition.OPEN:
+            if self.get_closed_volume(instance) > 0:
+                return 'partiality_closed'
+        return instance.status
+
     class Meta:
         model = MarginPosition
-        fields = (*MarginPositionSerializer.Meta.fields, 'closed_time', 'average_closed_price', 'closing_pnl', 'closed_volume', )
+        fields = (*MarginPositionSerializer.Meta.fields, 'closed_time', 'average_closed_price', 'closing_pnl', 'closed_volume', 'status')
 
 
 class MarginPositionFilter(django_filters.FilterSet):
