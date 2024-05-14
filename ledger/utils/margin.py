@@ -89,7 +89,7 @@ def check_margin_order(account, attrs):
         margin_leverage, _ = MarginLeverage.objects.get_or_create(account=account)
 
         if margin_leverage.leverage == Decimal('1'):
-            raise ValidationError('Cant place Long Buy margin order with Leverage 1')
+            raise ValidationError('خرید تعهدی با ضریب 1 امکان پذیر نیست.')
 
     if attrs.get('is_open_position'):
         position_side = SHORT if attrs['side'] == SELL else LONG
