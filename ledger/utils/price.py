@@ -178,7 +178,7 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
 
     pair_symbol = PairSymbol.objects.filter(name=symbol).first()
 
-    if  SystemConfig.get_system_config().hedge_coin_otc_from_internal_market and pair_symbol.enable:
+    if SystemConfig.get_system_config().hedge_coin_otc_from_internal_market and pair_symbol.enable:
         cumulative_sum = Decimal(0)
 
         open_orders = list(Order.open_objects.filter(symbol=pair_symbol, side=side).annotate(
@@ -212,6 +212,19 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
         if external_depth:
             try:
                 price, spread = get_base_price_and_spread(external_depth, amount)
+
+                extra_spread = get_otc_spread(
+                    coin=coin,
+                    base_coin=USDT,
+                    value=amount * price,
+                    side=side,
+                )
+
+                if side == BUY:
+                    extra_spread = -extra_spread
+
+                spread += extra_spread
+
             except NoDepthError as exp:
                 raise SmallDepthError(exp.args[0])
         else:
@@ -221,20 +234,12 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
 
             spread = 0
 
-        extra_spread = get_otc_spread(
-            coin=coin,
-            base_coin=USDT,
-            value=amount * price,
-            side=side,
-        )
-
         if side == BUY:
-            extra_spread = -extra_spread
             tick_size_fitter = floor_precision
         else:
             tick_size_fitter = ceil_precision
 
-        price = price * base_price * (1 + spread + extra_spread)
+        price = price * base_price * (1 + spread)
 
         return tick_size_fitter(price, pair_symbol.tick_size)
 
