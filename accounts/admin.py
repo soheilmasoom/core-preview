@@ -22,7 +22,7 @@ from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
 from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_crypto_withdraw_irt_value
 from gamify.utils import check_prize_achievements
-from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx
+from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx, MarginLeverage
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import PENDING
 from ledger.utils.precision import humanize_number
@@ -249,6 +249,19 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'withdraw_status': True,
         'deposit_status': True
     }
+
+    actions = ('reset_users_default_margin_leverage', )
+
+    @admin.action(description='Reset Users Default Margin Leverage', permissions=['change'])
+    def reset_users_default_margin_leverage(self, request, queryset):
+        system_config = queryset.filter(active=True).first()  # type: SystemConfig
+
+        if not system_config:
+            return
+
+        MarginLeverage.objects.update(
+            leverage=min(system_config.default_margin_leverage, system_config.max_margin_leverage)
+        )
 
 
 @admin.register(User)
