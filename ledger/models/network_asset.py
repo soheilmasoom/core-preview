@@ -32,6 +32,7 @@ class NetworkAsset(models.Model):
 
     allow_provider_withdraw = models.BooleanField(default=True)
     update_fee_with_provider = models.BooleanField(default=True)
+    update_with_provider = models.BooleanField(default=True)
     last_provider_update = models.DateTimeField(null=True, blank=True)
 
     deposit_min = get_amount_field(
@@ -78,7 +79,7 @@ class NetworkAsset(models.Model):
             ),
         ]
 
-    def update_with_provider(self, info: NetworkInfo, now: datetime):
+    def update_network_asset_with_provider(self, info: NetworkInfo, now: datetime):
         self.hedger_withdraw_enable = info.withdraw_enable
         self.hedger_deposit_enable = info.deposit_enable
         self.last_provider_update = now
