@@ -24,11 +24,7 @@ def send_push_notif_to_user(user: User, title: str, body: str, image: str = None
     from accounts.models import FirebaseToken
 
     for firebase_token in FirebaseToken.objects.filter(user=user):
-        try:
-            send_push_notif(firebase_token.token, title, body, image, link)
-        except Exception as e: 
-            # logger.warning('Sending push notif failed', extra={'exp': e})
-            print('Sending push notif failed %s' % e)
+        send_push_notif(firebase_token.token, title, body, image, link)
 
 
 def send_push_notif(token: str, title: str, body: str, image: str = None, link: str = None):
