@@ -858,7 +858,7 @@ class FinotechRequestAdmin(admin.ModelAdmin):
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_username', 'level', 'title', 'message', 'push_status')
-    list_filter = ('level', )
+    list_filter = ('level', 'push_status')
     search_fields = ('title', 'message', 'group_id', 'recipient__phone')
     readonly_fields = ('group_id', )
     raw_id_fields = ('recipient', )

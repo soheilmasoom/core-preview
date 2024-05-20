@@ -27,7 +27,8 @@ def send_push_notif_to_user(user: User, title: str, body: str, image: str = None
         try:
             send_push_notif(firebase_token.token, title, body, image, link)
         except Exception as e: 
-            logger.warning('Sending push notif failed', extra={'exp': e})
+            # logger.warning('Sending push notif failed', extra={'exp': e})
+            print('Sending push notif failed %s' % e)
 
 
 def send_push_notif(token: str, title: str, body: str, image: str = None, link: str = None):
