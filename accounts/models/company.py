@@ -70,12 +70,13 @@ class Company(models.Model):
             self.user.level = 4
             self.save(update_fields=['status'])
             self.user.save(update_fields=['level'])
-            EmailNotification.objects.create(
-                recipient=self.user,
-                title='تایید درخواست',
-                content='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.',
-                content_html='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.'
-            )
+            if self.user.email:
+                EmailNotification.objects.create(
+                    recipient=self.user,
+                    title='تایید درخواست',
+                    content='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.',
+                    content_html='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.'
+                )
             Notification.send(
                 recipient=self.user,
                 title='تایید درخواست',
@@ -88,12 +89,13 @@ class Company(models.Model):
         with transaction.atomic():
             self.status = REJECTED
             self.save(update_fields=['status'])
-            EmailNotification.objects.create(
-                recipient=self.user,
-                title='رد درخواست',
-                content='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.',
-                content_html='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.'
-            )
+            if self.user.email:
+                EmailNotification.objects.create(
+                    recipient=self.user,
+                    title='رد درخواست',
+                    content='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.',
+                    content_html='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.'
+                )
             Notification.send(
                 recipient=self.user,
                 title='رد درخواست',

@@ -29,9 +29,10 @@ def alert_liquidate(position):
     try:
         message = f'کاربر گرامی موقعیت {position.symbol.name} شما لیکویید شد.'
         tittle = 'لیکویید شدن موقعیت'
+        user = position.account.user
 
         Notification.objects.get_or_create(
-            recipient=position.account.user,
+            recipient=user,
             group_id=position.group_id,
             defaults={
                 'title': tittle,
@@ -43,19 +44,19 @@ def alert_liquidate(position):
         )
 
         SmsNotification.objects.get_or_create(
-            recipient=position.account.user,
+            recipient=user,
             group_id=position.group_id,
             defaults={
                 'content': message,
             }
         )
-
-        EmailNotification.objects.create(
-            recipient=position.account.user,
-            title=tittle,
-            content=message,
-            content_html=message
-        )
+        if user.email:
+            EmailNotification.objects.create(
+                recipient=user,
+                title=tittle,
+                content=message,
+                content_html=message
+            )
 
     except Exception as e:
         logger.exception(f'exception on liquid notif ({position.id})', extra={
