@@ -267,7 +267,7 @@ app.conf.beat_schedule = {
         'schedule': 5 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 5 * TASK_MULTIPLIER
+            'expires': 60 * TASK_MULTIPLIER
         },
     },
     'process_bulk_notifications': {
@@ -283,7 +283,7 @@ app.conf.beat_schedule = {
         'schedule': 10 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 10 * TASK_MULTIPLIER
+            'expires': 60 * TASK_MULTIPLIER
         },
     },
     'send_email_notifications': {
@@ -291,7 +291,7 @@ app.conf.beat_schedule = {
         'schedule': 10 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 10 * TASK_MULTIPLIER
+            'expires': 60 * TASK_MULTIPLIER
         },
     },
 
