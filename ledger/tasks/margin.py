@@ -159,13 +159,9 @@ def alert_risky_position():
 
     queryset = MarginPosition.objects.filter(alert_mode=True)
 
-    queryset.filter(side=SHORT,
-                    base_wallet__balance__gte=F('asset_wallet__balance') * F('symbol__last_trade_price') * Decimal('1.2'))\
-        .update(alert_mode=False)
+    queryset.filter(side=SHORT, liquidation_price__gte=F('symbol__last_trade_price') * Decimal('1.2')).update(alert_mode=False)
 
-    queryset.filter(side=LONG,
-                    base_wallet__balance__lte=F('asset_wallet__balance') * F('symbol__last_trade_price') / Decimal('1.2'))\
-        .update(alert_mode=False)
+    queryset.filter(side=LONG, liquidation_price__lte=F('symbol__last_trade_price') / Decimal('1.2')).update(alert_mode=False)
 
 
 @shared_task(queue='margin')
