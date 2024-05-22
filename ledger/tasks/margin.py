@@ -7,11 +7,8 @@ from django.db.models import F
 from django.utils import timezone
 
 from accounts.models import Account, Notification, EmailNotification, SystemConfig
-from accounts.tasks import send_message_by_kavenegar
-from accounts.utils.admin import url_to_edit_object
-from accounts.utils.telegram import send_support_message
-from ledger.margin.margin_info import MARGIN_CALL_ML_THRESHOLD, LIQUIDATION_ML_THRESHOLD, \
-    MARGIN_CALL_ML_ALERTING_RESOLVE_THRESHOLD, get_bulk_margin_info
+from ledger.margin.margin_info import MARGIN_CALL_ML_THRESHOLD, MARGIN_CALL_ML_ALERTING_RESOLVE_THRESHOLD, \
+    get_bulk_margin_info
 from ledger.models import Wallet, MarginPosition, Trx
 from ledger.models.position import MarginHistoryModel
 from ledger.utils.external_price import SHORT, LONG
@@ -35,7 +32,6 @@ def check_margin_level():
 
         if not account.margin_alerting and margin_level <= MARGIN_CALL_ML_THRESHOLD:
             logger.warning('Send MARGIN_CALL_ML_THRESHOLD for account = %d' % account.id)
-            warn_risky_level(account, margin_level)
 
             if status == 0:
                 status = 1
@@ -46,29 +42,6 @@ def check_margin_level():
             Account.objects.filter(id=account.id).update(margin_alerting=False)
 
     return status
-
-
-def warn_risky_level(account: Account, margin_level: Decimal):
-    user = account.user
-
-    Notification.send(
-        recipient=user,
-        title='حساب تعهدی شما در آستانه‌ی تسویه خودکار است.',
-        message='لطفا در اسرع وقت نسبت به افزایش دارایی تتری یا کاهش بدهی‌هایتان اقدام کنید. ',
-        level=Notification.ERROR
-    )
-
-    link = url_to_edit_object(account)
-    send_support_message(
-        message='Margin account is going to liquidate. (level = %s)' % round(margin_level, 3),
-        link=link
-    )
-
-    send_message_by_kavenegar(
-        phone=user.phone,
-        template='alert-margin-liquidation',
-        token='تعهدی'
-    )
 
 
 def alert_liquidation(account: Account):
