@@ -5,7 +5,9 @@ from django.test import Client
 from django.test import TestCase
 from django.utils import timezone
 
+from accounts.models import SmsNotification
 from ledger.models import Asset, Wallet, MarginPosition, MarginLeverage, MarginHistoryModel
+from ledger.tasks import alert_risky_position
 from ledger.utils.external_price import SELL, BUY, SHORT
 from ledger.utils.precision import floor_precision
 from ledger.utils.test import new_account, set_price
@@ -381,6 +383,22 @@ class ShortIsolatedMarginTestCase(TestCase):
 
         mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
         self.print_wallets(self.account)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT,
+                      price=Decimal(mp.liquidation_price - 10))
+            new_order(pipeline, self.btcusdt, self.account3, side=BUY, amount=loan_amount, market=Wallet.SPOT,
+                      price=Decimal(mp.liquidation_price - 10))
+
+        alert_risky_position()
+
+        notif_exists = SmsNotification.objects.filter(
+            recipient=self.account.user,
+            group_id=mp.group_id,
+        ).exists()
+
+        self.assertTrue(notif_exists)
+
 
         with WalletPipeline() as pipeline:
             new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount * 3, market=Wallet.SPOT,
