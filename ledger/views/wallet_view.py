@@ -172,7 +172,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     can_deposit = serializers.SerializerMethodField()
     can_withdraw = serializers.SerializerMethodField()
     address_regex = serializers.CharField(source='network.address_regex')
-    slow_withdraw = serializers.BooleanField(source='network.slow_withdraw')
+    slow_withdraw = serializers.SerializerMethodField()
 
     withdraw_commission = serializers.SerializerMethodField()
     min_withdraw = serializers.SerializerMethodField()
@@ -210,6 +210,9 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
 
     def get_withdraw_precision(self, network_asset: NetworkAsset):
         return network_asset.withdraw_precision
+
+    def get_slow_withdraw(self, network_asset: NetworkAsset):
+        return not network_asset.network.can_withdraw
 
     class Meta:
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
