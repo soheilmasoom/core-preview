@@ -569,6 +569,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = (
         'created', 'network', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
         'usdt_value', 'get_remaining_time_to_pass_48h', 'get_jalali_created', 'get_jalali_finished', 'out_address',
+        'trx_hash'
     )
     search_fields = ('trx_hash', 'out_address', 'wallet__asset__symbol', 'wallet__account__user__phone')
     list_filter = ('deposit', 'status', 'source', TransferUserFilter, 'network')
