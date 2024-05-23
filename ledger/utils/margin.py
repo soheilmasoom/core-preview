@@ -1,7 +1,9 @@
 import logging
 from decimal import Decimal
 
+from django.conf import settings
 from django.db.models import F, Sum
+from django.template.loader import render_to_string
 from rest_framework.exceptions import ValidationError
 
 from accounts.models import Account, SmsNotification, Notification, EmailNotification
@@ -67,11 +69,18 @@ def alert_liquidate(position):
 def alert_position_warning(positions):
     for position in positions:
         if not position.alert_mode:
+            context = {
+                'brand': settings.BRAND,
+                'symbol': position.symbol.name,
+            }
+
+            content = render_to_string('accounts/notif/sms/2fa_forget_success', context=context)
+
             SmsNotification.objects.get_or_create(
                 recipient=position.account.user,
                 group_id=position.group_id,
                 defaults={
-                    'content': f'کاربر گرامی موقعیت {position.symbol.name} شما نزدیک به لیکویید شدن است.',
+                    'content': content,
                 }
             )
     positions.update(alert_mode=True)
@@ -90,7 +99,7 @@ def check_margin_order(account, attrs):
         margin_leverage, _ = MarginLeverage.objects.get_or_create(account=account)
 
         if margin_leverage.leverage == Decimal('1'):
-            raise ValidationError('Cant place Long Buy margin order with Leverage 1')
+            raise ValidationError('خرید تعهدی با ضریب 1 امکان پذیر نیست.')
 
     if attrs.get('is_open_position'):
         position_side = SHORT if attrs['side'] == SELL else LONG
