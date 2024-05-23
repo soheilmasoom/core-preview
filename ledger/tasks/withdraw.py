@@ -96,7 +96,7 @@ def create_withdraw(transfer_id: int):
             transfer.status = PENDING
             transfer.save(update_fields=['status'])
 
-        elif response.status_code == 403:
+        elif response.status_code == 403 or response.status_code >= 500:
             logger.info('withdraw %s received 403' % transfer.id)
             return
 
