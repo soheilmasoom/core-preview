@@ -66,7 +66,7 @@ def update_provider_vaults(now: datetime, prices: dict):
                 vault.extra = extra_info
                 vault.save(update_fields=['extra'])
 
-            if not balances:
+            if balances is None:
                 continue
 
             for coin, balance in balances.items():
