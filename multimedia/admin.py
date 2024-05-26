@@ -29,6 +29,7 @@ class FileAdmin(admin.ModelAdmin):
 class BannerAdmin(admin.ModelAdmin):
     list_display = ('title', 'image', 'link', 'app_link', 'order', 'active')
     list_editable = ('active', 'order')
+    list_filter = ('active', )
 
     def save_model(self, request, obj, form, change):
         if Banner.objects.filter(order=obj.order).exclude(id=obj.id).exists():
