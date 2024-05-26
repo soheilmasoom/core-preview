@@ -8,7 +8,7 @@ from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
 from rest_framework import permissions
 
-from accounts.views import HealthView, PriceHealthView
+from accounts.views import HealthView, PriceHealthView, SystemConfigView
 from accounts.views.dashboard import dashboard
 from accounts.views.health_view import HealthCheckView
 
@@ -33,6 +33,8 @@ urlpatterns = [
     path('admin/dashboard/', dashboard),
     path('admin/hijack/', include('hijack.urls')),
     path('admin/', admin.site.urls),
+
+    path('api/v1/system/config/', SystemConfigView.as_view()),
 
     path('api/v1/health/ready/', HealthView.as_view()),
     path('api/v1/health/price/', PriceHealthView.as_view()),
