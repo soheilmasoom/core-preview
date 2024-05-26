@@ -98,7 +98,7 @@ def update_hot_wallet_vault(now: datetime, prices: dict):
             market=Vault.SPOT,
             key=network,
             defaults={
-                'name': network,
+                'name': f'HW/{network}',
                 'updated': now,
             }
         )

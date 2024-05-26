@@ -233,3 +233,20 @@ class HotWalletLowBalanceAlert(BaseAlertHandler):
             f'{ns} ({get_presentation_amount(hw_balances.get((ns.asset.symbol, ns.network.symbol), 0))} < {get_presentation_amount(ns.expected_hw_balance * threshold)})'
             for ns in network_assets
         ]
+
+
+class VaultUpdateAlert(BaseAlertHandler):
+    NAME = 'vault_update_alert'
+    HELP = 'time passed from now in minutes'
+
+    def get_alerting(self, threshold: Decimal) -> list:
+        now = timezone.now()
+
+        vaults = Vault.objects.filter(
+            should_be_updated=True,
+            updated__lt=now - timedelta(minutes=int(threshold))
+        )
+
+        return [
+            f'{v} (updated: {v.updated})' for v in vaults
+        ]
