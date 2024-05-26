@@ -39,6 +39,9 @@ class TokenRebrand(models.Model):
         if self.new_asset_multiplier == 0:
             raise ValidationError('new_asset_multiplier > 0')
 
+        if self.old_asset.rebranded_to or Asset.objects.filter(rebranded_to=self.new_asset):
+            raise ValidationError('old or new participated in rebranding before!')
+
     def reject(self):
         with transaction.atomic():
             rebrand = TokenRebrand.objects.filter(id=self.id, status=PENDING).select_for_update().first()
@@ -61,8 +64,9 @@ class TokenRebrand(models.Model):
 
             self.old_asset.price_page = True
             self.old_asset.enable = False
+            self.old_asset.rebranded_to = self.new_asset
 
-            self.old_asset.save(update_fields=['price_page', 'enable'])
+            self.old_asset.save(update_fields=['price_page', 'enable', 'rebranded_to'])
 
             rebrand.status = DONE
             rebrand.save(update_fields=['status'])
