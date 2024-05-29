@@ -54,11 +54,13 @@ class WithdrawSerializer(serializers.ModelSerializer):
         address = attrs.get('out_address')
         address_book = None
         totp = attrs.get('totp', None)
+        whitelist = False
 
         if attrs['address_book_id'] and from_panel:
             address_book = get_object_or_404(AddressBook, id=attrs['address_book_id'], account=account)
             address = address_book.address
             network = address_book.network
+            whitelist = address_book.whitelist
 
             if address_book.asset:
                 asset = address_book.asset
@@ -90,20 +92,22 @@ class WithdrawSerializer(serializers.ModelSerializer):
             raise ValidationError('نشانه دارایی اشتباه است.')
 
         memo = attrs.get('memo') or ''
+        sms_verification_code = None
 
-        ignore_sms_otp = user.is_2fa_active() and \
-                         address_book and \
-                         user.has_feature_perm(UserFeaturePerm.NO_SMS_FOR_CRYPTO_WITHDRAW)
+        if not whitelist:
+            ignore_sms_otp = user.is_2fa_active() and \
+                             address_book and \
+                             user.has_feature_perm(UserFeaturePerm.NO_SMS_FOR_CRYPTO_WITHDRAW)
 
-        if from_panel:
-            if not ignore_sms_otp:
-                code = attrs['code']
-                otp_code = VerificationCode.get_by_code(code, user.phone, VerificationCode.SCOPE_CRYPTO_WITHDRAW, user=user)
-                if not otp_code:
-                    raise ValidationError({'code': 'کد پیامک  نامعتبر است.'})
+            if from_panel:
+                if not ignore_sms_otp:
+                    code = attrs['code']
+                    sms_verification_code = VerificationCode.get_by_code(code, user.phone, VerificationCode.SCOPE_CRYPTO_WITHDRAW, user=user)
+                    if not sms_verification_code:
+                        raise ValidationError({'code': 'کد پیامک  نامعتبر است.'})
 
-            if not user.is_2fa_valid(totp):
-                raise ValidationError({'totp': 'شناسه‌ دوعاملی صحیح نمی‌باشد.'})
+                if not user.is_2fa_valid(totp):
+                    raise ValidationError({'totp': 'شناسه‌ دوعاملی صحیح نمی‌باشد.'})
 
         network_asset = get_object_or_404(NetworkAsset, asset=asset, network=network)
 
@@ -157,8 +161,8 @@ class WithdrawSerializer(serializers.ModelSerializer):
             if user_reached_crypto_withdraw_limit(user, irt_value):
                 raise ValidationError({'amount': 'شما به سقف برداشت رمزارزی خود رسیده اید.'})
 
-        if from_panel and not ignore_sms_otp:
-            otp_code.set_code_used()
+        if sms_verification_code:
+            sms_verification_code.set_code_used()
 
         return {
             'network': network,
@@ -169,6 +173,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
             'account': account,
             'memo': memo,
             'address_book': address_book,
+            'whitelist': whitelist
         }
 
     def create(self, validated_data):
@@ -179,6 +184,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
                 amount=validated_data['amount'],
                 address=validated_data['out_address'],
                 memo=validated_data['memo'],
+                whitelist=validated_data['whitelist'],
             )
 
             transfer.login_activity = LoginActivity.from_request(request=self.context['request'])
