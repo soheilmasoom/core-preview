@@ -28,8 +28,6 @@ class Network(models.Model):
 
     expected_confirmation_minutes = models.PositiveSmallIntegerField(default=10)
 
-    slow_withdraw = models.BooleanField(default=True)
-
     def __str__(self):
         return self.symbol
 

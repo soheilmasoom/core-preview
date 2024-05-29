@@ -14,7 +14,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     asset = AssetSerializerMini()
     network = serializers.CharField(source='network.symbol')
     network_name = serializers.CharField(source='network.name')
-    slow_withdraw = serializers.BooleanField(source='network.slow_withdraw')
+    slow_withdraw = serializers.SerializerMethodField()
 
     withdraw_commission = serializers.SerializerMethodField()
     min_withdraw = serializers.SerializerMethodField()
@@ -28,6 +28,9 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
 
     def get_min_deposit(self, network_asset: NetworkAsset):
         return get_presentation_amount(network_asset.get_min_deposit())
+
+    def get_slow_withdraw(self, network_asset: NetworkAsset):
+        return not network_asset.network.can_withdraw
 
     class Meta:
         fields = ('asset', 'network', 'network_name', 'withdraw_commission', 'min_withdraw', 'min_deposit',

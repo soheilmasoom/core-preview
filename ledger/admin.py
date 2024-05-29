@@ -189,7 +189,7 @@ class AssetAdmin(AdvancedAdmin):
                     }
                 )
 
-                ns.update_with_provider(info, now)
+                ns.update_network_asset_with_provider(info, now)
 
             create_symbols_for_asset(asset)
 
@@ -225,9 +225,8 @@ class WithdrawFeedbackAdmin(admin.ModelAdmin):
 class NetworkAdmin(admin.ModelAdmin):
     list_display = (
         'symbol', 'can_withdraw', 'can_deposit', 'min_confirm', 'unlock_confirm', 'need_memo', 'address_regex',
-        'slow_withdraw'
     )
-    list_editable = ('can_withdraw', 'can_deposit', 'slow_withdraw')
+    list_editable = ('can_withdraw', 'can_deposit')
     search_fields = ('symbol',)
     list_filter = ('can_withdraw', 'can_deposit')
     ordering = ('-can_withdraw', '-can_deposit')
@@ -252,12 +251,13 @@ class NetworkAssetFilter(admin.SimpleListFilter):
 @admin.register(NetworkAsset)
 class NetworkAssetAdmin(admin.ModelAdmin):
     list_display = ('network', 'asset', 'get_withdraw_fee', 'get_withdraw_min', 'get_withdraw_max', 'get_deposit_min',
-                    'can_deposit', 'can_withdraw', 'update_fee_with_provider', 'last_provider_update',
-                    'expected_hw_balance', 'hedger_withdraw_enable', 'hedger_deposit_enable',)
+                    'can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider',
+                    'last_provider_update', 'expected_hw_balance', 'hedger_withdraw_enable', 'hedger_deposit_enable',)
     search_fields = ('asset__symbol',)
-    list_editable = ('can_deposit', 'can_withdraw', 'update_fee_with_provider', 'expected_hw_balance')
-    list_filter = (NetworkAssetFilter, 'can_deposit', 'can_withdraw', 'network',
-                   'update_fee_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable')
+    list_editable = ('can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider',
+                     'expected_hw_balance')
+    list_filter = (NetworkAssetFilter, 'can_deposit', 'can_withdraw', 'network', 'update_fee_with_provider',
+                   'update_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable')
     actions = ('update_fees', )
 
     @admin.display(description='withdraw_fee', ordering='withdraw_fee')
@@ -568,6 +568,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = (
         'created', 'network', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
         'usdt_value', 'get_remaining_time_to_pass_48h', 'get_jalali_created', 'get_jalali_finished', 'out_address',
+        'trx_hash'
     )
     search_fields = ('trx_hash', 'out_address', 'wallet__asset__symbol', 'wallet__account__user__phone')
     list_filter = ('deposit', 'status', 'source', TransferUserFilter, 'network')

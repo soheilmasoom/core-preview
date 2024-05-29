@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from _base.settings import SYSTEM_ACCOUNT_ID
+from accounts.models import SystemConfig
 from accounts.views.jwt_views import DelegatedAccountMixin
 from ledger.models import Wallet, DepositAddress, NetworkAsset, Trx
 from ledger.models.asset import Asset, AssetSerializerMini
@@ -172,7 +173,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     can_deposit = serializers.SerializerMethodField()
     can_withdraw = serializers.SerializerMethodField()
     address_regex = serializers.CharField(source='network.address_regex')
-    slow_withdraw = serializers.BooleanField(source='network.slow_withdraw')
+    slow_withdraw = serializers.SerializerMethodField()
 
     withdraw_commission = serializers.SerializerMethodField()
     min_withdraw = serializers.SerializerMethodField()
@@ -210,6 +211,9 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
 
     def get_withdraw_precision(self, network_asset: NetworkAsset):
         return network_asset.withdraw_precision
+
+    def get_slow_withdraw(self, network_asset: NetworkAsset):
+        return not network_asset.network.can_withdraw
 
     class Meta:
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
@@ -469,7 +473,7 @@ class ConvertDustView(APIView):
                 free = wallet.get_free()
                 free_irt_value = free * price
 
-                if Decimal(0) < free_irt_value < Decimal('100_000'):
+                if Decimal(0) < free_irt_value < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
                     logger.info('Converting dust %s' % wallet)
 
                     pipeline.new_trx(

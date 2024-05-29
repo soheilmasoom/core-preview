@@ -51,3 +51,8 @@ rabbitmqctl set_permissions -p my_vhost rabbitmq ".*" ".*" ".*"
 # Elasticmail
 to upload a file see [here](https://api.elasticemail.com/public/help/legacy#File_Upload)
 using ```https://restfox.dev/```
+
+
+# Firebase
+get firebase json 
+[from](https://console.cloud.google.com/iam-admin/serviceaccounts/details/105627163563818169274/permissions)

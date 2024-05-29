@@ -1,4 +1,5 @@
 import math
+from decimal import Decimal
 
 from ledger.models import Asset
 from ledger.utils.price import get_last_price
@@ -32,8 +33,8 @@ def create_symbols_for_asset(asset: Asset):
                 'name': f'{asset.symbol}{base_asset.symbol}',
                 'tick_size': tick_size,
                 'step_size': step_size,
-                'min_trade_quantity': 1,
-                'max_trade_quantity': 1e8,
+                'min_trade_quantity': Decimal('0.0001') / price,
+                'max_trade_quantity': Decimal(1000_000) / price,
             }
         )
 

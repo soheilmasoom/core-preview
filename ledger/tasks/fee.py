@@ -13,7 +13,10 @@ logger = logging.getLogger()
 @shared_task(queue='celery')
 def update_network_fees(network_assets: QuerySet = None):
     if not network_assets:
-        network_assets = NetworkAsset.objects.filter(NetworkAsset.get_active_q()).distinct()
+        network_assets = NetworkAsset.objects.filter(
+            NetworkAsset.get_active_q(),
+            update_with_provider=True,
+        ).distinct()
 
     now = timezone.now()
 
@@ -25,4 +28,4 @@ def update_network_fees(network_assets: QuerySet = None):
 
         info = info[0]
 
-        ns.update_with_provider(info, now)
+        ns.update_network_asset_with_provider(info, now)

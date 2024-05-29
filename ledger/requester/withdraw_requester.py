@@ -19,6 +19,6 @@ class RequestWithdraw:
             'memo': memo
         }
 
-        url = config('BLOCKLINK_BASE_URL', default='https://blocklink.raastin.com') + '/api/v1/withdraw/'
+        url = settings.BLOCKLINK_BASE_URL + '/api/v1/withdraw/'
 
         return requests.post(data=data, url=url, headers=self.header, timeout=15)

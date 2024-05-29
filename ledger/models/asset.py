@@ -8,7 +8,6 @@ from django.db import models
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
 
-from _base.settings import SYSTEM_ACCOUNT_ID, OTC_ACCOUNT_ID
 from ledger.models import Wallet
 from ledger.utils.external_price import BUY, SELL
 from ledger.utils.fields import get_amount_field
@@ -74,6 +73,8 @@ class Asset(models.Model):
     stale_price = get_amount_field(null=True)
 
     margin_interest_fee = get_amount_field(default=Decimal('0.00015'))
+
+    rebranded_to = models.OneToOneField('Asset', on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         ordering = ('-pin_to_top', '-trend', 'order',)

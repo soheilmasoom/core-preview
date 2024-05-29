@@ -36,3 +36,4 @@ from .user_statistics_view import UserStatisticsView
 from .consultation_view import ConsultationView
 
 from .company_verify_view import RegisterDocuments
+from .system_config_view import SystemConfigView

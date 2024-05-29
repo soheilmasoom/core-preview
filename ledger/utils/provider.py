@@ -61,6 +61,14 @@ class ProviderRequester:
             'headers': {'Authorization': config('PROVIDER_TOKEN')},
         }
 
+        ovh_proxy = config('OVH_PROXY', default='')
+
+        if ovh_proxy:
+            request_kwargs['proxies'] = {
+                'http': 'http://%s:3128' % ovh_proxy,
+                'https': 'http://%s:3128' % ovh_proxy,
+            }
+
         try:
             if method == 'GET':
                 resp = requests.get(params=data, **request_kwargs)
