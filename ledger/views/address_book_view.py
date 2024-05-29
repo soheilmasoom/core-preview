@@ -98,8 +98,10 @@ class AddressBookView(ModelViewSet):
 
     def get_queryset(self):
         query_params = self.request.query_params
-        address_books = AddressBook.objects.filter(deleted=False, account=self.request.user.get_account()).order_by(
-            '-id')
+        address_books = AddressBook.objects.filter(
+            deleted=False,
+            account=self.request.user.get_account()
+        ).order_by('-id')
 
         if 'coin' in query_params:
             address_books = address_books.filter(asset__symbol=query_params['coin'])
