@@ -56,6 +56,8 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
             'asset': asset,
             'name': name,
             'address': address,
+            'memo': attrs['memo'],
+            'whitelist': attrs['whitelist'],
         }
 
     def get_network_info(self, address_book: AddressBook):
@@ -70,7 +72,7 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
         model = AddressBook
         fields = (
             'id', 'name', 'account', 'network', 'asset', 'coin', 'address', 'deleted', 'network_info', 'sms_code',
-            'totp')
+            'totp', 'whitelist', 'memo')
 
 
 class AddressBookDestroySerializer(serializers.Serializer):
@@ -80,8 +82,10 @@ class AddressBookDestroySerializer(serializers.Serializer):
     def validate(self, data):
         user = self.context['request'].user
         sms_code = data.get('sms_code')
-        verification_code = VerificationCode.get_by_code(sms_code, user.phone, VerificationCode.SCOPE_ADDRESS_BOOK,
-                                                         user)
+        verification_code = VerificationCode.get_by_code(
+            sms_code, user.phone, VerificationCode.SCOPE_ADDRESS_BOOK, user
+        )
+
         if not verification_code:
             raise ValidationError({'code': 'کد پیامک  نامعتبر است.'})
         verification_code.set_code_used()

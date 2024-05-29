@@ -55,6 +55,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
         address_book = None
         totp = attrs.get('totp', None)
         whitelist = False
+        memo = attrs.get('memo') or ''
 
         if attrs['address_book_id'] and from_panel:
             address_book = get_object_or_404(AddressBook, id=attrs['address_book_id'], account=account)
@@ -67,6 +68,9 @@ class WithdrawSerializer(serializers.ModelSerializer):
             else:
                 if not asset:
                     raise ValidationError('رمزارزی انتخاب نشده است.')
+
+            memo = address_book.memo
+
         else:
             if not asset:
                 raise ValidationError('رمزارزی انتخاب نشده است.')
@@ -91,7 +95,6 @@ class WithdrawSerializer(serializers.ModelSerializer):
         if asset.symbol == Asset.IRT:
             raise ValidationError('نشانه دارایی اشتباه است.')
 
-        memo = attrs.get('memo') or ''
         sms_verification_code = None
 
         if not whitelist:
@@ -134,6 +137,8 @@ class WithdrawSerializer(serializers.ModelSerializer):
                 my_deposit_addresses = DepositAddress.objects.none()
             else:
                 my_deposit_addresses = my_deposit_addresses.filter(address_key__memo=memo)
+        else:
+            memo = ''
 
         if my_deposit_addresses:
             raise ValidationError('آدرس برداشت متعلق به خودتان است. لطفا آدرس دیگری را وارد نمایید.')

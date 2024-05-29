@@ -17,6 +17,7 @@ class AddressBook(models.Model):
     asset = models.ForeignKey(to=Asset, blank=True, null=True, on_delete=models.CASCADE, verbose_name='رمزارز')
     deleted = models.BooleanField(default=False)
     whitelist = models.BooleanField(default=False)
+    memo = models.CharField(max_length=64, blank=True)
 
     @staticmethod
     def is_address_used_in_24h(address: str) -> bool:
