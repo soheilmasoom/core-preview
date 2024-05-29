@@ -76,7 +76,7 @@ class StakeRequest(models.Model):
             (self.PENDING, self.DONE), (self.PENDING, self.CANCEL_PROCESS),
             (self.DONE, self.CANCEL_PROCESS),
             (self.PROCESS, self.CANCEL_PENDING), (self.PENDING, self.CANCEL_PENDING), (self.CANCEL_PROCESS, self.CANCEL_PENDING),
-            (self.CANCEL_PENDING, self.CANCEL_COMPLETE), (self.CANCEL_PROCESS, self.CANCEL_COMPLETE),
+            (self.DONE, self.CANCEL_COMPLETE), (self.CANCEL_PENDING, self.CANCEL_COMPLETE), (self.CANCEL_PROCESS, self.CANCEL_COMPLETE),
             (self.DONE, self.FINISHED),
         ]
 
