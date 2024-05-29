@@ -73,10 +73,17 @@ class HealthCheckView(APIView):
             if (latest_object and latest_object.last_modified < timezone.now() - timedelta(days=1) or
                     latest_object.size < 1024):
                 unhealthy_services.append(service + 'BACKUP_FAILED')
+        now = timezone.now()
+        min = 8
+        last_hour = 0
+        for i in [0, 8, 16]:
+            if 0 < now.hour - i < min:
+                last_hour = i
+        last_cycle = now.replace(hour=last_hour, minute=0, second=0)
 
         position_ids = set(MarginHistoryModel.objects.filter(created__gte=timezone.now() - timedelta(days=1), type=MarginHistoryModel.INTEREST_FEE).values_list('position_id', flat=True))
 
-        missed_position = set(MarginPosition.objects.filter(status=MarginPosition.OPEN, liquidation_price__isnull=False).exclude(id__in=position_ids).values_list('id', flat=True))
+        missed_position = set(MarginPosition.objects.filter(status=MarginPosition.OPEN, liquidation_price__isnull=False, trade__created__lte=last_cycle).exclude(id__in=position_ids).values_list('id', flat=True))
         if missed_position:
             unhealthy_services.append(f'Missed position INTEREST_FEE: {missed_position}')
 
