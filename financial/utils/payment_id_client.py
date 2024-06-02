@@ -262,7 +262,7 @@ class JibitClient(BaseClient):
 
 
 class MockClient(BaseClient):
-    def create_payment_id(self, user: User) -> PaymentId:
+    def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
         destination, _ = GeneralBankAccount.objects.get_or_create(
             iban='IR760120020000008992439961',
             defaults={
