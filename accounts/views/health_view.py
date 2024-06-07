@@ -40,6 +40,7 @@ class PriceHealthView(APIView):
 
         stale_network_assets = NetworkAsset.objects.filter(
             NetworkAsset.get_active_q(),
+            update_with_provider=True,
             last_provider_update__lt=timezone.now() - timedelta(hours=6)
         ).count()
 
