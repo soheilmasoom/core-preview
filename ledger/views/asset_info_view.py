@@ -197,6 +197,7 @@ class AssetsViewSet(ModelViewSet):
         name = self.request.query_params.get('name')
 
         options = {
+            'all': self.request.query_params.get('all') == '1',
             'coin': self.request.query_params.get('coin'),
             'prices': self.request.query_params.get('prices') == '1',
             'trend': self.request.query_params.get('trend') == '1',
@@ -219,7 +220,7 @@ class AssetsViewSet(ModelViewSet):
         )
 
     def get_queryset(self):
-        if self.get_options('extra_info') and not self.get_options('active'):
+        if (self.get_options('all') or self.get_options('extra_info')) and not self.get_options('active'):
             queryset = Asset.objects.filter(Q(enable=True) | Q(price_page=True))
         else:
             queryset = Asset.live_objects.all()
