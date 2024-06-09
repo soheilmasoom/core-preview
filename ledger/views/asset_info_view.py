@@ -145,6 +145,8 @@ class AssetSerializerBuilder(AssetSerializerMini):
             return delist.delist_at
 
     def get_trading_view_symbol(self, asset: Asset):
+        if asset.symbol == 'IRT':
+            return ""
         if asset.trading_view_symbol:
             return asset.trading_view_symbol
         else:
