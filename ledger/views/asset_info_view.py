@@ -194,14 +194,16 @@ class AssetsViewSet(ModelViewSet):
         return ctx
 
     def get_options(self, key: str):
+        name = self.request.query_params.get('name')
+
         options = {
             'coin': self.request.query_params.get('coin'),
             'prices': self.request.query_params.get('prices') == '1',
             'trend': self.request.query_params.get('trend') == '1',
-            'extra_info': self.request.query_params.get('extra_info') == '1',
+            'extra_info': name and self.request.query_params.get('extra_info') == '1',
             'market': self.request.query_params.get('market'),
             'category': self.request.query_params.get('category'),
-            'name': self.request.query_params.get('name'),
+            'name': name,
             'can_deposit': self.request.query_params.get('can_deposit') == '1',
             'can_withdraw': self.request.query_params.get('can_withdraw') == '1',
             'is_base': self.request.query_params.get('is_base') == '1',
