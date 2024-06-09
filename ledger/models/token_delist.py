@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Sum
+from django.utils import timezone
 
 from accounts.models import User, Account, Notification
 from ledger.models import Asset, Wallet, Trx
@@ -22,6 +23,7 @@ class DelistInfo:
 
 class TokenDelist(models.Model):
     created = models.DateTimeField(auto_now=True)
+    delist_at = models.DateTimeField(default=timezone.now)
 
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
     status = get_status_field(default=PENDING)
@@ -56,8 +58,7 @@ class TokenDelist(models.Model):
             self.change_funds(pipeline)
 
             self.asset.enable = False
-            self.asset.price_page = True
-            self.asset.save(update_fields=['enable', 'price_page'])
+            self.asset.save(update_fields=['enable'])
 
             delist.status = DONE
             delist.save(update_fields=['status'])

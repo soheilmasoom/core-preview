@@ -61,11 +61,10 @@ class TokenRebrand(models.Model):
 
             self.transfer_funds(pipeline)
 
-            self.old_asset.price_page = True
             self.old_asset.enable = False
             self.old_asset.rebranded_to = self.new_asset
 
-            self.old_asset.save(update_fields=['price_page', 'enable', 'rebranded_to'])
+            self.old_asset.save(update_fields=['enable', 'rebranded_to'])
 
             rebrand.status = DONE
             rebrand.save(update_fields=['status'])

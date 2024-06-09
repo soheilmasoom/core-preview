@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from ledger.models import Asset, NetworkAsset, CoinCategory
+from ledger.models import Asset, NetworkAsset, CoinCategory, TokenDelist
 from ledger.models.asset import AssetSerializerMini
 from ledger.utils.coins_info import get_coins_info
 from ledger.utils.external_price import SELL
@@ -50,6 +50,7 @@ class AssetSerializerBuilder(AssetSerializerMini):
 
     description = serializers.SerializerMethodField()
     trading_view_symbol = serializers.SerializerMethodField()
+    delisted_at = serializers.SerializerMethodField()
 
     rebranded_to = AssetSerializerMini()
 
@@ -134,6 +135,15 @@ class AssetSerializerBuilder(AssetSerializerMini):
         if content:
             return content.get_html()
 
+    def get_delisted_at(self, asset: Asset):
+        if asset.enable:
+            return None
+
+        delist = TokenDelist.objects.filter(asset=asset).order_by('id').last()
+
+        if delist:
+            return delist.delist_at
+
     def get_trading_view_symbol(self, asset: Asset):
         if asset.trading_view_symbol:
             return asset.trading_view_symbol
@@ -154,7 +164,7 @@ class AssetSerializerBuilder(AssetSerializerMini):
                 'price_usdt', 'price_irt', 'change_1h', 'change_24h', 'change_7d',
                 'cmc_rank', 'market_cap', 'volume_24h', 'circulating_supply', 'high_24h',
                 'low_24h', 'trend_url', 'min_withdraw_amount', 'min_withdraw_fee', 'can_deposit', 'can_withdraw',
-                'market_irt_enable', 'trading_view_symbol', 'description', 'rebranded_to'
+                'market_irt_enable', 'trading_view_symbol', 'description', 'rebranded_to', 'delisted_at'
             ]
 
         class Serializer(cls):
