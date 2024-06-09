@@ -60,7 +60,6 @@ class TokenRebrand(models.Model):
                 return
 
             self.transfer_funds(pipeline)
-            Wallet.objects.filter()
 
             self.old_asset.price_page = True
             self.old_asset.enable = False
@@ -120,7 +119,7 @@ class TokenRebrand(models.Model):
     def transfer_funds(self, pipeline: WalletPipeline, only_testers: bool = False):
         assert self.status == PENDING
 
-        wallets = self.get_candidate_wallets()
+        wallets = self.get_candidate_wallets(only_testers=only_testers)
 
         system = Account.system()
         system_old_wallet = self.old_asset.get_wallet(system)
