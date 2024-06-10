@@ -3,8 +3,6 @@ from django.db import models
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
 
-from ledger.models import Asset
-
 
 class Network(models.Model):
     ETH = 'ETH'
@@ -25,18 +23,14 @@ class Network(models.Model):
     is_universal = models.BooleanField(default=False)
 
     need_memo = models.BooleanField(default=False)
+    memo_title_fa = models.CharField(max_length=64, default="آدرس تگ یا ممو")
+    memo_name_fa = models.CharField(max_length=64, default="ممو")
+    memo_name = models.CharField(max_length=64, default="memo")
 
     expected_confirmation_minutes = models.PositiveSmallIntegerField(default=10)
 
     def __str__(self):
         return self.symbol
-
-
-class NetworkSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Network
-        fields = ('symbol', 'name', )
 
 
 class NetworkField(serializers.CharField):

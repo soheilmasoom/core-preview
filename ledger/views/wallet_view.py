@@ -183,6 +183,9 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     withdraw_precision = serializers.SerializerMethodField()
 
     need_memo = serializers.BooleanField(source='network.need_memo')
+    memo_title_fa = serializers.BooleanField(source='network.memo_title_fa')
+    memo_name_fa = serializers.BooleanField(source='network.memo_name_fa')
+    memo_name = serializers.BooleanField(source='network.memo_name')
 
     def get_can_deposit(self, network_asset: NetworkAsset):
         return network_asset.can_deposit_enabled()
@@ -218,7 +221,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     class Meta:
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
                   'min_deposit', 'network_name', 'address_regex', 'withdraw_precision', 'need_memo', 'min_confirm',
-                  'slow_withdraw')
+                  'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name')
         model = NetworkAsset
 
 
