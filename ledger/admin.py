@@ -34,7 +34,7 @@ from gamify.utils import clone_model
 from ledger import models
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
-    MarginHistoryModel, MarginPosition, MarginLeverage
+    MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist
 from ledger.models.asset_alert import AssetAlert, AlertTrigger, BulkAssetAlert
 from ledger.models.wallet import ReserveWallet
 from ledger.utils.external_price import BUY
@@ -71,7 +71,7 @@ class AssetAdmin(AdvancedAdmin):
     )
     list_filter = ('enable', 'trend', 'spread_category', 'coincategory', )
     list_editable = ('enable', 'order', 'trend', 'trade_enable', 'hedge', 'price_page')
-    search_fields = ('symbol',)
+    search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'order')
     actions = ('setup_asset', 'update_rank_by_cmc')
     readonly_fields = ('distribution_factor',)
@@ -1100,6 +1100,34 @@ class TokenRebrandAdmin(admin.ModelAdmin):
     @admin.display(description='Rebrand Info')
     def get_rebrand_info(self, token_rebrand: TokenRebrand):
         rows = [{'name': k, 'value': v} for (k, v) in token_rebrand.get_rebrand_info().__dict__.items()]
+        return mark_safe(get_table_html(['name', 'value'], rows))
+
+
+@admin.register(TokenDelist)
+class TokenDelistAdmin(admin.ModelAdmin):
+    list_display = ('created', 'delist_at', 'asset', 'status')
+    readonly_fields = ('status', 'group_id', 'get_delist_info')
+    actions = ('accept_for_testers', 'accept', 'reject')
+
+    @admin.action(description='Accept', permissions=['change'])
+    def accept(self, request, queryset):
+        for delist in queryset.filter(status=PENDING):
+            delist.accept()
+
+    @admin.action(description='Test', permissions=['change'])
+    def accept_for_testers(self, request, queryset):
+        for delist in queryset.filter(status=PENDING):
+            with WalletPipeline() as pipeline:
+                delist.change_funds(pipeline, only_testers=True)
+
+    @admin.action(description='Reject', permissions=['change'])
+    def reject(self, request, queryset):
+        for delist in queryset.filter(status=PENDING):
+            delist.reject()
+
+    @admin.display(description='Delist Info')
+    def get_delist_info(self, token_delist: TokenDelist):
+        rows = [{'name': k, 'value': v} for (k, v) in token_delist.get_delist_info().__dict__.items()]
         return mark_safe(get_table_html(['name', 'value'], rows))
 
 

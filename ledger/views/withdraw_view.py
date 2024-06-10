@@ -9,7 +9,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.authentication import WithdrawTokenAuthentication
-from accounts.models import VerificationCode, LoginActivity
+from accounts.models import VerificationCode, LoginActivity, User
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from accounts.utils.validation import persian_timedelta
@@ -142,9 +142,12 @@ class WithdrawSerializer(serializers.ModelSerializer):
         if not wallet.has_balance(amount):
             raise ValidationError('موجودی کافی نیست.')
 
-        if asset.enable and not check_withdraw_laundering(wallet=wallet, amount=amount):
-            raise ValidationError(
-                'در این سطح کاربری نمی‌توانید ریال واریزی را به صورت رمزارز برداشت کنید. لطفا احراز هویت سطح ۳ را انجام دهید.')
+        # if asset.enable and not check_withdraw_laundering(wallet=wallet, amount=amount):
+        #     raise ValidationError(
+        #         'در این سطح کاربری نمی‌توانید ریال واریزی را به صورت رمزارز برداشت کنید. لطفا احراز هویت سطح ۳ را انجام دهید.')
+
+        if asset.enable and user.level < User.LEVEL3:
+            raise ValidationError('برای برداشت رمزارزی لازم است به سطح ۳ احراز هویت کنید.')
 
         irt_price = get_last_price(asset.symbol + Asset.IRT)
 

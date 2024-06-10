@@ -53,10 +53,11 @@ class AccountTransactionAdmin(admin.ModelAdmin):
 
 @admin.register(Vault)
 class VaultAdmin(admin.ModelAdmin):
-    list_display = ('name', 'market', 'type', 'get_usdt', 'get_value', 'real_value', 'expected_max_value')
+    list_display = ('name', 'market', 'type', 'get_usdt', 'get_value', 'real_value', 'expected_max_value',
+                    'should_be_updated')
     ordering = ('-real_value', )
-    list_filter = ('market', 'type')
-    list_editable = ('expected_max_value', )
+    list_filter = ('market', 'type', 'should_be_updated')
+    list_editable = ('expected_max_value', 'should_be_updated')
 
     @admin.display(description='usdt')
     def get_usdt(self, vault: Vault):
@@ -73,7 +74,7 @@ class VaultAdmin(admin.ModelAdmin):
 
 
 @admin.register(VaultItem)
-class VaultItemAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
+class VaultItemAdmin(admin.ModelAdmin):
     list_display = ('coin', 'vault', 'balance', 'value_usdt', 'value_irt', 'expected_min_balance', 'updated')
     search_fields = ('coin', 'vault__name')
     list_filter = ('vault__name', 'vault__type', 'vault__market')

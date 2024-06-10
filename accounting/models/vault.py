@@ -37,6 +37,7 @@ class Vault(models.Model):
     real_value = get_amount_field(default=Decimal())
 
     expected_max_value = models.PositiveIntegerField(null=True, blank=True)
+    should_be_updated = models.BooleanField(default=True)
 
     extra = models.JSONField(null=True)
 

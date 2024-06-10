@@ -511,7 +511,7 @@ class PaymentIdAdmin(AdvancedAdmin):
     search_fields = ('user__phone', 'pay_id', 'master__phone', )
     list_filter = ('verified',)
     readonly_fields = ('group_id', )
-    actions = ('check_status', )
+    actions = ('check_status', 'recreate')
     raw_id_fields = ('user',)
 
     default_edit_condition = M('id')
@@ -532,6 +532,14 @@ class PaymentIdAdmin(AdvancedAdmin):
         for payment_id in queryset.filter(verified=False):
             client = get_payment_id_client(payment_id.gateway)
             client.check_payment_id_status(payment_id)
+
+    @admin.action(description='Recreate', permissions=['change'])
+    def recreate(self, request, queryset):
+        for payment_id in queryset.filter(verified=False):
+            with transaction.atomic():
+                payment_id.delete()
+                client = get_payment_id_client(payment_id.gateway)
+                client.create_payment_id(payment_id.user)
 
     def save_model(self, request, obj: PaymentId, form, change):
         if not obj.id:

@@ -76,7 +76,7 @@ class StakeRequest(models.Model):
             (self.PENDING, self.DONE), (self.PENDING, self.CANCEL_PROCESS),
             (self.DONE, self.CANCEL_PROCESS),
             (self.PROCESS, self.CANCEL_PENDING), (self.PENDING, self.CANCEL_PENDING), (self.CANCEL_PROCESS, self.CANCEL_PENDING),
-            (self.CANCEL_PENDING, self.CANCEL_COMPLETE), (self.CANCEL_PROCESS, self.CANCEL_COMPLETE),
+            (self.DONE, self.CANCEL_COMPLETE), (self.CANCEL_PENDING, self.CANCEL_COMPLETE), (self.CANCEL_PROCESS, self.CANCEL_COMPLETE),
             (self.DONE, self.FINISHED),
         ]
 
@@ -94,7 +94,7 @@ class StakeRequest(models.Model):
             setattr(self, updating_field, timezone.now())
 
         if new_status == self.CANCEL_COMPLETE and \
-                old_status in [self.PROCESS, self.CANCEL_PROCESS, self.CANCEL_PENDING]:
+                old_status in [self.PROCESS, self.CANCEL_PROCESS, self.CANCEL_PENDING, self.DONE]:
 
             spot_wallet = asset.get_wallet(account)
             stake_wallet = asset.get_wallet(account=account, market=Wallet.STAKE)

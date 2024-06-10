@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from ledger.models import Asset, NetworkAsset, CoinCategory
+from ledger.models import Asset, NetworkAsset, CoinCategory, TokenDelist
 from ledger.models.asset import AssetSerializerMini
 from ledger.utils.coins_info import get_coins_info
 from ledger.utils.external_price import SELL
@@ -50,6 +50,7 @@ class AssetSerializerBuilder(AssetSerializerMini):
 
     description = serializers.SerializerMethodField()
     trading_view_symbol = serializers.SerializerMethodField()
+    delisted_at = serializers.SerializerMethodField()
 
     rebranded_to = AssetSerializerMini()
 
@@ -134,7 +135,18 @@ class AssetSerializerBuilder(AssetSerializerMini):
         if content:
             return content.get_html()
 
+    def get_delisted_at(self, asset: Asset):
+        if asset.enable:
+            return None
+
+        delist = TokenDelist.objects.filter(asset=asset).order_by('id').last()
+
+        if delist:
+            return delist.delist_at
+
     def get_trading_view_symbol(self, asset: Asset):
+        if asset.symbol == 'IRT':
+            return ""
         if asset.trading_view_symbol:
             return asset.trading_view_symbol
         else:
@@ -154,7 +166,7 @@ class AssetSerializerBuilder(AssetSerializerMini):
                 'price_usdt', 'price_irt', 'change_1h', 'change_24h', 'change_7d',
                 'cmc_rank', 'market_cap', 'volume_24h', 'circulating_supply', 'high_24h',
                 'low_24h', 'trend_url', 'min_withdraw_amount', 'min_withdraw_fee', 'can_deposit', 'can_withdraw',
-                'market_irt_enable', 'trading_view_symbol', 'description', 'rebranded_to'
+                'market_irt_enable', 'trading_view_symbol', 'description', 'rebranded_to', 'delisted_at'
             ]
 
         class Serializer(cls):
@@ -184,14 +196,17 @@ class AssetsViewSet(ModelViewSet):
         return ctx
 
     def get_options(self, key: str):
+        name = self.request.query_params.get('name')
+
         options = {
+            'all': self.request.query_params.get('all') == '1',
             'coin': self.request.query_params.get('coin'),
             'prices': self.request.query_params.get('prices') == '1',
             'trend': self.request.query_params.get('trend') == '1',
-            'extra_info': self.request.query_params.get('extra_info') == '1',
+            'extra_info': name and self.request.query_params.get('extra_info') == '1',
             'market': self.request.query_params.get('market'),
             'category': self.request.query_params.get('category'),
-            'name': self.request.query_params.get('name'),
+            'name': name,
             'can_deposit': self.request.query_params.get('can_deposit') == '1',
             'can_withdraw': self.request.query_params.get('can_withdraw') == '1',
             'is_base': self.request.query_params.get('is_base') == '1',
@@ -207,7 +222,7 @@ class AssetsViewSet(ModelViewSet):
         )
 
     def get_queryset(self):
-        if self.get_options('extra_info') and not self.get_options('active'):
+        if (self.get_options('all') or self.get_options('extra_info')) and not self.get_options('active'):
             queryset = Asset.objects.filter(Q(enable=True) | Q(price_page=True))
         else:
             queryset = Asset.live_objects.all()

@@ -74,7 +74,7 @@ def alert_position_warning(positions):
                 'symbol': position.symbol.name,
             }
 
-            content = render_to_string('accounts/notif/sms/2fa_forget_success', context=context)
+            content = render_to_string('accounts/notif/sms/margin_liquidate_warn', context=context)
 
             SmsNotification.objects.get_or_create(
                 recipient=position.account.user,

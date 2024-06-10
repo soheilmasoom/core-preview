@@ -64,7 +64,7 @@ class Asset(models.Model):
         choices=((ACTIVE, ACTIVE), (BUY, BUY), (SELL, SELL), (DISABLED, DISABLED)),
     )
 
-    price_page = models.BooleanField(default=False)
+    price_page = models.BooleanField(default=True)
 
     price_alert_chanel_sensitivity = get_amount_field(null=True)
 
