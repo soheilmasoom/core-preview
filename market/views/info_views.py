@@ -12,12 +12,14 @@ class AssetListSerializer(serializers.ModelSerializer):
     bid = serializers.SerializerMethodField()
 
     def get_ask(self, asset: Asset):
-        symbol = asset.symbol + Asset.IRT
+        base = self.context['base']
+        symbol = asset.symbol + base
         asks = self.context['asks']
         return get_symbol_presentation_price(symbol, asks.get(symbol))
 
     def get_bid(self, asset: Asset):
-        symbol = asset.symbol + Asset.IRT
+        base = self.context['base']
+        symbol = asset.symbol + base
         bids = self.context['bids']
         return get_symbol_presentation_price(symbol, bids.get(symbol))
 
@@ -33,37 +35,23 @@ class MarketIRTInfoView(ListAPIView):
     authentication_classes = []
     permission_classes = []
 
-    def get_serializer_context(self):
-        ctx = super().get_serializer_context()
-
-        coins = list(self.get_queryset().values_list('symbol', flat=True))
-
-        bids = get_prices([coin + Asset.IRT for coin in coins], side=BUY, allow_stale=True)
-        asks = get_prices([coin + Asset.IRT for coin in coins], side=SELL, allow_stale=True)
-
-        return {
-            **ctx,
-            'asks': asks,
-            'bids': bids
-        }
-
-
-class MarketUSDTInfoView(ListAPIView):
-    queryset = Asset.live_objects.filter(trade_enable=True).exclude(symbol=Asset.IRT)
-    serializer_class = AssetListSerializer
-    authentication_classes = []
-    permission_classes = []
+    BASE = Asset.IRT
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
 
         coins = list(self.get_queryset().values_list('symbol', flat=True))
 
-        bids = get_prices([coin + Asset.USDT for coin in coins], side=BUY, allow_stale=True)
-        asks = get_prices([coin + Asset.USDT for coin in coins], side=SELL, allow_stale=True)
+        bids = get_prices([coin + self.BASE for coin in coins], side=BUY, allow_stale=True)
+        asks = get_prices([coin + self.BASE for coin in coins], side=SELL, allow_stale=True)
 
         return {
             **ctx,
             'asks': asks,
-            'bids': bids
+            'bids': bids,
+            'base': self.BASE
         }
+
+
+class MarketUSDTInfoView(MarketIRTInfoView):
+    BASE = Asset.USDT
