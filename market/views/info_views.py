@@ -27,19 +27,40 @@ class AssetListSerializer(serializers.ModelSerializer):
         ref_name = 'market asset'
 
 
-class MarketInfoView(ListAPIView):
+class MarketIRTInfoView(ListAPIView):
     queryset = Asset.live_objects.filter(trade_enable=True).exclude(symbol=Asset.IRT)
     serializer_class = AssetListSerializer
     authentication_classes = []
     permission_classes = []
 
     def get_serializer_context(self):
-        ctx = super(MarketInfoView, self).get_serializer_context()
+        ctx = super().get_serializer_context()
 
         coins = list(self.get_queryset().values_list('symbol', flat=True))
 
         bids = get_prices([coin + Asset.IRT for coin in coins], side=BUY, allow_stale=True)
         asks = get_prices([coin + Asset.IRT for coin in coins], side=SELL, allow_stale=True)
+
+        return {
+            **ctx,
+            'asks': asks,
+            'bids': bids
+        }
+
+
+class MarketUSDTInfoView(ListAPIView):
+    queryset = Asset.live_objects.filter(trade_enable=True).exclude(symbol=Asset.IRT)
+    serializer_class = AssetListSerializer
+    authentication_classes = []
+    permission_classes = []
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+
+        coins = list(self.get_queryset().values_list('symbol', flat=True))
+
+        bids = get_prices([coin + Asset.USDT for coin in coins], side=BUY, allow_stale=True)
+        asks = get_prices([coin + Asset.USDT for coin in coins], side=SELL, allow_stale=True)
 
         return {
             **ctx,
