@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 from rest_framework.generics import ListAPIView
 
@@ -44,6 +46,8 @@ class MarketIRTInfoView(ListAPIView):
 
         bids = get_prices([coin + self.BASE for coin in coins], side=BUY, allow_stale=True)
         asks = get_prices([coin + self.BASE for coin in coins], side=SELL, allow_stale=True)
+
+        asks[self.BASE + self.BASE] = bids[self.BASE + self.BASE] = Decimal(1)
 
         return {
             **ctx,
