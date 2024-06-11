@@ -442,6 +442,7 @@ class MarginPosition(models.Model):
         ).order_by('liquidation_price')
 
         for position in to_liquid_short_positions:
+            position.refresh_from_db()  # to handle double position liquidation
             position.liquidate(pipeline)
 
         to_liquid_long_positions = cls.objects.filter(
@@ -452,6 +453,7 @@ class MarginPosition(models.Model):
         ).order_by('liquidation_price')
 
         for position in to_liquid_long_positions:
+            position.refresh_from_db()  # to handle double position liquidation
             position.liquidate(pipeline)
 
     def create_history(self, asset, amount: Decimal, type: str, group_id: uuid = None):
