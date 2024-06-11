@@ -3,7 +3,7 @@ import uuid
 from decimal import Decimal
 
 from celery import shared_task
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 
 from accounts.models import Account, Notification, EmailNotification, SystemConfig
@@ -93,23 +93,21 @@ def collect_margin_interest():
 
         MarginHistoryModel.objects.bulk_create(interest_history)
 
-    to_liquid_short_positions = MarginPosition.objects.filter(
-        side=SHORT,
+    to_liquid_positions = MarginPosition.objects.filter(
+        Q(
+            side=SHORT,
+            liquidation_price__lte=F('symbol__last_trade_price')
+        ) |
+        Q(
+            side=LONG,
+            liquidation_price__gte=F('symbol__last_trade_price')
+        ),
         status=MarginPosition.OPEN,
-        liquidation_price__lte=F('symbol__last_trade_price'),
     ).order_by('liquidation_price')
 
-    for position in to_liquid_short_positions:
-        position.liquidate(pipeline)
-
-    to_liquid_long_positions = MarginPosition.objects.filter(
-        side=LONG,
-        status=MarginPosition.OPEN,
-        liquidation_price__gte=F('symbol__last_trade_price'),
-    ).order_by('liquidation_price')
-
-    for position in to_liquid_long_positions:
-        position.liquidate(pipeline)
+    with WalletPipeline() as pipeline:
+        for position in to_liquid_positions:
+            position.liquidate(pipeline)
 
 
 @shared_task(queue='margin')
