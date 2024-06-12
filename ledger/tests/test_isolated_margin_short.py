@@ -135,6 +135,8 @@ class ShortIsolatedMarginTestCase(TestCase):
     def assert_liquidation(self, account, symbol):
         mp = MarginPosition.objects.filter(account=account, symbol=symbol).first()
 
+        self.assertFalse(mp.order_set.filter(status='new').exists())
+
         negetive_wallets = Wallet.objects.filter(
             ~Q(balance=Decimal(0)),
             account=account,
