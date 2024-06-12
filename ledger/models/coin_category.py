@@ -17,7 +17,7 @@ class CoinCategory(models.Model):
 
     class Meta:
         verbose_name_plural = verbose_name = 'گروه‌بندی نمایش رمزارزها'
-        ordering = ('order', )
+        ordering = ('order', 'id')
 
     def __str__(self):
         return self.name
