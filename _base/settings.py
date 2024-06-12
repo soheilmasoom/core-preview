@@ -17,6 +17,8 @@ DEBUG = config('DEBUG', cast=bool, default=False)
 STAGING = config('STAGING', cast=bool, default=False)
 TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
 
+BACKOFFICE_BASE_URL = config('BACKOFFICE_BASE_URL')
+
 BLOCKLINK_TOKEN = config('BLOCKLINK_TOKEN')
 BLOCKLINK_BASE_URL = config('BLOCKLINK_BASE_URL', default='https://blocklink.raastin.com')
 
