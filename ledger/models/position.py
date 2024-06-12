@@ -141,7 +141,7 @@ class MarginPosition(models.Model):
                 raise NotImplementedError
         else:
             if debt_amount <= Decimal('0'):
-                self.liquidate(pipeline)
+                self.liquidate(pipeline, refresh=False)
             else:
                 self.liquidation_price = None
 
@@ -259,7 +259,10 @@ class MarginPosition(models.Model):
     def get_interest_rate(self):
         return self.loan_wallet.asset.margin_interest_fee
 
-    def liquidate(self, pipeline, charge_insurance: bool = True):
+    def liquidate(self, pipeline, charge_insurance: bool = True, refresh: bool = True):
+        if refresh:
+            self.refresh_from_db()  # to handle double position liquidation
+
         if self.status != self.OPEN:
             return
 

@@ -240,7 +240,7 @@ def _register_margin_transaction(pipeline: WalletPipeline, pair: TradesPair, loa
                 order_side = get_other_side(order_side)
 
             if order.side == order_side:
-                if position.side == SHORT:
+                if (position.side == SHORT and order.is_open_position) or (position.side == LONG and not order.is_open_position):
                     trade_amount = trade.amount - trade.fee_amount if order_side == BUY else trade.amount
                 else:
                     trade_amount = trade.amount - trade.fee_amount if order_side == SELL else trade.amount
