@@ -10,7 +10,9 @@ router.register(r'^stop-loss-orders', StopLossViewSet, basename='stop_loss')
 router.register(r'^oco-orders', OCOViewSet, basename='oco')
 
 urlpatterns = [
-    path('irt/info/', cache_page(60)(MarketInfoView.as_view())),
+    path('irt/info/', cache_page(60)(MarketIRTInfoView.as_view())),
+    path('usdt/info/', cache_page(60)(MarketUSDTInfoView.as_view())),
+
     path('depth/<str:symbol>/', OrderBookAPIView.as_view()),
     path('orders/cancel/', CancelOrderAPIView.as_view()),
     path('orders/bulk-cancel/', BulkCancelOrderAPIView.as_view()),
