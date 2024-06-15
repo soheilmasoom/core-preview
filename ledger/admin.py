@@ -1064,14 +1064,14 @@ class DepositRecoveryRequestAdmin(admin.ModelAdmin):
 
     @admin.action(description='تایید اولیه', permissions=['view'])
     def verify_requests(self, request, queryset):
-        queryset.filter(status=PROCESS).update(
+        queryset.filter(status=PROCESS, user__isnull=False).update(
             status=PENDING,
             verifier=request.user
         )
 
     @admin.action(description='رد اطلاعات', permissions=['view'])
     def reject_requests(self, request, queryset):
-        queryset.filter(status=PROCESS).update(
+        queryset.filter(status__in=[PROCESS, PENDING]).update(
             status=CANCELED,
             verifier=request.user
         )
