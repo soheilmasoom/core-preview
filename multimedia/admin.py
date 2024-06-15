@@ -41,55 +41,47 @@ class BannerAdmin(admin.ModelAdmin):
         return super(BannerAdmin, self).save_model(request, obj, form, change)
 
 
+
 @admin.register(CoinPriceContent)
 class CoinPriceContentAdmin(SimpleHistoryAdmin):
+
     list_display = ('id', 'asset')
     search_fields = ('asset__symbol', )
     actions = ('create_content', 'update_content', 'get_content')
 
-    @admin.action(description='درخواست تولید محتوا')
-    def create_content(self, request, queryset : List[CoinPriceContent]):
+    def content_action(self, action, request, queryset : List[CoinPriceContent]):
+        actions = {
+            "create" : create_coin_content,
+            "update" : update_coin_content,
+            "get":  get_coin_content
+        }
         for coin_price_content in queryset:
             try:
                 if (str(coin_price_content.asset.name)):
-                    status_code, resp = create_coin_content(str(coin_price_content.asset.name))
+                    status_code, resp = actions[action](str(coin_price_content.asset.name))
                     if status_code >= 300:
                         self.message_user(request, f"{resp['message']} خطایی رخ داد", level=messages.ERROR)
                         continue
+                    if action == "get":
+                        coin_price_content.content = markdown(resp["result"])
+                        coin_price_content.save()
                 else:
                     self.message_user(request,  f"نام کوین {str(coin_price_content.asset)} موجود نیست. خطایی رخ داد", level=messages.ERROR)
             except Exception as e:
                 self.message_user(request, f"{str(e)} خطایی رخ داد", level=messages.ERROR)
+
+
+    @admin.action(description='درخواست تولید محتوا')
+    def create_content(self, request, queryset : List[CoinPriceContent]):
+        self.content_action("create", request, queryset)
 
     @admin.action(description='به‌روزرسانی تولید محتوا')
     def update_content(self, request, queryset : List[CoinPriceContent]):
-        for coin_price_content in queryset:
-            try:
-                if (str(coin_price_content.asset.name)):
-                    status_code, resp = update_coin_content(str(coin_price_content.asset.name))
-                    if status_code >= 300:
-                        self.message_user(request, f"{resp['message']} خطایی رخ داد", level=messages.ERROR)
-                        continue
-                else:
-                    self.message_user(request,  f"نام کوین {str(coin_price_content.asset)} موجود نیست. خطایی رخ داد", level=messages.ERROR)
-            except Exception as e:
-                self.message_user(request, f"{str(e)} خطایی رخ داد", level=messages.ERROR)
+        self.content_action("update", request, queryset)
 
     @admin.action(description='دریافت تولید محتوا')
     def get_content(self, request, queryset : List[CoinPriceContent]):
-        for coin_price_content in queryset:
-            try:
-                if (str(coin_price_content.asset.name)):
-                    status_code, resp = get_coin_content(str(coin_price_content.asset.name))
-                    if status_code >= 300:
-                        self.message_user(request,  f"{resp['message']} خطایی رخ داد", level=messages.ERROR)
-                        continue
-                    coin_price_content.content = markdown(resp["result"])
-                    coin_price_content.save()
-                else:
-                    self.message_user(request,  f"نام کوین {str(coin_price_content.asset)} موجود نیست. خطایی رخ داد", level=messages.ERROR)
-            except Exception as e:
-                self.message_user(request, f"{str(e)} خطایی رخ داد", level=messages.ERROR)
+        self.content_action("get", request, queryset)
 
 @admin.register(Article)
 class ArticleAdmin(SimpleHistoryAdmin):
