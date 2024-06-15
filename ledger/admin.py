@@ -1051,8 +1051,10 @@ class DepositRecoveryRequestAdmin(admin.ModelAdmin):
     @admin.display(description='User')
     def get_user(self, deposit_recovery: DepositRecoveryRequest):
         user = deposit_recovery.user
-        link = url_to_edit_object(user)
-        return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
+        if user:
+            link = url_to_edit_object(user)
+            return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
+        return ''
 
     @admin.action(description='تایید نهایی', permissions=['change'])
     def accept_requests(self, request, queryset):
