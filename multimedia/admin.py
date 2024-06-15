@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from typing import List
 from simple_history.admin import SimpleHistoryAdmin
 
-from multimedia.utils.backoffice_content import get_coin_content, update_coin_content, create_coin_content
+from multimedia.utils.backoffice_content import BackofficeContent
 from multimedia.models import Image, Banner, CoinPriceContent, Article, Section, File
 from markdown import markdown
 
@@ -51,9 +51,9 @@ class CoinPriceContentAdmin(SimpleHistoryAdmin):
 
     def content_action(self, action, request, queryset : List[CoinPriceContent]):
         actions = {
-            "create" : create_coin_content,
-            "update" : update_coin_content,
-            "get":  get_coin_content
+            "create" : BackofficeContent().create_coin_content,
+            "update" : BackofficeContent().update_coin_content,
+            "get":  BackofficeContent().get_coin_content
         }
         for coin_price_content in queryset:
             try:
