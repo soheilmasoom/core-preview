@@ -29,7 +29,7 @@ class DepositSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transfer
-        fields = ['status', 'amount', 'trx_hash', 'network', 'sender_address', 'receiver_address', 'coin', 'memo']
+        fields = ['status', 'amount', 'trx_hash', 'network', 'sender_address', 'receiver_address', 'coin', 'memo', 'id']
 
     def create(self, validated_data):
         network_symbol = validated_data.get('network')
@@ -95,7 +95,6 @@ class DepositSerializer(serializers.ModelSerializer):
                     'address_key': address_key
                 }
             )
-
 
         if not asset:
             logger.warning('invalid coin for deposit', extra={'coin': coin})
