@@ -15,6 +15,7 @@ from ledger.requester.architecture_requester import get_network_architecture
 from ledger.utils.fields import PENDING, DONE, CANCELED, INIT
 from ledger.utils.fraud import verify_crypto_deposit
 from ledger.utils.price import get_last_price
+from ledger.utils.str import truncate_str
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ class DepositSerializer(serializers.ModelSerializer):
                     defaults={
                         'asset': asset,
                         'network': network,
-                        'memo': memo,
+                        'memo': truncate_str(memo, 64),
                         'trx_hash': trx_hash,
                         'amount': Decimal(validated_data.get('amount')) / coin_mult,
                         'receiver_address': receiver_address,
