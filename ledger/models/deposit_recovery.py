@@ -20,7 +20,7 @@ class DepositRecoveryRequest(models.Model):
     receiver_address = get_address_field()
     description = models.TextField(blank=True)
     scope = models.CharField(max_length=4, db_index=True, choices=[(SYSTEM, SYSTEM), (USER, USER)], default=USER)
-    block_link_id = models.IntegerField(null=True, unique=True)
+    blocklink_id = models.IntegerField(null=True, unique=True)
 
     verifier = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
 

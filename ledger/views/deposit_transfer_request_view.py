@@ -74,7 +74,7 @@ class DepositSerializer(serializers.ModelSerializer):
 
             if not address_key and status == DONE and validated_data.get('id'):
                 DepositRecoveryRequest.objects.get_or_create(
-                    block_link_id=validated_data.get('id'),
+                    blocklink_id=validated_data.get('id'),
                     defaults={
                         'asset': asset,
                         'network': network,
