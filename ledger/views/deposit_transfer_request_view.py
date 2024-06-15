@@ -85,6 +85,7 @@ class DepositSerializer(serializers.ModelSerializer):
                         'scope': DepositRecoveryRequest.SYSTEM,
                     }
                 )
+                raise ValidationError({'address_key': 'Recovery created'})
             else:
                 raise ValidationError({'address_key': 'Not Found'})
 
