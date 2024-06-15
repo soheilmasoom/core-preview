@@ -17,7 +17,7 @@ from ledger.utils.external_price import SHORT, LONG, BUY, SELL, get_other_side
 from ledger.utils.fields import get_amount_field
 from ledger.utils.precision import floor_precision, ceil_precision
 from ledger.utils.price import get_depth_price, get_base_depth_price, get_price
-from market.models import PairSymbol, Order
+from market.models import PairSymbol
 
 logger = logging.getLogger(__name__)
 
@@ -569,11 +569,9 @@ class MarginPositionTradeInfo:
     loan_type: str
     position: MarginPosition
     order_side: str
-    order: Order
     trade_amount: Decimal = 0
     trade_price: Decimal = 0
     group_id: UUID = 0
-    matched_amount: Decimal = 0
 
 
 class MarginHistoryModel(models.Model):
