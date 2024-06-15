@@ -1,11 +1,14 @@
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db import models
 from django.db.models import F
 from django.utils.safestring import mark_safe
+from typing import List
 from simple_history.admin import SimpleHistoryAdmin
 
+from multimedia.utils.backoffice_content import BackofficeContent
 from multimedia.models import Image, Banner, CoinPriceContent, Article, Section, File
+from markdown import markdown
 
 
 @admin.register(Image)
@@ -38,11 +41,47 @@ class BannerAdmin(admin.ModelAdmin):
         return super(BannerAdmin, self).save_model(request, obj, form, change)
 
 
+
 @admin.register(CoinPriceContent)
 class CoinPriceContentAdmin(SimpleHistoryAdmin):
+
     list_display = ('id', 'asset')
     search_fields = ('asset__symbol', )
+    actions = ('create_content', 'update_content', 'get_content')
 
+    def content_action(self, action, request, queryset : List[CoinPriceContent]):
+        actions = {
+            "create" : BackofficeContent().create_coin_content,
+            "update" : BackofficeContent().update_coin_content,
+            "get":  BackofficeContent().get_coin_content
+        }
+        for coin_price_content in queryset:
+            try:
+                if (str(coin_price_content.asset.name)):
+                    status_code, resp = actions[action](str(coin_price_content.asset.name))
+                    if status_code >= 300:
+                        self.message_user(request, f"{resp['message']} خطایی رخ داد", level=messages.ERROR)
+                        continue
+                    if action == "get":
+                        coin_price_content.content = markdown(resp["result"])
+                        coin_price_content.save()
+                else:
+                    self.message_user(request,  f"نام کوین {str(coin_price_content.asset)} موجود نیست. خطایی رخ داد", level=messages.ERROR)
+            except Exception as e:
+                self.message_user(request, f"{str(e)} خطایی رخ داد", level=messages.ERROR)
+
+
+    @admin.action(description='درخواست تولید محتوا')
+    def create_content(self, request, queryset : List[CoinPriceContent]):
+        self.content_action("create", request, queryset)
+
+    @admin.action(description='به‌روزرسانی تولید محتوا')
+    def update_content(self, request, queryset : List[CoinPriceContent]):
+        self.content_action("update", request, queryset)
+
+    @admin.action(description='دریافت تولید محتوا')
+    def get_content(self, request, queryset : List[CoinPriceContent]):
+        self.content_action("get", request, queryset)
 
 @admin.register(Article)
 class ArticleAdmin(SimpleHistoryAdmin):

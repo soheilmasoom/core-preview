@@ -7,9 +7,11 @@ from ledger.utils.price import get_last_price
 
 
 class DepositRecoveryRequest(models.Model):
+    SYSTEM, USER = 'sys', 'user'
+
     created = models.DateTimeField(auto_now_add=True)
     status = get_status_field(default=PROCESS)
-    user = models.ForeignKey(User, on_delete=models.PROTECT)
+    user = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True)
     asset = models.ForeignKey(Asset, on_delete=models.PROTECT)
     network = models.ForeignKey(Network, on_delete=models.PROTECT)
     memo = models.CharField(max_length=64, blank=True)
@@ -17,6 +19,8 @@ class DepositRecoveryRequest(models.Model):
     amount = get_amount_field()
     receiver_address = get_address_field()
     description = models.TextField(blank=True)
+    scope = models.CharField(max_length=4, db_index=True, choices=[(SYSTEM, SYSTEM), (USER, USER)], default=USER)
+    blocklink_id = models.IntegerField(null=True, unique=True)
 
     verifier = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
 
