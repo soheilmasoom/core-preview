@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.contrib.auth.mixins import UserPassesTestMixin
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import CreateAPIView, get_object_or_404
 
 from accounts.authentication import CustomTokenAuthentication
@@ -52,6 +52,36 @@ class DepositSerializer(serializers.ModelSerializer):
 
         need_memo = network.need_memo
 
+        address_key = AddressKey.objects.filter(
+            address=receiver_address,
+            architecture=get_network_architecture(network),
+            deleted=False,
+            memo=memo
+        ).first()
+
+        requester_id = validated_data.get('id')
+
+        if need_memo and (not memo or not address_key):
+            if status == DONE and requester_id:
+                DepositRecoveryRequest.objects.get_or_create(
+                    blocklink_id=validated_data.get('id'),
+                    defaults={
+                        'asset': asset,
+                        'network': network,
+                        'memo': memo,
+                        'trx_hash': trx_hash,
+                        'amount': Decimal(validated_data.get('amount')) / coin_mult,
+                        'receiver_address': receiver_address,
+                        'scope': DepositRecoveryRequest.SYSTEM,
+                    }
+                )
+                raise ValidationError({'address_key': 'Recovery created'})
+            else:
+                raise ValidationError({'address_key': 'Not Found'})
+
+        if not address_key:
+            raise NotFound
+
         if (need_memo and not memo) or (not need_memo and memo):
             raise ValidationError({'memo': 'null memo for memo networks error'})
 
@@ -65,31 +95,6 @@ class DepositSerializer(serializers.ModelSerializer):
             raise ValidationError({'receiver_address': 'old deposit address not supported'})
 
         if not deposit_address:
-            address_key = AddressKey.objects.filter(
-                address=receiver_address,
-                architecture=get_network_architecture(network),
-                deleted=False,
-                memo=memo
-            ).first()
-
-            if not address_key:
-                if status == DONE and validated_data.get('id'):
-                    DepositRecoveryRequest.objects.get_or_create(
-                        blocklink_id=validated_data.get('id'),
-                        defaults={
-                            'asset': asset,
-                            'network': network,
-                            'memo': memo,
-                            'trx_hash': trx_hash,
-                            'amount': Decimal(validated_data.get('amount')) / coin_mult,
-                            'receiver_address': receiver_address,
-                            'scope': DepositRecoveryRequest.SYSTEM,
-                        }
-                    )
-                    raise ValidationError({'address_key': 'Recovery created'})
-                else:
-                    raise ValidationError({'address_key': 'Not Found'})
-
             deposit_address, _ = DepositAddress.objects.get_or_create(
                 address=receiver_address,
                 network=network,
