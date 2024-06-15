@@ -72,22 +72,23 @@ class DepositSerializer(serializers.ModelSerializer):
                 memo=memo
             ).first()
 
-            if not address_key and status == DONE and validated_data.get('id'):
-                DepositRecoveryRequest.objects.get_or_create(
-                    blocklink_id=validated_data.get('id'),
-                    defaults={
-                        'asset': asset,
-                        'network': network,
-                        'memo': memo,
-                        'trx_hash': trx_hash,
-                        'amount': Decimal(validated_data.get('amount')) / coin_mult,
-                        'receiver_address': receiver_address,
-                        'scope': DepositRecoveryRequest.SYSTEM,
-                    }
-                )
-                raise ValidationError({'address_key': 'Recovery created'})
-            else:
-                raise ValidationError({'address_key': 'Not Found'})
+            if not address_key:
+                if status == DONE and validated_data.get('id'):
+                    DepositRecoveryRequest.objects.get_or_create(
+                        blocklink_id=validated_data.get('id'),
+                        defaults={
+                            'asset': asset,
+                            'network': network,
+                            'memo': memo,
+                            'trx_hash': trx_hash,
+                            'amount': Decimal(validated_data.get('amount')) / coin_mult,
+                            'receiver_address': receiver_address,
+                            'scope': DepositRecoveryRequest.SYSTEM,
+                        }
+                    )
+                    raise ValidationError({'address_key': 'Recovery created'})
+                else:
+                    raise ValidationError({'address_key': 'Not Found'})
 
             deposit_address, _ = DepositAddress.objects.get_or_create(
                 address=receiver_address,
