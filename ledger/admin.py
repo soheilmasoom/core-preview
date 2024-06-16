@@ -251,14 +251,15 @@ class NetworkAssetFilter(admin.SimpleListFilter):
 @admin.register(NetworkAsset)
 class NetworkAssetAdmin(admin.ModelAdmin):
     list_display = ('network', 'asset', 'get_withdraw_fee', 'get_withdraw_min', 'get_withdraw_max', 'get_deposit_min',
-                    'can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider',
+                    'can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider', 'network_order',
                     'last_provider_update', 'expected_hw_balance', 'hedger_withdraw_enable', 'hedger_deposit_enable',)
     search_fields = ('asset__symbol',)
     list_editable = ('can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider',
-                     'expected_hw_balance')
+                     'expected_hw_balance', 'network_order')
     list_filter = (NetworkAssetFilter, 'can_deposit', 'can_withdraw', 'network', 'update_fee_with_provider',
                    'update_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable')
     actions = ('update_fees', )
+    ordering = ('asset', 'network_order')
 
     @admin.display(description='withdraw_fee', ordering='withdraw_fee')
     def get_withdraw_fee(self, network_asset: NetworkAsset):
