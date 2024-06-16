@@ -1067,7 +1067,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
         return ''
 
-    @admin.action(description='تایید نهایی', permissions=['manage'])
+    @admin.action(description='تایید نهایی', permissions=['change'])
     def accept_requests(self, request, queryset):
         qs = queryset.filter(status=PENDING)
         for req in qs:
