@@ -771,7 +771,7 @@ class CoinCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(models.AddressKey)
 class AddressKeyAdmin(admin.ModelAdmin):
-    list_display = ('address', 'deleted', 'account', 'architecture')
+    list_display = ('address', 'deleted', 'account', 'architecture', 'memo')
     readonly_fields = ('address', 'account', 'memo')
     search_fields = ('address', 'public_address', 'account__user__phone', 'memo')
     list_filter = ('architecture', 'deleted', 'architecture')
