@@ -1052,7 +1052,8 @@ class DepositRecoveryRequestAdmin(AdvancedAdmin):
     default_edit_condition = M.has_perm('ledger.manage_deposit_recovery')
 
     fields_edit_conditions = {
-        'user': M.is_none('user')
+        'user': M.is_none('user'),
+        'comment': True
     }
 
     @admin.display(description='User')
