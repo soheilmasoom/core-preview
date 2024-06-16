@@ -1056,6 +1056,9 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'comment': True
     }
 
+    def has_manage_permission(self, request, obj=None):
+        return request.user.has_perm("ledger.manage_deposit_recovery")
+
     @admin.display(description='User')
     def get_user(self, deposit_recovery: DepositRecoveryRequest):
         user = deposit_recovery.user
@@ -1064,13 +1067,13 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
         return ''
 
-    @admin.action(description='تایید نهایی', permissions=['change'])
+    @admin.action(description='تایید نهایی', permissions=['manage'])
     def accept_requests(self, request, queryset):
         qs = queryset.filter(status=PENDING)
         for req in qs:
             req.create_transfer()
 
-    @admin.action(description='تایید اولیه', permissions=['view'])
+    @admin.action(description='تایید اولیه', permissions=['change'])
     def verify_requests(self, request, queryset):
         queryset.filter(status=PROCESS, user__isnull=False).update(
             status=PENDING,
