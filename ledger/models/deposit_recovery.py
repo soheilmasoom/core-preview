@@ -35,6 +35,11 @@ class DepositRecoveryRequest(models.Model):
 
     comment = models.TextField(blank=True)
 
+    class Meta:
+        permissions = [
+            ("manage_deposit_recovery", "Manage Deposit Recovery Request"),
+        ]
+
     def create_transfer(self):
         with transaction.atomic():
             self.status = DONE

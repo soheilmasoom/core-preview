@@ -1041,13 +1041,19 @@ class AlertTriggerAdmin(admin.ModelAdmin):
 
 
 @admin.register(DepositRecoveryRequest)
-class DepositRecoveryRequestAdmin(admin.ModelAdmin):
+class DepositRecoveryRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'asset', 'network', 'amount', 'memo', 'status', 'get_user')
     list_filter = ('status', 'asset',)
     readonly_fields = ('created', 'image', 'verifier')
     actions = ('verify_requests', 'reject_requests', 'accept_requests',)
     raw_id_fields = ('user',)
     search_fields = ('asset__symbol', 'network__symbol', 'user__phone', 'receiver_address', 'trx_hash')
+
+    default_edit_condition = M.has_perm('ledger.manage_deposit_recovery')
+
+    fields_edit_conditions = {
+        'user': M.is_none('user')
+    }
 
     @admin.display(description='User')
     def get_user(self, deposit_recovery: DepositRecoveryRequest):
