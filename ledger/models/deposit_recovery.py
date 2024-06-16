@@ -1,13 +1,16 @@
 from django.db import models, transaction
+from simple_history.models import HistoricalRecords
 
 from accounts.models import User
 from ledger.models import Asset, Network, Transfer
-from ledger.utils.fields import get_amount_field, get_address_field, get_status_field, PENDING, PROCESS, CANCELED, DONE
+from ledger.utils.fields import get_amount_field, get_address_field, get_status_field, PROCESS, DONE
 from ledger.utils.price import get_last_price
 
 
 class DepositRecoveryRequest(models.Model):
     SYSTEM, USER = 'sys', 'user'
+
+    history = HistoricalRecords()
 
     created = models.DateTimeField(auto_now_add=True)
     status = get_status_field(default=PROCESS)

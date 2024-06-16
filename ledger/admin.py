@@ -1041,7 +1041,7 @@ class AlertTriggerAdmin(admin.ModelAdmin):
 
 
 @admin.register(DepositRecoveryRequest)
-class DepositRecoveryRequestAdmin(AdvancedAdmin):
+class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'asset', 'network', 'amount', 'memo', 'status', 'get_user')
     list_filter = ('status', 'asset',)
     readonly_fields = ('created', 'image', 'verifier')
@@ -1052,7 +1052,7 @@ class DepositRecoveryRequestAdmin(AdvancedAdmin):
     default_edit_condition = M.has_perm('ledger.manage_deposit_recovery')
 
     fields_edit_conditions = {
-        'user': M.is_none('user'),
+        'user': M.has_perm('ledger.manage_deposit_recovery') | M.is_none('user'),
         'comment': True
     }
 
