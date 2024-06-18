@@ -68,7 +68,7 @@ class LongIsolatedMarginTestCase(TestCase):
 
         self.client = Client()
         self.client.force_login(self.user)
-        
+
         self.client_m = Client()
         self.client_m.force_login(self.user_m)
 
@@ -85,7 +85,6 @@ class LongIsolatedMarginTestCase(TestCase):
         self.btc.save()
         self.usdt.enable = True
         self.usdt.save()
-
 
         MarginLeverage.objects.update_or_create(
             account=self.account,
@@ -116,7 +115,8 @@ class LongIsolatedMarginTestCase(TestCase):
 
         print("/////////////////////////////////////////////////////")
 
-    def place_order(self, amount, price, side, symbol='BTCUSDT', market='spot', fill_type='limit', is_open_position=False, check_status=201, client=None):
+    def place_order(self, amount, price, side, symbol='BTCUSDT', market='spot', fill_type='limit',
+                    is_open_position=False, check_status=201, client=None):
         print('place order')
         resp = (client or self.client).post('/api/v1/market/orders/', {
             'symbol': symbol,
@@ -129,6 +129,16 @@ class LongIsolatedMarginTestCase(TestCase):
         })
         print(resp.json())
         self.assertEqual(resp.status_code, check_status)
+        return resp.json()
+
+    def cancel_order(self, _id, check_status=201):
+        print('cancel order')
+        resp = self.client.post('/api/v1/market/orders/cancel/', {
+            'id': _id,
+        })
+        print(resp.json())
+        self.assertEqual(resp.status_code, check_status)
+        return resp.json()
 
     def close_position(self, id, check_status=200):
         print('close position')
@@ -138,7 +148,7 @@ class LongIsolatedMarginTestCase(TestCase):
         print(resp.json())
         self.assertEqual(resp.status_code, check_status)
 
-    def assert_liquidation(self, account, symbol):
+    def assert_liquidation(self, account, symbol, liquidate=True):
         mp = MarginPosition.objects.filter(account=account, symbol=symbol).first()
 
         negetive_wallets = Wallet.objects.filter(
@@ -148,8 +158,9 @@ class LongIsolatedMarginTestCase(TestCase):
             variant__isnull=False,
         ).count()
 
-        self.assertEqual(negetive_wallets, Decimal('0'))
-        self.assertEqual(mp.status, MarginPosition.CLOSED)
+        assertion = self.assertEqual if liquidate else self.assertNotEqual
+        assertion(negetive_wallets, Decimal('0'))
+        assertion(mp.status, MarginPosition.CLOSED)
 
     def test_long_buy(self):
         self.transfer_usdt_api(TO_TRANSFER_USDT/2)
@@ -484,3 +495,51 @@ class LongIsolatedMarginTestCase(TestCase):
         self.print_wallets(self.account)
         mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
         print('position', mp.debt_amount, mp.liquidation_price, mp.equity, mp.status)
+
+    def test_long_buy7(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT / 2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount * 1, market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE)
+
+        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE * 2,
+                         is_open_position=False)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount - Decimal('0.001'),
+                      market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE * 2)
+
+        self.assert_liquidation(account=self.account, symbol=self.btcusdt, liquidate=False)
+
+    def test_long_buy8(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT / 2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount * 1, market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE)
+
+        order = self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE * 2,
+                         is_open_position=False)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount - Decimal('0.001'),
+                      market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE * 2)
+
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount - Decimal('0.001'),
+                      market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE * 2 - 1)
+
+        self.cancel_order(order['id'])
+
+        self.assert_liquidation(account=self.account, symbol=self.btcusdt)

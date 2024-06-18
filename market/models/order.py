@@ -161,6 +161,14 @@ class Order(models.Model):
     objects = models.Manager()
     open_objects = OpenOrderManager()
 
+    def check_margin(self, pipeline):
+        if self.position:
+            is_position_closed = floor_precision(self.position.loan_wallet.balance
+                                                 + pipeline.get_wallet_balance_diff(self.position.loan_wallet.id),
+                                                 self.position.symbol.step_size) >= Decimal('0')
+            if is_position_closed and not self.position.order_set.filter(status=self.NEW).exists():
+                self.position.flush(pipeline=pipeline)
+
     def cancel(self):
         if self.oco:
             self.oco.cancel_another(self.oco.STOPLOSS, delete_oco=True)
@@ -179,6 +187,7 @@ class Order(models.Model):
             order.status = self.CANCELED
             order.save(update_fields=['status'])
             pipeline.release_lock(key=order.group_id)
+            self.check_margin(pipeline)
 
             pipeline.add_market_cache_data(self.symbol, [order], side=order.side, canceled=True)
 
@@ -194,6 +203,7 @@ class Order(models.Model):
             for order in orders:
                 ids.append(order.id)
                 pipeline.release_lock(key=order.group_id)
+                order.check_margin(pipeline)
                 pipeline.add_market_cache_data(order.symbol, [order], side=order.side, canceled=True)
 
             orders.update(status=cls.CANCELED)
