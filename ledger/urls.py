@@ -75,6 +75,7 @@ urlpatterns = [
     path('v1/addressbook/<int:pk>/', views.AddressBookView.as_view({
         'get': 'retrieve',
         'delete': 'destroy',
+        'patch': 'partial_update',
     })),
     path('v1/addressbook/', views.AddressBookView.as_view({
         'post': 'create',
