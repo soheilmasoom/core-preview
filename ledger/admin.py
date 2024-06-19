@@ -708,7 +708,7 @@ class MarginTransferAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.AddressBook)
-class AddressBookAdmin(admin.ModelAdmin):
+class AddressBookAdmin(SimpleHistoryAdmin):
     list_display = ('name', 'get_username', 'network', 'address', 'asset',)
     search_fields = ('address', 'name', 'account__user__phone')
     raw_id_fields = ('account', )

@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.db import models
 from django.utils import timezone
+from simple_history.models import HistoricalRecords
 
 from .asset import Asset
 from .network import Network
@@ -10,6 +11,8 @@ from ledger.models.transfer import Transfer
 
 
 class AddressBook(models.Model):
+    history = HistoricalRecords()
+
     name = models.CharField(max_length=100, verbose_name='نام')
     address = models.CharField(max_length=100, verbose_name='آدرس')
     account = models.ForeignKey(to=Account, on_delete=models.CASCADE, verbose_name='حساب')
