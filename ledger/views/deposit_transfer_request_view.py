@@ -3,23 +3,25 @@ from decimal import Decimal
 
 from django.contrib.auth.mixins import UserPassesTestMixin
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import CreateAPIView, get_object_or_404
 
 from accounts.authentication import CustomTokenAuthentication
 from accounts.utils.admin import url_to_admin_list
 from accounts.utils.telegram import send_system_message
-from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset
+from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset, DepositRecoveryRequest
 from ledger.models.transfer import Transfer
 from ledger.requester.architecture_requester import get_network_architecture
 from ledger.utils.fields import PENDING, DONE, CANCELED, INIT
 from ledger.utils.fraud import verify_crypto_deposit
 from ledger.utils.price import get_last_price
+from ledger.utils.str import truncate_str
 
 logger = logging.getLogger(__name__)
 
 
 class DepositSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(allow_null=True)
     network = serializers.CharField(max_length=16, write_only=True)
     sender_address = serializers.CharField(max_length=256, write_only=True)
     receiver_address = serializers.CharField(max_length=256, write_only=True)
@@ -28,7 +30,7 @@ class DepositSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transfer
-        fields = ['status', 'amount', 'trx_hash', 'network', 'sender_address', 'receiver_address', 'coin', 'memo']
+        fields = ['status', 'amount', 'trx_hash', 'network', 'sender_address', 'receiver_address', 'coin', 'memo', 'id']
 
     def create(self, validated_data):
         network_symbol = validated_data.get('network')
@@ -36,8 +38,50 @@ class DepositSerializer(serializers.ModelSerializer):
         receiver_address = validated_data.get('receiver_address')
         network = Network.objects.get(symbol=network_symbol)
         memo = validated_data.get('memo') or ''
+        status = validated_data.get('status')
+        trx_hash = validated_data.get('trx_hash')
+        coin = validated_data.get('coin')
+
+        asset = Asset.objects.filter(symbol=coin).first()
+        coin_mult = 1
+
+        if not asset and coin:
+            asset = Asset.objects.filter(original_symbol=coin).first()
+
+            if asset:
+                coin_mult = asset.get_coin_multiplier()
 
         need_memo = network.need_memo
+
+        address_key = AddressKey.objects.filter(
+            address=receiver_address,
+            architecture=get_network_architecture(network),
+            deleted=False,
+            memo=memo
+        ).first()
+
+        requester_id = validated_data.get('id')
+
+        if need_memo and (not memo or not address_key):
+            if status == DONE and requester_id:
+                DepositRecoveryRequest.objects.get_or_create(
+                    blocklink_id=validated_data.get('id'),
+                    defaults={
+                        'asset': asset,
+                        'network': network,
+                        'memo': truncate_str(memo, 64),
+                        'trx_hash': trx_hash,
+                        'amount': Decimal(validated_data.get('amount')) / coin_mult,
+                        'receiver_address': receiver_address,
+                        'scope': DepositRecoveryRequest.SYSTEM,
+                    }
+                )
+                raise ValidationError({'address_key': 'Recovery created'})
+            else:
+                raise ValidationError({'address_key': 'Not Found'})
+
+        if not address_key:
+            raise NotFound
 
         if (need_memo and not memo) or (not need_memo and memo):
             raise ValidationError({'memo': 'null memo for memo networks error'})
@@ -52,14 +96,6 @@ class DepositSerializer(serializers.ModelSerializer):
             raise ValidationError({'receiver_address': 'old deposit address not supported'})
 
         if not deposit_address:
-            address_key = get_object_or_404(
-                AddressKey,
-                address=receiver_address,
-                architecture=get_network_architecture(network),
-                deleted=False,
-                memo=memo
-            )
-
             deposit_address, _ = DepositAddress.objects.get_or_create(
                 address=receiver_address,
                 network=network,
@@ -67,17 +103,6 @@ class DepositSerializer(serializers.ModelSerializer):
                     'address_key': address_key
                 }
             )
-
-        coin = validated_data.get('coin')
-
-        asset = Asset.objects.filter(symbol=coin).first()
-        coin_mult = 1
-
-        if not asset and coin:
-            asset = Asset.objects.filter(original_symbol=coin).first()
-
-            if asset:
-                coin_mult = asset.get_coin_multiplier()
 
         if not asset:
             logger.warning('invalid coin for deposit', extra={'coin': coin})
@@ -90,14 +115,12 @@ class DepositSerializer(serializers.ModelSerializer):
         if not network_asset.can_deposit_enabled(check_provider=False):
             raise ValidationError({'deposit_enable': 'false'})
 
-        status = validated_data.get('status')
-
         if status not in (PENDING, DONE, CANCELED):
             raise ValidationError({'status': 'invalid status %s' % status})
 
         transfer = Transfer.objects.filter(
             network=network,
-            trx_hash=validated_data.get('trx_hash'),
+            trx_hash=trx_hash,
             deposit=True,
             deposit_address=deposit_address
         ).order_by('-created').first()

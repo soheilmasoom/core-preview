@@ -44,6 +44,8 @@ class NetworkAsset(models.Model):
 
     max_allowed_daily_deposit_value = models.PositiveIntegerField(null=True, blank=True)
 
+    network_order = models.PositiveSmallIntegerField(default=0)
+
     def can_deposit_enabled(self, check_provider: bool = True) -> bool:
         system_enable = self.network.can_deposit and self.can_deposit
 

@@ -31,7 +31,7 @@ class PaymentIdSerializer(serializers.ModelSerializer):
         if user.level <= User.LEVEL1:
             raise ValidationError({'user': 'ابتدا احراز هویت کنید.'})
 
-        if not BankAccount.objects.filter(user=user, verified=True):
+        if not BankAccount.objects.filter(user=user, verified=True, deleted=False):
             raise ValidationError({'iban': 'شما باید حداقل یک حساب بانکی تایید شده داشته باشید.'})
 
         gateway = Gateway.get_active_pay_id_deposit()

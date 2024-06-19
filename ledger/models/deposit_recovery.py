@@ -1,15 +1,20 @@
 from django.db import models, transaction
+from simple_history.models import HistoricalRecords
 
 from accounts.models import User
 from ledger.models import Asset, Network, Transfer
-from ledger.utils.fields import get_amount_field, get_address_field, get_status_field, PENDING, PROCESS, CANCELED, DONE
+from ledger.utils.fields import get_amount_field, get_address_field, get_status_field, PROCESS, DONE
 from ledger.utils.price import get_last_price
 
 
 class DepositRecoveryRequest(models.Model):
+    SYSTEM, USER = 'sys', 'user'
+
+    history = HistoricalRecords()
+
     created = models.DateTimeField(auto_now_add=True)
     status = get_status_field(default=PROCESS)
-    user = models.ForeignKey(User, on_delete=models.PROTECT)
+    user = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True)
     asset = models.ForeignKey(Asset, on_delete=models.PROTECT)
     network = models.ForeignKey(Network, on_delete=models.PROTECT)
     memo = models.CharField(max_length=64, blank=True)
@@ -17,6 +22,8 @@ class DepositRecoveryRequest(models.Model):
     amount = get_amount_field()
     receiver_address = get_address_field()
     description = models.TextField(blank=True)
+    scope = models.CharField(max_length=4, db_index=True, choices=[(SYSTEM, SYSTEM), (USER, USER)], default=USER)
+    blocklink_id = models.IntegerField(null=True, unique=True)
 
     verifier = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
 
@@ -30,6 +37,11 @@ class DepositRecoveryRequest(models.Model):
     )
 
     comment = models.TextField(blank=True)
+
+    class Meta:
+        permissions = [
+            ("manage_deposit_recovery", "Manage Deposit Recovery Request"),
+        ]
 
     def create_transfer(self):
         with transaction.atomic():

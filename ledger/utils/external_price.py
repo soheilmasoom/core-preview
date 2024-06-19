@@ -94,7 +94,7 @@ def _get_redis_price_key(coin: str, market: str = None):
 
 def _check_price_dict_time_frame(data: dict, allow_stale: bool = False):
     now = timezone.now().timestamp()
-    return allow_stale or not data.get('t') or now - 30 <= float(data.get('t')) <= now
+    return allow_stale or data.get('s') == 'c' or not data.get('t') or now - 30 <= float(data.get('t')) <= now
 
 
 def fetch_external_price(symbol, side: str, allow_stale: bool = False) -> Decimal:

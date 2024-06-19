@@ -5,7 +5,12 @@ class BoolNode:
 
     default = AND
 
+    CONDITIONS_LENGTH = None
+
     def __init__(self, *conditions):
+        if self.CONDITIONS_LENGTH:
+            assert len(conditions) == self.CONDITIONS_LENGTH, f'conditions should be of size={self.CONDITIONS_LENGTH}'
+
         self.is_connector = False
 
         if len(conditions) == 0:

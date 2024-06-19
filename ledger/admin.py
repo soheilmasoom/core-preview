@@ -34,7 +34,7 @@ from gamify.utils import clone_model
 from ledger import models
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
-    MarginHistoryModel, MarginPosition, MarginLeverage
+    MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist
 from ledger.models.asset_alert import AssetAlert, AlertTrigger, BulkAssetAlert
 from ledger.models.wallet import ReserveWallet
 from ledger.utils.external_price import BUY
@@ -251,14 +251,15 @@ class NetworkAssetFilter(admin.SimpleListFilter):
 @admin.register(NetworkAsset)
 class NetworkAssetAdmin(admin.ModelAdmin):
     list_display = ('network', 'asset', 'get_withdraw_fee', 'get_withdraw_min', 'get_withdraw_max', 'get_deposit_min',
-                    'can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider',
+                    'can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider', 'network_order',
                     'last_provider_update', 'expected_hw_balance', 'hedger_withdraw_enable', 'hedger_deposit_enable',)
     search_fields = ('asset__symbol',)
     list_editable = ('can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider',
-                     'expected_hw_balance')
+                     'expected_hw_balance', 'network_order')
     list_filter = (NetworkAssetFilter, 'can_deposit', 'can_withdraw', 'network', 'update_fee_with_provider',
                    'update_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable')
     actions = ('update_fees', )
+    ordering = ('asset', 'network_order')
 
     @admin.display(description='withdraw_fee', ordering='withdraw_fee')
     def get_withdraw_fee(self, network_asset: NetworkAsset):
@@ -771,9 +772,9 @@ class CoinCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(models.AddressKey)
 class AddressKeyAdmin(admin.ModelAdmin):
-    list_display = ('address', 'deleted', 'account', 'architecture')
-    readonly_fields = ('address', 'account')
-    search_fields = ('address', 'public_address', 'account__user__phone')
+    list_display = ('address', 'deleted', 'account', 'architecture', 'memo')
+    readonly_fields = ('address', 'account', 'memo')
+    search_fields = ('address', 'public_address', 'account__user__phone', 'memo')
     list_filter = ('architecture', 'deleted', 'architecture')
 
 
@@ -1040,7 +1041,7 @@ class AlertTriggerAdmin(admin.ModelAdmin):
 
 
 @admin.register(DepositRecoveryRequest)
-class DepositRecoveryRequestAdmin(admin.ModelAdmin):
+class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'asset', 'network', 'amount', 'memo', 'status', 'get_user')
     list_filter = ('status', 'asset',)
     readonly_fields = ('created', 'image', 'verifier')
@@ -1048,11 +1049,23 @@ class DepositRecoveryRequestAdmin(admin.ModelAdmin):
     raw_id_fields = ('user',)
     search_fields = ('asset__symbol', 'network__symbol', 'user__phone', 'receiver_address', 'trx_hash')
 
+    default_edit_condition = M.has_perm('ledger.manage_deposit_recovery')
+
+    fields_edit_conditions = {
+        'user': M.has_perm('ledger.manage_deposit_recovery') | M.is_none('user'),
+        'comment': True
+    }
+
+    def has_manage_permission(self, request, obj=None):
+        return request.user.has_perm("ledger.manage_deposit_recovery")
+
     @admin.display(description='User')
     def get_user(self, deposit_recovery: DepositRecoveryRequest):
         user = deposit_recovery.user
-        link = url_to_edit_object(user)
-        return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
+        if user:
+            link = url_to_edit_object(user)
+            return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
+        return ''
 
     @admin.action(description='تایید نهایی', permissions=['change'])
     def accept_requests(self, request, queryset):
@@ -1060,16 +1073,16 @@ class DepositRecoveryRequestAdmin(admin.ModelAdmin):
         for req in qs:
             req.create_transfer()
 
-    @admin.action(description='تایید اولیه', permissions=['view'])
+    @admin.action(description='تایید اولیه', permissions=['change'])
     def verify_requests(self, request, queryset):
-        queryset.filter(status=PROCESS).update(
+        queryset.filter(status=PROCESS, user__isnull=False).update(
             status=PENDING,
             verifier=request.user
         )
 
     @admin.action(description='رد اطلاعات', permissions=['view'])
     def reject_requests(self, request, queryset):
-        queryset.filter(status=PROCESS).update(
+        queryset.filter(status__in=[PROCESS, PENDING]).update(
             status=CANCELED,
             verifier=request.user
         )
@@ -1100,6 +1113,34 @@ class TokenRebrandAdmin(admin.ModelAdmin):
     @admin.display(description='Rebrand Info')
     def get_rebrand_info(self, token_rebrand: TokenRebrand):
         rows = [{'name': k, 'value': v} for (k, v) in token_rebrand.get_rebrand_info().__dict__.items()]
+        return mark_safe(get_table_html(['name', 'value'], rows))
+
+
+@admin.register(TokenDelist)
+class TokenDelistAdmin(admin.ModelAdmin):
+    list_display = ('created', 'delist_at', 'asset', 'status')
+    readonly_fields = ('status', 'group_id', 'get_delist_info')
+    actions = ('accept_for_testers', 'accept', 'reject')
+
+    @admin.action(description='Accept', permissions=['change'])
+    def accept(self, request, queryset):
+        for delist in queryset.filter(status=PENDING):
+            delist.accept()
+
+    @admin.action(description='Test', permissions=['change'])
+    def accept_for_testers(self, request, queryset):
+        for delist in queryset.filter(status=PENDING):
+            with WalletPipeline() as pipeline:
+                delist.change_funds(pipeline, only_testers=True)
+
+    @admin.action(description='Reject', permissions=['change'])
+    def reject(self, request, queryset):
+        for delist in queryset.filter(status=PENDING):
+            delist.reject()
+
+    @admin.display(description='Delist Info')
+    def get_delist_info(self, token_delist: TokenDelist):
+        rows = [{'name': k, 'value': v} for (k, v) in token_delist.get_delist_info().__dict__.items()]
         return mark_safe(get_table_html(['name', 'value'], rows))
 
 

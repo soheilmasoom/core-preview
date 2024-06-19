@@ -183,6 +183,9 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     withdraw_precision = serializers.SerializerMethodField()
 
     need_memo = serializers.BooleanField(source='network.need_memo')
+    memo_title_fa = serializers.CharField(source='network.memo_title_fa')
+    memo_name_fa = serializers.CharField(source='network.memo_name_fa')
+    memo_name = serializers.CharField(source='network.memo_name')
 
     def get_can_deposit(self, network_asset: NetworkAsset):
         return network_asset.can_deposit_enabled()
@@ -213,12 +216,12 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
         return network_asset.withdraw_precision
 
     def get_slow_withdraw(self, network_asset: NetworkAsset):
-        return not network_asset.network.can_withdraw
+        return not network_asset.network.can_deposit
 
     class Meta:
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
                   'min_deposit', 'network_name', 'address_regex', 'withdraw_precision', 'need_memo', 'min_confirm',
-                  'slow_withdraw')
+                  'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name')
         model = NetworkAsset
 
 
@@ -226,7 +229,9 @@ class AssetRetrieveSerializer(AssetListSerializer):
     networks = serializers.SerializerMethodField()
 
     def get_networks(self, asset: Asset):
-        network_assets = asset.networkasset_set.all().prefetch_related('network', 'asset').order_by('withdraw_fee')
+        network_assets = asset.networkasset_set.all().prefetch_related('network', 'asset').order_by(
+            'network_order', 'withdraw_fee'
+        )
 
         account = self.context['request'].user.get_account()
 

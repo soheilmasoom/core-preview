@@ -30,7 +30,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
         return get_presentation_amount(network_asset.get_min_deposit())
 
     def get_slow_withdraw(self, network_asset: NetworkAsset):
-        return not network_asset.network.can_withdraw
+        return not network_asset.network.can_deposit
 
     class Meta:
         fields = ('asset', 'network', 'network_name', 'withdraw_commission', 'min_withdraw', 'min_deposit',

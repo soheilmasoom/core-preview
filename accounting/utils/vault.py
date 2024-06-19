@@ -156,7 +156,7 @@ def update_cold_wallet_vaults(now: datetime, prices: dict):
 
     for vault_item in VaultItem.objects.filter(vault__type__in=(Vault.COLD_WALLET, Vault.MANUAL)):
         vault_item.value_usdt = vault_item.balance * prices.get(vault_item.coin + Asset.USDT, 0)
-        vault_item.value_irt = vault_item.value_usdt * prices.get(vault_item.coin + Asset.IRT, 0)
+        vault_item.value_irt = vault_item.balance * prices.get(vault_item.coin + Asset.IRT, 0)
         vault_item.save(update_fields=['value_usdt', 'value_irt'])
 
     for vault in Vault.objects.filter(type__in=(Vault.COLD_WALLET, Vault.MANUAL)):
