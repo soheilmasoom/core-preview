@@ -1,7 +1,6 @@
 import logging
 
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404, CreateAPIView
@@ -9,7 +8,6 @@ from rest_framework.generics import get_object_or_404, CreateAPIView
 from accounts.authentication import CustomTokenAuthentication
 from ledger.models.transfer import Transfer
 from ledger.utils.fields import PENDING, DONE, PROCESS, CANCELED
-from ledger.utils.wallet_pipeline import WalletPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +27,18 @@ class WithdrawSerializer(serializers.ModelSerializer):
         status = validated_data.get('status')
         transfer = get_object_or_404(Transfer, id=requester_id)
 
+        TERMINATE = 'terminate'
+        if status not in [PROCESS, PENDING, DONE, TERMINATE]:
+            raise ValidationError({'status': 'invalid status choice'})
+
+        status = CANCELED if status == TERMINATE else status
+
         valid_transitions = [
             (PENDING, PENDING),
             (PENDING, DONE),
-            # (PENDING, CANCELED),
+            (PENDING, CANCELED),
             (PROCESS, DONE),
-            # (PROCESS, CANCELED),
+            (PROCESS, CANCELED),
         ]
 
         if transfer.source != Transfer.SELF:
