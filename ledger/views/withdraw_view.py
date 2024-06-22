@@ -28,7 +28,7 @@ from ledger.views.address_book_view import AddressBookCreateSerializer
 
 class WithdrawSerializer(serializers.ModelSerializer):
     address_book_id = serializers.CharField(write_only=True, required=False, default=None)
-    coin = CoinField(source='asset', required=False)
+    coin = CoinField(source='asset', required=True)
     network = NetworkField(required=False)
     code = serializers.CharField(write_only=True, required=False)
     address = serializers.CharField(source='out_address', required=False)
@@ -59,16 +59,14 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
         if attrs['address_book_id'] and from_panel:
             address_book = get_object_or_404(AddressBook, id=attrs['address_book_id'], account=account)
-            address = address_book.address
             network = address_book.network
-            whitelist = address_book.whitelist
 
             if address_book.asset:
-                asset = address_book.asset
-            else:
-                if not asset:
-                    raise ValidationError('رمزارزی انتخاب نشده است.')
+                if asset != address_book.asset:
+                    raise ValidationError('دفترچه آدرس برای این برداشت معتبر نیست.')
 
+            address = address_book.address
+            whitelist = address_book.whitelist
             memo = address_book.memo
 
         else:
