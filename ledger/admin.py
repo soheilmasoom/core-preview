@@ -686,7 +686,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     def terminate_withdraw(self, request, queryset):
         from ledger.requester.withdraw_requester import RequestWithdraw
         withdraw_requester = RequestWithdraw()
-        for transfer in queryset.select_for_update().filter(deposit=False, status__in=[PROCESS, PENDING]):
+        for transfer in queryset.filter(deposit=False, status__in=[PROCESS, PENDING]):
             withdraw_requester.terminate_withdraw(transfer.id)
 
 
