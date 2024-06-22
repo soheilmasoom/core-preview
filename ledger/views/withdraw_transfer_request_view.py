@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class WithdrawSerializer(serializers.ModelSerializer):
     requester_id = serializers.IntegerField(write_only=True, source='id')
-    status = serializers.CharField(max_length=8, write_only=True)
+    status = serializers.CharField(max_length=12, write_only=True)
     trx_hash = serializers.CharField(max_length=128, write_only=True, allow_blank=True, allow_null=True, required=False)
 
     class Meta:
