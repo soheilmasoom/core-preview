@@ -100,21 +100,18 @@ class AddressBookUpdateSerializer(serializers.ModelSerializer):
     totp = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
 
     SENSITIVE_UPDATE_FIELDS = ('whitelist', )
-    NONSENSITIVE_UPDATE_FIELDS = ('name', )
 
     def validate(self, data):
         sms_code = data.pop('sms_code', None)
         totp = data.pop('totp', None)
 
-        keys = set(data)
-
-        if not keys:
+        if not data:
             raise ValidationError('داده‌ای برای به روز‌رسانی ارسال نشده است.')
 
-        if not (keys <= set(self.SENSITIVE_UPDATE_FIELDS + self.NONSENSITIVE_UPDATE_FIELDS)):
+        if not (set(data) <= {'whitelist', 'name'}):
             raise ValidationError('امکان به روز‌رسانی این فیلد‌ها وجود ندارد.')
 
-        if set(self.SENSITIVE_UPDATE_FIELDS) & keys:
+        if data.get('whitelist') is True:
             user = self.context['request'].user
 
             verification_code = VerificationCode.get_by_code(
