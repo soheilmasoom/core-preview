@@ -3,7 +3,7 @@ from simple_history.models import HistoricalRecords
 
 from accounts.models import User
 from ledger.models import Asset, Network, Transfer
-from ledger.utils.fields import get_amount_field, get_address_field, get_status_field, PROCESS, DONE
+from ledger.utils.fields import get_amount_field, get_address_field, get_status_field, PROCESS, DONE, CANCELED, PENDING
 from ledger.utils.price import get_last_price
 
 
@@ -43,23 +43,51 @@ class DepositRecoveryRequest(models.Model):
             ("manage_deposit_recovery", "Manage Deposit Recovery Request"),
         ]
 
+    def verify(self, verifier: User):
+        if self.status != PROCESS:
+            return True
+
+        if not self.trx_hash:
+            return False
+
+        if Transfer.objects.filter(
+            trx_hash=self.trx_hash,
+            deposit=False,
+        ).exclude(status=CANCELED).exists():
+            return False
+
+        self.status = PENDING
+        self.verifier = verifier
+        self.save(update_fields=['status', 'verifier'])
+
+        return True
+
     def create_transfer(self):
         with transaction.atomic():
-            self.status = DONE
-            self.save(update_fields=['status'])
-            wallet = self.asset.get_wallet(account=self.user.get_account())
+            recovery = DepositRecoveryRequest.objects.get(id=self.id).select_for_update()
+
+            if recovery.status not in (PROCESS, PENDING):
+                return
+
+            if not recovery.trx_hash:
+                return
+
+            recovery.status = DONE
+            recovery.save(update_fields=['status'])
+
+            wallet = recovery.asset.get_wallet(account=recovery.user.get_account())
             price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
             price_irt = get_last_price(wallet.asset.symbol + Asset.IRT) or 0
             transfer = Transfer.objects.create(
-                network=self.network,
-                memo=self.memo,
-                amount=self.amount,
+                network=recovery.network,
+                memo=recovery.memo,
+                amount=recovery.amount,
                 wallet=wallet,
                 source=Transfer.MANUAL,
                 out_address='',
                 deposit=True,
-                usdt_value=self.amount * price_usdt,
-                irt_value=self.amount * price_irt,
-                trx_hash=self.trx_hash,
+                usdt_value=recovery.amount * price_usdt,
+                irt_value=recovery.amount * price_irt,
+                trx_hash=recovery.trx_hash,
             )
             transfer.accept()

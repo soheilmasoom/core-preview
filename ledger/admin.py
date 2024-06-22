@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from django import forms
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin import SimpleListFilter
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -1067,18 +1067,25 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
         return ''
 
-    @admin.action(description='تایید نهایی', permissions=['change'])
-    def accept_requests(self, request, queryset):
-        qs = queryset.filter(status=PENDING)
-        for req in qs:
-            req.create_transfer()
-
     @admin.action(description='تایید اولیه', permissions=['change'])
     def verify_requests(self, request, queryset):
-        queryset.filter(status=PROCESS, user__isnull=False).update(
-            status=PENDING,
-            verifier=request.user
-        )
+        qs = queryset.filter(status=PROCESS, user__isnull=False)
+
+        for req in qs:
+            if not req.verify(request.user):
+                self.message_user(request, f'Can not verify {req}', messages.ERROR)
+
+    @admin.action(description='تایید نهایی', permissions=['change'])
+    def accept_requests(self, request, queryset):
+        qs = queryset.filter(status__in=[PROCESS, PENDING], user__isnull=False)
+
+        scopes = [DepositRecoveryRequest.SYSTEM]
+
+        if self.has_manage_permission(request):
+            scopes.append(DepositRecoveryRequest.USER)
+
+        for req in qs.filter(scope__in=scopes):
+            req.create_transfer()
 
     @admin.action(description='رد اطلاعات', permissions=['view'])
     def reject_requests(self, request, queryset):
