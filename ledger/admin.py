@@ -692,7 +692,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
 @admin.register(models.ManualWithdraw)
 class ManualWithdrawAdmin(admin.ModelAdmin):
-    list_display = ('created', 'receiver_address', 'amount', 'network', 'coin')
+    list_display = ('created', 'receiver_address', 'amount', 'network', 'coin', 'triggered')
     search_fields = ('receiver_address',)
 
 

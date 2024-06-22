@@ -34,7 +34,7 @@ class RequestWithdraw:
             'network': manual_withdraw.network.symbol,
             'coin': manual_withdraw.coin,
             'requester_id': manual_withdraw.id,
-            'memo': manual_withdraw.memo
+            'memo': manual_withdraw.memo or ''
         }
 
         url = settings.BLOCKLINK_BASE_URL + '/api/v1/withdraw/manual/'
