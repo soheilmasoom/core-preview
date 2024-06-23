@@ -40,7 +40,7 @@ class AssetOverview:
         self.unknown_assets = dict(DepositRecoveryRequest.objects.filter(
             scope=DepositRecoveryRequest.SYSTEM,
             status=PROCESS,
-        ).annotate(sum=Sum('amount')).values_list('asset__symbol', 'sum'))
+        ).values('asset__symbol').annotate(sum=Sum('amount')).values_list('asset__symbol', 'sum'))
 
     def get_binance_margin_ratio(self):
         if not self._binance_futures:
