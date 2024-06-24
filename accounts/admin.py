@@ -230,6 +230,14 @@ class Forget2FAAdmin(BaseChangeAdmin):
 class ChangePhoneAdmin(BaseChangeAdmin):
     list_display = ('created', 'status', 'get_username', 'new_phone')
     readonly_fields = ('created', 'status', 'user', 'new_phone', 'selfie_image',)
+    actions = ('archive_phone', )
+
+    @admin.action(description='ارشیو کردن شماره موبایل', permissions=['change'])
+    def archive_phone(self, request, queryset):
+        qs = queryset.filter(status=PENDING)
+
+        for req in qs:
+            req.archiveRegisteredPhone()
 
     @admin.display(description='user')
     def get_username(self, change_phone: ChangePhone):

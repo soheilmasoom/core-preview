@@ -96,6 +96,14 @@ class ChangePhone(BaseChangeRequest):
         blank=True,
     )
 
+    def archiveRegisteredPhone(self):
+        user = self.user
+        archived_phone = "00" + self.user.phone
+        user.phone = archived_phone
+        user.username = archived_phone
+
+        user.save(update_fields=['phone', 'username'])
+
     def accept(self):
         with transaction.atomic():
             user = self.user
