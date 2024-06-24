@@ -155,8 +155,9 @@ def update_withdraws():
         create_withdraw.delay(transfer.id)
 
     requester = RequestWithdraw()
-    for withdraw in ManualWithdraw.objects.filter(status=PENDING):
-        resp = requester.manual_withdraw_transfer(withdraw)
-        if resp.ok:
-            withdraw.status = DONE
-            withdraw.save(update_fields=['status'])
+    with transaction.atomic():
+        for withdraw in ManualWithdraw.objects.filter(status=PENDING).select_for_update():
+            resp = requester.manual_withdraw_transfer(withdraw)
+            if resp.ok:
+                withdraw.status = DONE
+                withdraw.save(update_fields=['status'])
