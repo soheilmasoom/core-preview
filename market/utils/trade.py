@@ -116,8 +116,7 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
                              (floor_precision(position.asset_wallet.balance +
                                               pipeline.get_wallet_balance_diff(position.asset_wallet.id),
                                               position.symbol.step_size) >= Decimal('0') and
-                              trade_info.loan_type != BORROW)) and is_position_filled
-                             and total_match_amount == trade_info.order.unfilled_amount)
+                              trade_info.loan_type != BORROW)) and is_position_filled)
 
         if is_close_position:
             logger.info(f"Closing position:{position.id}")
@@ -169,8 +168,7 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
                 not is_close_position:
             position.rebalance(pipeline, price=trade_info.trade_price)
 
-        if not is_position_filled:
-            position.set_liquidation_price(pipeline)
+        position.set_liquidation_price(pipeline)
 
         to_update_positions[position.id] = position
 
@@ -179,7 +177,7 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
     )
 
 
-def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade: bool = False, trade_pair_list=None):
+def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade: bool = False):
     trading_positions = []
     if not fake_trade:
         trading_positions = _register_borrow_transaction(pipeline, pair=pair)
@@ -212,7 +210,7 @@ def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade
 
     if not fake_trade:
         trading_positions.extend(_register_repay_transaction(pipeline, pair=pair))
-        _update_trading_positions(trading_positions, pipeline, trade_pair_list)
+        _update_trading_positions(trading_positions, pipeline)
 
 
 def _register_trade_transaction(pipeline: WalletPipeline, pair: TradesPair):
@@ -291,9 +289,7 @@ def _register_margin_transaction(pipeline: WalletPipeline, pair: TradesPair, loa
                     trade_amount=trade_amount,
                     trade_price=trade_price,
                     group_id=order.group_id,
-                    order_side=order.side,
-                    order=order,
-                    matched_amount=trade.amount
+                    order_side=order.side
                 ))
     return trading_positions
 

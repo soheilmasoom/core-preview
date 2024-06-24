@@ -161,14 +161,6 @@ class Order(models.Model):
     objects = models.Manager()
     open_objects = OpenOrderManager()
 
-    def check_margin(self, pipeline):
-        if self.position:
-            is_position_closed = floor_precision(self.position.loan_wallet.balance
-                                                 + pipeline.get_wallet_balance_diff(self.position.loan_wallet.id),
-                                                 self.position.symbol.step_size) >= Decimal('0')
-            if is_position_closed and not self.position.order_set.filter(status=self.NEW).exists():
-                self.position.flush(pipeline=pipeline)
-
     def cancel(self):
         if self.oco:
             self.oco.cancel_another(self.oco.STOPLOSS, delete_oco=True)
@@ -187,7 +179,6 @@ class Order(models.Model):
             order.status = self.CANCELED
             order.save(update_fields=['status'])
             pipeline.release_lock(key=order.group_id)
-            self.check_margin(pipeline)
 
             pipeline.add_market_cache_data(self.symbol, [order], side=order.side, canceled=True)
 
@@ -203,7 +194,6 @@ class Order(models.Model):
             for order in orders:
                 ids.append(order.id)
                 pipeline.release_lock(key=order.group_id)
-                order.check_margin(pipeline)
                 pipeline.add_market_cache_data(order.symbol, [order], side=order.side, canceled=True)
 
             orders.update(status=cls.CANCELED)
@@ -418,8 +408,6 @@ class Order(models.Model):
 
         total_matched = 0
 
-        trade_pair_list = []
-
         for maker_order in matching_orders:
             if self.time_in_force == self.ME_IOC and maker_order.account != self.account:
                 break
@@ -451,8 +439,6 @@ class Order(models.Model):
                 group_id=uuid4()
             )
 
-            trade_pair_list.append(trades_pair)
-
             if not maker_order.wallet.account.is_system():
                 Notification.send(
                     recipient=maker_order.wallet.account.user,
@@ -467,7 +453,7 @@ class Order(models.Model):
             self.release_lock(pipeline, match_amount)
             maker_order.release_lock(pipeline, match_amount)
 
-            register_transactions(pipeline, pair=trades_pair, trade_pair_list=trade_pair_list)
+            register_transactions(pipeline, pair=trades_pair)
 
             trades.extend(trades_pair.trades)
 

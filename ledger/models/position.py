@@ -528,6 +528,7 @@ class MarginPosition(models.Model):
 
     def close(self, amount=None):
         from market.models import Order
+        from market.utils.order_utils import new_order
         from ledger.utils.wallet_pipeline import WalletPipeline
 
         queryset = Order.objects.filter(
@@ -538,26 +539,20 @@ class MarginPosition(models.Model):
         )
         Order.cancel_orders(queryset)
         with WalletPipeline() as pipeline:
-            self.flush(pipeline, amount=amount)
-
-    def flush(self, pipeline, amount=None):
-        from market.models import Order
-        from market.utils.order_utils import new_order
-
-        new_order(
-            pipeline=pipeline,
-            symbol=self.symbol,
-            account=self.account,
-            amount=amount or abs(self.asset_wallet.balance),
-            fill_type=Order.MARKET,
-            side=BUY if self.side == SHORT else SELL,
-            market=Wallet.MARGIN,
-            variant=self.group_id,
-            pass_min_notional=True,
-            order_type=Order.ORDINARY,
-            parent_lock_group_id=uuid.uuid4(),
-            margin_position=self
-        )
+            new_order(
+                pipeline=pipeline,
+                symbol=self.symbol,
+                account=self.account,
+                amount=amount or abs(self.asset_wallet.balance),
+                fill_type=Order.MARKET,
+                side=BUY if self.side == SHORT else SELL,
+                market=Wallet.MARGIN,
+                variant=self.group_id,
+                pass_min_notional=True,
+                order_type=Order.ORDINARY,
+                parent_lock_group_id=uuid.uuid4(),
+                margin_position=self
+            )
 
 
 class MarginLeverage(models.Model):
@@ -575,11 +570,9 @@ class MarginPositionTradeInfo:
     loan_type: str
     position: MarginPosition
     order_side: str
-    order: Order
     trade_amount: Decimal = 0
     trade_price: Decimal = 0
     group_id: UUID = 0
-    matched_amount: Decimal = 0
 
 
 class MarginHistoryModel(models.Model):
