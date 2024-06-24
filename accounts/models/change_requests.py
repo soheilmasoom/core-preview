@@ -1,6 +1,7 @@
 import logging
 from datetime import timedelta
 
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Q
@@ -99,10 +100,21 @@ class ChangePhone(BaseChangeRequest):
     def archiveRegisteredPhone(self):
         user = self.user
         archived_phone = "00" + self.user.phone
-        user.phone = archived_phone
-        user.username = archived_phone
 
-        user.save(update_fields=['phone', 'username'])
+        account = self.request.user.get_account()
+        errors = []
+        if user.level == User.LEVEL1:
+            if user.has_zero_balance(account):
+                user.phone = archived_phone
+                user.username = archived_phone
+                user.save(update_fields=['phone', 'username'])
+            else:
+                errors.append("موجودی کاربر صفر نیست")
+        else:
+            errors.append("کاربر سطح یک نیست")
+        if errors:
+            raise ValidationError(errors)
+
 
     def accept(self):
         with transaction.atomic():

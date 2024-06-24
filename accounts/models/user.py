@@ -25,6 +25,7 @@ from accounts.utils.telegram import send_support_message
 from accounts.utils.validation import PHONE_MAX_LENGTH
 from accounts.validators import mobile_number_validator, national_card_code_validator, telephone_number_validator
 from accounts.utils.mask import get_masked_phone
+from ledger.models.wallet import Wallet
 from ledger.utils.fields import DONE
 
 
@@ -199,6 +200,12 @@ class User(AbstractUser):
 
         device = TOTPDevice.objects.filter(user=self, confirmed=True).first()
         return device.verify_token(totp)
+
+    def has_zero_balance(self, account) -> bool:
+        return Wallet.objects.filter(
+                ~Q(balance=Decimal(0)),
+                account=account,
+                ).exists()
 
     def get_account(self) -> Account:
         if not self.id or self.is_anonymous:
