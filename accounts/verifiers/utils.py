@@ -125,9 +125,16 @@ class NationalCard:
 
 
 @dataclass
+class Request:
+    path: str
+    method: str
+    data: dict = None
+
+
+@dataclass
 class Response:
     data: Union[
-        dict, list,
+        dict, list, None,
         MatchingData,
         CardInfoData,
         IBANInfoData,

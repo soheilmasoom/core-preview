@@ -52,7 +52,7 @@ class DepositRecoveryRequest(models.Model):
 
         if Transfer.objects.filter(
             trx_hash=self.trx_hash,
-            deposit=True,
+            deposit=False,
         ).exclude(status=CANCELED).exists():
             return False
 

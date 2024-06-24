@@ -590,7 +590,7 @@ class ConvertDustViewV2(APIView):
                 free = wallet.get_free()
                 free_asset_base_value = free * price
                 free_asset_irt_value = free_asset_base_value if base == Asset.IRT else free_asset_base_value * get_price(Asset.USDT + Asset.IRT, side=BUY)
-                if Decimal(0) < free_asset_irt_value < Decimal(SystemConfig.get_system_config().dust_convert_threshold) and wallet.asset.symbol in validated_data["assets"]:
+                if Decimal(0) < free_asset_irt_value < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
                     logger.info('Converting dust v2 %s' % wallet)
 
                     pipeline.new_trx(
