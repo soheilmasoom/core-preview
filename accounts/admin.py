@@ -1,5 +1,7 @@
 import csv
 
+from typing import List
+from django.contrib import messages
 from decouple import config
 from django.conf import settings
 from django.contrib import admin
@@ -230,14 +232,21 @@ class Forget2FAAdmin(BaseChangeAdmin):
 class ChangePhoneAdmin(BaseChangeAdmin):
     list_display = ('created', 'status', 'get_username', 'new_phone')
     readonly_fields = ('created', 'status', 'user', 'new_phone', 'selfie_image',)
-    actions = ('archive_phone', )
+    actions = ('accept_requests', 'reject_requests', "archive_phone")
 
     @admin.action(description='ارشیو کردن شماره موبایل', permissions=['change'])
-    def archive_phone(self, request, queryset):
+    def archive_phone(self, request, queryset : List[ChangePhone]):
         qs = queryset.filter(status=PENDING)
 
         for req in qs:
+            # try:
             req.archiveRegisteredPhone()
+            # except Exception as e:
+            #     self.message_user(
+            #         request=request,
+            #         message=f"{str(e)} خطایی رخ داد",
+            #         level=messages.ERROR
+            #     )
 
     @admin.display(description='user')
     def get_username(self, change_phone: ChangePhone):
