@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
+from django.contrib import messages
 
 from django import forms
 from django.conf import settings
@@ -689,10 +690,30 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             withdraw_requester.terminate_withdraw(transfer.id)
 
 
+class ManualWithdrawForm(forms.ModelForm):
+    otp = forms.IntegerField()
+
+    class Meta:
+        model = models.ManualWithdraw
+        fields = ('receiver_address', 'network', 'asset', 'amount', 'otp', 'comment', 'memo',)
+
+
 @admin.register(models.ManualWithdraw)
 class ManualWithdrawAdmin(admin.ModelAdmin):
-    list_display = ('created', 'receiver_address', 'amount', 'network', 'coin', 'triggered')
+    form = ManualWithdrawForm
+
+    list_display = ('created', 'receiver_address', 'amount', 'network', 'asset', 'triggered')
     search_fields = ('receiver_address',)
+
+    def save_model(self, request, obj, form, change):
+        totp = form.cleaned_data.pop('otp', None)
+        device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
+
+        if not (device and device.verify_token(totp)):
+            self.message_user(request, message='Wrong TOTP', level=messages.ERROR)
+            return
+
+        super().save_model(request, obj, form, change)
 
 
 class CryptoAccountTypeFilter(SimpleListFilter):
