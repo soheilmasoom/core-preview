@@ -232,7 +232,7 @@ class Forget2FAAdmin(BaseChangeAdmin):
 class ChangePhoneAdmin(BaseChangeAdmin):
     list_display = ('created', 'status', 'get_username', 'new_phone')
     readonly_fields = ('created', 'status', 'user', 'new_phone', 'selfie_image',)
-    actions = super().actions + ("archive_phone")
+    actions = ('accept_requests', 'reject_requests', "archive_phone")
 
     @admin.action(description='ارشیو کردن شماره موبایل', permissions=['change'])
     def archive_phone(self, request, queryset : List[ChangePhone]):
