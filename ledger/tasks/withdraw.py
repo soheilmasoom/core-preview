@@ -5,7 +5,8 @@ from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
-from ledger.models import Transfer
+from ledger.models import Transfer, ManualWithdraw
+from ledger.requester.withdraw_requester import RequestWithdraw
 from ledger.utils.fields import PROCESS, PENDING
 from ledger.utils.fraud import verify_crypto_withdraw
 from ledger.utils.provider import get_provider_requester
@@ -152,3 +153,10 @@ def update_withdraws():
 
     for transfer in re_handle_transfers:
         create_withdraw.delay(transfer.id)
+
+    requester = RequestWithdraw()
+    for withdraw in ManualWithdraw.objects.filter(triggered=False):
+        resp = requester.manual_withdraw_transfer(withdraw)
+        if resp.ok:
+            withdraw.triggered = True
+            withdraw.save(update_fields=['triggered'])

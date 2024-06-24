@@ -580,7 +580,8 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     )
     exclude = ('risks',)
 
-    actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit', 'refund_deposit')
+    actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit', 'refund_deposit',
+               'terminate_withdraw')
 
     def save_model(self, request, obj: models.Transfer, form, change):
         if obj.id and obj.status == DONE:
@@ -680,6 +681,19 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     def refund_deposit(self, request, queryset):
         for transfer in queryset.filter(deposit=True, status=DONE):
             transfer.revert()
+
+    @admin.action(description='Terminate Withdraw', permissions=['change'])
+    def terminate_withdraw(self, request, queryset):
+        from ledger.requester.withdraw_requester import RequestWithdraw
+        withdraw_requester = RequestWithdraw()
+        for transfer in queryset.filter(deposit=False, status__in=[PROCESS, PENDING]):
+            withdraw_requester.terminate_withdraw(transfer.id)
+
+
+@admin.register(models.ManualWithdraw)
+class ManualWithdrawAdmin(admin.ModelAdmin):
+    list_display = ('created', 'receiver_address', 'amount', 'network', 'coin', 'triggered')
+    search_fields = ('receiver_address',)
 
 
 class CryptoAccountTypeFilter(SimpleListFilter):
