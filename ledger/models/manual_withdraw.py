@@ -1,3 +1,6 @@
+import re
+
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from ledger.utils.fields import get_amount_field, get_status_field, PROCESS
@@ -13,3 +16,7 @@ class ManualWithdraw(models.Model):
     comment = models.TextField(blank=True)
 
     status = get_status_field(default=PROCESS)
+
+    def clean(self):
+        if self.network.address_regex and not re.match(self.network.address_regex, self.receiver_address):
+            raise ValidationError({'receiver_address': 'Invalid Address'})

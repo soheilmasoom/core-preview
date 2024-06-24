@@ -709,7 +709,7 @@ class ManualWithdrawAdmin(admin.ModelAdmin):
     readonly_fields = ('status', )
     fieldsets = (
         (None, {'fields': (
-            'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment'
+            'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp'
         )}),
     )
     actions = ('accept', 'reject')
