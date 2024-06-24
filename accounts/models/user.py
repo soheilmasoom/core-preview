@@ -202,7 +202,7 @@ class User(AbstractUser):
 
     def has_zero_balance(self, account) -> bool:
         from ledger.models.wallet import Wallet
-        return Wallet.objects.filter(
+        return not Wallet.objects.filter(
                 ~Q(balance=Decimal(0)),
                 account=account,
                 ).exists()
