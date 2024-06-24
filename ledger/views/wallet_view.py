@@ -436,6 +436,16 @@ class WalletSerializer(serializers.ModelSerializer):
         fields = ('asset', 'free', 'balance', 'locked')
 
 
+
+class ConvertDustSerializer(serializers.Serializer):
+    BASE_CHOICES = [
+        Asset.USDT,
+        Asset.IRT
+    ]
+
+    base = serializers.ChoiceField(choices=BASE_CHOICES)
+    assets = serializers.ListField(child=serializers.CharField(max_length=32))
+
 class ConvertDustView(APIView):
 
     def post(self, *args):
@@ -494,6 +504,108 @@ class ConvertDustView(APIView):
             raise ValidationError('هیچ گزینه‌ای برای تبدیل خرد وجود ندارد.')
 
         return Response({'msg': 'convert_dust success'}, status=status.HTTP_200_OK)
+
+
+class ConvertDustViewV2(APIView):
+
+    def get(self, *args):
+        account = self.request.user.get_account()
+
+        spot_wallets = list(Wallet.objects.filter(
+            account=account,
+            market=Wallet.SPOT,
+            balance__gt=0,
+            variant__isnull=True
+        ).prefetch_related('asset'))
+
+        allowed_conversion = []
+
+        for wallet in spot_wallets:
+            price = get_price(
+                wallet.asset.symbol + Asset.IRT,
+                side=BUY,
+            )
+
+            if price is None:
+                continue
+
+            free = wallet.get_free()
+            free_asset_irt_value = free * price
+            if Decimal(0) < free_asset_irt_value < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
+                allowed_conversion.append(wallet.asset.symbol)
+
+        return Response({'symbols': allowed_conversion}, status=status.HTTP_200_OK)
+
+
+    def post(self, *args):
+        account = self.request.user.get_account()
+        serializer = ConvertDustSerializer(data=self.request.data)
+
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
+        else:
+            return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        base = validated_data["base"]
+        base_asset = Asset.get(base)
+        exclude_asset = Asset.get(Asset.IRT) if base == Asset.USDT else Asset.get(Asset.USDT)
+
+        assets_ids = list(Asset.objects.filter(
+            symbol__in=validated_data["assets"]
+        ).values_list('id'))
+
+        spot_wallets = list(Wallet.objects.filter(
+            account=account,
+            market=Wallet.SPOT,
+            balance__gt=0,
+            variant__isnull=True,
+            asset__in=[i[0] for i in assets_ids]
+        ).exclude(asset=exclude_asset).prefetch_related('asset'))
+        group_id = uuid4()
+        base_amount = 0
+
+        any_converted = False
+
+        with WalletPipeline() as pipeline:
+            for wallet in spot_wallets:
+                price = get_price(
+                    wallet.asset.symbol + base,
+                    side=BUY,
+                )
+
+                if price is None:
+                    continue
+
+                free = wallet.get_free()
+                free_asset_base_value = free * price
+                free_asset_irt_value = free_asset_base_value if base == Asset.IRT else free_asset_base_value * get_price(Asset.USDT + Asset.IRT, side=BUY)
+                if Decimal(0) < free_asset_irt_value < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
+                    logger.info('Converting dust v2 %s' % wallet)
+
+                    pipeline.new_trx(
+                        sender=wallet,
+                        receiver=wallet.asset.get_wallet(SYSTEM_ACCOUNT_ID),
+                        amount=free,
+                        group_id=group_id,
+                        scope=Trx.DUST
+                    )
+
+                    base_amount += price * free
+
+                    any_converted = True
+
+            pipeline.new_trx(
+                sender=base_asset.get_wallet(SYSTEM_ACCOUNT_ID),
+                receiver=base_asset.get_wallet(account),
+                amount=base_amount,
+                group_id=group_id,
+                scope=Trx.DUST,
+            )
+
+        if not any_converted:
+            raise ValidationError('هیچ گزینه‌ای برای تبدیل خرد وجود ندارد.')
+
+        return Response({'msg': 'convert_dust v2 success'}, status=status.HTTP_200_OK)
 
 
 class DustsHistorySerializer(serializers.ModelSerializer):
