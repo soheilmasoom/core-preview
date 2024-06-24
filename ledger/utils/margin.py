@@ -134,8 +134,8 @@ def check_margin_order(account, attrs):
         ).annotate(base_asset_value=F('asset_wallet__balance') * F('symbol__last_trade_price')).\
             aggregate(total_equity=Sum('base_asset_value') + Sum('base_wallet__balance'))['total_equity'] or 0
 
-        ml, _ = MarginLeverage.objects.get_or_create(account=account)
-        leverage = ml.leverage
+        leverage = MarginLeverage.objects.get(account=account).leverage
+
         user_total_equity += Decimal(attrs['price']) * Decimal(attrs['amount']) * (leverage - 1) / leverage
 
         if (base == USDT and user_total_equity >= sys_config.total_user_margin_usdt_base) or \

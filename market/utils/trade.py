@@ -108,16 +108,22 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
         for trade_pair in trade_pair_list:
             total_match_amount += trade_pair.maker_trade.amount
 
-        is_position_filled = floor_precision(position.loan_wallet.balance
-                                             + pipeline.get_wallet_balance_diff(position.loan_wallet.id),
-                                             position.symbol.step_size) >= Decimal('0')
+        position_asset_wallet = position.asset_wallet
+        position_asset_wallet.refresh_from_db()
 
-        is_close_position = ((trade_info.loan_type == Order.LIQUIDATION or
+        if (trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and
+                trade_info.loan_type != Order.LIQUIDATION and
+                (total_match_amount <= abs(position_asset_wallet.balance) * Decimal('0.998'))):
+            position.rebalance(pipeline, price=trade_info.trade_price)
+
+        is_close_position = (trade_info.loan_type == Order.LIQUIDATION or
                              (floor_precision(position.asset_wallet.balance +
                                               pipeline.get_wallet_balance_diff(position.asset_wallet.id),
                                               position.symbol.step_size) >= Decimal('0') and
-                              trade_info.loan_type != BORROW)) and is_position_filled
-                             and total_match_amount == trade_info.order.unfilled_amount)
+                              trade_info.loan_type != BORROW)) and \
+                            floor_precision(position.loan_wallet.balance
+                                            + pipeline.get_wallet_balance_diff(position.loan_wallet.id),
+                                            position.symbol.step_size) >= Decimal('0')
 
         if is_close_position:
             logger.info(f"Closing position:{position.id}")
@@ -165,12 +171,7 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
                     price=trade_info.trade_price
                 )
 
-        if trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and\
-                not is_close_position:
-            position.rebalance(pipeline, price=trade_info.trade_price)
-
-        if not is_position_filled:
-            position.set_liquidation_price(pipeline)
+        position.set_liquidation_price(pipeline)
 
         to_update_positions[position.id] = position
 
@@ -291,9 +292,7 @@ def _register_margin_transaction(pipeline: WalletPipeline, pair: TradesPair, loa
                     trade_amount=trade_amount,
                     trade_price=trade_price,
                     group_id=order.group_id,
-                    order_side=order.side,
-                    order=order,
-                    matched_amount=trade.amount
+                    order_side=order.side
                 ))
     return trading_positions
 

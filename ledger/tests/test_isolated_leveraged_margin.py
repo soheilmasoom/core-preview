@@ -11,7 +11,7 @@ from ledger.utils.external_price import SELL, BUY, SHORT, LONG
 from ledger.utils.precision import floor_precision
 from ledger.utils.test import new_account, set_price
 from ledger.utils.wallet_pipeline import WalletPipeline
-from market.models import PairSymbol, Order
+from market.models import PairSymbol
 from market.utils.order_utils import new_order
 
 USDT_IRT_PRICE = 20000
@@ -53,7 +53,6 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         self.user_m.show_margin = True
         self.user_m.margin_quiz_pass_date = timezone.now()
         self.user_m.save()
-
         self.usdt = Asset.get(Asset.USDT)
 
         self.btc = Asset.get('BTC')
@@ -71,9 +70,11 @@ class LeveragedIsolatedMarginTestCase(TestCase):
 
         self.client = Client()
         self.client.force_login(self.user)
+        self.set_leverage(Decimal('3'), client=self.client)
 
         self.client_m = Client()
         self.client_m.force_login(self.user_m)
+        self.set_leverage(Decimal('3'), client=self.client_m)
 
         set_price(self.usdt, USDT_IRT_PRICE)
         set_price(self.btc, int(BTC_USDT_PRICE))
@@ -143,8 +144,8 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         self.assertEqual(resp.status_code, check_status)
         return resp.json()
 
-    def set_leverage(self, leverage: Decimal, check_status=200):
-        resp = self.client.post('/api/v2/margin/leverage/', data={
+    def set_leverage(self, leverage: Decimal, check_status=200, client=None):
+        resp = (client or self.client).post('/api/v2/margin/leverage/', data={
             'leverage': leverage,
         })
         print(resp.json())
@@ -274,25 +275,32 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
         self.print_wallets(self.account)
 
-        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)  # long
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True)  # long
         with WalletPipeline() as pipeline:
-            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE)
 
-        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True, client=self.client_m)  # Short
+        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True, client=self.client_m)  # Short
         with WalletPipeline() as pipeline:
-            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE)
 
         long_position = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
 
         lp_liquidation_price = floor_precision(long_position.liquidation_price, 2)
         print(';;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;')
         self.print_wallets(self.account)
-        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=lp_liquidation_price - 1, client=self.client_m)
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=lp_liquidation_price - 1,
+                         client=self.client_m)
         print(';;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;')
 
         with WalletPipeline() as pipeline:
-            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT, price=lp_liquidation_price)
-            new_order(pipeline, self.btcusdt, self.account3, side=BUY, amount=loan_amount, market=Wallet.SPOT, price=lp_liquidation_price)
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT,
+                      price=lp_liquidation_price)
+            new_order(pipeline, self.btcusdt, self.account3, side=BUY, amount=loan_amount, market=Wallet.SPOT,
+                      price=lp_liquidation_price)
 
         self.assert_liquidation(account=self.account, symbol=self.btcusdt, liquidate=True)
         self.assert_liquidation(account=self.account_m, symbol=self.btcusdt, liquidate=True)
@@ -304,9 +312,11 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
         self.print_wallets(self.account)
 
-        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)  # long
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True)  # long
 
-        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True, client=self.client_m)  # Short
+        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True, client=self.client_m)  # Short
 
         mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
         self.assertEqual(mp.status, MarginPosition.OPEN)
@@ -320,7 +330,8 @@ class LeveragedIsolatedMarginTestCase(TestCase):
 
         self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE)  # long
 
-        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, client=self.client_m)  # Short
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         client=self.client_m)  # Short
 
         self.print_wallets(self.account)
         self.print_wallets(self.account_m)
