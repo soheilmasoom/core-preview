@@ -45,6 +45,7 @@ class WithdrawTestCase(TestCase):
         amount = '50'
         resp = self.client.post('/api/v1/withdraw/', {
             'amount': amount,
+            'coin': 'BTC',
             'code': generate_otp_code(self.user, 'withdraw'),
             'address_book_id': self.address_book.id
         })
