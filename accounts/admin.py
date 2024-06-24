@@ -234,13 +234,13 @@ class ChangePhoneAdmin(BaseChangeAdmin):
     readonly_fields = ('created', 'status', 'user', 'new_phone', 'selfie_image',)
     actions = ('accept_requests', 'reject_requests', "archive_phone")
 
-    @admin.action(description='ارشیو کردن شماره موبایل', permissions=['change'])
+    @admin.action(description='آرشیو کردن شماره موبایل', permissions=['change'])
     def archive_phone(self, request, queryset : List[ChangePhone]):
         qs = queryset.filter(status=PENDING)
 
         for req in qs:
             try:
-                req.archiveRegisteredPhone()
+                req.archive_registered_phone()
             except Exception as e:
                 self.message_user(
                     request=request,

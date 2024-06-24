@@ -97,16 +97,15 @@ class ChangePhone(BaseChangeRequest):
         blank=True,
     )
 
-    def archiveRegisteredPhone(self):
+    def archive_registered_phone(self):
         user = self.user
-        archived_phone = "00" + user.phone
 
         account = user.get_account()
         errors = []
         if user.level == User.LEVEL1:
             if user.has_zero_balance(account):
-                user.phone = archived_phone
-                user.username = archived_phone
+                user.phone = None
+                user.username = None
                 user.save(update_fields=['phone', 'username'])
             else:
                 errors.append("موجودی کاربر صفر نیست")
