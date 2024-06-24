@@ -23,7 +23,7 @@ urlpatterns = [
     })),
     path('v1/price/alert/switch/', views.PriceNotifSwitchView.as_view()),
 
-    path('v1/networks/', views.BriefNetworkAssetsView.as_view()),
+    path('v1/networks/', views.NetworksView.as_view()),
 
     path('v1/assets/reserve/', views.ReserveWalletCreateAPIView.as_view()),
     path('v1/assets/reserve/refund/', views.ReserveWalletRefundAPIView.as_view()),

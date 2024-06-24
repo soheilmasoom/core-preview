@@ -148,26 +148,24 @@ class MarginPosition(models.Model):
     def rebalance(self, pipeline, price: Decimal = None):
         from ledger.models import Wallet
 
-        debt_amount = self.debt_amount - pipeline.get_wallet_balance_diff(self.loan_wallet.id)
-        total_balance = self.total_balance + pipeline.get_wallet_balance_diff(self.margin_wallet.id)
+        traded_debt_amount = self.debt_amount - pipeline.get_wallet_balance_diff(self.loan_wallet.id)
+        traded_total_balance = self.total_balance + pipeline.get_wallet_balance_diff(self.margin_wallet.id)
 
-        if total_balance and debt_amount > 0:
+        if traded_total_balance:
             if self.side == SHORT:
-                liquidation_price = total_balance / debt_amount * self.get_ratio()
-                ratio = Decimal(1 - self.liquidation_price / liquidation_price)
-                amount = total_balance * ratio
+                total_balance = self.liquidation_price * traded_debt_amount / self.get_ratio()
+                amount = abs(traded_total_balance - total_balance)
             elif self.side == LONG:
-                liquidation_price = debt_amount / total_balance * self.get_ratio()
-                ratio = Decimal(self.liquidation_price / liquidation_price - 1)
-                amount = debt_amount * ratio
+                debt_amount = self.liquidation_price * traded_total_balance / self.get_ratio()
+                amount = abs(traded_debt_amount - debt_amount)
             else:
                 return
         else:
             return
 
         if amount > Decimal('0'):
-            logger.info(f"Rebalance Position:{self.id}, debt_amount:{debt_amount}, total_balance:{total_balance}, "
-                        f"previous liquidation_price:{self.liquidation_price}, ratio:{ratio}")
+            logger.info(f"Rebalance Position:{self.id}, debt_amount:{traded_debt_amount},"
+                        f" total_balance:{traded_total_balance}, previous liquidation_price:{self.liquidation_price}")
 
             group_id = uuid.uuid4()
             pipeline.new_trx(
@@ -178,8 +176,8 @@ class MarginPosition(models.Model):
                 scope=Trx.MARGIN_TRANSFER
             )
 
-            self.create_transfer_equity_history(amount=amount, total_balance=total_balance, debt_amount=debt_amount,
-                                                group_id=group_id, price=price)
+            self.create_transfer_equity_history(amount=amount, total_balance=traded_total_balance,
+                                                debt_amount=traded_debt_amount, group_id=group_id, price=price)
 
     def create_transfer_equity_history(self, amount, total_balance, debt_amount, group_id, price: Decimal = None):
 
@@ -298,7 +296,8 @@ class MarginPosition(models.Model):
                 depth_check=False
             )
 
-        free_amount = floor_precision(self.margin_wallet.get_free(), self.symbol.step_size)
+        free_amount = (floor_precision(self.margin_wallet.get_free(), self.symbol.step_size) +
+                       pipeline.get_wallet_free_balance_diff(self.margin_wallet.id))
 
         if self.side == SHORT:
             free_amount /= price
@@ -307,20 +306,20 @@ class MarginPosition(models.Model):
         else:
             raise NotImplementedError
 
-        loss_amount = Decimal('0')
         group_id = uuid.uuid4()
 
+        loss_amount = (to_close_amount - free_amount) * Decimal('1.05') * price
+        if loss_amount > 0:
+            pipeline.new_trx(
+                sender=self.get_insurance_wallet(),
+                receiver=self.base_wallet,
+                amount=loss_amount,
+                scope=Trx.MARGIN_INSURANCE,
+                group_id=group_id,
+            )
+
         if self.side == SHORT:
-            loss_amount = (to_close_amount - free_amount) * Decimal('1.05') * price
-            if loss_amount > 0:
-                pipeline.new_trx(
-                    sender=self.get_insurance_wallet(),
-                    receiver=self.base_wallet,
-                    amount=loss_amount,
-                    scope=Trx.MARGIN_INSURANCE,
-                    group_id=group_id,
-                )
-                to_close_amount = ceil_precision(to_close_amount, self.symbol.step_size)
+            to_close_amount = ceil_precision(to_close_amount, self.symbol.step_size)
         else:
             to_close_amount = floor_precision(free_amount, self.symbol.step_size)
 
@@ -528,6 +527,7 @@ class MarginPosition(models.Model):
 
     def close(self, amount=None):
         from market.models import Order
+        from market.utils.order_utils import new_order
         from ledger.utils.wallet_pipeline import WalletPipeline
 
         queryset = Order.objects.filter(
@@ -538,26 +538,20 @@ class MarginPosition(models.Model):
         )
         Order.cancel_orders(queryset)
         with WalletPipeline() as pipeline:
-            self.flush(pipeline, amount=amount)
-
-    def flush(self, pipeline, amount=None):
-        from market.models import Order
-        from market.utils.order_utils import new_order
-
-        new_order(
-            pipeline=pipeline,
-            symbol=self.symbol,
-            account=self.account,
-            amount=amount or abs(self.asset_wallet.balance),
-            fill_type=Order.MARKET,
-            side=BUY if self.side == SHORT else SELL,
-            market=Wallet.MARGIN,
-            variant=self.group_id,
-            pass_min_notional=True,
-            order_type=Order.ORDINARY,
-            parent_lock_group_id=uuid.uuid4(),
-            margin_position=self
-        )
+            new_order(
+                pipeline=pipeline,
+                symbol=self.symbol,
+                account=self.account,
+                amount=amount or abs(self.asset_wallet.balance),
+                fill_type=Order.MARKET,
+                side=BUY if self.side == SHORT else SELL,
+                market=Wallet.MARGIN,
+                variant=self.group_id,
+                pass_min_notional=True,
+                order_type=Order.ORDINARY,
+                parent_lock_group_id=uuid.uuid4(),
+                margin_position=self
+            )
 
 
 class MarginLeverage(models.Model):
@@ -575,11 +569,9 @@ class MarginPositionTradeInfo:
     loan_type: str
     position: MarginPosition
     order_side: str
-    order: Order
     trade_amount: Decimal = 0
     trade_price: Decimal = 0
     group_id: UUID = 0
-    matched_amount: Decimal = 0
 
 
 class MarginHistoryModel(models.Model):
