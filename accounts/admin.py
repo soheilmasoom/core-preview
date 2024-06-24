@@ -239,14 +239,14 @@ class ChangePhoneAdmin(BaseChangeAdmin):
         qs = queryset.filter(status=PENDING)
 
         for req in qs:
-            try:
-                req.archiveRegisteredPhone()
-            except Exception as e:
-                self.message_user(
-                    request=request,
-                    message=f"{str(e)} خطایی رخ داد",
-                    level=messages.ERROR
-                )
+            # try:
+            req.archiveRegisteredPhone()
+            # except Exception as e:
+            #     self.message_user(
+            #         request=request,
+            #         message=f"{str(e)} خطایی رخ داد",
+            #         level=messages.ERROR
+            #     )
 
     @admin.display(description='user')
     def get_username(self, change_phone: ChangePhone):
