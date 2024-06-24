@@ -1,6 +1,6 @@
 from django.db import models
 
-from ledger.utils.fields import get_amount_field
+from ledger.utils.fields import get_amount_field, get_status_field, PROCESS
 
 
 class ManualWithdraw(models.Model):
@@ -10,11 +10,6 @@ class ManualWithdraw(models.Model):
     asset = models.ForeignKey('ledger.Asset', on_delete=models.CASCADE)
     amount = get_amount_field()
     memo = models.CharField(max_length=256, blank=True)
-    comment = models.CharField(max_length=256, blank=True)
+    comment = models.TextField(blank=True)
 
-    triggered = models.BooleanField(default=False, db_index=True)
-
-    def save(
-        self, force_insert=False, force_update=False, using=None, update_fields=None
-    ):
-        raise NotImplementedError
+    status = get_status_field(default=PROCESS)

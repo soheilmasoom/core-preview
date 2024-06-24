@@ -703,8 +703,24 @@ class ManualWithdrawForm(forms.ModelForm):
 class ManualWithdrawAdmin(admin.ModelAdmin):
     form = ManualWithdrawForm
 
-    list_display = ('created', 'receiver_address', 'amount', 'network', 'asset', 'triggered')
+    list_display = ('created', 'receiver_address', 'amount', 'network', 'asset', 'status')
     search_fields = ('receiver_address',)
+    list_filter = ('status', 'network')
+    readonly_fields = ('status', )
+    fieldsets = (
+        (None, {'fields': (
+            'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment'
+        )}),
+    )
+    actions = ('accept', 'reject')
+
+    @admin.action(description='Accept')
+    def accept(self, request, queryset):
+        queryset.filter(status=PROCESS).update(status=PENDING)
+
+    @admin.action(description='Reject')
+    def reject(self, request, queryset):
+        queryset.filter(status__in=[PROCESS, PENDING]).update(status=CANCELED)
 
     def save_model(self, request, obj, form, change):
         totp = form.cleaned_data.pop('otp', None)
