@@ -32,7 +32,7 @@ class RequestWithdraw:
             'receiver_address': manual_withdraw.receiver_address,
             'amount': manual_withdraw.amount,
             'network': manual_withdraw.network.symbol,
-            'coin': manual_withdraw.coin,
+            'coin': manual_withdraw.asset.symbol,
             'requester_id': manual_withdraw.id,
             'memo': manual_withdraw.memo or ''
         }
