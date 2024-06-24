@@ -181,9 +181,11 @@ class LongIsolatedMarginTestCase(TestCase):
         print('position', mp.debt_amount, mp.liquidation_price, mp.equity)
         self.assertTrue(mp.liquidation_price == Decimal('550'))
         self.assertEqual(mp.side, LONG)
+        self.print_wallets(self.account)
 
         with WalletPipeline() as pipeline:
             mp.liquidate(pipeline, False)
+        self.print_wallets(self.account)
 
         self.assert_liquidation(self.account, self.btcusdt)
 
@@ -702,3 +704,27 @@ class LongIsolatedMarginTestCase(TestCase):
         self.assertEqual(mp.status, MarginPosition.OPEN)
         self.assertTrue(mp.base_wallet.balance < 0)
         self.assertEqual(initial_liquidation_price, mp.liquidation_price)
+
+    def test_long_buy_14(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT/2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+        self.print_wallets(self.account)
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+        initial_liquidation_price = mp.liquidation_price
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT,
+                      price=initial_liquidation_price - 100)
+
+        self.place_order(amount=floor_precision(loan_amount / 4, 2), side=SELL, market=Wallet.MARGIN,
+                         price=floor_precision(initial_liquidation_price - 100, 2), is_open_position=False)
+
+        self.print_wallets(self.account)
+        self.assert_liquidation(self.account, self.btcusdt)
