@@ -399,7 +399,8 @@ class WalletBalanceView(APIView, DelegatedAccountMixin):
 class NetworkSerializer(serializers.ModelSerializer):
 
     class Meta:
-        fields = ('id', 'name', 'symbol', 'address_regex')
+        fields = ('id', 'name', 'symbol', 'address_regex', 'need_memo', 'memo_title_fa', 'memo_name_fa', 'memo_name',
+                  'min_confirm')
         model = Network
 
 
