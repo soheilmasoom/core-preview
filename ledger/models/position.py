@@ -435,12 +435,14 @@ class MarginPosition(models.Model):
 
     @classmethod
     def check_for_liquidation(cls, order, min_price, max_price, pipeline):
+        exclude_q = Q(id=order.position.id) if order.position else Q()
+
         to_liquid_short_positions = cls.objects.filter(
             side=SHORT,
             status=cls.OPEN,
             symbol=order.symbol,
             liquidation_price__lte=max_price,
-        ).order_by('liquidation_price')
+        ).exclude(exclude_q).order_by('liquidation_price')
 
         for position in to_liquid_short_positions:
             position.liquidate(pipeline)
@@ -450,7 +452,7 @@ class MarginPosition(models.Model):
             status=cls.OPEN,
             symbol=order.symbol,
             liquidation_price__gte=min_price,
-        ).order_by('liquidation_price')
+        ).exclude(exclude_q).order_by('liquidation_price')
 
         for position in to_liquid_long_positions:
             position.liquidate(pipeline)
