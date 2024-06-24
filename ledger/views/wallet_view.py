@@ -18,7 +18,7 @@ from rest_framework.viewsets import ModelViewSet
 from _base.settings import SYSTEM_ACCOUNT_ID
 from accounts.models import SystemConfig
 from accounts.views.jwt_views import DelegatedAccountMixin
-from ledger.models import Wallet, DepositAddress, NetworkAsset, Trx
+from ledger.models import Wallet, DepositAddress, NetworkAsset, Trx, Network
 from ledger.models.asset import Asset, AssetSerializerMini
 from ledger.utils.external_price import BUY, SELL
 from ledger.utils.fields import get_irt_market_asset_symbols
@@ -396,40 +396,28 @@ class WalletBalanceView(APIView, DelegatedAccountMixin):
         })
 
 
-class BriefNetworkAssetsSerializer(serializers.ModelSerializer):
-    name = serializers.SerializerMethodField()
-    symbol = serializers.SerializerMethodField()
-    address_regex = serializers.SerializerMethodField()
-
-    def get_name(self, network_asset: NetworkAsset):
-        return network_asset.network.name
-
-    def get_symbol(self, network_asset: NetworkAsset):
-        return network_asset.network.symbol
-
-    def get_address_regex(self, network_asset: NetworkAsset):
-        return network_asset.network.address_regex
+class NetworkSerializer(serializers.ModelSerializer):
 
     class Meta:
-        fields = ('name', 'symbol', 'address_regex')
-        model = NetworkAsset
+        fields = ('id', 'name', 'symbol', 'address_regex')
+        model = Network
 
 
-class BriefNetworkAssetsView(ListAPIView):
-    serializer_class = BriefNetworkAssetsSerializer
+class NetworksView(ListAPIView):
+    serializer_class = NetworkSerializer
 
     def get_queryset(self):
-        query_params = self.request.query_params
-        query_set = NetworkAsset.objects.all()
-        if 'symbol' in query_params:
-            return query_set.filter(asset__symbol=query_params['symbol'].upper(),
-                                    can_withdraw=True,
-                                    network__can_withdraw=True,
-                                    hedger_withdraw_enable=True)
-        else:
-            query_set = query_set.distinct('network__symbol')
+        networks = Network.objects.filter(can_withdraw=True)
 
-        return query_set.filter(can_withdraw=True, network__can_withdraw=True, network__is_universal=True)
+        query_params = self.request.query_params
+
+        if 'symbol' in query_params:
+            networks = networks.filter(
+                networkasset__asset__symbol=query_params['symbol'],
+                networkasset__can_withdraw=True
+            )
+
+        return networks
 
 
 class WalletSerializer(serializers.ModelSerializer):

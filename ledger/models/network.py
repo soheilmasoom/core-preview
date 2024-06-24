@@ -20,7 +20,6 @@ class Network(models.Model):
 
     explorer_link = models.CharField(max_length=128, blank=True)
     address_regex = models.CharField(max_length=128, blank=True)
-    is_universal = models.BooleanField(default=False)
 
     need_memo = models.BooleanField(default=False)
     memo_title_fa = models.CharField(max_length=64, default="آدرس تگ یا ممو")
