@@ -102,6 +102,7 @@ class OTCTrade(models.Model):
                 hedged=True
             )
 
+            # todo: add lock when new engine deployed
             fok_success = otc_trade.try_fok_fill(pipeline)
 
             if not fok_success:
