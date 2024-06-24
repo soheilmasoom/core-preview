@@ -110,10 +110,13 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
 
         position_asset_wallet = position.asset_wallet
         position_asset_wallet.refresh_from_db()
+        is_position_live = position.liquidation_price and (
+                (position.side == SHORT and trade_info.trade_price < position.liquidation_price) or
+                (position.side == LONG and trade_info.trade_price > position.liquidation_price))
 
         if (trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and
                 trade_info.loan_type != Order.LIQUIDATION and
-                (total_match_amount <= abs(position_asset_wallet.balance) * Decimal('0.998'))):
+                (total_match_amount <= abs(position_asset_wallet.balance) * Decimal('0.998'))) and is_position_live:
             position.rebalance(pipeline, price=trade_info.trade_price)
 
         is_close_position = (trade_info.loan_type == Order.LIQUIDATION or
@@ -171,7 +174,12 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
                     price=trade_info.trade_price
                 )
 
-        position.set_liquidation_price(pipeline)
+        is_position_trade_beyond_liquidation = not is_position_live and trade_info.loan_type != OPEN
+        if is_position_trade_beyond_liquidation:
+            position.liquidate(pipeline, charge_insurance=True)
+        
+        if (is_position_live or trade_info.loan_type == OPEN) and not is_position_trade_beyond_liquidation:
+            position.set_liquidation_price(pipeline)
 
         to_update_positions[position.id] = position
 

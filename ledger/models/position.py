@@ -296,7 +296,8 @@ class MarginPosition(models.Model):
                 depth_check=False
             )
 
-        free_amount = floor_precision(self.margin_wallet.get_free(), self.symbol.step_size)
+        free_amount = (floor_precision(self.margin_wallet.get_free(), self.symbol.step_size) +
+                       pipeline.get_wallet_free_balance_diff(self.margin_wallet.id))
 
         if self.side == SHORT:
             free_amount /= price
@@ -305,20 +306,20 @@ class MarginPosition(models.Model):
         else:
             raise NotImplementedError
 
-        loss_amount = Decimal('0')
         group_id = uuid.uuid4()
 
+        loss_amount = (to_close_amount - free_amount) * Decimal('1.05') * price
+        if loss_amount > 0:
+            pipeline.new_trx(
+                sender=self.get_insurance_wallet(),
+                receiver=self.base_wallet,
+                amount=loss_amount,
+                scope=Trx.MARGIN_INSURANCE,
+                group_id=group_id,
+            )
+
         if self.side == SHORT:
-            loss_amount = (to_close_amount - free_amount) * Decimal('1.05') * price
-            if loss_amount > 0:
-                pipeline.new_trx(
-                    sender=self.get_insurance_wallet(),
-                    receiver=self.base_wallet,
-                    amount=loss_amount,
-                    scope=Trx.MARGIN_INSURANCE,
-                    group_id=group_id,
-                )
-                to_close_amount = ceil_precision(to_close_amount, self.symbol.step_size)
+            to_close_amount = ceil_precision(to_close_amount, self.symbol.step_size)
         else:
             to_close_amount = floor_precision(free_amount, self.symbol.step_size)
 
