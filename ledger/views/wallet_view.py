@@ -561,13 +561,17 @@ class ConvertDustViewV2(APIView):
         base_asset = Asset.get(base)
         exclude_asset = Asset.get(Asset.IRT) if base == Asset.USDT else Asset.get(Asset.USDT)
 
+        assets_ids = list(Asset.objects.filter(
+            symbol__in=validated_data["assets"]
+        ).values_list('id'))
+
         spot_wallets = list(Wallet.objects.filter(
             account=account,
             market=Wallet.SPOT,
             balance__gt=0,
-            variant__isnull=True
+            variant__isnull=True,
+            asset__in=[i[0] for i in assets_ids]
         ).exclude(asset=exclude_asset).prefetch_related('asset'))
-
         group_id = uuid4()
         base_amount = 0
 
