@@ -99,9 +99,9 @@ class ChangePhone(BaseChangeRequest):
 
     def archiveRegisteredPhone(self):
         user = self.user
-        archived_phone = "00" + self.user.phone
+        archived_phone = "00" + user.phone
 
-        account = self.request.user.get_account()
+        account = user.get_account()
         errors = []
         if user.level == User.LEVEL1:
             if user.has_zero_balance(account):
