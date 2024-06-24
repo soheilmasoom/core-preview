@@ -91,7 +91,7 @@ class TradesPair:
         )
 
 
-def _update_trading_positions(trading_positions, pipeline):
+def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
     from ledger.models import MarginPosition
     to_update_positions = {}
     for trade_info in trading_positions:
@@ -103,6 +103,18 @@ def _update_trading_positions(trading_positions, pipeline):
         if short_amount > 0 and position.amount:
             position.average_price = (previous_amount * previous_price +
                                       short_amount * trade_info.trade_price) / position.amount
+
+        total_match_amount = 0
+        for trade_pair in trade_pair_list:
+            total_match_amount += trade_pair.maker_trade.amount
+
+        position_asset_wallet = position.asset_wallet
+        position_asset_wallet.refresh_from_db()
+
+        if (trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and
+                trade_info.loan_type != Order.LIQUIDATION and
+                (total_match_amount <= abs(position_asset_wallet.balance) * Decimal('0.998'))):
+            position.rebalance(pipeline, price=trade_info.trade_price)
 
         is_close_position = (trade_info.loan_type == Order.LIQUIDATION or
                              (floor_precision(position.asset_wallet.balance +
@@ -159,9 +171,6 @@ def _update_trading_positions(trading_positions, pipeline):
                     price=trade_info.trade_price
                 )
 
-        if trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and\
-                not is_close_position:
-            position.rebalance(pipeline, price=trade_info.trade_price)
         position.set_liquidation_price(pipeline)
 
         to_update_positions[position.id] = position
@@ -171,7 +180,7 @@ def _update_trading_positions(trading_positions, pipeline):
     )
 
 
-def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade: bool = False):
+def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade: bool = False, trade_pair_list=None):
     trading_positions = []
     if not fake_trade:
         trading_positions = _register_borrow_transaction(pipeline, pair=pair)
@@ -204,7 +213,7 @@ def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade
 
     if not fake_trade:
         trading_positions.extend(_register_repay_transaction(pipeline, pair=pair))
-        _update_trading_positions(trading_positions, pipeline)
+        _update_trading_positions(trading_positions, pipeline, trade_pair_list)
 
 
 def _register_trade_transaction(pipeline: WalletPipeline, pair: TradesPair):
