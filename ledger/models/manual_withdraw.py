@@ -13,3 +13,8 @@ class ManualWithdraw(models.Model):
     comment = models.CharField(max_length=256, blank=True)
 
     triggered = models.BooleanField(default=False, db_index=True)
+
+    def save(
+        self, force_insert=False, force_update=False, using=None, update_fields=None
+    ):
+        raise NotImplementedError

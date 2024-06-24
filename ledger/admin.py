@@ -953,7 +953,8 @@ class ManualTransactionAdmin(admin.ModelAdmin):
         device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
 
         if not (device and device.verify_token(totp)) and not settings.DEBUG_OR_TESTING_OR_STAGING:
-            raise ValidationError('InvalidTotp')
+            self.message_user(request, 'invalid otp', messages.ERROR)
+            return
 
         super().save_model(request, obj, form, change)
 
