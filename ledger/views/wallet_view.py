@@ -398,7 +398,7 @@ class WalletBalanceView(APIView, DelegatedAccountMixin):
 
 class NetworkSerializer(serializers.ModelSerializer):
     network = serializers.CharField(source='symbol')
-    network_name = serializers.CharField(source='network_name')
+    network_name = serializers.CharField(source='name')
 
     class Meta:
         fields = ('id', 'name', 'network_name', 'network', 'symbol', 'address_regex', 'need_memo', 'memo_title_fa',
