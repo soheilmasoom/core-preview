@@ -20,6 +20,8 @@ class AlertType(models.Model):
     warning_threshold = get_amount_field(default=0)
     error_threshold = get_amount_field(default=0)
 
+    alert_on_same_status = models.BooleanField(default=False)
+
     def get_status(self) -> Status:
         alert_class = ALERTS[self.type]  # type: Type[BaseAlertHandler]
         alert = alert_class(self.warning_threshold, self.error_threshold)
@@ -52,7 +54,7 @@ class AlertType(models.Model):
         if old:
             assert self == old.alert_type
 
-            if old.status == new.status:
+            if not self.alert_on_same_status and old.status == new.status:
                 return
 
         emojis = {Status.OK: '🟢', Status.WARNING: '🟠', Status.ERROR: '🔴'}
