@@ -35,10 +35,10 @@ class DepositRecoverySerializer(ModelSerializer):
         comment = ''
 
         if not asset:
-            comment += f'Asset: {asset}\n'
+            comment += f'Asset: {coin}\n'
 
         if not network:
-            comment += f'Network: {network}\n'
+            comment += f'Network: {network_symbol}\n'
 
         return {
             **attrs,
