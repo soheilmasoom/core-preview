@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from decouple import config
@@ -53,11 +54,16 @@ class PriceHealthView(APIView):
             return Response({'status': 'healthy!'})
 
 
+logger = logging.getLogger(__name__)
+
+
 class HealthCheckView(APIView):
     authentication_classes = ()
     permission_classes = ()
 
     def get(self, request):
+        logger.info(f'request headers {request.headers}')
+
         unhealthy_services = []
 
         for service in ['MASTERKEY_', 'BLOCKLINK_', 'PROVIDER_']:
@@ -93,6 +99,6 @@ class HealthCheckView(APIView):
             unhealthy_services.append(f'Lost position liquidation price: {lost_positions}')
 
         if unhealthy_services:
-            return Response({'status': 'dead', 'errors': unhealthy_services, 'req': request})
+            return Response({'status': 'dead', 'errors': unhealthy_services})
         else:
-            return Response({'status': 'healthy!', 'req': request})
+            return Response({'status': 'healthy!'})
