@@ -93,6 +93,6 @@ class HealthCheckView(APIView):
             unhealthy_services.append(f'Lost position liquidation price: {lost_positions}')
 
         if unhealthy_services:
-            return Response({'status': 'dead', 'errors': unhealthy_services})
+            return Response({'status': 'dead', 'errors': unhealthy_services, 'req': request})
         else:
-            return Response({'status': 'healthy!'})
+            return Response({'status': 'healthy!', 'req': request})
