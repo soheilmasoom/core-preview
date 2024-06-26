@@ -179,7 +179,7 @@ class OTCTrade(models.Model):
                 self.cancel()
                 raise
 
-    def cancel(self, ):
+    def cancel(self):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
             pipeline.release_lock(self.group_id)
             self.change_status(self.CANCELED)
