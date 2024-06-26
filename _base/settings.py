@@ -33,6 +33,8 @@ PANEL_URL = config('PANEL_URL', default='https://raastin.com')
 CELERY_TASK_ALWAYS_EAGER = config('CELERY_ALWAYS_EAGER', default=False)
 
 KAFKA_HOST_URL = config('KAFKA_HOST_URL', default='')
+KAFKA_TOPIC_NAME = config('KAFKA_TOPIC_NAME')
+
 
 # Application definition
 
