@@ -700,7 +700,7 @@ class ManualWithdrawForm(forms.ModelForm):
 
 
 @admin.register(models.ManualWithdraw)
-class ManualWithdrawAdmin(admin.ModelAdmin):
+class ManualWithdrawAdmin(SimpleHistoryAdmin):
     form = ManualWithdrawForm
 
     list_display = ('created', 'receiver_address', 'amount', 'network', 'asset', 'status')

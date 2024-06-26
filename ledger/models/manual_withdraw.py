@@ -2,11 +2,14 @@ import re
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from ledger.utils.fields import get_amount_field, get_status_field, PROCESS
 
 
 class ManualWithdraw(models.Model):
+    history = HistoricalRecords()
+
     created = models.DateTimeField(auto_now_add=True)
     receiver_address = models.CharField(max_length=256)
     network = models.ForeignKey('ledger.Network', on_delete=models.CASCADE)
