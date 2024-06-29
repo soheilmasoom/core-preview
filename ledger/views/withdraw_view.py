@@ -217,7 +217,8 @@ class WithdrawView(CreateAPIView):
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
-        ctx['from_panel'] = not isinstance(self.request.successful_authenticator, WithdrawTokenAuthentication)
+        # ctx['from_panel'] = not isinstance(self.request.successful_authenticator, WithdrawTokenAuthentication)
+        ctx['from_panel'] = True
         return ctx
 
 

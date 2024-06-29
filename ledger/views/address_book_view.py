@@ -100,8 +100,6 @@ class AddressBookUpdateSerializer(serializers.ModelSerializer):
     sms_code = serializers.CharField(write_only=True)
     totp = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
 
-    SENSITIVE_UPDATE_FIELDS = ('whitelist', )
-
     def validate(self, data):
         sms_code = data.pop('sms_code', None)
         totp = data.pop('totp', None)
