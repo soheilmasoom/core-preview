@@ -200,12 +200,7 @@ class User(AbstractUser):
         device = TOTPDevice.objects.filter(user=self, confirmed=True).first()
         return device.verify_token(totp)
 
-    def has_zero_balance(self, account) -> bool:
-        from ledger.models.wallet import Wallet
-        return not Wallet.objects.filter(
-                ~Q(balance=Decimal(0)),
-                account=account,
-                ).exists()
+
 
     def get_account(self) -> Account:
         if not self.id or self.is_anonymous:
