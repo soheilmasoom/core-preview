@@ -62,8 +62,6 @@ class HealthCheckView(APIView):
     permission_classes = ()
 
     def get(self, request):
-        logger.info(f'request headers {request.headers}')
-
         unhealthy_services = []
 
         for service in ['MASTERKEY_', 'BLOCKLINK_', 'PROVIDER_']:
