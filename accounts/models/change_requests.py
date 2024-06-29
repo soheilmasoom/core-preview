@@ -1,4 +1,6 @@
 import logging
+import random
+import string
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
@@ -103,9 +105,9 @@ class ChangePhone(BaseChangeRequest):
         account = user.get_account()
         errors = []
         if user.level == User.LEVEL1:
-            if user.has_zero_balance(account):
+            if account.has_zero_balance():
+                user.username = ''.join(random.choices(string.ascii_lowercase, k=4)) + user.username
                 user.phone = None
-                user.username = None
                 user.save(update_fields=['phone', 'username'])
             else:
                 errors.append("موجودی کاربر صفر نیست")

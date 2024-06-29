@@ -54,7 +54,7 @@ class Account(models.Model):
         return self.type == self.SYSTEM
 
     def is_ordinary_user(self) -> bool:
-        # be careful about new market maker account, should be ordinary if dont want to hedge in Core 
+        # be careful about new market maker account, should be ordinary if dont want to hedge in Core
         return not bool(self.type)
 
     def get_max_margin_leverage(self):
@@ -183,6 +183,12 @@ class Account(models.Model):
             account, _ = Account.objects.get_or_create(user=user)
             return account
 
+    def has_zero_balance(self) -> bool:
+        from ledger.models.wallet import Wallet
+        return not Wallet.objects.filter(
+                ~Q(balance=Decimal(0)),
+                account=self,
+                ).exists()
     class Meta:
         constraints = [
             UniqueConstraint(
