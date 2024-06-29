@@ -495,6 +495,9 @@ class LevelGrants(models.Model):
 
     max_daily_fiat_deposit = models.PositiveBigIntegerField(null=True, blank=True, default=None)
 
+    class Meta:
+        verbose_name_plural = "Level Grants"
+
     @classmethod
     def get_level_grants(cls, level: int) -> 'LevelGrants':
         return LevelGrants.objects.filter(level=level).last() or LevelGrants()

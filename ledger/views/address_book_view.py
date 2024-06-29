@@ -162,14 +162,14 @@ class AddressBookView(ModelViewSet):
             ).values_list('network', flat=True))
 
             address_books = address_books.filter(
-                Q(asset=asset) | Q(asset__isnull=True, network__symbol__in=can_withdraw_networks)
+                Q(asset=asset) | Q(asset__isnull=True, network_id__in=can_withdraw_networks)
             )
 
-        if 'general' in query_params:
+        if query_params.get('general') in ['0', '1']:
             general = query_params['general'] == '1'
             address_books = address_books.filter(asset__isnull=general)
 
-        if 'whitelist' in query_params:
+        if query_params.get('whitelist') in ['0', '1']:
             whitelist = query_params['whitelist'] == '1'
             address_books = address_books.filter(whitelist=whitelist)
 
