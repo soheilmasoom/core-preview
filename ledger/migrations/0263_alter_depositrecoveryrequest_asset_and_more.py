@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('ledger', '0263_merge_20240624_1713'),
+        ('ledger', '0262_historicalmanualwithdraw'),
     ]
 
     operations = [
