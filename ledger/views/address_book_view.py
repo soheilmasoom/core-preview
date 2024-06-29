@@ -162,7 +162,7 @@ class AddressBookView(ModelViewSet):
             ).values_list('network', flat=True))
 
             address_books = address_books.filter(
-                Q(asset=asset) | Q(asset__isnull=True, network__symbol__in=can_withdraw_networks)
+                Q(asset=asset) | Q(asset__isnull=True, network_id__in=can_withdraw_networks)
             )
 
         if query_params.get('general') in ['0', '1']:
