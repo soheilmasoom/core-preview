@@ -151,7 +151,7 @@ class LongIsolatedMarginTestCase(TestCase):
     def assert_liquidation(self, account, symbol, liquidate=True):
         mp = MarginPosition.objects.filter(account=account, symbol=symbol).first()
 
-        negetive_wallets = Wallet.objects.filter(
+        negative_wallets = Wallet.objects.filter(
             ~Q(balance=Decimal(0)),
             account=account,
             market=Wallet.MARGIN,
@@ -160,7 +160,7 @@ class LongIsolatedMarginTestCase(TestCase):
 
         assertion = self.assertEqual if liquidate else self.assertNotEqual
         assertion(mp.status, MarginPosition.CLOSED)
-        assertion(negetive_wallets, Decimal('0'))
+        assertion(negative_wallets, Decimal('0'))
         assertion(mp.status, MarginPosition.CLOSED)
 
     def test_long_buy(self):
@@ -727,4 +727,29 @@ class LongIsolatedMarginTestCase(TestCase):
                          price=floor_precision(initial_liquidation_price - 100, 2), is_open_position=False)
 
         self.print_wallets(self.account)
+        self.assert_liquidation(self.account, self.btcusdt)
+
+    def test_long_buy_15(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT/2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+        self.print_wallets(self.account)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE)
+
+        self.place_order(amount=floor_precision(loan_amount/Decimal('9'), 4), side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=False)
+
+        self.print_wallets(self.account)
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+        self.close_position(id=mp.id)
+        mp.refresh_from_db()
+
         self.assert_liquidation(self.account, self.btcusdt)

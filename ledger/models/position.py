@@ -537,12 +537,17 @@ class MarginPosition(models.Model):
             wallet__market=self.asset_wallet.MARGIN
         )
         Order.cancel_orders(queryset)
+
+        amount = amount or abs(self.asset_wallet.balance)
+        if self.side == SHORT:
+            amount *= Decimal('1.003')
+
         with WalletPipeline() as pipeline:
             new_order(
                 pipeline=pipeline,
                 symbol=self.symbol,
                 account=self.account,
-                amount=amount or abs(self.asset_wallet.balance),
+                amount=amount,
                 fill_type=Order.MARKET,
                 side=BUY if self.side == SHORT else SELL,
                 market=Wallet.MARGIN,
