@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from ledger.models import Transfer, ManualWithdraw
 from ledger.requester.withdraw_requester import RequestWithdraw
-from ledger.utils.fields import PROCESS, PENDING
+from ledger.utils.fields import PROCESS, PENDING, DONE
 from ledger.utils.fraud import verify_crypto_withdraw
 from ledger.utils.provider import get_provider_requester
 from ledger.withdraw.exchange import handle_provider_withdraw, change_to_manual
@@ -155,8 +155,9 @@ def update_withdraws():
         create_withdraw.delay(transfer.id)
 
     requester = RequestWithdraw()
-    for withdraw in ManualWithdraw.objects.filter(triggered=False):
-        resp = requester.manual_withdraw_transfer(withdraw)
-        if resp.ok:
-            withdraw.triggered = True
-            withdraw.save(update_fields=['triggered'])
+    with transaction.atomic():
+        for withdraw in ManualWithdraw.objects.filter(status=PENDING).select_for_update():
+            resp = requester.manual_withdraw_transfer(withdraw)
+            if resp.ok:
+                withdraw.status = DONE
+                withdraw.save(update_fields=['status'])

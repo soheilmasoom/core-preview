@@ -26,8 +26,6 @@ class RequestWithdraw:
         return requests.post(data=data, url=url, headers=self.header, timeout=15)
 
     def manual_withdraw_transfer(self, manual_withdraw: ManualWithdraw):
-        assert manual_withdraw.triggered is False
-
         data = {
             'receiver_address': manual_withdraw.receiver_address,
             'amount': manual_withdraw.amount,

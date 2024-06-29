@@ -74,7 +74,7 @@ class VaultAdmin(admin.ModelAdmin):
 
 
 @admin.register(VaultItem)
-class VaultItemAdmin(admin.ModelAdmin):
+class VaultItemAdmin(SimpleHistoryAdmin):
     list_display = ('coin', 'vault', 'balance', 'value_usdt', 'value_irt', 'expected_min_balance', 'updated')
     search_fields = ('coin', 'vault__name')
     list_filter = ('vault__name', 'vault__type', 'vault__market')

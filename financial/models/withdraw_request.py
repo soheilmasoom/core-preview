@@ -146,6 +146,7 @@ class FiatWithdrawRequest(BaseTransfer):
             self.save(update_fields=['ref_id'])
 
     def alert_withdraw_verify_status(self):
+        self.refresh_from_db()
         user = self.bank_account.user
 
         if self.status == PENDING and self.withdraw_datetime:

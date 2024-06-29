@@ -6,8 +6,8 @@ from django.db.models import Sum
 from accounting.models import VaultItem, Vault, ReservedAsset, TempCredit
 from accounts.models import Account
 from financial.models import FiatWithdrawRequest
-from ledger.models import Wallet, Prize, Asset
-from ledger.utils.fields import PENDING
+from ledger.models import Wallet, Prize, Asset, DepositRecoveryRequest
+from ledger.utils.fields import PENDING, PROCESS
 from ledger.utils.price import USDT_IRT
 from ledger.utils.provider import get_provider_requester, BINANCE
 
@@ -37,6 +37,11 @@ class AssetOverview:
 
         self.reserved_assets = dict(ReservedAsset.objects.values_list('coin', 'amount'))
 
+        self.unknown_assets = dict(DepositRecoveryRequest.objects.filter(
+            scope=DepositRecoveryRequest.SYSTEM,
+            status=PROCESS,
+        ).values('asset__symbol').annotate(sum=Sum('amount')).values_list('asset__symbol', 'sum'))
+
     def get_binance_margin_ratio(self):
         if not self._binance_futures:
             return
@@ -58,7 +63,10 @@ class AssetOverview:
         return ReservedAsset.objects.aggregate(value=Sum('value_usdt'))['value'] or 0
 
     def get_hedge_amount(self, coin: str):
-        return self.get_real_assets(coin) - self.users_balances.get(coin, 0) - self.get_reserved_assets_amount(coin)
+        return self.get_real_assets(coin) \
+               - self.users_balances.get(coin, 0) \
+               - self.get_reserved_assets_amount(coin) \
+               - self.unknown_assets.get(coin, 0)
 
     def get_hedge_value(self, coin: str) -> Decimal:
         amount = Decimal(self.get_hedge_amount(coin))
@@ -93,6 +101,18 @@ class AssetOverview:
 
         return value - pending_withdraws / self.prices[USDT_IRT]
 
+    def get_unknown_asset_value(self) -> Decimal:
+        value = Decimal(0)
+
+        for coin, balance in self.unknown_assets.items():
+            if balance:
+                price = self.prices.get(coin + Asset.USDT, 0)
+
+                if price:
+                    value += price * balance
+
+        return value
+
     def get_all_prize_value(self) -> Decimal:
         return Prize.objects.filter(
             redeemed=True
@@ -109,7 +129,7 @@ class AssetOverview:
         ])
 
     def get_exchange_assets_usdt(self):
-        return self.get_all_real_assets_value() - self.get_all_users_asset_value()
+        return self.get_all_real_assets_value() - self.get_all_users_asset_value() - self.get_unknown_asset_value()
 
     def get_margin_insurance_balance(self):
         return Asset.get(Asset.USDT).get_wallet(settings.MARGIN_INSURANCE_ACCOUNT).balance

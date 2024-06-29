@@ -1,15 +1,25 @@
-from django.db import models
+import re
 
-from ledger.utils.fields import get_amount_field
+from django.core.exceptions import ValidationError
+from django.db import models
+from simple_history.models import HistoricalRecords
+
+from ledger.utils.fields import get_amount_field, get_status_field, PROCESS
 
 
 class ManualWithdraw(models.Model):
+    history = HistoricalRecords()
+
     created = models.DateTimeField(auto_now_add=True)
     receiver_address = models.CharField(max_length=256)
     network = models.ForeignKey('ledger.Network', on_delete=models.CASCADE)
     asset = models.ForeignKey('ledger.Asset', on_delete=models.CASCADE)
     amount = get_amount_field()
     memo = models.CharField(max_length=256, blank=True)
-    comment = models.CharField(max_length=256, blank=True)
+    comment = models.TextField(blank=True)
 
-    triggered = models.BooleanField(default=False, db_index=True)
+    status = get_status_field(default=PROCESS)
+
+    def clean(self):
+        if self.network.address_regex and not re.match(self.network.address_regex, self.receiver_address):
+            raise ValidationError({'receiver_address': 'Invalid Address'})

@@ -700,11 +700,27 @@ class ManualWithdrawForm(forms.ModelForm):
 
 
 @admin.register(models.ManualWithdraw)
-class ManualWithdrawAdmin(admin.ModelAdmin):
+class ManualWithdrawAdmin(SimpleHistoryAdmin):
     form = ManualWithdrawForm
 
-    list_display = ('created', 'receiver_address', 'amount', 'network', 'asset', 'triggered')
+    list_display = ('created', 'network', 'asset', 'receiver_address', 'memo', 'amount', 'status')
     search_fields = ('receiver_address',)
+    list_filter = ('status', 'network')
+    readonly_fields = ('status', )
+    fieldsets = (
+        (None, {'fields': (
+            'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp'
+        )}),
+    )
+    actions = ('accept', 'reject')
+
+    @admin.action(description='Accept')
+    def accept(self, request, queryset):
+        queryset.filter(status=PROCESS).update(status=PENDING)
+
+    @admin.action(description='Reject')
+    def reject(self, request, queryset):
+        queryset.filter(status__in=[PROCESS, PENDING]).update(status=CANCELED)
 
     def save_model(self, request, obj, form, change):
         totp = form.cleaned_data.pop('otp', None)
@@ -974,7 +990,8 @@ class ManualTransactionAdmin(admin.ModelAdmin):
         device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
 
         if not (device and device.verify_token(totp)) and not settings.DEBUG_OR_TESTING_OR_STAGING:
-            raise ValidationError('InvalidTotp')
+            self.message_user(request, 'invalid otp', messages.ERROR)
+            return
 
         super().save_model(request, obj, form, change)
 

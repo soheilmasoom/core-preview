@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django import forms
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin import SimpleListFilter
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -266,7 +266,7 @@ class PaymentAdmin(admin.ModelAdmin):
     list_filter = (PaymentUserFilter, 'status', 'source')
     search_fields = ('ref_id', 'paymentrequest__bank_card__card_pan', 'amount', 'paymentrequest__authority',
                      'user__phone', 'user__first_name', 'user__last_name')
-    readonly_fields = ('group_id', 'user', 'amount', 'fee', 'status', 'source')
+    readonly_fields = ('group_id', 'user', 'amount', 'fee', 'source')
     actions = ('refund', 'accept_deposit', 'reject_deposit')
     raw_id_fields = ('user', )
 
@@ -468,7 +468,8 @@ class ManualTransferAdmin(admin.ModelAdmin):
         device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
 
         if not (device and device.verify_token(totp)) and not settings.DEBUG_OR_TESTING_OR_STAGING:
-            raise ValidationError('InvalidTotp')
+            self.message_user(request, 'invalid otp', messages.ERROR)
+            return
 
         obj.save()
 
