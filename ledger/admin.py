@@ -716,7 +716,7 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
 
     @admin.action(description='Accept')
     def accept(self, request, queryset):
-        queryset.filter(status=PROCESS).update(status=PROCESS)
+        queryset.filter(status=INIT).update(status=PROCESS)
 
     @admin.action(description='Reject')
     def reject(self, request, queryset):
