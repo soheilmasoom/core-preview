@@ -102,8 +102,12 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
             if from_panel:
                 if not ignore_sms_otp:
-                    code = attrs['code']
+                    code = attrs.get('code')
+                    if not code:
+                        raise ValidationError({'code': 'کد پیامک  نامعتبر است.'})
+
                     sms_verification_code = VerificationCode.get_by_code(code, user.phone, VerificationCode.SCOPE_CRYPTO_WITHDRAW, user=user)
+
                     if not sms_verification_code:
                         raise ValidationError({'code': 'کد پیامک  نامعتبر است.'})
 
@@ -191,7 +195,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
             )
 
             transfer.login_activity = LoginActivity.from_request(request=self.context['request'])
-            transfer.address_book = validated_data['address_book']
+            transfer.normal_address_book = validated_data['address_book']
             transfer.save(update_fields=['address_book', 'login_activity'])
 
             return transfer

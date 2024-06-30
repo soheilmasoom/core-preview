@@ -42,12 +42,10 @@ if settings.DEBUG_OR_TESTING:
 
         time.sleep(1)
 
-
     def set_up_user(self):
         phone = '09355913457'
         user = User.objects.create(username=phone, password='1', phone=phone)
         return user
-
 
     def generate_otp_code(user, scope) -> VerificationCode:
         otp_code = VerificationCode.objects.create(
@@ -57,7 +55,6 @@ if settings.DEBUG_OR_TESTING:
             user=user, )
         return otp_code.code
 
-
     def new_network() -> Network:
         symbol = 'BSC'
         name = 'BSC'
@@ -65,7 +62,6 @@ if settings.DEBUG_OR_TESTING:
         network = Network.objects.create(symbol=symbol, name=name, address_regex=address_regex)
 
         return network
-
 
     def new_network_asset(asset: Asset, network: Network):
 
@@ -89,8 +85,7 @@ if settings.DEBUG_OR_TESTING:
         )
         return network_asset
 
-
-    def new_address_book(account, network, asset=None, address='123') -> AddressBook:
+    def new_address_book(account, network, asset=None, address='123', whitelist: bool = False) -> AddressBook:
         name = 'test'
         address = address
         account = account
@@ -98,7 +93,7 @@ if settings.DEBUG_OR_TESTING:
         if asset:
             asset = Asset.get(asset)
         address_book = AddressBook.objects.create(name=name, address=address, account=account, network=network,
-                                                  asset=asset)
+                                                  asset=asset, whitelist=whitelist)
         return address_book
 
     def new_bankcard(user) -> BankCard:
