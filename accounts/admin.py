@@ -232,21 +232,6 @@ class Forget2FAAdmin(BaseChangeAdmin):
 class ChangePhoneAdmin(BaseChangeAdmin):
     list_display = ('created', 'status', 'get_username', 'new_phone')
     readonly_fields = ('created', 'status', 'user', 'new_phone', 'selfie_image',)
-    actions = ('accept_requests', 'reject_requests', "archive_phone")
-
-    @admin.action(description='آرشیو کردن شماره موبایل', permissions=['change'])
-    def archive_phone(self, request, queryset : List[ChangePhone]):
-        qs = queryset.filter(status=PENDING)
-
-        for req in qs:
-            try:
-                req.archive_registered_phone()
-            except Exception as e:
-                self.message_user(
-                    request=request,
-                    message=f"{str(e)} خطایی رخ داد",
-                    level=messages.ERROR
-                )
 
     @admin.display(description='user')
     def get_username(self, change_phone: ChangePhone):
@@ -368,7 +353,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     ordering = ('-id', )
     actions = (
         'verify_user_name', 'reject_user_name', 'archive_users', 'unarchive_users', 'reevaluate_basic_verify',
-        'verify_user', 'reject_user', 'check_achievements', 'export_transactions'
+        'verify_user', 'reject_user', 'check_achievements', 'export_transactions', 'safe_delete_user',
     )
     readonly_fields = (
         'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet',
@@ -388,6 +373,18 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     preserve_filters = ('archived', )
 
     search_fields = (*UserAdmin.search_fields, 'national_code', 'phone')
+
+    @admin.action(description='حذف امن کاربر', permissions=['change'])
+    def safe_delete_user(self, request, queryset : List[User]):
+        for user in queryset:
+            try:
+                user.archive_registered_phone()
+            except Exception as e:
+                self.message_user(
+                    request=request,
+                    message=f"{str(e)} خطایی رخ داد",
+                    level=messages.ERROR
+                )
 
     @admin.action(description='تایید نام کاربر', permissions=['view'])
     def verify_user_name(self, request, queryset):
