@@ -14,9 +14,9 @@ class DepositRecoveryRequest(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
     status = get_status_field(default=PROCESS)
-    user = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True)
-    asset = models.ForeignKey(Asset, on_delete=models.PROTECT)
-    network = models.ForeignKey(Network, on_delete=models.PROTECT)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    asset = models.ForeignKey(Asset, on_delete=models.SET_NULL, null=True, blank=True)
+    network = models.ForeignKey(Network, on_delete=models.SET_NULL, null=True, blank=True)
     memo = models.CharField(max_length=64, blank=True)
     trx_hash = models.CharField(max_length=128)
     amount = get_amount_field()

@@ -91,7 +91,7 @@ class TradesPair:
         )
 
 
-def _update_trading_positions(trading_positions, pipeline):
+def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
     from ledger.models import MarginPosition
     to_update_positions = {}
     for trade_info in trading_positions:
@@ -103,6 +103,21 @@ def _update_trading_positions(trading_positions, pipeline):
         if short_amount > 0 and position.amount:
             position.average_price = (previous_amount * previous_price +
                                       short_amount * trade_info.trade_price) / position.amount
+
+        total_match_amount = 0
+        for trade_pair in trade_pair_list:
+            total_match_amount += trade_pair.maker_trade.amount
+
+        position_asset_wallet = position.asset_wallet
+        position_asset_wallet.refresh_from_db()
+        is_position_live = position.liquidation_price and (
+                (position.side == SHORT and trade_info.trade_price < position.liquidation_price) or
+                (position.side == LONG and trade_info.trade_price > position.liquidation_price))
+
+        if (trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and
+                trade_info.loan_type != Order.LIQUIDATION and
+                (total_match_amount <= abs(position_asset_wallet.balance) * Decimal('0.998'))) and is_position_live:
+            position.rebalance(pipeline, price=trade_info.trade_price)
 
         is_close_position = (trade_info.loan_type == Order.LIQUIDATION or
                              (floor_precision(position.asset_wallet.balance +
@@ -126,7 +141,7 @@ def _update_trading_positions(trading_positions, pipeline):
 
             insurance_fee_amount = max(Decimal('0'), remaining_balance * SystemConfig.get_system_config().insurance_fee)
             if insurance_fee_amount > Decimal(0) and trade_info.loan_type == Order.LIQUIDATION:
-                group_id=uuid4()
+                group_id = uuid4()
                 pipeline.new_trx(
                     position.base_wallet,
                     position.get_insurance_wallet(),
@@ -159,10 +174,12 @@ def _update_trading_positions(trading_positions, pipeline):
                     price=trade_info.trade_price
                 )
 
-        if trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and\
-                not is_close_position:
-            position.rebalance(pipeline, price=trade_info.trade_price)
-        position.set_liquidation_price(pipeline)
+        is_position_trade_beyond_liquidation = not is_position_live and trade_info.loan_type != OPEN
+        if is_position_trade_beyond_liquidation:
+            position.liquidate(pipeline, charge_insurance=True)
+        
+        if (is_position_live or trade_info.loan_type == OPEN) and not is_position_trade_beyond_liquidation:
+            position.set_liquidation_price(pipeline)
 
         to_update_positions[position.id] = position
 
@@ -171,7 +188,7 @@ def _update_trading_positions(trading_positions, pipeline):
     )
 
 
-def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade: bool = False):
+def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade: bool = False, trade_pair_list=None):
     trading_positions = []
     if not fake_trade:
         trading_positions = _register_borrow_transaction(pipeline, pair=pair)
@@ -204,7 +221,7 @@ def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade
 
     if not fake_trade:
         trading_positions.extend(_register_repay_transaction(pipeline, pair=pair))
-        _update_trading_positions(trading_positions, pipeline)
+        _update_trading_positions(trading_positions, pipeline, trade_pair_list)
 
 
 def _register_trade_transaction(pipeline: WalletPipeline, pair: TradesPair):

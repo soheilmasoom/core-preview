@@ -1,18 +1,17 @@
 import re
 
+from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework.serializers import ModelSerializer
 
-from ledger.models.asset import CoinField
-from ledger.models.network import NetworkField
-from ledger.models import DepositRecoveryRequest
+from ledger.models import DepositRecoveryRequest, Network, Asset
 from multimedia.fields import ImageField
 
 
 class DepositRecoverySerializer(ModelSerializer):
-    coin = CoinField(source='asset', required=True)
-    network = NetworkField(required=True)
+    coin = serializers.CharField(required=True, write_only=True)
+    network = serializers.CharField(required=True, write_only=True)
     image = ImageField(write_only=True)
 
     class Meta:
@@ -24,9 +23,29 @@ class DepositRecoverySerializer(ModelSerializer):
         }
 
     def validate(self, attrs):
-        if not re.match(attrs['network'].address_regex, attrs['receiver_address']):
+        network_symbol = attrs.pop('network', None)
+        coin = attrs.pop('coin', None)
+
+        network = Network.objects.filter(symbol=network_symbol).first()
+        asset = Asset.objects.filter(symbol=coin).first()
+
+        if network and network.address_regex and not re.match(network.address_regex, attrs['receiver_address']):
             raise ValidationError('آدرس به فرمت درستی وارد نشده است.')
-        return attrs
+
+        comment = ''
+
+        if not asset:
+            comment += f'Asset: {coin}\n'
+
+        if not network:
+            comment += f'Network: {network_symbol}\n'
+
+        return {
+            **attrs,
+            'network': network,
+            'asset': asset,
+            'comment': comment,
+        }
 
 
 class DepositRecoveryView(CreateAPIView):

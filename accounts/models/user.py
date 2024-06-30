@@ -200,6 +200,8 @@ class User(AbstractUser):
         device = TOTPDevice.objects.filter(user=self, confirmed=True).first()
         return device.verify_token(totp)
 
+
+
     def get_account(self) -> Account:
         if not self.id or self.is_anonymous:
             return Account(user=self)
@@ -487,6 +489,9 @@ class LevelGrants(models.Model):
     max_daily_fiat_withdraw = models.PositiveBigIntegerField(null=True, blank=True, default=0)
 
     max_daily_fiat_deposit = models.PositiveBigIntegerField(null=True, blank=True, default=None)
+
+    class Meta:
+        verbose_name_plural = "Level Grants"
 
     @classmethod
     def get_level_grants(cls, level: int) -> 'LevelGrants':

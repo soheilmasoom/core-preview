@@ -13,6 +13,7 @@ from urllib3.exceptions import ReadTimeoutError
 
 from accounts.models import User
 from accounts.verifiers.jibit import Response
+from accounts.verifiers.utils import Request
 from financial.models import BankAccount, PaymentIdRequest, PaymentId, Gateway
 from financial.models.bank import GeneralBankAccount
 from financial.utils.bank import get_bank
@@ -102,7 +103,6 @@ class JibitClient(BaseClient):
             logger.info(f'{url} {resp.status_code}: {resp_json}')
 
         return Response(data=resp_json, success=resp.ok, status_code=resp.status_code)
-    
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
         existing = PaymentId.objects.filter(user=user, gateway=self.gateway, deleted=False).first()
         if existing:

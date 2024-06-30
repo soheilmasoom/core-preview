@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from decouple import config
@@ -51,6 +52,9 @@ class PriceHealthView(APIView):
             return Response({'status': 'dead', 'errors': errors})
         else:
             return Response({'status': 'healthy!'})
+
+
+logger = logging.getLogger(__name__)
 
 
 class HealthCheckView(APIView):

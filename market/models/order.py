@@ -407,6 +407,7 @@ class Order(models.Model):
         oco_orders = [self] if self.oco else []
 
         total_matched = 0
+        trade_pair_list = []
 
         for maker_order in matching_orders:
             if self.time_in_force == self.ME_IOC and maker_order.account != self.account:
@@ -438,6 +439,7 @@ class Order(models.Model):
                 trade_source=Trade.MARKET,
                 group_id=uuid4()
             )
+            trade_pair_list.append(trades_pair)
 
             if not maker_order.wallet.account.is_system():
                 Notification.send(
@@ -453,7 +455,7 @@ class Order(models.Model):
             self.release_lock(pipeline, match_amount)
             maker_order.release_lock(pipeline, match_amount)
 
-            register_transactions(pipeline, pair=trades_pair)
+            register_transactions(pipeline, pair=trades_pair, trade_pair_list=trade_pair_list)
 
             trades.extend(trades_pair.trades)
 

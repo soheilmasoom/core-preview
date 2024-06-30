@@ -27,6 +27,7 @@ from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAcc
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
 from financial.utils.payment_id_client import get_payment_id_client
+from financial.utils.response import get_file_response
 from financial.utils.withdraw import FiatWithdraw
 from gamify.utils import clone_model
 from ledger.utils.fields import PENDING, INIT, CANCELED, DONE, PROCESS

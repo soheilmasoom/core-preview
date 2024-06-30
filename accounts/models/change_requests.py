@@ -1,6 +1,9 @@
 import logging
+import random
+import string
 from datetime import timedelta
 
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Q
@@ -95,6 +98,24 @@ class ChangePhone(BaseChangeRequest):
         null=True,
         blank=True,
     )
+
+    def archive_registered_phone(self):
+        user = self.user
+
+        account = user.get_account()
+        errors = []
+        if user.level == User.LEVEL1:
+            if account.has_zero_balance():
+                user.username = ''.join(random.choices(string.ascii_lowercase, k=4)) + user.username
+                user.phone = None
+                user.save(update_fields=['phone', 'username'])
+            else:
+                errors.append("موجودی کاربر صفر نیست")
+        else:
+            errors.append("کاربر سطح یک نیست")
+        if errors:
+            raise ValidationError(errors)
+
 
     def accept(self):
         with transaction.atomic():

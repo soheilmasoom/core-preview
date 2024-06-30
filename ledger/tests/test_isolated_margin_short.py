@@ -132,7 +132,7 @@ class ShortIsolatedMarginTestCase(TestCase):
         print(resp.json())
         self.assertEqual(resp.status_code, check_status)
 
-    def assert_liquidation(self, account, symbol):
+    def assert_liquidation(self, account, symbol, liquidate=True):
         mp = MarginPosition.objects.filter(account=account, symbol=symbol).first()
 
         negetive_wallets = Wallet.objects.filter(
@@ -142,8 +142,18 @@ class ShortIsolatedMarginTestCase(TestCase):
             variant__isnull=False,
         ).count()
 
-        self.assertEqual(negetive_wallets, Decimal('0'))
-        self.assertEqual(mp.status, MarginPosition.CLOSED)
+        assertion = self.assertEqual if liquidate else self.assertNotEqual
+        assertion(mp.status, MarginPosition.CLOSED)
+        assertion(negetive_wallets, Decimal('0'))
+        assertion(mp.status, MarginPosition.CLOSED)
+
+    def close_position(self, id, check_status=200):
+        print('close position')
+        resp = self.client.post('/api/v2/margin/close/', {
+            'id': id,
+        })
+        print(resp.json())
+        self.assertEqual(resp.status_code, check_status)
 
     def test_short_sell(self):
         self.transfer_usdt_api(TO_TRANSFER_USDT)
@@ -399,7 +409,6 @@ class ShortIsolatedMarginTestCase(TestCase):
 
         self.assertTrue(notif_exists)
 
-
         with WalletPipeline() as pipeline:
             new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount * 3, market=Wallet.SPOT,
                       price=Decimal(mp.liquidation_price * 10))
@@ -443,5 +452,57 @@ class ShortIsolatedMarginTestCase(TestCase):
         self.print_wallets(self.account)
         mp.refresh_from_db()
         print('mp', mp.debt_amount, mp.total_balance, mp.liquidation_price, mp.side, mp.equity)
+
+        self.assert_liquidation(self.account, self.btcusdt)
+
+    def test_short_sell7(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount * 1, market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE)
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+        liquidation_price = mp.liquidation_price
+
+        self.place_order(amount=loan_amount / 2, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE / 2,
+                         is_open_position=False)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount,
+                      market=Wallet.SPOT, price=BTC_USDT_PRICE / 2)
+        mp.refresh_from_db()
+
+        print(liquidation_price, mp.liquidation_price)
+        print(mp.status)
+        self.assertEqual(liquidation_price, mp.liquidation_price)
+        self.assert_liquidation(account=self.account, symbol=self.btcusdt, liquidate=False)
+
+    def test_short_sell_8(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+        self.print_wallets(self.account)
+
+        self.place_order(amount=floor_precision(loan_amount/Decimal('9'), 4), side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=False)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=3 * loan_amount, market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE)
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+        self.close_position(id=mp.id)
+        mp.refresh_from_db()
+
+        self.print_wallets(self.account)
 
         self.assert_liquidation(self.account, self.btcusdt)

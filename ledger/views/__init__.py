@@ -25,7 +25,7 @@ from .reserve_view import ReserveWalletCreateAPIView, ReserveWalletRefundAPIView
 from .transactions_view import RecentTransactionsView
 from .transfer_history_view import WithdrawHistoryView, DepositHistoryView
 from .transfer_history_view import WithdrawHistoryView, DepositHistoryView
-from .wallet_view import WalletViewSet, WalletBalanceView, BriefNetworkAssetsView, ConvertDustView, DustsHistoryView
+from .wallet_view import WalletViewSet, WalletBalanceView, NetworksView, ConvertDustView, ConvertDustViewV2, DustsHistoryView
 from .wallets_overview import WalletsOverviewAPIView
 from .withdraw_transfer_request_view import WithdrawTransferUpdateView
 from .withdraw_view import WithdrawView

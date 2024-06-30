@@ -759,7 +759,7 @@ class MarginTransferAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.AddressBook)
-class AddressBookAdmin(admin.ModelAdmin):
+class AddressBookAdmin(SimpleHistoryAdmin):
     list_display = ('name', 'get_username', 'network', 'address', 'asset',)
     search_fields = ('address', 'name', 'account__user__phone')
     raw_id_fields = ('account', )
@@ -1121,7 +1121,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='تایید اولیه', permissions=['change'])
     def verify_requests(self, request, queryset):
-        qs = queryset.filter(status=PROCESS, user__isnull=False)
+        qs = queryset.filter(status=PROCESS, user__isnull=False, asset__isnull=False, network__isnull=False)
 
         for req in qs:
             if not req.verify(request.user):
@@ -1129,7 +1129,12 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='تایید نهایی', permissions=['change'])
     def accept_requests(self, request, queryset):
-        qs = queryset.filter(status__in=[PROCESS, PENDING], user__isnull=False)
+        qs = queryset.filter(
+            status__in=[PROCESS, PENDING],
+            user__isnull=False,
+            asset__isnull=False,
+            network__isnull=False
+        )
 
         scopes = [DepositRecoveryRequest.SYSTEM]
 

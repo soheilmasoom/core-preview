@@ -23,7 +23,7 @@ urlpatterns = [
     })),
     path('v1/price/alert/switch/', views.PriceNotifSwitchView.as_view()),
 
-    path('v1/networks/', views.BriefNetworkAssetsView.as_view()),
+    path('v1/networks/', views.NetworksView.as_view()),
 
     path('v1/assets/reserve/', views.ReserveWalletCreateAPIView.as_view()),
     path('v1/assets/reserve/refund/', views.ReserveWalletRefundAPIView.as_view()),
@@ -75,6 +75,7 @@ urlpatterns = [
     path('v1/addressbook/<int:pk>/', views.AddressBookView.as_view({
         'get': 'retrieve',
         'delete': 'destroy',
+        'patch': 'partial_update',
     })),
     path('v1/addressbook/', views.AddressBookView.as_view({
         'post': 'create',
@@ -92,6 +93,7 @@ urlpatterns = [
     path('v1/transfer/withdraw/', views.WithdrawTransferUpdateView.as_view()),
 
     path('v1/convert/dust/', views.ConvertDustView.as_view()),
+    path('v2/convert/dust/', views.ConvertDustViewV2.as_view()),
     path('v1/convert/dust/list/', views.DustsHistoryView.as_view()),
     path('v1/pnl/overview/', views.PNLOverview.as_view()),
 
