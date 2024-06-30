@@ -1,3 +1,5 @@
+import random
+import string
 import uuid
 from decimal import Decimal
 from typing import Union
@@ -5,6 +7,7 @@ from uuid import uuid4
 from datetime import timedelta
 from enum import Enum
 
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models, transaction
@@ -200,6 +203,21 @@ class User(AbstractUser):
         device = TOTPDevice.objects.filter(user=self, confirmed=True).first()
         return device.verify_token(totp)
 
+    def archive_registered_phone(self):
+        account = self.get_account()
+
+        errors = []
+        if self.level == User.LEVEL1:
+            if account.has_zero_balance():
+                self.username = self.username + "#" + ''.join(random.choices(string.ascii_lowercase, k=4))
+                self.phone = None
+                self.save(update_fields=['phone', 'username'])
+            else:
+                errors.append("موجودی کاربر صفر نیست")
+        else:
+            errors.append("کاربر سطح یک نیست")
+        if errors:
+            raise ValidationError(errors)
 
 
     def get_account(self) -> Account:
