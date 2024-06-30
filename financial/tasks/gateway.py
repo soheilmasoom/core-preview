@@ -28,7 +28,7 @@ def handle_missing_payments():
     for gateway in Gateway.objects.filter(Q(active=True) | Q(active_for_trusted=True), ipg_deposit_enable=True):
         try:
             channel = FiatWithdraw.get_withdraw_channel(gateway)
-            channel.update_missing_payments(gateway)
+            channel.update_missing_payments()
         except NoChannelError:
             pass
 
