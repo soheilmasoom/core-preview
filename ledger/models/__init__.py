@@ -1,7 +1,7 @@
 from .address_key import AddressKey
 from .balance_lock import BalanceLock
 from .wallet import Wallet, ReserveWallet
-from .asset import Asset
+from .asset import Asset, AssetVariant
 from .spread import AssetSpreadCategory, CategorySpread, MarketSpread
 from .network import Network
 from .deposit_address import DepositAddress

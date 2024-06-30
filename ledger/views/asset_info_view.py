@@ -252,7 +252,12 @@ class AssetsViewSet(ModelViewSet):
                 queryset = queryset.filter(symbol=coin)
 
         if self.get_options('name'):
-            queryset = queryset.filter(name=self.get_options('name'))
+            qs = queryset.filter(name=self.get_options('name'))
+
+            if not qs:
+                qs = queryset.filter(variants__name=self.get_options('name'))
+
+            queryset = qs
 
         if self.get_options('can_deposit'):
             queryset = queryset.filter(
