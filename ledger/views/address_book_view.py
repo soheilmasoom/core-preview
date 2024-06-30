@@ -119,10 +119,11 @@ class AddressBookUpdateSerializer(serializers.ModelSerializer):
 
             if not verification_code:
                 raise ValidationError({'sms_code': 'کد پیامک  نامعتبر است.'})
-            verification_code.set_code_used()
 
             if not user.is_2fa_valid(totp):
                 raise ValidationError({'totp': 'شناسه‌ دوعاملی صحیح نمی‌باشد.'})
+
+            verification_code.set_code_used()
 
         return data
 
