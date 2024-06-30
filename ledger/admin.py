@@ -722,11 +722,11 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
 
     @admin.action(description='Accept')
     def accept(self, request, queryset):
-        queryset.filter(status=PROCESS).update(status=PENDING)
+        queryset.filter(status=INIT).update(status=PROCESS)
 
     @admin.action(description='Reject')
     def reject(self, request, queryset):
-        queryset.filter(status__in=[PROCESS, PENDING]).update(status=CANCELED)
+        queryset.filter(status__in=[PROCESS, INIT]).update(status=CANCELED)
 
     def save_model(self, request, obj, form, change):
         totp = form.cleaned_data.pop('otp', None)

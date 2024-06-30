@@ -156,8 +156,8 @@ def update_withdraws():
 
     requester = RequestWithdraw()
     with transaction.atomic():
-        for withdraw in ManualWithdraw.objects.filter(status=PENDING).select_for_update():
+        for withdraw in ManualWithdraw.objects.filter(status=PROCESS).select_for_update():
             resp = requester.manual_withdraw_transfer(withdraw)
             if resp.ok:
-                withdraw.status = DONE
+                withdraw.status = PENDING
                 withdraw.save(update_fields=['status'])
