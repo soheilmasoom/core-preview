@@ -37,8 +37,6 @@ class ManualWithdrawSerializer(serializers.ModelSerializer):
             (PENDING, PENDING),
             (PENDING, DONE),
             (PENDING, CANCELED),
-            (PROCESS, DONE),
-            (PROCESS, CANCELED),
         ]
 
         if manual_withdraw.status == status and status != PENDING:
