@@ -1,3 +1,4 @@
+from .system_config import SystemConfig
 from .notification import Notification, BulkNotification
 from .account import Account
 from .user import User, LevelGrants
@@ -16,7 +17,6 @@ from .feedback import UserFeedback
 from .sms_notification import SmsNotification
 from .login_activity import LoginActivity
 from .refresh_token import RefreshToken
-from .system_config import SystemConfig
 from .consultation import Consultation
 from .change_requests import Forget2FA, ChangePhone
 from .company import Company

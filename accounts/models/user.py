@@ -21,7 +21,7 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 
 from accounts.models.user_feature_perm import UserFeaturePerm
 from analytics.event.producer import get_kafka_producer
-from accounts.models import Notification, Account
+from accounts.models import Notification, Account, SystemConfig
 from accounts.utils.admin import url_to_edit_object
 from analytics.utils.dto import UserEvent
 from accounts.utils.telegram import send_support_message
@@ -151,7 +151,7 @@ class User(AbstractUser):
 
     margin_quiz_pass_date = models.DateTimeField(null=True, blank=True)
 
-    show_margin = models.BooleanField(default=True, verbose_name='امکان مشاهده حساب تعهدی')
+    show_margin = models.BooleanField(default=False, verbose_name='امکان مشاهده حساب تعهدی')
     show_strategy_bot = models.BooleanField(default=True, verbose_name='امکان مشاهده ربات')
     show_community = models.BooleanField(default=False, verbose_name='امکان مشاهده کامیونیتی')
     show_staking = models.BooleanField(default=True, verbose_name='امکان مشاهده سرمایه‌گذاری')
@@ -444,6 +444,12 @@ class User(AbstractUser):
         from financial.models import Payment
 
         return Payment.objects.filter(user=self, status=DONE).aggregate(s=Sum('amount'))['s'] or 0
+
+    def is_margin_active(self) -> bool:
+        if SystemConfig.get_system_config().show_margin:
+            return True
+
+        return self.show_margin
 
 
 @receiver(post_save, sender=User)

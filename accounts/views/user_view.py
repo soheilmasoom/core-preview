@@ -24,6 +24,7 @@ class UserFeatureSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     show_staking = serializers.SerializerMethodField()
+    show_margin = serializers.SerializerMethodField()
     show_strategy_bot = serializers.SerializerMethodField()
     is_2fa_active = serializers.SerializerMethodField()
     is_consultation_available = serializers.SerializerMethodField()
@@ -53,6 +54,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_show_strategy_bot(self, user: User):
         return user.show_strategy_bot or config('STRATEGY_ENABLE', cast=bool, default=False)
+
+    def get_show_margin(self, user: User):
+        return user.is_margin_active()
 
     class Meta:
         model = User
