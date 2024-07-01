@@ -34,7 +34,7 @@ class Asset(models.Model):
     objects = models.Manager()
     live_objects = LiveAssetManager()
 
-    name = models.CharField(max_length=32, blank=True)
+    name = models.CharField(max_length=32, unique=True)
     name_fa = models.CharField(max_length=32, blank=True)
     original_name_fa = models.CharField(max_length=32, blank=True)
 
@@ -145,6 +145,14 @@ class Asset(models.Model):
             return 10 ** 3
         else:
             return 1
+
+
+class AssetVariant(models.Model):
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='variants')
+    name = models.CharField(max_length=32, unique=True)
+
+    def __str__(self):
+        return self.name
 
 
 class AssetSerializer(serializers.ModelSerializer):

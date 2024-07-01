@@ -46,6 +46,7 @@ from ledger.utils.provider import get_provider_requester
 from ledger.utils.withdraw_verify import RiskFactor, get_risks_html
 from market.utils.fix import create_symbols_for_asset
 from .models import Asset, BalanceLock
+from .models.asset import AssetVariant
 from .tasks import update_network_fees
 from .utils.coins_info import get_coins_info
 from .utils.price import get_last_price
@@ -55,6 +56,11 @@ from .utils.wallet_pipeline import WalletPipeline
 class CoinCategoryInline(admin.TabularInline):
     model = CoinCategory.coins.through
     extra = 1
+
+
+class AssetVariantInline(admin.TabularInline):
+    model = AssetVariant
+    extra = 0
 
 
 @admin.register(models.Asset)
@@ -76,7 +82,7 @@ class AssetAdmin(AdvancedAdmin):
     ordering = ('-enable', '-pin_to_top', '-trend', 'order')
     actions = ('setup_asset', 'update_rank_by_cmc')
     readonly_fields = ('distribution_factor',)
-    inlines = (CoinCategoryInline, )
+    inlines = (CoinCategoryInline, AssetVariantInline)
 
     def save_model(self, request, obj, form, change):
         if Asset.objects.filter(order=obj.order).exclude(id=obj.id).exists():
@@ -716,11 +722,11 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
 
     @admin.action(description='Accept')
     def accept(self, request, queryset):
-        queryset.filter(status=PROCESS).update(status=PENDING)
+        queryset.filter(status=INIT).update(status=PROCESS)
 
     @admin.action(description='Reject')
     def reject(self, request, queryset):
-        queryset.filter(status__in=[PROCESS, PENDING]).update(status=CANCELED)
+        queryset.filter(status__in=[PROCESS, INIT]).update(status=CANCELED)
 
     def save_model(self, request, obj, form, change):
         totp = form.cleaned_data.pop('otp', None)

@@ -448,8 +448,8 @@ class ConvertDustSerializer(serializers.Serializer):
     base = serializers.ChoiceField(choices=BASE_CHOICES)
     assets = serializers.ListField(child=serializers.CharField(max_length=32))
 
-class ConvertDustView(APIView):
 
+class ConvertDustView(APIView):
     def post(self, *args):
         account = self.request.user.get_account()
         irt_asset = Asset.get(Asset.IRT)
@@ -509,7 +509,6 @@ class ConvertDustView(APIView):
 
 
 class ConvertDustViewV2(APIView):
-
     def get(self, *args):
         account = self.request.user.get_account()
 
@@ -525,7 +524,7 @@ class ConvertDustViewV2(APIView):
         for wallet in spot_wallets:
             price = get_price(
                 wallet.asset.symbol + Asset.IRT,
-                side=BUY,
+                side=BUY
             )
 
             if price is None:
@@ -537,7 +536,6 @@ class ConvertDustViewV2(APIView):
                 allowed_conversion.append(wallet.asset.symbol)
 
         return Response({'symbols': allowed_conversion}, status=status.HTTP_200_OK)
-
 
     def post(self, *args):
         account = self.request.user.get_account()
