@@ -96,9 +96,6 @@ class SignupSerializer(serializers.Serializer):
             if company_national_id:
                 Company.objects.create(national_id=company_national_id, user=user)
 
-            if not config('ENABLE_MARGIN_SHOW_TO_ALL', cast=bool, default=True):
-                user.show_margin = False
-
             if config('SHOW_NINJA_TO_ALL', cast=bool, default=False):
                 user.show_community = True
 

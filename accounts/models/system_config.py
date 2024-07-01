@@ -52,6 +52,8 @@ class SystemConfig(models.Model):
 
     dust_convert_threshold = models.PositiveIntegerField(default=100_000, validators=[MaxValueValidator(1000_000)])
 
+    show_margin = models.BooleanField(default=False)
+
     def __str__(self):
         return self.name
 

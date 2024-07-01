@@ -35,14 +35,14 @@ def update_withdraw_status():
     for withdraw in to_update:
         withdraw.update_status()
 
-    for gateway in Gateway.objects.filter(withdraw_enable=True):
-        channel = FiatWithdraw.get_withdraw_channel(gateway)
-        instant_banks = channel.get_instant_banks(gateway)
-
-        if instant_banks is not None:
-            if set(instant_banks) != set(gateway.instant_withdraw_banks):
-                gateway.instant_withdraw_banks = instant_banks
-                gateway.save(update_fields=['instant_withdraw_banks'])
+    # for gateway in Gateway.objects.filter(withdraw_enable=True):
+    #     channel = FiatWithdraw.get_withdraw_channel(gateway)
+    #     instant_banks = channel.get_instant_banks()
+    #
+    #     if instant_banks is not None:
+    #         if set(instant_banks) != set(gateway.instant_withdraw_banks):
+    #             gateway.instant_withdraw_banks = instant_banks
+    #             gateway.save(update_fields=['instant_withdraw_banks'])
 
 
 @shared_task(queue='finance')

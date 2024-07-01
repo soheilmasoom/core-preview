@@ -17,8 +17,27 @@ class WithdrawTestCase(TestCase):
         self.client = Client()
         self.client.force_login(self.user)
         self.network = new_network()
-        self.address_book = new_address_book(account=self.account, network=self.network, asset='USDT')
-        self.address_book_without_coin = new_address_book(account=self.account, network=self.network)
+
+        self.normal_address_book = new_address_book(
+            account=self.account,
+            network=self.network,
+            asset='USDT'
+        )
+        self.general_address_book = new_address_book(
+            account=self.account,
+            network=self.network
+        )
+        self.normal_whitelist_address_book = new_address_book(
+            account=self.account,
+            network=self.network,
+            asset='USDT',
+            whitelist=True
+        )
+        self.general_whitelist_address_book = new_address_book(
+            account=self.account,
+            network=self.network,
+            whitelist=True
+        )
         self.usdt = Asset.get(Asset.USDT)
 
         new_network_asset(self.usdt, self.network)
@@ -35,47 +54,82 @@ class WithdrawTestCase(TestCase):
             'address': '123',
             'coin': 'USDT',
             'network': 'BSC',
+        })
+        self.assertEqual(resp.status_code, 400)
+
+        resp = self.client.post('/api/v1/withdraw/', {
+            'amount': amount,
+            'address': '123',
+            'coin': 'USDT',
+            'network': 'BSC',
             'code': generate_otp_code(self.user, 'withdraw')
         })
         self.assertEqual(resp.status_code, 201)
         self.assertEqual((get_presentation_amount(resp.data['amount'])), amount)
 
-    def test_withdraw_with_addressbook(self):
-
+    def test_normal_addressbook(self):
         amount = '50'
+
         resp = self.client.post('/api/v1/withdraw/', {
             'amount': amount,
             'coin': 'BTC',
             'code': generate_otp_code(self.user, 'withdraw'),
-            'address_book_id': self.address_book.id
+            'address_book_id': self.normal_address_book.id
+        })
+        self.assertEqual(resp.status_code, 400)
+
+        resp = self.client.post('/api/v1/withdraw/', {
+            'amount': amount,
+            'coin': 'USDT',
+            'code': generate_otp_code(self.user, 'withdraw'),
+            'address_book_id': self.normal_address_book.id
         })
         self.assertEqual(resp.status_code, 201)
 
-    def test_withdraw_with_addressbook_without_coin(self):
+    def test_general_addressbook(self):
         amount = '50'
         resp = self.client.post('/api/v1/withdraw/', {
             'amount': amount,
             'code': generate_otp_code(self.user, 'withdraw'),
-            'address_book_id': self.address_book_without_coin.id
+            'address_book_id': self.general_address_book.id
         })
         self.assertEqual(resp.status_code, 400)
 
-    def test_withdraw_with_coin_with_address_book_without_coin(self):
-        amount = '50'
         resp = self.client.post('/api/v1/withdraw/', {
             'amount': amount,
             'code': generate_otp_code(self.user, 'withdraw'),
             'coin': 'USDT',
-            'address_book_id': self.address_book_without_coin.id
+            'address_book_id': self.general_address_book.id
         })
         self.assertEqual(resp.status_code, 201)
 
-    def test_withdraw_with_coin_with_address_book_with_coin(self):
+    def test_otp_requirement(self):
         amount = '50'
+
         resp = self.client.post('/api/v1/withdraw/', {
             'amount': amount,
-            'code': generate_otp_code(self.user, 'withdraw'),
-            'coin': 'BTC',
-            'address_book_id': self.address_book.id
+            'coin': 'USDT',
+            'address_book_id': self.general_address_book.id
+        })
+        self.assertEqual(resp.status_code, 400)
+
+        resp = self.client.post('/api/v1/withdraw/', {
+            'amount': amount,
+            'coin': 'USDT',
+            'address_book_id': self.general_whitelist_address_book.id
+        })
+        self.assertEqual(resp.status_code, 201)
+
+        resp = self.client.post('/api/v1/withdraw/', {
+            'amount': amount,
+            'coin': 'USDT',
+            'address_book_id': self.normal_address_book.id
+        })
+        self.assertEqual(resp.status_code, 400)
+
+        resp = self.client.post('/api/v1/withdraw/', {
+            'amount': amount,
+            'coin': 'USDT',
+            'address_book_id': self.normal_whitelist_address_book.id
         })
         self.assertEqual(resp.status_code, 201)

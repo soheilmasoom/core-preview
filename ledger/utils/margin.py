@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def check_margin_view_permission(account: Account, symbol: PairSymbol):
     user = account.user
 
-    if not user.show_margin:
+    if not user.is_margin_active():
         raise ValidationError('معاملات تعهدی هنوز برای شما فعال نشده است!')
 
     if not user.margin_quiz_pass_date:

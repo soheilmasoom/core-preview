@@ -15,6 +15,7 @@ from accounts.verifiers.utils import Response, ServerError
 from financial.models import Gateway, PaymentRequest
 from financial.models.withdraw_request import BaseTransfer
 from financial.utils.ach import next_ach_clear_time
+from financial.utils.bank import BANK_INFO
 from financial.utils.encryption import encrypt
 from financial.utils.withdraw_limit import is_holiday, time_in_range
 from ledger.utils.fields import PENDING, DONE, CANCELED
@@ -75,10 +76,10 @@ class FiatWithdraw:
     def get_wallet_data(self) -> Wallet:
         raise NotImplementedError
 
-    def update_missing_payments(self, gateway: Gateway):
+    def update_missing_payments(self):
         pass
 
-    def get_instant_banks(self, gateway: Gateway):
+    def get_instant_banks(self):
         pass
 
     def is_active(self):
@@ -366,8 +367,8 @@ class ZibalChannel(FiatWithdraw):
             timeout=45
         )
 
-    def update_missing_payments(self, gateway: Gateway):
-        transactions = self.get_transactions(gateway.merchant_id, status=2)
+    def update_missing_payments(self):
+        transactions = self.get_transactions(self.gateway.merchant_id, status=2)
 
         for t in transactions:
             authority = t['trackId']
@@ -384,8 +385,6 @@ class ZarinpalChannel(FiatWithdraw):
 
 class JibitChannel(FiatWithdraw):
     BASE_URL = 'https://napi.jibit.ir/trf'
-    INSTANT_BANKS = ['MELLI', 'RESALAT', 'KESHAVARZI', 'SADERAT', 'EGHTESAD_NOVIN', 'SHAHR', 'SEPAH',
-                     'AYANDEH', 'SAMAN', 'TEJARAT', 'PARSIAN']
 
     def _get_token(self):
         resp = requests.post(
@@ -449,9 +448,22 @@ class JibitChannel(FiatWithdraw):
             free=free // 10
         )
 
-    def create_withdraw(self, transfer: BaseTransfer) -> Withdraw:
+    def get_instant_banks(self) -> list:
+        swift_codes = self.collect_api('/v2/banks/status').data or []
 
-        if transfer.bank_account.bank in self.INSTANT_BANKS:
+        if not swift_codes:
+            return []
+
+        banks = list(map(lambda bank: bank.slug, filter(lambda bank: bank.swift_code in swift_codes, BANK_INFO)))
+
+        if set(banks) != set(self.gateway.instant_withdraw_banks):
+            self.gateway.instant_withdraw_banks = banks
+            self.gateway.save(update_fields=['instant_withdraw_banks'])
+
+        return banks
+
+    def create_withdraw(self, transfer: BaseTransfer) -> Withdraw:
+        if transfer.bank_account.bank in self.get_instant_banks():
             transfer_mode = 'NORMAL'
         else:
             transfer_mode = 'ACH'
