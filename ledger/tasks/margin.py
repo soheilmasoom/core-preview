@@ -88,7 +88,6 @@ def collect_margin_interest():
                         account=position.account
                     )
                 )
-                position.rebalance(pipeline)
                 position.set_liquidation_price(pipeline)
 
         MarginHistoryModel.objects.bulk_create(interest_history)
