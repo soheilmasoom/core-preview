@@ -173,3 +173,21 @@ class WalletTestCase(TestCase):
             self.fail('should fail here')
         except:
             pass
+
+    def test_double_new_trx(self):
+        sender = self.usdt.get_wallet(new_account())
+        receiver = self.usdt.get_wallet(new_account())
+
+        sender.airdrop(20)
+
+        group_id = uuid4()
+
+        with WalletPipeline() as pipeline:
+            pipeline.new_trx(sender, receiver, 10, Trx.TRANSFER, group_id=group_id)
+            pipeline.new_trx(sender, receiver, 5, Trx.TRANSFER, group_id=group_id)
+
+        sender.refresh_from_db()
+        receiver.refresh_from_db()
+
+        self.assertEqual(sender.balance, 5)
+        self.assertEqual(receiver.balance, 15)

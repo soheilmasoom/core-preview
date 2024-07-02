@@ -35,7 +35,7 @@ class WalletPipeline(Atomic):
         self._wallet_locks = defaultdict(Decimal)
         self._wallet_balances = defaultdict(Decimal)
 
-        self._trxs = []
+        self._trxs = {}
 
         self._locks = {}
         self._locks_amount = defaultdict(Decimal)
@@ -147,13 +147,18 @@ class WalletPipeline(Atomic):
         if sender.account.is_system() and receiver.account.is_system():
             return
 
-        self._trxs.append(Trx(
-            sender=sender,
-            receiver=receiver,
-            amount=amount,
-            scope=scope,
-            group_id=group_id
-        ))
+        key = (sender, receiver, scope, group_id)
+
+        if key not in self._trxs:
+            self._trxs[key] = Trx(
+                sender=sender,
+                receiver=receiver,
+                amount=amount,
+                scope=scope,
+                group_id=group_id
+            )
+        else:
+            self._trxs[key].amount += amount
 
         sender.balance -= amount
         receiver.balance += amount
@@ -207,7 +212,7 @@ class WalletPipeline(Atomic):
             Wallet.objects.filter(id=wallet_id).update(**wallet_update)
 
         if self._trxs:
-            Trx.objects.bulk_create(self._trxs)
+            Trx.objects.bulk_create(self._trxs.values())
 
         if self._locks:
             BalanceLock.objects.bulk_create(list(self._locks.values()))
