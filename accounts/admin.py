@@ -524,6 +524,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
             return mark_safe("<a href='%s'>%s</a>" % (link, text))
 
+    @admin.display(description='referrer')
     def get_referrer_user(self, user: User):
         account = getattr(user, 'account', None)
         referrer = account and account.referred_by and account.referred_by.owner.user
@@ -532,8 +533,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
             link = url_to_edit_object(referrer)
             return mark_safe("<a href='%s'>%s</a>" % (link, referrer.id))
 
-    get_referrer_user.short_description = 'referrer'
-
+    @admin.display(description='وضعیت احراز')
     def get_user_reject_reason(self, user: User):
         bank_card = user.kyc_bank_card
 
@@ -574,22 +574,20 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
         return ''
 
-    get_user_reject_reason.short_description = 'وضعیت احراز'
-
+    @admin.display(description='لیست کیف‌ها')
     def get_wallet(self, user: User):
         link = url_to_admin_list(Wallet) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
-    get_wallet.short_description = 'لیست کیف‌ها'
 
+    @admin.display(description='لیست totp')
     def get_totp(self, user: User):
         link = settings.HOST_URL + '/admin/otp_totp/totpdevice/?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
-    get_totp.short_description = 'لیست totp'
 
+    @admin.display(description='لیست تراکنش های خرد')
     def get_dust(self, user: User):
-        link = url_to_admin_list(Trx) + '?account_dust={}'.format(user.get_account().id)
+        link = url_to_admin_list(Trx) + f'?user={user.id}&scope__exact={Trx.DUST}'
         return mark_safe("<a href='%s'>دیدن</a>" % link)
-    get_dust.short_description = 'لیست تراکنش های خرد'
 
     def get_sum_of_value_buy_sell(self, user: User):
         if not hasattr(user, 'account'):

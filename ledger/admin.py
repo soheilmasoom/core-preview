@@ -412,22 +412,22 @@ class OTCTradeAdmin(admin.ModelAdmin):
             otc.revert()
 
 
-class DustAccountTrxFilter(SimpleListFilter):
+class TrxUserFilter(SimpleListFilter):
     title = 'کاربر'
-    parameter_name = 'account_dust'
+    parameter_name = 'user'
 
     def lookups(self, request, model_admin):
         return [(1, 1)]
 
     def queryset(self, request, queryset):
-        account_id = request.GET.get('account_dust')
-        if account_id is not None:
+        user_id = request.GET.get('user')
+        if user_id is not None:
             wallets = Wallet.objects.filter(
                 market=Wallet.SPOT,
                 variant__isnull=True,
-                account_id=account_id
+                account__user_id=user_id
             )
-            return queryset.filter(Q(sender__in=wallets) | Q(receiver__in=wallets), scope=Trx.DUST)
+            return queryset.filter(Q(sender__in=wallets) | Q(receiver__in=wallets))
         else:
             return queryset
 
@@ -438,7 +438,7 @@ class TrxAdmin(admin.ModelAdmin):
     search_fields = ('sender__asset__symbol', 'sender__account__user__phone', 'receiver__account__user__phone',
                      'group_id')
     readonly_fields = ('sender', 'receiver',)
-    list_filter = ('scope', DustAccountTrxFilter)
+    list_filter = ('scope', TrxUserFilter)
     actions = ('revert',)
 
     @admin.display(description='sender')
