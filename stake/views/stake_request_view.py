@@ -43,6 +43,9 @@ class StakeRequestSerializer(serializers.ModelSerializer):
         asset = stake_option.asset
         wallet = asset.get_wallet(user.get_account())
 
+        if amount <= 0:
+            raise ValidationError('مقدار وارد شده باید بزرگتر از صفر باشد.')
+
         if not stake_option.enable:
             raise ValidationError('امکان استفاده از این گزینه در حال حاضر وجود ندارد.')
 
