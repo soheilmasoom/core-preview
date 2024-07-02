@@ -344,19 +344,19 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'verified': M.superuser | M('verified')
     }
 
-    @admin.action(description='تایید خودکار شماره کارت')
+    @admin.action(description='تایید خودکار شماره کارت', permissions=['change'])
     def verify_bank_cards(self, request, queryset):
         for bank_card in queryset:
             verify_bank_card_task.delay(bank_card.id)
 
-    @admin.action(description='تایید شماره کارت')
+    @admin.action(description='تایید شماره کارت', permissions=['change'])
     def verify_bank_cards_manual(self, request, queryset):
         for card in queryset:
             card.verified = True
             card.save()
             card.user.verify_level2_if_not()
 
-    @admin.action(description='رد شماره کارت')
+    @admin.action(description='رد شماره کارت', permissions=['change'])
     def reject_bank_cards_manual(self, request, queryset):
         for card in queryset:
             card.verified = False
@@ -405,19 +405,19 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'verified': M.superuser | M('verified')
     }
 
-    @admin.action(description='درخواست تایید خودکار شماره شبا')
+    @admin.action(description='درخواست تایید خودکار شماره شبا', permissions=['change'])
     def verify_bank_accounts_auto(self, request, queryset):
         for bank_account in queryset:
             verify_bank_account_task.delay(bank_account.id)
 
-    @admin.action(description='تایید شماره شبا')
+    @admin.action(description='تایید شماره شبا', permissions=['change'])
     def verify_bank_accounts_manual(self, request, queryset):
         for bank_account in queryset:
             bank_account.verified = True
             bank_account.save(update_fields=['verified'])
             bank_account.user.verify_level2_if_not()
 
-    @admin.action(description='رد شماره شبا')
+    @admin.action(description='رد شماره شبا', permissions=['change'])
     def reject_bank_accounts_manual(self, request, queryset):
         for bank_account in queryset:
             bank_account.verified = False
@@ -640,12 +640,12 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
     def get_amount_preview(self, req: BankPaymentRequest):
         return req.amount and humanize_number(req.amount)
 
-    @admin.action(description='Accept')
+    @admin.action(description='Accept', permissions=['change'])
     def accept_payment(self, request, queryset):
         for q in queryset.filter(payment__isnull=True, user__isnull=False, destination_id__isnull=False).exclude(ref_id=''):
             q.create_payment()
 
-    @admin.action(description='Clone')
+    @admin.action(description='Clone', permissions=['change'])
     def clone_payment(self, request, queryset):
         for q in queryset:
             q.ref_id = ''

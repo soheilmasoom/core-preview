@@ -77,15 +77,15 @@ class CoinPriceContentAdmin(SimpleHistoryAdmin):
                     level=messages.ERROR
                 )
 
-    @admin.action(description='درخواست تولید محتوا')
+    @admin.action(description='درخواست تولید محتوا', permissions=['change'])
     def create_content(self, request, queryset: List[CoinPriceContent]):
         self.content_action("create", request, queryset)
 
-    @admin.action(description='به‌روزرسانی تولید محتوا')
+    @admin.action(description='به‌روزرسانی تولید محتوا', permissions=['change'])
     def update_content(self, request, queryset : List[CoinPriceContent]):
         self.content_action("update", request, queryset)
 
-    @admin.action(description='دریافت تولید محتوا')
+    @admin.action(description='دریافت تولید محتوا', permissions=['change'])
     def get_content(self, request, queryset : List[CoinPriceContent]):
         self.content_action("get", request, queryset)
 
@@ -106,7 +106,7 @@ class ArticleAdmin(SimpleHistoryAdmin):
         obj.save()
         obj.refresh()
 
-    @admin.action(description='Refresh')
+    @admin.action(description='Refresh', permissions=['change'])
     def refresh_article(self, request, queryset):
         for article in queryset:
             article.refresh()

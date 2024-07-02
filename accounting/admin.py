@@ -125,7 +125,7 @@ class TradeRevenueAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
     readonly_fields = ('account', 'symbol', 'group_id', 'login_activity')
     actions = ('zero_gap_revenue', )
 
-    @admin.action(description='Zero Gap Revenue')
+    @admin.action(description='Zero Gap Revenue', permissions=['change'])
     def zero_gap_revenue(self, request, queryset):
         queryset.filter(gap_revenue__isnull=True).update(gap_revenue=0)
 

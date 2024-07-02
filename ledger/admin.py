@@ -35,7 +35,7 @@ from gamify.utils import clone_model
 from ledger import models
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
-    MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist
+    MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer
 from ledger.models.asset_alert import AssetAlert, AlertTrigger, BulkAssetAlert
 from ledger.models.wallet import ReserveWallet
 from ledger.utils.external_price import BUY
@@ -391,22 +391,22 @@ class OTCTradeAdmin(admin.ModelAdmin):
             url=url_to_edit_object(otc_trade.otc_request.account.user)
         )
 
-    @admin.action(description='Accept Trade')
+    @admin.action(description='Accept Trade', permissions=['change'])
     def accept_trade(self, request, queryset):
         for otc in queryset.filter(status=PENDING):
             otc.hedge_with_provider()
 
-    @admin.action(description='Accept without Hedge')
+    @admin.action(description='Accept without Hedge', permissions=['change'])
     def accept_trade_without_hedge(self, request, queryset):
         for otc in queryset.filter(status=PENDING):
             otc.hedge_with_provider(hedge=False)
 
-    @admin.action(description='Cancel Trade')
+    @admin.action(description='Cancel Trade', permissions=['change'])
     def cancel_trade(self, request, queryset):
         for otc in queryset.filter(status=PENDING):
             otc.cancel()
 
-    @admin.action(description='Revert')
+    @admin.action(description='Revert', permissions=['change'])
     def revert(self, request, queryset):
         for otc in queryset.filter(status=DONE):
             otc.revert()
@@ -435,10 +435,11 @@ class DustAccountTrxFilter(SimpleListFilter):
 @admin.register(models.Trx)
 class TrxAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_masked_sender', 'get_masked_receiver', 'amount', 'scope', 'group_id')
-    search_fields = (
-        'sender__asset__symbol', 'sender__account__user__phone', 'receiver__account__user__phone', 'group_id')
+    search_fields = ('sender__asset__symbol', 'sender__account__user__phone', 'receiver__account__user__phone',
+                     'group_id')
     readonly_fields = ('sender', 'receiver',)
     list_filter = ('scope', DustAccountTrxFilter)
+    actions = ('revert',)
 
     @admin.display(description='sender')
     def get_masked_sender(self, trx: Trx):
@@ -446,11 +447,17 @@ class TrxAdmin(admin.ModelAdmin):
             f'<span dir="ltr">{trx.sender}</span>'
         )
 
-    @admin.display(description='reciever')
+    @admin.display(description='receiver')
     def get_masked_receiver(self, trx: Trx):
         return mark_safe(
             f'<span dir="ltr">{trx.receiver}</span>'
         )
+
+    @admin.action(description='Revert', permissions=['change'])
+    def revert(self, request, queryset):
+        with WalletPipeline() as pipeline:
+            for trx in queryset:
+                trx.revert(pipeline)
 
 
 class WalletUserFilter(SimpleListFilter):
@@ -720,11 +727,11 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
     )
     actions = ('accept', 'reject')
 
-    @admin.action(description='Accept')
+    @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
         queryset.filter(status=INIT).update(status=PROCESS)
 
-    @admin.action(description='Reject')
+    @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
         queryset.filter(status__in=[PROCESS, INIT]).update(status=CANCELED)
 
@@ -777,7 +784,7 @@ class AddressBookAdmin(SimpleHistoryAdmin):
             f'<span dir="ltr">{address_book.account}</span>'
         )
 
-    @admin.action(description='Clone')
+    @admin.action(description='Clone', permissions=['change'])
     def clone(self, request, queryset):
         for q in queryset:
             clone_model(q)
@@ -969,17 +976,17 @@ class ManualTransactionAdmin(admin.ModelAdmin):
     readonly_fields = ('group_id', 'status')
     actions = ('accept_transaction', 'reject_transaction', 'clone_transaction',)
 
-    @admin.action(description='Accept')
+    @admin.action(description='Accept', permissions=['change'])
     def accept_transaction(self, request, queryset):
         for trx in queryset:
             trx.change_status(DONE)
 
-    @admin.action(description='Reject')
+    @admin.action(description='Reject', permissions=['change'])
     def reject_transaction(self, request, queryset):
         for trx in queryset:
             trx.change_status(CANCELED)
 
-    @admin.action(description='Clone')
+    @admin.action(description='Clone', permissions=['change'])
     def clone_transaction(self, request, queryset):
         for trx in queryset:
             trx.id = None
@@ -1053,7 +1060,7 @@ class ManualTradeAdmin(admin.ModelAdmin):
 
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-    @admin.action(description='Accept Trade')
+    @admin.action(description='Accept Trade', permissions=['change'])
     def accept_trade(self, request, queryset):
         system_base = Asset.get(Asset.IRT).get_wallet(Account.system())
         system_coin = Asset.get(Asset.USDT).get_wallet(Account.system())
@@ -1184,6 +1191,42 @@ class TokenRebrandAdmin(admin.ModelAdmin):
     def get_rebrand_info(self, token_rebrand: TokenRebrand):
         rows = [{'name': k, 'value': v} for (k, v) in token_rebrand.get_rebrand_info().__dict__.items()]
         return mark_safe(get_table_html(['name', 'value'], rows))
+
+
+class TokenTransferPartInline(admin.TabularInline):
+    model = TokenTransferPart
+    extra = 1
+
+
+@admin.register(TokenTransfer)
+class TokenTransferAdmin(admin.ModelAdmin):
+    list_display = ('created', 'title', 'status')
+    readonly_fields = ('status', 'group_id', 'get_transfer_info')
+    actions = ('accept', 'reject')
+    inlines = (TokenTransferPartInline, )
+
+    @admin.action(description='Accept', permissions=['change'])
+    def accept(self, request, queryset):
+        for token_transfer in queryset.filter(status=PENDING):
+            token_transfer.accept()
+
+    @admin.action(description='Reject', permissions=['change'])
+    def reject(self, request, queryset):
+        for token_transfer in queryset.filter(status=PENDING):
+            token_transfer.reject()
+
+    @admin.display(description='Transfer Info')
+    def get_transfer_info(self, transfer_info: TokenTransfer):
+        rows = []
+        for part in transfer_info.parts.all():
+            info = part.get_transfer_info()
+
+            rows.append({
+                'old': f'{info.total_old_amounts} {part.old_asset}',
+                'new': f'{info.total_new_amounts} {part.new_asset}',
+            })
+
+        return mark_safe(get_table_html(['old', 'new'], rows))
 
 
 @admin.register(TokenDelist)
