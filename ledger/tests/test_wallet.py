@@ -207,7 +207,7 @@ class WalletTestCase(TestCase):
         wallet_irt3 = self.irt.get_wallet(acc3)
         wallet_usdt3 = self.usdt.get_wallet(acc3)
 
-        wallet_irt1.airdrop(3)
+        wallet_irt1.airdrop(117420000)
         wallet_usdt2.airdrop(2000)
 
         lock_key0 = uuid4()
@@ -219,17 +219,17 @@ class WalletTestCase(TestCase):
             pipeline.new_lock(lock_key0, wallet_usdt2, amount=1800, reason=WalletPipeline.TRADE)
 
         with WalletPipeline() as pipeline:
-            pipeline.new_lock(lock_key1, wallet_irt1, amount=2, reason=WalletPipeline.TRADE)
+            pipeline.new_lock(lock_key1, wallet_irt1, amount=75003408, reason=WalletPipeline.TRADE)
 
         with WalletPipeline() as pipeline:
-            pipeline.new_lock(lock_key2, wallet_irt1, amount=1, reason=WalletPipeline.TRADE)
+            pipeline.new_lock(lock_key2, wallet_irt1, amount=37501704, reason=WalletPipeline.TRADE)
 
         with WalletPipeline() as pipeline:
             pipeline.release_lock(lock_key1)
             pipeline.release_lock(lock_key0, 1200)
             trade_key = uuid4()
             pipeline.new_trx(wallet_usdt2, wallet_usdt1, 1200, Trx.TRADE, trade_key)
-            pipeline.new_trx(wallet_irt1, wallet_irt2, 2, Trx.TRADE, trade_key)
+            pipeline.new_trx(wallet_irt1, wallet_irt2, 75003408, Trx.TRADE, trade_key)
             pipeline.new_trx(wallet_usdt1, wallet_usdt3, Decimal('2.4'), Trx.COMMISSION, trade_key)
             pipeline.new_trx(wallet_irt2, wallet_irt3, 0, Trx.COMMISSION, trade_key)
 
@@ -240,4 +240,3 @@ class WalletTestCase(TestCase):
             pipeline.new_trx(wallet_irt1, wallet_irt2, 37130400, Trx.TRADE, trade_key)
             pipeline.new_trx(wallet_usdt1, wallet_usdt3, Decimal('1.2'), Trx.COMMISSION, trade_key)
             pipeline.new_trx(wallet_irt2, wallet_irt3, 0, Trx.COMMISSION, trade_key)
-
