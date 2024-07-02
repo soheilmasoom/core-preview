@@ -716,13 +716,13 @@ class ManualWithdrawForm(forms.ModelForm):
 class ManualWithdrawAdmin(SimpleHistoryAdmin):
     form = ManualWithdrawForm
 
-    list_display = ('created', 'network', 'asset', 'receiver_address', 'memo', 'amount', 'status')
+    list_display = ('created', 'network', 'asset', 'receiver_address', 'memo', 'amount', 'status', 'trx_hash')
     search_fields = ('receiver_address',)
     list_filter = ('status', 'network')
     readonly_fields = ('status', )
     fieldsets = (
         (None, {'fields': (
-            'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp'
+            'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp', 'status', 'trx_hash'
         )}),
     )
     actions = ('accept', 'reject')
