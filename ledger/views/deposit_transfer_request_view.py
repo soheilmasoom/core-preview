@@ -30,7 +30,8 @@ class DepositSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transfer
-        fields = ['status', 'amount', 'trx_hash', 'network', 'sender_address', 'receiver_address', 'coin', 'memo', 'id']
+        fields = ['status', 'amount', 'trx_hash', 'network', 'sender_address', 'receiver_address', 'coin', 'memo', 'id',
+                  'block_number', 'last_block_number']
 
     def create(self, validated_data):
         network_symbol = validated_data.get('network')
@@ -40,6 +41,8 @@ class DepositSerializer(serializers.ModelSerializer):
         memo = validated_data.get('memo') or ''
         status = validated_data.get('status')
         trx_hash = validated_data.get('trx_hash')
+        block_number = validated_data.get('block_number')
+        last_block_number = validated_data.get('last_block_number')
         coin = validated_data.get('coin')
 
         asset = Asset.objects.filter(symbol=coin).first()
@@ -132,6 +135,9 @@ class DepositSerializer(serializers.ModelSerializer):
 
         if transfer:
             if transfer.status == status:
+                if last_block_number:
+                    transfer.last_block_number = last_block_number
+                    transfer.save(update_fields=['last_block_number'])
                 return transfer
 
             if (transfer.status, status) not in valid_transitions:
@@ -163,7 +169,9 @@ class DepositSerializer(serializers.ModelSerializer):
                     'amount': amount,
                     'usdt_value': amount * price_usdt,
                     'irt_value': amount * price_irt,
-                    'memo': memo
+                    'memo': memo,
+                    'block_number': block_number,
+                    'last_block_number': last_block_number,
                 }
             )
 

@@ -12,11 +12,11 @@ from multimedia.fields import ImageField
 class DepositRecoverySerializer(ModelSerializer):
     coin = serializers.CharField(required=True, write_only=True)
     network = serializers.CharField(required=True, write_only=True)
-    image = ImageField(write_only=True)
+    images = serializers.ListField(child=ImageField(), write_only=True, max_length=5)
 
     class Meta:
         model = DepositRecoveryRequest
-        fields = ('id', 'coin', 'network', 'memo', 'amount', 'trx_hash', 'receiver_address', 'description', 'image')
+        fields = ('id', 'coin', 'network', 'memo', 'amount', 'trx_hash', 'receiver_address', 'description', 'images')
         extra_kwargs = {
             'memo': {'required': False},
             'description': {'required': False}

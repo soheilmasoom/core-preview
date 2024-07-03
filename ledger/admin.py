@@ -1109,7 +1109,7 @@ class AlertTriggerAdmin(admin.ModelAdmin):
 class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'asset', 'network', 'amount', 'memo', 'status', 'get_user')
     list_filter = ('status', 'asset',)
-    readonly_fields = ('created', 'image', 'verifier')
+    readonly_fields = ('created', 'verifier', 'get_images', 'images')
     actions = ('verify_requests', 'reject_requests', 'accept_requests',)
     raw_id_fields = ('user',)
     search_fields = ('asset__symbol', 'network__symbol', 'user__phone', 'receiver_address', 'trx_hash')
@@ -1120,6 +1120,11 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'user': M.has_perm('ledger.manage_deposit_recovery') | M.is_none('user'),
         'comment': True
     }
+
+    @admin.display(description="Images")
+    def get_images(self, deposit_recovery: DepositRecoveryRequest):
+        htmls = map(lambda image: anchor_tag(str(image), image.get_absolute_image_url()), deposit_recovery.images.all())
+        return mark_safe(', '.join(htmls))
 
     def has_manage_permission(self, request, obj=None):
         return request.user.has_perm("ledger.manage_deposit_recovery")

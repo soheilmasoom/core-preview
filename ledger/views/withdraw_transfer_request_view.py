@@ -19,13 +19,20 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transfer
-        fields = ['status', 'requester_id', 'trx_hash', ]
+        fields = ['status', 'requester_id', 'trx_hash', 'block_number', 'last_block_number']
         ref_name = 'Withdraw Update Serializer'
 
     def create(self, validated_data):
         requester_id = validated_data.get('id')
         status = validated_data.get('status')
+        block_number = validated_data.get('block_number')
+        last_block_number = validated_data.get('last_block_number')
+
         transfer = get_object_or_404(Transfer, id=requester_id)
+
+        transfer.block_number = block_number
+        transfer.last_block_number = last_block_number
+        transfer.save(update_fields=['block_number', 'last_block_number'])
 
         TERMINATE = 'terminate'
         if status not in [PROCESS, PENDING, DONE, TERMINATE]:
