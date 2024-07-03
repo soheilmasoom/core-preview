@@ -27,13 +27,9 @@ class DepositRecoveryRequest(models.Model):
 
     verifier = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
 
-    image = models.OneToOneField(
+    images = models.ManyToManyField(
         to='multimedia.Image',
-        on_delete=models.PROTECT,
-        verbose_name='تصویر جزییات برداشت',
         related_name='+',
-        blank=True,
-        null=True
     )
 
     comment = models.TextField(blank=True)
