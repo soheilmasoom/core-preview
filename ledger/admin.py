@@ -623,7 +623,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description='Confirmation')
     def get_confirmation(self, transfer: models.Transfer):
-        return max(transfer.last_block_number - transfer.block_number, 0)
+        return transfer.get_confirmation_blocks()
 
     @admin.display(description='User')
     def get_user(self, transfer: models.Transfer):
