@@ -122,7 +122,7 @@ def terminate_positions():
 
 @shared_task(queue='margin')
 def alert_risky_position():
-    queryset = MarginPosition.objects.filter(alert_mode=False, liquidation_price__isnull=False)
+    queryset = MarginPosition.objects.filter(status=MarginPosition.OPEN, alert_mode=False, liquidation_price__isnull=False)
 
     alert_position_warning(queryset.filter(side=SHORT, liquidation_price__lte=F('symbol__last_trade_price') * Decimal('1.15')))
     alert_position_warning(queryset.filter(side=LONG, liquidation_price__gte=F('symbol__last_trade_price') / Decimal('1.15')))
