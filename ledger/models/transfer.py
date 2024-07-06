@@ -98,6 +98,10 @@ class Transfer(models.Model):
     def network_asset(self):
         return NetworkAsset.objects.get(network=self.network, asset=self.asset)
 
+    def get_confirmation_blocks(self) -> Union[int, None]:
+        if self.last_block_number and self.block_number:
+            return min(max(self.last_block_number - self.block_number, 0), self.network.min_confirm)
+
     def get_explorer_link(self) -> str:
         if not self.trx_hash:
             return ''

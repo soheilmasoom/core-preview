@@ -583,7 +583,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = (
         'created', 'network', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
         'usdt_value', 'get_remaining_time_to_pass_48h', 'get_jalali_created', 'get_jalali_finished', 'out_address',
-        'trx_hash'
+        'trx_hash', 'get_confirmation',
     )
     search_fields = ('trx_hash', 'out_address', 'wallet__asset__symbol', 'wallet__account__user__phone')
     list_filter = ('deposit', 'status', 'source', TransferUserFilter, 'network')
@@ -620,6 +620,10 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     @admin.display(description='finished jalali')
     def get_jalali_finished(self, transfer: models.Transfer):
         return transfer.finished_datetime and gregorian_to_jalali_datetime_str(transfer.finished_datetime)
+
+    @admin.display(description='Confirmation')
+    def get_confirmation(self, transfer: models.Transfer):
+        return max(transfer.last_block_number - transfer.block_number, 0)
 
     @admin.display(description='User')
     def get_user(self, transfer: models.Transfer):
