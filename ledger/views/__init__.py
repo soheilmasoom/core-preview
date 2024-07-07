@@ -18,7 +18,7 @@ from .margin_wallet_view import MarginWalletViewSet, MarginAssetViewSet, MarginB
 from .network_asset_info_view import NetworkAssetView
 from .network_asset_info_view import NetworkAssetView
 from .otc_history_view import OTCHistoryView
-from .otc_trade_view import OTCTradeRequestView, OTCTradeView, OTCInfoView
+from .otc_trade_view import OTCTradeRequestView, OTCTradeView, OTCInfoView, OTCTradeRequestView2, OTCTradeView2
 from .otc_trade_view import OTCTradeRequestView, OTCTradeView, OTCInfoView
 from .pnl_views import PNLOverview
 from .reserve_view import ReserveWalletCreateAPIView, ReserveWalletRefundAPIView

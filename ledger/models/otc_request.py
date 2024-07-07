@@ -19,10 +19,26 @@ from market.consts import OTC_MIN_HARD_FIAT_VALUE, OTC_MAX_HARD_FIAT_VALUE
 from market.models import BaseTrade
 from market.utils.trade import get_fee_info
 
+LIMIT, MARKET = 'limit', 'market'
+D1, D7, D30 = 'd1', 'd7', 'd30'
 
 class OTCRequest(BaseTrade):
     # EXPIRE_TIME = 6
     EXPIRATION_TIME = 11
+
+    TYPE_CHOICES = {
+        MARKET: MARKET,
+        LIMIT: LIMIT,
+    }
+
+    EXPIRATION_CHOICES = (
+        (D1, D1),
+        (D7, D7),
+        (D30, D30),
+    )
+
+    LIMIT, MARKET = 'limit', 'market'
+    D1, D7, D30 = 'd1', 'd7', 'd30'
 
     created = models.DateTimeField(auto_now_add=True)
     token = models.UUIDField(default=secure_uuid4, db_index=True)
@@ -32,14 +48,29 @@ class OTCRequest(BaseTrade):
     from_amount = get_amount_field(null=True)
     to_amount = get_amount_field(null=True)
 
+    gtd = models.DateTimeField(null=True, db_index=True)
+    trigger_price = get_amount_field(null=True)
+    type = models.CharField(max_length=16, null=False, default=TYPE_CHOICES[MARKET], choices=[(key, value) for key, value in TYPE_CHOICES.items()])
+
     @property
     def is_maker(self) -> bool:
         return False
 
     @classmethod
+    def get_gtd_from_delta(cls, delta):
+        delta_mapping = {
+            D1: timedelta(days=1),
+            D7: timedelta(days=7),
+            D30: timedelta(days=30)
+        }
+        if delta not in delta_mapping:
+            raise ValueError("Invalid delta value")
+        return datetime.now() + delta_mapping[delta]
+
+    @classmethod
     def new_trade(cls, account: Account, market: str, from_asset: Asset, to_asset: Asset, from_amount: Decimal = None,
                   to_amount: Decimal = None, allow_dust: bool = False,
-                  check_enough_balance: bool = True) -> 'OTCRequest':
+                  check_enough_balance: bool = True, gtd: datetime = None, trigger_price: Decimal = None, type: str = None) -> 'OTCRequest':
 
         assert from_amount or to_amount
         assert (from_amount or to_amount) > 0
@@ -51,6 +82,9 @@ class OTCRequest(BaseTrade):
             from_amount=from_amount,
             to_amount=to_amount,
             market=market,
+            type=OTCRequest.TYPE_CHOICES[MARKET] if not type else type,
+            gtd=gtd,
+            trigger_price=trigger_price
         )
 
         if not allow_dust:
@@ -76,13 +110,14 @@ class OTCRequest(BaseTrade):
 
     @classmethod
     def get_otc_request(cls, account: Account, from_asset: Asset, to_asset: Asset, from_amount: Decimal = None,
-                        to_amount: Decimal = None, market: str = Wallet.SPOT) -> 'OTCRequest':
+                        to_amount: Decimal = None, market: str = Wallet.SPOT, gtd: datetime = None, trigger_price: Decimal = None, type: str = None) -> 'OTCRequest':
+
+        from market.models import PairSymbol
 
         assert (from_amount or to_amount) and (not from_amount or not to_amount), 'exactly one amount should present'
 
         pair = get_trading_pair(from_asset, to_asset, from_amount, to_amount)
         assert pair.base.symbol in (Asset.IRT, Asset.USDT)
-        from market.models import PairSymbol
 
         symbol = PairSymbol.objects.get(asset=pair.coin, base_asset=pair.base)
 
@@ -95,6 +130,9 @@ class OTCRequest(BaseTrade):
             to_amount=to_amount,
             symbol=symbol,
             side=pair.side,
+            type=type,
+            gtd=gtd,
+            trigger_price=trigger_price
         )
         other_side = get_other_side(pair.side)
 
