@@ -76,7 +76,7 @@ class AssetAdmin(AdvancedAdmin):
         'order', 'trend', 'trade_enable', 'hedge',
         'publish_date', 'spread_category', 'otc_status', 'price_page', 'get_distribution_factor', 'margin_interest_fee'
     )
-    list_filter = ('enable', 'trend', 'spread_category', 'coincategory', )
+    list_filter = ('enable', 'trend', 'spread_category', 'coincategory', 'otc_status')
     list_editable = ('enable', 'order', 'trend', 'trade_enable', 'hedge', 'price_page')
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'order')
