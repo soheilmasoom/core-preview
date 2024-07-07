@@ -1286,7 +1286,7 @@ class PositionStatusFilter(SimpleListFilter):
 
 
 @admin.register(MarginPosition)
-class MarginPositionAdmin(admin.ModelAdmin):
+class MarginPositionAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'account', 'symbol', 'side', 'status', 'leverage', 'get_equity', 'amount',
                     'get_liquidation_price', 'get_average_price', 'get_orders', 'get_trades')
     readonly_fields = ('account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'average_price', 'side',
