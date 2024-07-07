@@ -40,7 +40,7 @@ class GatewaySerializer(serializers.ModelSerializer):
 
         account = self.context['request'].user.get_account()
         if account.increase_fiat_withdraw_fee:
-            return system_config.withdraw_fee_percent_after_max
+            return get_presentation_amount(system_config.withdraw_fee_percent_after_max)
         else:
             return Decimal(0)
 
