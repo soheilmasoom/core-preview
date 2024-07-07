@@ -152,7 +152,7 @@ class CreateOrderTestCase(TestCase):
 
     def test_fill_three_order(self):
         account = new_account()
-        account.airdrop(self.irt, 6 * 200020)
+        self.irt.get_wallet(account).airdrop(6 * 200020)
         with WalletPipeline() as pipeline:
             order_5 = new_order(pipeline, self.btcirt, Account.system(), SELL, 2, 200000)
             order_6 = new_order(pipeline, self.btcirt, Account.system(), SELL, 3, 200010)

@@ -173,10 +173,6 @@ class Account(models.Model):
     def get_invited_count(self):
         return int(Account.objects.filter(referred_by__owner=self).count())
 
-    def airdrop(self, asset, amount: Union[Decimal, int]):
-        wallet = asset.get_wallet(self)
-        wallet.airdrop(amount)
-
     @classmethod
     def get_for(cls, user):
         if not user.id or user.is_anonymous:
