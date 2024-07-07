@@ -50,6 +50,8 @@ class Account(models.Model):
     custom_taker_fee = get_amount_field(null=True)
     custom_max_margin_leverage = models.SmallIntegerField(null=True, blank=True)
 
+    increase_fiat_withdraw_fee = models.BooleanField(default=False)
+
     def is_system(self) -> bool:
         return self.type == self.SYSTEM
 
