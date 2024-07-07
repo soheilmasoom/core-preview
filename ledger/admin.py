@@ -76,7 +76,7 @@ class AssetAdmin(AdvancedAdmin):
         'order', 'trend', 'trade_enable', 'hedge',
         'publish_date', 'spread_category', 'otc_status', 'price_page', 'get_distribution_factor', 'margin_interest_fee'
     )
-    list_filter = ('enable', 'trend', 'spread_category', 'coincategory', )
+    list_filter = ('enable', 'trend', 'spread_category', 'coincategory', 'otc_status')
     list_editable = ('enable', 'order', 'trend', 'trade_enable', 'hedge', 'price_page')
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'order')
@@ -583,7 +583,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = (
         'created', 'network', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
         'usdt_value', 'get_remaining_time_to_pass_48h', 'get_jalali_created', 'get_jalali_finished', 'out_address',
-        'trx_hash'
+        'trx_hash', 'get_confirmation',
     )
     search_fields = ('trx_hash', 'out_address', 'wallet__asset__symbol', 'wallet__account__user__phone')
     list_filter = ('deposit', 'status', 'source', TransferUserFilter, 'network')
@@ -620,6 +620,10 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     @admin.display(description='finished jalali')
     def get_jalali_finished(self, transfer: models.Transfer):
         return transfer.finished_datetime and gregorian_to_jalali_datetime_str(transfer.finished_datetime)
+
+    @admin.display(description='Confirmation')
+    def get_confirmation(self, transfer: models.Transfer):
+        return transfer.get_confirmation_blocks()
 
     @admin.display(description='User')
     def get_user(self, transfer: models.Transfer):
@@ -716,13 +720,13 @@ class ManualWithdrawForm(forms.ModelForm):
 class ManualWithdrawAdmin(SimpleHistoryAdmin):
     form = ManualWithdrawForm
 
-    list_display = ('created', 'network', 'asset', 'receiver_address', 'memo', 'amount', 'status')
+    list_display = ('created', 'network', 'asset', 'receiver_address', 'memo', 'amount', 'status', 'trx_hash')
     search_fields = ('receiver_address',)
     list_filter = ('status', 'network')
     readonly_fields = ('status', )
     fieldsets = (
         (None, {'fields': (
-            'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp'
+            'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp', 'status', 'trx_hash'
         )}),
     )
     actions = ('accept', 'reject')
@@ -1282,7 +1286,7 @@ class PositionStatusFilter(SimpleListFilter):
 
 
 @admin.register(MarginPosition)
-class MarginPositionAdmin(admin.ModelAdmin):
+class MarginPositionAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'account', 'symbol', 'side', 'status', 'leverage', 'get_equity', 'amount',
                     'get_liquidation_price', 'get_average_price', 'get_orders', 'get_trades')
     readonly_fields = ('account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'average_price', 'side',

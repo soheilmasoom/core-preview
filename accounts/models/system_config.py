@@ -1,13 +1,15 @@
 from datetime import timedelta
 from enum import Enum
 
-from django.core.validators import MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
 from ledger.utils.fields import get_amount_field
 
 from decimal import Decimal
+
+PERCENT_VALIDATORS = (MinValueValidator(0), MaxValueValidator(100))
 
 
 class SystemConfig(models.Model):
@@ -21,7 +23,8 @@ class SystemConfig(models.Model):
 
     withdraw_fee_min = models.SmallIntegerField(default=1000)
     withdraw_fee_max = models.SmallIntegerField(default=5000)
-    withdraw_fee_percent = get_amount_field(default=Decimal('5'))
+    withdraw_fee_percent = get_amount_field(default=Decimal('5'), validators=PERCENT_VALIDATORS)
+    withdraw_fee_percent_after_max = get_amount_field(default=Decimal('1'), validators=PERCENT_VALIDATORS)
 
     hedge_irt_by_internal_market = models.BooleanField(default=False)
     hedge_coin_otc_from_internal_market = models.BooleanField(default=True)

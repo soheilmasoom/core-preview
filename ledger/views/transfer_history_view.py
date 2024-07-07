@@ -9,7 +9,7 @@ from accounts.authentication import CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from ledger.models import Transfer
 from ledger.models.asset import AssetSerializerMini
-from ledger.utils.fields import INIT, PROCESS, REFUND
+from ledger.utils.fields import INIT, PROCESS, REFUND, DONE
 from ledger.utils.precision import get_presentation_amount
 
 
@@ -17,7 +17,10 @@ class TransferSerializer(serializers.ModelSerializer):
     link = serializers.SerializerMethodField()
     amount = serializers.SerializerMethodField()
     fee_amount = serializers.SerializerMethodField()
-    network = serializers.SerializerMethodField()
+    network = serializers.CharField(source='network.symbol')
+    min_confirm = serializers.IntegerField(source='network.min_confirm')
+    unlock_confirm = serializers.IntegerField(source='network.unlock_confirm')
+    confirmation = serializers.SerializerMethodField()
     asset = AssetSerializerMini(source='wallet.asset', read_only=True)
     is_internal = serializers.SerializerMethodField()
     cancelable = serializers.SerializerMethodField()
@@ -31,11 +34,14 @@ class TransferSerializer(serializers.ModelSerializer):
     def get_fee_amount(self, transfer: Transfer):
         return get_presentation_amount(transfer.fee_amount)
 
-    def get_network(self, transfer: Transfer):
-        return transfer.network.symbol
-
     def get_is_internal(self, transfer: Transfer):
         return transfer.source == Transfer.INTERNAL
+
+    def get_confirmation(self, transfer: Transfer):
+        if transfer.status == DONE:
+            return transfer.network.min_confirm
+
+        return transfer.get_confirmation_blocks() or 0
 
     def get_cancelable(self, transfer: Transfer):
         return \
@@ -45,7 +51,7 @@ class TransferSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transfer
         fields = ('id', 'created', 'amount', 'status', 'link', 'out_address', 'asset', 'network', 'trx_hash',
-                  'fee_amount', 'is_internal', 'cancelable')
+                  'fee_amount', 'is_internal', 'cancelable', 'min_confirm', 'unlock_confirm', 'confirmation')
 
 
 class WithdrawHistoryView(ListAPIView):
@@ -72,7 +78,7 @@ class WithdrawHistoryView(ListAPIView):
         if 'coin' in query_params:
             queryset = queryset.filter(wallet__asset__symbol=query_params['coin'])
 
-        return queryset
+        return queryset.prefetch_related('network')
 
 
 class DepositHistoryView(WithdrawHistoryView):
@@ -91,4 +97,4 @@ class DepositHistoryView(WithdrawHistoryView):
         if 'coin' in query_params:
             queryset = queryset.filter(wallet__asset__symbol=query_params['coin'])
 
-        return queryset
+        return queryset.prefetch_related('network')

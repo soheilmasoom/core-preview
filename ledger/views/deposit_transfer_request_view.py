@@ -135,9 +135,9 @@ class DepositSerializer(serializers.ModelSerializer):
 
         if transfer:
             if transfer.status == status:
-                if last_block_number:
-                    transfer.last_block_number = last_block_number
-                    transfer.save(update_fields=['last_block_number'])
+                transfer.block_number = block_number
+                transfer.last_block_number = last_block_number
+                transfer.save(update_fields=['last_block_number', 'block_number'])
                 return transfer
 
             if (transfer.status, status) not in valid_transitions:

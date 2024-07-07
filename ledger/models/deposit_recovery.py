@@ -60,7 +60,7 @@ class DepositRecoveryRequest(models.Model):
 
     def create_transfer(self):
         with transaction.atomic():
-            recovery = DepositRecoveryRequest.objects.get(id=self.id).select_for_update()
+            recovery = DepositRecoveryRequest.objects.select_for_update().get(id=self.id)
 
             if recovery.status not in (PROCESS, PENDING):
                 return
