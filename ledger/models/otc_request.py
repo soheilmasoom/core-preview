@@ -19,22 +19,20 @@ from market.consts import OTC_MIN_HARD_FIAT_VALUE, OTC_MAX_HARD_FIAT_VALUE
 from market.models import BaseTrade
 from market.utils.trade import get_fee_info
 
-LIMIT, MARKET = 'limit', 'market'
-D1, D7, D30 = 'd1', 'd7', 'd30'
 
 class OTCRequest(BaseTrade):
     # EXPIRE_TIME = 6
-    EXPIRATION_TIME = 11
+    EXPIRATION_TIME = 111
 
-    TYPE_CHOICES = {
-        MARKET: MARKET,
-        LIMIT: LIMIT,
-    }
+    LIMIT, MARKET = 'limit', 'market'
+    TYPE_CHOICES = [(MARKET, MARKET), (LIMIT, LIMIT)]
 
+    H1, D1, D3, D7 = 'h1', 'd1', 'd3', 'd7'
     EXPIRATION_CHOICES = (
+        (H1, H1),
         (D1, D1),
+        (D3, D3),
         (D7, D7),
-        (D30, D30),
     )
 
     LIMIT, MARKET = 'limit', 'market'
@@ -48,9 +46,9 @@ class OTCRequest(BaseTrade):
     from_amount = get_amount_field(null=True)
     to_amount = get_amount_field(null=True)
 
-    gtd = models.DateTimeField(null=True, db_index=True)
+    gtd = models.DateTimeField(null=True, db_index=True, blank=True)
     trigger_price = get_amount_field(null=True)
-    type = models.CharField(max_length=16, null=False, default=TYPE_CHOICES[MARKET], choices=[(key, value) for key, value in TYPE_CHOICES.items()])
+    type = models.CharField(max_length=16, default=MARKET, choices=TYPE_CHOICES)
 
     @property
     def is_maker(self) -> bool:
@@ -59,9 +57,10 @@ class OTCRequest(BaseTrade):
     @classmethod
     def get_gtd_from_delta(cls, delta):
         delta_mapping = {
-            D1: timedelta(days=1),
-            D7: timedelta(days=7),
-            D30: timedelta(days=30)
+            cls.H1: timedelta(hours=1),
+            cls.D1: timedelta(days=1),
+            cls.D3: timedelta(days=3),
+            cls.D7: timedelta(days=7)
         }
         if delta not in delta_mapping:
             raise ValueError("Invalid delta value")
@@ -82,7 +81,7 @@ class OTCRequest(BaseTrade):
             from_amount=from_amount,
             to_amount=to_amount,
             market=market,
-            type=OTCRequest.TYPE_CHOICES[MARKET] if not type else type,
+            type=OTCRequest.MARKET if not type else type,
             gtd=gtd,
             trigger_price=trigger_price
         )

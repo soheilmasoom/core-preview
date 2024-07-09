@@ -41,7 +41,6 @@ class TokenExpired(Exception):
 class OTCTrade(models.Model):
     PENDING, CANCELED, DONE, REVERT, EXPIRED = 'pending', 'canceled', 'done', 'revert', 'expired'
     MARKET, PROVIDER = 'm', 'p'
-    TIME_IN_FORCE_OPTIONS = GTD, FOK = 'GTD', 'FOK'
 
 
     created = models.DateTimeField(auto_now_add=True)
@@ -53,13 +52,6 @@ class OTCTrade(models.Model):
         default=PENDING,
         max_length=8,
         choices=[(PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE), (REVERT, REVERT)],
-    )
-
-    time_in_force = models.CharField(
-        max_length=6,
-        null=False,
-        default=FOK,
-        choices=[(GTD, 'GTD'), (FOK, 'FOK')]
     )
 
     execution_type = models.CharField(max_length=1, choices=((MARKET, 'market'), (PROVIDER, 'provider')))
@@ -101,7 +93,7 @@ class OTCTrade(models.Model):
     @classmethod
     def handle_otc_request(cls, otc_request: OTCRequest) -> 'OTCTrade':
         if otc_request.type == OTCRequest.MARKET:
-            cls.execute_trade(otc_request)
+            return cls.execute_trade(otc_request)
         else:
             account = otc_request.account
             from_asset = otc_request.from_asset
@@ -111,24 +103,28 @@ class OTCTrade(models.Model):
             with WalletPipeline() as pipeline:
                 otc_trade = OTCTrade.objects.create(
                     otc_request=otc_request,
-                    time_in_force=cls.get_otc_trade_time_in_force(otc_request),
                     execution_type=OTCTrade.MARKET,
                     to_buy_amount=otc_request.amount if otc_request.side == BUY else -otc_request.amount,
                     hedged=True
                 )
                 pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
                         reason=WalletPipeline.TRADE)
-                cls.handle_limit_otc_request()
+                return otc_trade
 
     @classmethod
     def handle_expired(cls):
-        cls.get_untriggered_otc_trade_queryset().filter(
-            otc_request__gtd__lt=timezone.now()
-        ).update(status=OTCTrade.EXPIRED)
+        query_set = cls.get_untriggered_otc_trade_queryset().filter(
+            otc_request__gtd__lt=timezone.now())
+        with WalletPipeline() as pipeline:
+            for otc_trade in query_set:
+                pipeline.release_lock(otc_trade.group_id)
+        query_set.update(status=OTCTrade.EXPIRED)
 
 
+    ## TODO: HANDLE CELERY
     @classmethod
     def handle_limit_otc_request(cls):
+        [i.refresh_from_db() for i in OTCTrade.objects.all()]
         from ledger.utils.price import get_last_price
         while True:
             try:
@@ -144,7 +140,7 @@ class OTCTrade(models.Model):
             except Exception as e:
                 print("error", str(e))
                 raise e
-            sleep(5 * 1)
+            break
 
     @classmethod
     def handle_price_triggered(cls, asset, current_price):
@@ -152,26 +148,25 @@ class OTCTrade(models.Model):
             otc_request__from_asset=asset,
             otc_request__side=BUY,
             otc_request__gtd__gt=timezone.now(),
-            otc_request__trigger_price__gte=Decimal(current_price)
+            otc_request__trigger_price__gte=Decimal(current_price),
+            otc_request__trigger_price__lte = Decimal(current_price) * Decimal(1.05)
         )
         sell_triggered = cls.get_untriggered_otc_trade_queryset().filter(
             otc_request__from_asset=asset,
             otc_request__side=SELL,
             otc_request__gtd__gt=timezone.now(),
-            otc_request__trigger_price__lte=current_price
+            otc_request__trigger_price__lte=Decimal(current_price),
+            otc_request__trigger_price__gte = Decimal(current_price) * Decimal(0.95)
         )
         print("triggered_requests:#", list(buy_triggered) + list(sell_triggered))
         triggered_requests = list(buy_triggered) + list(sell_triggered)
         for triggered_request in triggered_requests:
             cls.execute_trade(triggered_request.otc_request)
 
-    @classmethod
-    def get_otc_trade_time_in_force(cls, otc_request: OTCRequest):
-        return OTCTrade.GTD if otc_request.type == OTCRequest.LIMIT else OTCTrade.FOK
 
     @classmethod
     def get_untriggered_otc_trade_queryset(cls):
-        result = OTCTrade.objects.filter(time_in_force=OTCTrade.GTD, status=OTCTrade.PENDING).select_related('otc_request')
+        result = OTCTrade.objects.filter(otc_request__type=OTCRequest.LIMIT, status=OTCTrade.PENDING).select_related('otc_request')
         print("untriggered_otc_trade:#",list(result))
         return result
 
@@ -183,8 +178,8 @@ class OTCTrade(models.Model):
         account = otc_request.account
         from_asset = otc_request.from_asset
         from_wallet = from_asset.get_wallet(account, market=otc_request.market)
+        amount = otc_request.get_paying_amount()
         if otc_request.type == OTCRequest.MARKET:
-            amount = otc_request.get_paying_amount()
             from_wallet.has_balance(amount, raise_exception=True)
 
         with WalletPipeline() as pipeline:
@@ -196,7 +191,7 @@ class OTCTrade(models.Model):
                     hedged=True
                 )
             else:
-                otc_trade = OTCTrade.objects.filter(otc_request=otc_request)
+                otc_trade = OTCTrade.objects.filter(otc_request=otc_request).first()
 
             # todo: add lock when new engine deployed
             fok_success = otc_trade.try_fok_fill(pipeline)
@@ -210,7 +205,7 @@ class OTCTrade(models.Model):
                 otc_trade.execution_type = OTCTrade.PROVIDER
                 otc_trade.hedged = False
                 otc_trade.save(update_fields=['execution_type', 'hedged'])
-                if otc_trade.time_in_force != OTCTrade.FOK:
+                if otc_trade.otc_request.type == OTCRequest.MARKET:
                     pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
                                     reason=WalletPipeline.TRADE)
 
@@ -281,7 +276,7 @@ class OTCTrade(models.Model):
             self.change_status(self.CANCELED)
 
     def accept(self, pipeline: WalletPipeline):
-        if self.execution_type == self.PROVIDER or self.time_in_force == self.FOK:
+        if self.execution_type == self.PROVIDER or self.otc_request.type == OTCRequest.LIMIT:
             pipeline.release_lock(self.group_id)
 
         self.change_status(self.DONE)
