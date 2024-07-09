@@ -19,8 +19,7 @@ from ledger.models import Asset, Transfer, NetworkAsset, AddressBook, DepositAdd
 from ledger.models import WithdrawFeedback, FeedbackCategory
 from ledger.models.asset import CoinField
 from ledger.models.network import NetworkField
-from ledger.utils.laundering import check_withdraw_laundering
-from ledger.utils.precision import get_precision
+from ledger.utils.precision import get_precision, get_presentation_amount
 from ledger.utils.price import get_last_price
 from ledger.utils.withdraw_verify import can_withdraw
 from ledger.views.address_book_view import AddressBookCreateSerializer
@@ -205,6 +204,11 @@ class WithdrawSerializer(serializers.ModelSerializer):
     def get_address_book(self, transfer: Transfer):
         if transfer.address_book:
             return AddressBookCreateSerializer(transfer.address_book).data
+
+    def to_representation(self, order: Transfer):
+        data = super(WithdrawSerializer, self).to_representation(order)
+        data['amount'] = get_presentation_amount(data['amount'])
+        return data
 
     class Meta:
         model = Transfer
