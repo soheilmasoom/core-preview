@@ -103,7 +103,7 @@ class OrderPositionFilter(admin.SimpleListFilter):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('created', 'created_at_millis', 'type', 'symbol', 'side', 'fill_type', 'status', 'price', 'amount')
+    list_display = ('created', 'created_at_millis', 'symbol', 'account', 'side', 'fill_type', 'status', 'price', 'amount')
     list_filter = (TypeFilter, UserFilter, 'side', 'fill_type', 'status', 'symbol')
     readonly_fields = ('wallet', 'symbol', 'account', 'stop_loss', 'login_activity', 'position')
     actions = ('cancel_order', )
