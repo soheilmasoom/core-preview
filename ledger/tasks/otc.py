@@ -35,10 +35,8 @@ def handle_limit_otc_request():
             side = untriggered[1]
 
             price = get_price(symbol, side=get_other_side(side))
-
-            OTCTrade.handle_price_triggered(symbol, side, price)
-            logger.info('handle limit otc request', extra={'symbol': symbol.name, 'side': side, 'price': price})
-            OTCTrade.handle_price_triggered(symbol, side, price)
+            OTCTrade.handle_trigger_price(symbol, side, price)
+            logger.info('handle limit otc request', extra={'symbol': symbol, 'side': side, 'price': price})
 
     except Exception as e:
             logger.exception('failed to handle limit otc request', extra={'exp': e})

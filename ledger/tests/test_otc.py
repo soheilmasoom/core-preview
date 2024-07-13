@@ -8,6 +8,7 @@ from accounts.models import Account
 from ledger.models import Asset, OTCRequest, OTCTrade
 from ledger.utils.external_price import SELL
 from ledger.utils.test import new_account, set_price, create_system_order_book
+from ledger.tasks.otc import handle_limit_otc_request
 from market.models import PairSymbol
 
 
@@ -34,31 +35,10 @@ class OTCTestCase(TestCase):
         self.system_wallet_usdt = self.usdt.get_wallet(Account.system())
         self.system_wallet_btc = self.btc.get_wallet(Account.system())
 
-    def test_market_otc_trade_v1(self):
-        from ledger.models import BalanceLock
 
+    def test_market_otc_trade(self):
         self.wallet_usdt.airdrop(10)
 
-        print("amount", self.wallet_usdt)
-        resp = self.client.post('/api/v1/trade/otc/request/', {
-            'from_asset': 'USDT',
-            'to_asset': 'BTC',
-            'from_amount': 10,
-        })
-
-        self.assertEqual(resp.status_code, 201)
-
-        token = resp.data['token']
-
-        resp = self.client.post('/api/v1/trade/otc/', {
-            'token': token,
-        })
-        self.assertEqual(resp.status_code, 201)
-
-    def test_market_otc_trade_v2(self):
-        self.wallet_usdt.airdrop(10)
-
-        print("amount",self.wallet_usdt)
         resp = self.client.post('/api/v1/trade/otc/request/', {
             'from_asset': 'USDT',
             'to_asset': 'BTC',
@@ -85,8 +65,7 @@ class OTCTestCase(TestCase):
         self.assertGreater(self.wallet_btc.balance, 0)
         self.assertEqual(self.wallet_usdt.locked, 0)
 
-    def test_buy_limit_otc_trade_v2(self):
-
+    def test_buy_limit_otc_trade(self):
         self.wallet_usdt.airdrop(10)
 
         print("amount", self.wallet_usdt)
@@ -108,7 +87,7 @@ class OTCTestCase(TestCase):
             'token': token,
         })
 
-        OTCTrade.handle_limit_otc_request()
+        handle_limit_otc_request()
 
         self.assertEqual(resp.status_code, 201)
 
@@ -122,7 +101,7 @@ class OTCTestCase(TestCase):
         self.assertGreater(self.wallet_btc.balance, 0)
         self.assertEqual(self.wallet_usdt.locked, 0)
 
-    def test_sell_limit_otc_trade_v2(self):
+    def test_sell_limit_otc_trade(self):
 
         self.wallet_btc.airdrop(0.001)
 
@@ -144,7 +123,7 @@ class OTCTestCase(TestCase):
             'token': token,
         })
 
-        OTCTrade.handle_limit_otc_request()
+        handle_limit_otc_request()
 
         self.assertEqual(resp.status_code, 201)
 
@@ -158,7 +137,7 @@ class OTCTestCase(TestCase):
         self.assertGreater(self.wallet_usdt.balance, 0)
         self.assertEqual(self.wallet_usdt.locked, 0)
 
-    def test_expired_limit_otc_trade_v2(self):
+    def test_expired_limit_otc_trade(self):
 
         self.wallet_usdt.airdrop(10)
 
@@ -184,7 +163,7 @@ class OTCTestCase(TestCase):
             'token': token,
         })
 
-        OTCTrade.handle_limit_otc_request()
+        handle_limit_otc_request()
 
         self.assertEqual(resp.status_code, 201)
 

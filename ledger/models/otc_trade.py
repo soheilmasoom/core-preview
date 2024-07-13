@@ -57,7 +57,8 @@ class OTCTrade(models.Model):
     order_id = models.PositiveIntegerField(null=True, blank=True)
     to_buy_amount = get_amount_field(default=0, validators=())
     hedged = models.BooleanField(default=False, db_index=True)
-
+    hedged = models.BooleanField(default=False, db_index=True)
+    hedged = models.BooleanField(default=True, db_index=True)
     def change_status(self, status: str):
         self.status = status
         self.save(update_fields=['status'])
@@ -104,9 +105,11 @@ class OTCTrade(models.Model):
             )
             pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
                     reason=WalletPipeline.TRADE)
+
+        if otc_trade:
             if otc_request.type == OTCRequest.LIMIT:
                 return otc_trade
-        return cls.execute_trade(otc_request)
+            return otc_trade.execute_trade()
 
     @classmethod
     def handle_expired(cls):
@@ -118,15 +121,9 @@ class OTCTrade(models.Model):
             query_set.update(status=OTCTrade.EXPIRED)
 
 
-    ## TODO: HANDLE CELERY
-    @classmethod
-    def handle_limit_otc_request(cls):
-        from ledger.tasks.otc import handle_limit_otc_request
-        handle_limit_otc_request()
-
 
     @classmethod
-    def handle_price_triggered(cls, symbol: str, side: str, current_price: Decimal):
+    def handle_trigger_price(cls, symbol: str, side: str, current_price: Decimal):
         def is_triggered_price(otc_request: OTCRequest) -> bool:
             current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
             trigger_price = otc_request.trigger_price
@@ -146,10 +143,10 @@ class OTCTrade(models.Model):
         )
 
         print("triggered_requests:#", list(triggered))
-        triggered_requests = list(triggered)
-        for triggered_request in triggered_requests:
-            if is_triggered_price(triggered_request.otc_request):
-                cls.execute_trade(triggered_request.otc_request)
+        triggered_otc_trades = list(triggered)
+        for triggered_otc_trade in triggered_otc_trades:
+            if is_triggered_price(triggered_otc_trade.otc_request):
+                triggered_otc_trade.execute_trade()
 
 
 
@@ -159,31 +156,29 @@ class OTCTrade(models.Model):
         print("untriggered_otc_trade:#",list(result))
         return result
 
-    @classmethod
-    def execute_trade(cls, otc_request: OTCRequest) -> 'OTCTrade':
-        if otc_request.type == OTCRequest.MARKET and otc_request.expired():
+    def execute_trade(self) -> 'OTCTrade':
+        if self.otc_request.type == OTCRequest.MARKET and self.otc_request.expired():
             raise TokenExpired()
 
         with WalletPipeline() as pipeline:
-            otc_trade = OTCTrade.objects.get(otc_request=otc_request)
             # todo: add lock when new engine deployed
-            fok_success = otc_trade.try_fok_fill(pipeline)
+            fok_success = self.try_fok_fill(pipeline)
 
             if not fok_success:
-                if otc_trade.otc_request.symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
-                    logger.warning(f'Hedge otc from market failed in {otc_request.symbol}', extra={
-                        'otc_request_id': otc_request.id
+                if self.otc_request.symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
+                    logger.warning(f'Hedge otc from market failed in {self.otc_request.symbol}', extra={
+                        'otc_request_id': self.otc_request.id
                     })
                     raise HedgeError
-                otc_trade.execution_type = OTCTrade.PROVIDER
-                otc_trade.hedged = False
-                otc_trade.save(update_fields=['execution_type', 'hedged'])
+                self.execution_type = OTCTrade.PROVIDER
+                self.hedged = False
+                self.save(update_fields=['execution_type', 'hedged'])
 
 
         if not fok_success:
-            otc_trade.try_provider_fill()
+            self.try_provider_fill()
 
-        return otc_trade
+        return self
 
     def try_fok_fill(self, pipeline: WalletPipeline) -> bool:
         assert self.execution_type == self.MARKET
