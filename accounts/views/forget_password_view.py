@@ -21,9 +21,7 @@ class InitiateForgotPasswordSerializer(serializers.Serializer):
         login_phrase = validated_data['login']
         user = User.get_user_from_login(login_phrase)
 
-        VerificationCode.send_otp_code(login_phrase, VerificationCode.SCOPE_FORGET_PASSWORD, user=user)
-
-        return user
+        return VerificationCode.send_otp_code(login_phrase, VerificationCode.SCOPE_FORGET_PASSWORD, user=user)
 
 
 class InitiateForgetPasswordView(APIView):
