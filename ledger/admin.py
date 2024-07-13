@@ -222,7 +222,7 @@ class FeedbackCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(WithdrawFeedback)
 class WithdrawFeedbackAdmin(admin.ModelAdmin):
-    list_display = ('user', 'category', 'description')
+    list_display = ('created', 'user', 'category', 'description')
     readonly_fields = ('user',)
     search_fields = ('user__phone', )
     list_filter = ('category', )
