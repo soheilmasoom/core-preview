@@ -1,20 +1,17 @@
 import logging
 from decimal import Decimal
 import os
-import threading
 from uuid import uuid4
 
 from django.utils import timezone
-from datetime import timedelta
-from threading import Thread, Timer
-from time import sleep
 
+from ledger.utils.price import get_depth_price, get_price
 
 
 from django.conf import settings
 from django.db import models
 from django.db.models import F, Sum
-from ledger.utils.external_price import BUY, SELL
+from ledger.utils.external_price import BUY, SELL, get_other_side
 
 from _base.settings import OTC_ACCOUNT_ID
 from accounting.models import TradeRevenue
@@ -92,24 +89,24 @@ class OTCTrade(models.Model):
 
     @classmethod
     def handle_otc_request(cls, otc_request: OTCRequest) -> 'OTCTrade':
-        if otc_request.type == OTCRequest.MARKET:
-            return cls.execute_trade(otc_request)
-        else:
-            account = otc_request.account
-            from_asset = otc_request.from_asset
-            from_wallet = from_asset.get_wallet(account, market=otc_request.market)
-            amount = otc_request.get_paying_amount()
-            from_wallet.has_balance(amount, raise_exception=True)
-            with WalletPipeline() as pipeline:
-                otc_trade = OTCTrade.objects.create(
-                    otc_request=otc_request,
-                    execution_type=OTCTrade.MARKET,
-                    to_buy_amount=otc_request.amount if otc_request.side == BUY else -otc_request.amount,
-                    hedged=True
-                )
-                pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
-                        reason=WalletPipeline.TRADE)
+        account = otc_request.account
+        from_asset = otc_request.from_asset
+        from_wallet = from_asset.get_wallet(account, market=otc_request.market)
+        amount = otc_request.get_paying_amount()
+        from_wallet.has_balance(amount, raise_exception=True)
+
+        with WalletPipeline() as pipeline:
+            otc_trade = OTCTrade.objects.create(
+                otc_request=otc_request,
+                execution_type=OTCTrade.MARKET,
+                to_buy_amount=otc_request.amount if otc_request.side == BUY else -otc_request.amount,
+                hedged=True
+            )
+            pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
+                    reason=WalletPipeline.TRADE)
+            if otc_request.type == OTCRequest.LIMIT:
                 return otc_trade
+        return cls.execute_trade(otc_request)
 
     @classmethod
     def handle_expired(cls):
@@ -118,50 +115,42 @@ class OTCTrade(models.Model):
         with WalletPipeline() as pipeline:
             for otc_trade in query_set:
                 pipeline.release_lock(otc_trade.group_id)
-        query_set.update(status=OTCTrade.EXPIRED)
+            query_set.update(status=OTCTrade.EXPIRED)
 
 
     ## TODO: HANDLE CELERY
     @classmethod
     def handle_limit_otc_request(cls):
-        [i.refresh_from_db() for i in OTCTrade.objects.all()]
-        from ledger.utils.price import get_last_price
-        while True:
-            try:
-                cls.handle_expired()
-                symbols = list(cls.get_untriggered_otc_trade_queryset().values_list("otc_request__symbol__name","otc_request__from_asset"))
-                print("symbols:#", symbols)
-                for symbol in symbols:
-                    print("symbol:#", symbol)
-                    price = get_last_price(symbol[0])
-                    print("symbol-price:#", symbol, price)
-                    cls.handle_price_triggered(symbol[1], price)
+        from ledger.tasks.otc import handle_limit_otc_request
+        handle_limit_otc_request()
 
-            except Exception as e:
-                print("error", str(e))
-                raise e
-            break
 
     @classmethod
-    def handle_price_triggered(cls, asset, current_price):
-        buy_triggered = cls.get_untriggered_otc_trade_queryset().filter(
-            otc_request__from_asset=asset,
-            otc_request__side=BUY,
+    def handle_price_triggered(cls, symbol: str, side: str, current_price: Decimal):
+        def is_triggered_price(otc_request: OTCRequest) -> bool:
+            current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
+            trigger_price = otc_request.trigger_price
+            side = otc_request.side
+            if side == SELL and Decimal(current_price) * Decimal("0.8") < trigger_price < Decimal(current_price):
+                return True
+            elif side == BUY and Decimal(current_price) < trigger_price < Decimal(current_price) * Decimal("1.2"):
+                return True
+            return False
+
+        triggered = cls.get_untriggered_otc_trade_queryset().filter(
+            otc_request__symbol__name=symbol,
+            otc_request__side=side,
             otc_request__gtd__gt=timezone.now(),
-            otc_request__trigger_price__gte=Decimal(current_price),
-            otc_request__trigger_price__lte = Decimal(current_price) * Decimal(1.05)
+            otc_request__trigger_price__gte=Decimal(current_price) if side == BUY else Decimal(current_price) * Decimal("0.8"),
+            otc_request__trigger_price__lte=Decimal(current_price) * Decimal("1.2") if side == BUY else Decimal(current_price)
         )
-        sell_triggered = cls.get_untriggered_otc_trade_queryset().filter(
-            otc_request__from_asset=asset,
-            otc_request__side=SELL,
-            otc_request__gtd__gt=timezone.now(),
-            otc_request__trigger_price__lte=Decimal(current_price),
-            otc_request__trigger_price__gte = Decimal(current_price) * Decimal(0.95)
-        )
-        print("triggered_requests:#", list(buy_triggered) + list(sell_triggered))
-        triggered_requests = list(buy_triggered) + list(sell_triggered)
+
+        print("triggered_requests:#", list(triggered))
+        triggered_requests = list(triggered)
         for triggered_request in triggered_requests:
-            cls.execute_trade(triggered_request.otc_request)
+            if is_triggered_price(triggered_request.otc_request):
+                cls.execute_trade(triggered_request.otc_request)
+
 
 
     @classmethod
@@ -175,24 +164,8 @@ class OTCTrade(models.Model):
         if otc_request.type == OTCRequest.MARKET and otc_request.expired():
             raise TokenExpired()
 
-        account = otc_request.account
-        from_asset = otc_request.from_asset
-        from_wallet = from_asset.get_wallet(account, market=otc_request.market)
-        amount = otc_request.get_paying_amount()
-        if otc_request.type == OTCRequest.MARKET:
-            from_wallet.has_balance(amount, raise_exception=True)
-
         with WalletPipeline() as pipeline:
-            if otc_request.type == OTCRequest.MARKET:
-                otc_trade = OTCTrade.objects.create(
-                    otc_request=otc_request,
-                    execution_type=OTCTrade.MARKET,
-                    to_buy_amount=otc_request.amount if otc_request.side == BUY else -otc_request.amount,
-                    hedged=True
-                )
-            else:
-                otc_trade = OTCTrade.objects.filter(otc_request=otc_request).first()
-
+            otc_trade = OTCTrade.objects.get(otc_request=otc_request)
             # todo: add lock when new engine deployed
             fok_success = otc_trade.try_fok_fill(pipeline)
 
@@ -205,9 +178,7 @@ class OTCTrade(models.Model):
                 otc_trade.execution_type = OTCTrade.PROVIDER
                 otc_trade.hedged = False
                 otc_trade.save(update_fields=['execution_type', 'hedged'])
-                if otc_trade.otc_request.type == OTCRequest.MARKET:
-                    pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
-                                    reason=WalletPipeline.TRADE)
+
 
         if not fok_success:
             otc_trade.try_provider_fill()
@@ -276,8 +247,7 @@ class OTCTrade(models.Model):
             self.change_status(self.CANCELED)
 
     def accept(self, pipeline: WalletPipeline):
-        if self.execution_type == self.PROVIDER or self.otc_request.type == OTCRequest.LIMIT:
-            pipeline.release_lock(self.group_id)
+        pipeline.release_lock(self.group_id)
 
         self.change_status(self.DONE)
         self.create_ledger(pipeline)

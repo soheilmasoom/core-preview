@@ -118,7 +118,6 @@ class OTCRequestSerializer(serializers.ModelSerializer):
     gtd = serializers.ChoiceField(choices=OTCRequest.EXPIRATION_CHOICES, allow_null=True, required=False)
     trigger_price = serializers.DecimalField(allow_null=True, required=False, max_digits=18, decimal_places=8)
     type = serializers.ChoiceField(
-            allow_null=True,
             required=False,
             choices=OTCRequest.TYPE_CHOICES)
 
@@ -183,7 +182,7 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         to_amount = validated_data.get('to_amount')
         from_amount = validated_data.get('from_amount')
 
-        type = validated_data.get('type')
+        type = validated_data.get('type', OTCRequest.MARKET)
         gtd, trigger_price = None, None
         if type == OTCRequest.LIMIT:
             delta = validated_data.get('gtd')

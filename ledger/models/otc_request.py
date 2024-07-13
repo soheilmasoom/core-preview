@@ -67,9 +67,9 @@ class OTCRequest(BaseTrade):
         return datetime.now() + delta_mapping[delta]
 
     @classmethod
-    def new_trade(cls, account: Account, market: str, from_asset: Asset, to_asset: Asset, from_amount: Decimal = None,
+    def new_trade(cls, account: Account, market: str, from_asset: Asset, to_asset: Asset, type: str, from_amount: Decimal = None,
                   to_amount: Decimal = None, allow_dust: bool = False,
-                  check_enough_balance: bool = True, gtd: datetime = None, trigger_price: Decimal = None, type: str = None) -> 'OTCRequest':
+                  check_enough_balance: bool = True, gtd: datetime = None, trigger_price: Decimal = None) -> 'OTCRequest':
 
         assert from_amount or to_amount
         assert (from_amount or to_amount) > 0
@@ -81,7 +81,7 @@ class OTCRequest(BaseTrade):
             from_amount=from_amount,
             to_amount=to_amount,
             market=market,
-            type=OTCRequest.MARKET if not type else type,
+            type=type,
             gtd=gtd,
             trigger_price=trigger_price
         )
