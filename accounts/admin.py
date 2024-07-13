@@ -911,6 +911,7 @@ class EmailNotificationAdmin(admin.ModelAdmin):
 @admin.register(UserComment)
 class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
     list_display = ['get_username', 'created']
+    readonly_fields = ('user', )
 
     @admin.display(description='user')
     def get_username(self, user_comment: UserComment):
