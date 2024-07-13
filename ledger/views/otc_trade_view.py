@@ -108,11 +108,18 @@ class OTCInfoView(APIView):
         })
 
 
+
 class OTCRequestSerializer(serializers.ModelSerializer):
     from_asset = serializers.CharField(source='from_asset.symbol')
     to_asset = serializers.CharField(source='to_asset.symbol')
     from_amount = get_serializer_amount_field(allow_null=True, required=False, write_only=True)
     to_amount = get_serializer_amount_field(allow_null=True, required=False, write_only=True)
+
+    gtd = serializers.ChoiceField(choices=OTCRequest.EXPIRATION_CHOICES, allow_null=True, required=False)
+    trigger_price = serializers.DecimalField(allow_null=True, required=False, max_digits=18, decimal_places=8)
+    type = serializers.ChoiceField(
+            required=False,
+            choices=OTCRequest.TYPE_CHOICES)
 
     paying_amount = serializers.SerializerMethodField()
     receiving_amount = serializers.SerializerMethodField()
@@ -127,6 +134,14 @@ class OTCRequestSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         from_symbol = attrs['from_asset']['symbol']
         to_symbol = attrs['to_asset']['symbol']
+
+        type = attrs.get('type')
+        if type == OTCRequest.LIMIT:
+            if not attrs.get('gtd'):
+                raise ValidationError('زمان انقضا باید مشخص باشد.')
+            if not attrs.get('trigger_price'):
+                raise ValidationError('قیمت اجرا باید مشخص باشد.')
+
 
         if not {Asset.IRT, Asset.USDT} & {from_symbol, to_symbol}:
             raise ValidationError('یکی از دارایی‌ها باید تومان یا تتر باشد.')
@@ -167,6 +182,14 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         to_amount = validated_data.get('to_amount')
         from_amount = validated_data.get('from_amount')
 
+        type = validated_data.get('type', OTCRequest.MARKET)
+        gtd, trigger_price = None, None
+        if type == OTCRequest.LIMIT:
+            delta = validated_data.get('gtd')
+            gtd = OTCRequest.get_gtd_from_delta(delta)
+            trigger_price = validated_data.get('trigger_price')
+
+
         try:
             otc_request = OTCRequest.new_trade(
                 account=account,
@@ -174,7 +197,10 @@ class OTCRequestSerializer(serializers.ModelSerializer):
                 to_asset=to_asset,
                 from_amount=from_amount,
                 to_amount=to_amount,
-                market=Wallet.SPOT
+                market=Wallet.SPOT,
+                type=type,
+                gtd=gtd,
+                trigger_price=trigger_price
             )
             otc_request.login_activity = LoginActivity.from_request(request=request)
             otc_request.save(update_fields=['login_activity'])
@@ -216,7 +242,8 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         model = OTCRequest
         fields = ('from_asset', 'to_asset', 'from_amount', 'to_amount',
                   'token', 'expire', 'price', 'asset', 'base_asset', 'paying_amount', 'receiving_amount',
-                  'net_receiving_amount', 'fee')
+                  'net_receiving_amount', 'fee', 'type', 'gtd', 'trigger_price')
+
 
 
 class OTCTradeRequestView(CreateAPIView):
@@ -229,7 +256,6 @@ class OTCTradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = OTCTrade
         fields = ('id', 'token', 'status')
-        read_only_fields = ('token', )
 
     def create(self, validated_data):
         token = validated_data['token']
@@ -245,7 +271,7 @@ class OTCTradeSerializer(serializers.ModelSerializer):
             return otc_trade
 
         try:
-            return OTCTrade.execute_trade(otc_request)
+            return OTCTrade.handle_otc_request(otc_request)
         except TokenExpired:
             raise ValidationError({'token': 'سفارش منقضی شده است. لطفا دوباره اقدام کنید.'})
         except InsufficientBalance:
@@ -257,6 +283,6 @@ class OTCTradeSerializer(serializers.ModelSerializer):
         except HedgeError as e:
             raise ValidationError('مشکلی در پردازش سفارش رخ داد.')
 
-
 class OTCTradeView(CreateAPIView):
     serializer_class = OTCTradeSerializer
+
