@@ -8,16 +8,8 @@ def populate_trade_revenue_positions(apps, sch):
     Trade = apps.get_model('market', 'Trade')
     TradeRevenue = apps.get_model('accounting', 'TradeRevenue')
 
-    trade_dic = {t[0]: t[1] for t in Trade.objects.filter(position__isnull=False, group_id__isnull=False).values_list('group_id', 'position')}
-
-    revenue_queryset = TradeRevenue.objects.filter(group_id__in=list(trade_dic.keys()))
-
-    updated_revenues = []
-    for rt in revenue_queryset:
-        rt.position = trade_dic[rt.group_id]
-        updated_revenues.append(rt)
-
-    TradeRevenue.objects.bulk_update(updated_revenues, ['position'])
+    for trade in Trade.objects.filter(position__isnull=False, group_id__isnull=False):
+        TradeRevenue.objects.filter(group_id=trade.group_id).update(position=trade.position)
 
 
 class Migration(migrations.Migration):
