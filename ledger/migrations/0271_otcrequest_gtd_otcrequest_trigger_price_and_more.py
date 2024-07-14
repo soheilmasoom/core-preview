@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ledger', '0264_merge_20240629_1908'),
+        ('ledger', '0270_remove_depositrecoveryrequest_image_and_more'),
     ]
 
     operations = [
