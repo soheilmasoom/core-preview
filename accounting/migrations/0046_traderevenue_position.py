@@ -4,14 +4,6 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
-def populate_trade_revenue_positions(apps, sch):
-    Trade = apps.get_model('market', 'Trade')
-    TradeRevenue = apps.get_model('accounting', 'TradeRevenue')
-
-    for trade in Trade.objects.filter(position__isnull=False, group_id__isnull=False):
-        TradeRevenue.objects.filter(group_id=trade.group_id).update(position=trade.position)
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -25,5 +17,4 @@ class Migration(migrations.Migration):
             name='position',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='ledger.marginposition'),
         ),
-        migrations.RunPython(populate_trade_revenue_positions, migrations.RunPython.noop),
     ]
