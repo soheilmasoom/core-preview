@@ -70,7 +70,8 @@ class TradeRevenue(models.Model):
             hedge_key=hedge_key,
             coin_price=coin_price,
             base_usdt_price=user_trade.base_usdt_price,
-            login_activity=user_trade.login_activity
+            login_activity=user_trade.login_activity,
+            position=position
         )
 
         if not hedge_key:
