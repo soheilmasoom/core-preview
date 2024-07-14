@@ -35,10 +35,10 @@ logger = logging.getLogger(__name__)
 class TokenExpired(Exception):
     pass
 
+
 class OTCTrade(models.Model):
     PENDING, CANCELED, DONE, REVERT, EXPIRED = 'pending', 'canceled', 'done', 'revert', 'expired'
     MARKET, PROVIDER = 'm', 'p'
-
 
     created = models.DateTimeField(auto_now_add=True)
     otc_request = models.OneToOneField('ledger.OTCRequest', on_delete=models.PROTECT)
@@ -57,8 +57,7 @@ class OTCTrade(models.Model):
     order_id = models.PositiveIntegerField(null=True, blank=True)
     to_buy_amount = get_amount_field(default=0, validators=())
     hedged = models.BooleanField(default=False, db_index=True)
-    hedged = models.BooleanField(default=False, db_index=True)
-    hedged = models.BooleanField(default=True, db_index=True)
+
     def change_status(self, status: str):
         self.status = status
         self.save(update_fields=['status'])
@@ -120,8 +119,6 @@ class OTCTrade(models.Model):
                 pipeline.release_lock(otc_trade.group_id)
             query_set.update(status=OTCTrade.EXPIRED)
 
-
-
     @classmethod
     def handle_trigger_price(cls, symbol: str, side: str, current_price: Decimal):
         def is_triggered_price(otc_request: OTCRequest) -> bool:
@@ -147,8 +144,6 @@ class OTCTrade(models.Model):
         for triggered_otc_trade in triggered_otc_trades:
             if is_triggered_price(triggered_otc_trade.otc_request):
                 triggered_otc_trade.execute_trade()
-
-
 
     @classmethod
     def get_untriggered_otc_trade_queryset(cls):
