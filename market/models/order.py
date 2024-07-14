@@ -649,34 +649,40 @@ class Order(models.Model):
                 reverse=True
             )
 
-            if trades[0].account_id != hedger_account_id:
-                for t in trades:
-                    trade_revenues.append(
-                        TradeRevenue.new(
-                            user_trade=t,
-                            group_id=t.group_id,
-                            source=TradeRevenue.USER,
-                            hedge_key='',
-                            ignore_trade_value=any_proxy or (t == maker_trade)
+            any_non_system_trade = bool(
+                {maker_trade.account_id, taker_trade.account_id} -
+                {settings.TRADER_ACCOUNT_ID, settings.MARKET_MAKER_ACCOUNT_ID}
+            )
+
+            if any_non_system_trade:
+                if trades[0].account_id != hedger_account_id:
+                    for t in trades:
+                        trade_revenues.append(
+                            TradeRevenue.new(
+                                user_trade=t,
+                                group_id=t.group_id,
+                                source=TradeRevenue.USER,
+                                hedge_key='',
+                                ignore_trade_value=any_proxy or (t == maker_trade)
+                            )
                         )
-                    )
 
-            elif trades[0].account_id != trades[1].account_id:
-                if hedger_prefix:
-                    # taker = trades[1] if trades[0].is_maker else trades[0]
-                    hedge_key = f'{hedger_prefix}-{trades[0].id}'
-                else:
-                    hedge_key = ''
+                elif trades[0].account_id != trades[1].account_id:
+                    if hedger_prefix:
+                        # taker = trades[1] if trades[0].is_maker else trades[0]
+                        hedge_key = f'{hedger_prefix}-{trades[0].id}'
+                    else:
+                        hedge_key = ''
 
-                trade = trades[1]
+                    trade = trades[1]
 
-                trade_revenues.append(TradeRevenue.new(
-                    user_trade=trade,
-                    group_id=trade.group_id,
-                    source=TradeRevenue.MAKER if trades[0].is_maker else TradeRevenue.TAKER,
-                    hedge_key=hedge_key,
-                    ignore_trade_value=any_proxy
-                ))
+                    trade_revenues.append(TradeRevenue.new(
+                        user_trade=trade,
+                        group_id=trade.group_id,
+                        source=TradeRevenue.MAKER if trades[0].is_maker else TradeRevenue.TAKER,
+                        hedge_key=hedge_key,
+                        ignore_trade_value=any_proxy
+                    ))
 
         if trade_revenues:
             TradeRevenue.objects.bulk_create(trade_revenues)
