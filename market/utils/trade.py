@@ -116,7 +116,7 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
 
         if (trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and
                 trade_info.loan_type != Order.LIQUIDATION and
-                (total_match_amount <= abs(position_asset_wallet.balance) * Decimal('0.998'))) and is_position_live:
+                (total_match_amount < abs(position_asset_wallet.balance))) and is_position_live:
             position.rebalance(pipeline, price=trade_info.trade_price)
 
         is_close_position = (trade_info.loan_type == Order.LIQUIDATION or
