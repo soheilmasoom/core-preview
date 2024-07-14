@@ -663,7 +663,8 @@ class Order(models.Model):
                                 group_id=t.group_id,
                                 source=TradeRevenue.USER,
                                 hedge_key='',
-                                ignore_trade_value=any_proxy or (t == maker_trade)
+                                ignore_trade_value=any_proxy or (t == maker_trade),
+                                position=t.position
                             )
                         )
 
@@ -681,7 +682,8 @@ class Order(models.Model):
                         group_id=trade.group_id,
                         source=TradeRevenue.MAKER if trades[0].is_maker else TradeRevenue.TAKER,
                         hedge_key=hedge_key,
-                        ignore_trade_value=any_proxy
+                        ignore_trade_value=any_proxy,
+                        position=trade.position
                     ))
 
         if trade_revenues:

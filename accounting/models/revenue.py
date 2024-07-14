@@ -40,9 +40,10 @@ class TradeRevenue(models.Model):
 
     base_usdt_price = get_amount_field(decimal_places=20)
     login_activity = models.ForeignKey('accounts.LoginActivity', on_delete=models.SET_NULL, null=True, blank=True)
+    position = models.ForeignKey(to='ledger.MarginPosition', on_delete=models.CASCADE, null=True, blank=True)
 
     @classmethod
-    def new(cls, user_trade: BaseTrade, group_id, source: str, hedge_key: str = None, ignore_trade_value=False):
+    def new(cls, user_trade: BaseTrade, group_id, source: str, hedge_key: str = None, ignore_trade_value=False, position=None):
         trade_volume = user_trade.amount * user_trade.price
         trade_value = trade_volume * user_trade.base_usdt_price
 
