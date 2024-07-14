@@ -7,7 +7,6 @@ from accounts.utils.ip import get_client_ip
 
 
 class FirebaseTokenSerializer(serializers.ModelSerializer):
-    token = serializers.CharField()
     source = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
 
     class Meta:

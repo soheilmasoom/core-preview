@@ -57,7 +57,7 @@ class FastBuyToken(models.Model):
             self.save(update_fields=['otc_request'])
 
             try:
-                otc_trade = OTCTrade.execute_trade(otc_request)
+                otc_trade = OTCTrade.handle_otc_request(otc_request)
                 self.status = FastBuyToken.DONE
                 self.save(update_fields=['status'])
 
