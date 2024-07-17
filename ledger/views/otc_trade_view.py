@@ -66,7 +66,8 @@ class OTCInfoView(APIView):
                 from_asset=from_asset,
                 to_asset=to_asset,
                 from_amount=from_amount,
-                to_amount=to_amount
+                to_amount=to_amount,
+                order_type=OTCRequest.MARKET
             )
         except SmallDepthError as exp:
             pair = get_trading_pair(from_asset, to_asset)
@@ -108,7 +109,6 @@ class OTCInfoView(APIView):
         })
 
 
-
 class OTCRequestSerializer(serializers.ModelSerializer):
     from_asset = serializers.CharField(source='from_asset.symbol')
     to_asset = serializers.CharField(source='to_asset.symbol')
@@ -117,9 +117,7 @@ class OTCRequestSerializer(serializers.ModelSerializer):
 
     gtd = serializers.ChoiceField(choices=OTCRequest.EXPIRATION_CHOICES, allow_null=True, required=False)
     trigger_price = serializers.DecimalField(allow_null=True, required=False, max_digits=18, decimal_places=8)
-    type = serializers.ChoiceField(
-            required=False,
-            choices=OTCRequest.TYPE_CHOICES)
+    type = serializers.ChoiceField(required=False, choices=OTCRequest.TYPE_CHOICES)
 
     paying_amount = serializers.SerializerMethodField()
     receiving_amount = serializers.SerializerMethodField()
@@ -182,9 +180,9 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         to_amount = validated_data.get('to_amount')
         from_amount = validated_data.get('from_amount')
 
-        type = validated_data.get('type', OTCRequest.MARKET)
+        order_type = validated_data.get('type', OTCRequest.MARKET)
         gtd, trigger_price = None, None
-        if type == OTCRequest.LIMIT:
+        if order_type == OTCRequest.LIMIT:
             delta = validated_data.get('gtd')
             gtd = OTCRequest.get_gtd_from_delta(delta)
             trigger_price = validated_data.get('trigger_price')
@@ -198,7 +196,7 @@ class OTCRequestSerializer(serializers.ModelSerializer):
                 from_amount=from_amount,
                 to_amount=to_amount,
                 market=Wallet.SPOT,
-                type=type,
+                order_type=order_type,
                 gtd=gtd,
                 trigger_price=trigger_price
             )
@@ -245,7 +243,6 @@ class OTCRequestSerializer(serializers.ModelSerializer):
                   'net_receiving_amount', 'fee', 'type', 'gtd', 'trigger_price')
 
 
-
 class OTCTradeRequestView(CreateAPIView):
     serializer_class = OTCRequestSerializer
 
@@ -283,6 +280,6 @@ class OTCTradeSerializer(serializers.ModelSerializer):
         except HedgeError as e:
             raise ValidationError('مشکلی در پردازش سفارش رخ داد.')
 
+
 class OTCTradeView(CreateAPIView):
     serializer_class = OTCTradeSerializer
-

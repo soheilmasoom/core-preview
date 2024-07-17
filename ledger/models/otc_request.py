@@ -24,19 +24,11 @@ class OTCRequest(BaseTrade):
     # EXPIRE_TIME = 6
     EXPIRATION_TIME = 11
 
-    LIMIT, MARKET = 'limit', 'market'
-    TYPE_CHOICES = [(MARKET, MARKET), (LIMIT, LIMIT)]
+    ORDER_TYPES = LIMIT, MARKET = 'limit', 'market'
+    TYPE_CHOICES = [(t, t) for t in ORDER_TYPES]
 
-    H1, D1, D3, D7 = 'h1', 'd1', 'd3', 'd7'
-    EXPIRATION_CHOICES = (
-        (H1, H1),
-        (D1, D1),
-        (D3, D3),
-        (D7, D7),
-    )
-
-    LIMIT, MARKET = 'limit', 'market'
-    D1, D7, D30 = 'd1', 'd7', 'd30'
+    EXPIRATIONS = H1, D1, D3, D7 = 'h1', 'd1', 'd3', 'd7'
+    EXPIRATION_CHOICES = [(e, e) for e in EXPIRATIONS]
 
     created = models.DateTimeField(auto_now_add=True)
     token = models.UUIDField(default=secure_uuid4, db_index=True)
@@ -67,10 +59,11 @@ class OTCRequest(BaseTrade):
         return datetime.now() + delta_mapping[delta]
 
     @classmethod
-    def new_trade(cls, account: Account, market: str, from_asset: Asset, to_asset: Asset, type: str, from_amount: Decimal = None,
-                  to_amount: Decimal = None, allow_dust: bool = False,
+    def new_trade(cls, account: Account, market: str, from_asset: Asset, to_asset: Asset, order_type: str,
+                  from_amount: Decimal = None, to_amount: Decimal = None, allow_dust: bool = False,
                   check_enough_balance: bool = True, gtd: datetime = None, trigger_price: Decimal = None) -> 'OTCRequest':
 
+        assert order_type in cls.ORDER_TYPES
         assert from_amount or to_amount
         assert (from_amount or to_amount) > 0
 
@@ -81,7 +74,7 @@ class OTCRequest(BaseTrade):
             from_amount=from_amount,
             to_amount=to_amount,
             market=market,
-            type=type,
+            order_type=order_type,
             gtd=gtd,
             trigger_price=trigger_price
         )
@@ -108,11 +101,12 @@ class OTCRequest(BaseTrade):
         return otc_request
 
     @classmethod
-    def get_otc_request(cls, account: Account, from_asset: Asset, to_asset: Asset, from_amount: Decimal = None,
-                        to_amount: Decimal = None, market: str = Wallet.SPOT, gtd: datetime = None, trigger_price: Decimal = None, type: str = None) -> 'OTCRequest':
+    def get_otc_request(cls, account: Account, from_asset: Asset, to_asset: Asset, order_type: str,
+                        from_amount: Decimal = None, to_amount: Decimal = None, market: str = Wallet.SPOT,
+                        gtd: datetime = None, trigger_price: Decimal = None) -> 'OTCRequest':
 
         from market.models import PairSymbol
-
+        assert order_type in cls.ORDER_TYPES
         assert (from_amount or to_amount) and (not from_amount or not to_amount), 'exactly one amount should present'
 
         pair = get_trading_pair(from_asset, to_asset, from_amount, to_amount)
@@ -129,7 +123,7 @@ class OTCRequest(BaseTrade):
             to_amount=to_amount,
             symbol=symbol,
             side=pair.side,
-            type=type,
+            type=order_type,
             gtd=gtd,
             trigger_price=trigger_price
         )

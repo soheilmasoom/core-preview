@@ -48,7 +48,8 @@ class FastBuyToken(models.Model):
                 from_asset=Asset.get('IRT'),
                 to_asset=self.asset,
                 from_amount=payment.amount,
-                market=Wallet.SPOT
+                market=Wallet.SPOT,
+                order_type=OTCRequest.MARKET
             )
             otc_request.login_activity = self.payment_request.login_activity
             otc_request.save(update_fields=['login_activity'])
