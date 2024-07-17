@@ -224,7 +224,6 @@ class User(AbstractUser):
         if errors:
             raise ValidationError(errors)
 
-
     def get_account(self) -> Account:
         if not self.id or self.is_anonymous:
             return Account(user=self)
