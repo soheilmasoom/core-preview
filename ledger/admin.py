@@ -623,7 +623,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description='Confirmation')
     def get_confirmation(self, transfer: models.Transfer):
-        return f'{transfer.get_confirmation_blocks()}/{transfer.network.min_confirm}'
+        return f'{transfer.get_confirmation_blocks() or 0}/{transfer.network.min_confirm}'
 
     @admin.display(description='User')
     def get_user(self, transfer: models.Transfer):
