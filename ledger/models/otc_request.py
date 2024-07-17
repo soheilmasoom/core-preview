@@ -22,7 +22,7 @@ from market.utils.trade import get_fee_info
 
 class OTCRequest(BaseTrade):
     # EXPIRE_TIME = 6
-    EXPIRATION_TIME = 111
+    EXPIRATION_TIME = 11
 
     LIMIT, MARKET = 'limit', 'market'
     TYPE_CHOICES = [(MARKET, MARKET), (LIMIT, LIMIT)]
