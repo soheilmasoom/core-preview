@@ -590,7 +590,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     readonly_fields = (
         'deposit_address', 'network', 'wallet', 'created', 'accepted_datetime', 'finished_datetime', 'get_risks',
         'out_address', 'memo', 'amount', 'irt_value', 'usdt_value', 'deposit', 'group_id', 'login_activity',
-        'address_book', 'accepted_by'
+        'address_book', 'accepted_by', 'block_number', 'last_block_number'
     )
     exclude = ('risks',)
 
