@@ -131,12 +131,12 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
 
         total_balance = asset_balance * position.symbol.last_trade_price + loan_balance
 
-        is_close_position = (trade_info.loan_type == Order.LIQUIDATION or
+        is_closed_position = (trade_info.loan_type == Order.LIQUIDATION or
                              (((floored_asset_balance > Decimal('0') and floored_loan_balance >= 0) or
                                (floored_asset_balance == 0 and total_balance >= Decimal('0'))) and
                               trade_info.loan_type != BORROW))
 
-        if is_close_position:
+        if is_closed_position:
             logger.info(f"Closing position:{position.id}")
             position.convert_dust(pipeline)
 
