@@ -101,6 +101,7 @@ class User(AbstractUser):
             (LEVEL1, 'level 1'), (LEVEL2, 'level 2'), (LEVEL3, 'level 3'), (LEVEL4, 'level 4'),
         ),
         verbose_name='سطح',
+        db_index=True
     )
 
     verify_status = models.CharField(
@@ -147,7 +148,11 @@ class User(AbstractUser):
         verbose_name='تایید کننده عکس سلفی'
     )
 
-    archived = models.BooleanField(default=False, verbose_name='بایگانی')
+    archived = models.BooleanField(
+        db_index=True,
+        default=False,
+        verbose_name='بایگانی'
+    )
 
     margin_quiz_pass_date = models.DateTimeField(null=True, blank=True)
 
@@ -218,7 +223,6 @@ class User(AbstractUser):
             errors.append("کاربر سطح یک نیست")
         if errors:
             raise ValidationError(errors)
-
 
     def get_account(self) -> Account:
         if not self.id or self.is_anonymous:

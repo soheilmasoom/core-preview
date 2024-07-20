@@ -59,8 +59,8 @@ class Transfer(models.Model):
     status = get_status_field()
 
     trx_hash = models.CharField(max_length=128, db_index=True, null=True, blank=True)
-    block_number = models.IntegerField(db_index=True, null=True, blank=True)
-    last_block_number = models.IntegerField(db_index=True, null=True, blank=True)
+    block_number = models.PositiveBigIntegerField(db_index=True, null=True, blank=True)
+    last_block_number = models.PositiveBigIntegerField(db_index=True, null=True, blank=True)
 
     out_address = get_address_field()
     memo = models.CharField(max_length=64, blank=True)

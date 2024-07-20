@@ -119,14 +119,22 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
                 (total_match_amount < abs(position_asset_wallet.balance))) and is_position_live:
             position.rebalance(pipeline, price=trade_info.trade_price)
 
+        asset_balance = (position.asset_wallet.balance +
+                         pipeline.get_wallet_balance_diff(position.asset_wallet.id))
+
+        floored_asset_balance = floor_precision(asset_balance, position.symbol.step_size)
+
+        loan_balance = (position.loan_wallet.balance
+                        + pipeline.get_wallet_balance_diff(position.loan_wallet.id))
+
+        floored_loan_balance = floor_precision(loan_balance, position.symbol.step_size)
+
+        total_balance = asset_balance * position.symbol.last_trade_price + loan_balance
+
         is_close_position = (trade_info.loan_type == Order.LIQUIDATION or
-                             (floor_precision(position.asset_wallet.balance +
-                                              pipeline.get_wallet_balance_diff(position.asset_wallet.id),
-                                              position.symbol.step_size) >= Decimal('0') and
-                              trade_info.loan_type != BORROW)) and \
-                            floor_precision(position.loan_wallet.balance
-                                            + pipeline.get_wallet_balance_diff(position.loan_wallet.id),
-                                            position.symbol.step_size) >= Decimal('0')
+                             (((floored_asset_balance > Decimal('0') and floored_loan_balance >= 0) or
+                               (floored_asset_balance == 0 and total_balance >= Decimal('0'))) and
+                              trade_info.loan_type != BORROW))
 
         if is_close_position:
             logger.info(f"Closing position:{position.id}")
