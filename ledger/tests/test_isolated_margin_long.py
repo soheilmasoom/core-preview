@@ -1,4 +1,5 @@
 from decimal import Decimal
+from uuid import uuid4
 
 from django.db.models import Q
 from django.test import Client
@@ -6,13 +7,13 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import SmsNotification
-from ledger.models import Asset, Wallet, MarginPosition, MarginLeverage
+from ledger.models import Asset, Wallet, MarginPosition, MarginLeverage, Trx
 from ledger.tasks import alert_risky_position
 from ledger.utils.external_price import SELL, BUY, LONG
 from ledger.utils.precision import floor_precision
 from ledger.utils.test import new_account, set_price
 from ledger.utils.wallet_pipeline import WalletPipeline
-from market.models import PairSymbol
+from market.models import PairSymbol, Order
 from market.utils.order_utils import new_order
 
 USDT_IRT_PRICE = 20000
@@ -78,6 +79,7 @@ class LongIsolatedMarginTestCase(TestCase):
         self.btcusdt = PairSymbol.objects.get(name='BTCUSDT')
         self.btcusdt.enable = True
         self.btcusdt.margin_enable = True
+        self.btcusdt.step_size = 2
         self.btcusdt.last_trade_price = BTC_USDT_PRICE
         self.btcusdt.save()
 
@@ -751,5 +753,38 @@ class LongIsolatedMarginTestCase(TestCase):
         mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
         self.close_position(id=mp.id)
         mp.refresh_from_db()
+
+        self.assert_liquidation(self.account, self.btcusdt)
+
+    def test_long_buy_16(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT/2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+        self.print_wallets(self.account)
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+
+        with WalletPipeline() as pipeline:
+            pipeline.new_trx(
+                sender=mp.asset_wallet,
+                receiver=mp.asset_wallet.asset.get_wallet(account=self.account3),
+                amount=Decimal('0.088'),
+                group_id=uuid4(),
+                scope=Trx.TRANSFER
+            )
+            pipeline.new_trx(
+                receiver=mp.base_wallet,
+                sender=mp.base_wallet.asset.get_wallet(account=self.account3),
+                amount=Decimal('0.088') * BTC_USDT_PRICE,
+                group_id=uuid4(),
+                scope=Trx.TRANSFER
+            )
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+        self.place_order(amount=Decimal('0.01'), side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=False, fill_type='market')
 
         self.assert_liquidation(self.account, self.btcusdt)
