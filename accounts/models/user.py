@@ -49,7 +49,7 @@ class User(AbstractUser):
 
     INIT, PENDING, REJECTED, VERIFIED = 'init', 'pending', 'rejected', 'verified'
 
-    PROMOTIONS = SHIB, VOUCHER, PEPE, NOT = 'true', 'voucher', 'pepe', 'not'
+    PROMOTIONS = SHIB, VOUCHER, PEPE, NOT = 'true', 'voucher', 'pepe', 'notcoin'
 
     USERNAME_FIELD = 'phone'
 
