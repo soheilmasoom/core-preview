@@ -1,33 +1,33 @@
 import random
 import string
 import uuid
+from datetime import timedelta
 from decimal import Decimal
+from enum import Enum
 from typing import Union
 from uuid import uuid4
-from datetime import timedelta
-from enum import Enum
 
-from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, UserManager
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import Q, UniqueConstraint, Sum
+from django.db.models import Q, Sum
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from simple_history.models import HistoricalRecords
 from django_otp.plugins.otp_totp.models import TOTPDevice
+from simple_history.models import HistoricalRecords
 
-from accounts.models.user_feature_perm import UserFeaturePerm
-from analytics.event.producer import get_kafka_producer
 from accounts.models import Notification, Account, SystemConfig
+from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.utils.admin import url_to_edit_object
-from analytics.utils.dto import UserEvent
+from accounts.utils.mask import get_masked_phone
 from accounts.utils.telegram import send_support_message
 from accounts.utils.validation import PHONE_MAX_LENGTH
 from accounts.validators import mobile_number_validator, national_card_code_validator, telephone_number_validator
-from accounts.utils.mask import get_masked_phone
+from analytics.event.producer import get_kafka_producer
+from analytics.utils.dto import UserEvent
 from ledger.utils.fields import DONE
 
 
