@@ -55,6 +55,7 @@ urlpatterns = [
     path('v1/trade/otc/', views.OTCTradeView.as_view()),
     path('v1/trade/otc/info/', views.OTCInfoView.as_view()),
     path('v1/trade/otc/myTrades/', views.OTCHistoryView.as_view()),
+    path('v1/trade/otc/limit/', views.LimitOTCView.as_view()),
 
     path('v1/margin/transfer/', views.MarginTransferViewSet.as_view({
         'get': 'list',
