@@ -511,13 +511,14 @@ class ConvertDustView(APIView):
 class ConvertDustViewV2(APIView):
     def get(self, *args):
         account = self.request.user.get_account()
+        irt_asset = Asset.get(Asset.IRT)
 
         spot_wallets = list(Wallet.objects.filter(
             account=account,
             market=Wallet.SPOT,
             balance__gt=0,
             variant__isnull=True
-        ).prefetch_related('asset'))
+        ).exclude(asset=irt_asset).prefetch_related('asset'))
 
         allowed_conversion = []
 
