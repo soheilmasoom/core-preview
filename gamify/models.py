@@ -186,8 +186,8 @@ class Achievement(models.Model):
 
 
 class Task(models.Model):
-    TYPES = VERIFY_LEVEL2, DEPOSIT, TRADE, WEEKLY_TRADE, REFERRAL, SET_EMAIL = \
-        'verify_level2', 'deposit', 'trade', 'weekly_trade', 'referral', 'set_email'
+    TYPES = VERIFY_LEVEL2, DEPOSIT, DEPOSIT_FROM_NOW, TRADE, TRADE_FROM_NOW, REFERRAL, SET_EMAIL = \
+        'verify_level2', 'deposit', 'deposit_from_now', 'trade', 'weekly_trade', 'referral', 'set_email'
 
     BOOL, NUMBER = 'bool', 'number'
 

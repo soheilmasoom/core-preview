@@ -56,7 +56,7 @@ class TradeGoal(BaseGoalType):
 
 
 class WeeklyTradeGoal(BaseGoalType):
-    name = Task.WEEKLY_TRADE
+    name = Task.TRADE_FROM_NOW
 
     def get_progress(self, account: Account):
         expiration = self.task.mission.expiration
@@ -80,6 +80,22 @@ class WeeklyTradeGoal(BaseGoalType):
         return otc_val + trade_val
 
 
+class DepositFromNowGoal(BaseGoalType):
+    name = Task.DEPOSIT_FROM_NOW
+
+    def get_progress(self, account: Account):
+        expiration = self.task.mission.expiration
+        user_mission = UserMission.objects.get(mission=self.task.mission, user=account.user)
+
+        return Payment.objects.filter(
+            created__range=(user_mission.created, expiration),
+            user=account.user,
+            status=DONE
+        ).aggregate(
+            val=Sum(F('amount') + F('fee'))
+        )['val'] or 0
+
+
 class ReferralGoal(BaseGoalType):
     name = Task.REFERRAL
 
@@ -94,4 +110,4 @@ class SetEmailGoal(BaseGoalType):
         return bool(account.user.email)
 
 
-GOAL_TYPES = [VerifyLevel2Goal, DepositGoal, TradeGoal, ReferralGoal, SetEmailGoal, WeeklyTradeGoal]
+GOAL_TYPES = [VerifyLevel2Goal, DepositGoal, TradeGoal, ReferralGoal, SetEmailGoal, WeeklyTradeGoal, DepositFromNowGoal]
