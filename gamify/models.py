@@ -64,7 +64,7 @@ class MissionTemplate(models.Model):
                 return task
 
     class Meta:
-        ordering = ('order', )
+        ordering = ('order', 'id')
 
     def __str__(self):
         return self.name

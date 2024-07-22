@@ -38,7 +38,7 @@ class MissionTemplateAdmin(admin.ModelAdmin):
     inlines = (TaskInline, AchievementInline)
     actions = ('clone_mission', )
     list_filter = ('journey', 'active')
-    ordering = ('-id', )
+    ordering = ('journey', 'order', 'id')
 
     @admin.display(description='tasks')
     def get_tasks(self, mission: models.MissionTemplate):
