@@ -52,8 +52,9 @@ class PaystarGateway(Gateway):
         resp_data = resp.json()
 
         if not resp.ok or resp_data['status'] != 1:
-            print('status code', resp.status_code)
-            print('body', resp_data)
+            payment_request.details += f'status code: {resp.status_code}\n'
+            payment_request.details += f'body: {resp_data}'
+            payment_request.save(update_fields=['details'])
 
             raise GatewayFailed
 
