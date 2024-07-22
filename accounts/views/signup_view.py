@@ -121,16 +121,25 @@ class SignupSerializer(serializers.Serializer):
         return user
 
     def create_traffic_source(self, user, utm: dict):
-        utm_source = utm.get('utm_source', '')[:256]
+        def clean_data(d) -> str:
+            if not d:
+                d = ''
+
+            if isinstance(d, list):
+                d = d[0]
+
+            return d[:256]
+
+        utm_source = clean_data(utm.get('utm_source'))
 
         if not utm_source:
             return
 
-        utm_medium = utm.get('utm_medium', '')[:256]
-        utm_campaign = utm.get('utm_campaign', '')[:256]
-        utm_content = utm.get('utm_content', '')[:256]
-        utm_term = utm.get('utm_term', '')[:256]
-        gps_adid = utm.get('gps_adid', '')[:256]
+        utm_medium = clean_data(utm.get('utm_medium'))
+        utm_campaign = clean_data(utm.get('utm_campaign'))
+        utm_content = clean_data(utm.get('utm_content'))
+        utm_term = clean_data(utm.get('utm_term'))
+        gps_adid = clean_data(utm.get('gps_adid'))
 
         if utm_source == 'pwa_app':
             if utm_term.startswith('gclid'):
