@@ -526,17 +526,14 @@ class ConvertDustViewV2(APIView):
                 wallet.asset.symbol + Asset.IRT,
                 side=BUY
             )
-            usdt_irt_price = get_price(Asset.USDT + Asset.IRT, side=BUY)
 
-            if price is None or usdt_irt_price is None:
+            if price is None:
                 continue
 
-            free = wallet.get_free()
-            free_asset_irt_value = free * price
-            free_asset_usdt_value = free_asset_irt_value / usdt_irt_price
+            asset_irt_balance = wallet.balance * price
 
-            if Decimal(0) < free_asset_irt_value < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
-                allowed_conversion.append({str(wallet.asset.symbol) : {"free": free, "free_irt": free_asset_irt_value, "free_usdt": free_asset_usdt_value}})
+            if Decimal(0) < asset_irt_balance < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
+                allowed_conversion.append(wallet.asset.symbol)
 
         return Response({'symbols': allowed_conversion}, status=status.HTTP_200_OK)
 
