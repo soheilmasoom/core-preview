@@ -12,7 +12,7 @@ from ledger.utils.wallet_pipeline import WalletPipeline
 
 class PaystarGateway(Gateway):
     BASE_URL = 'https://core.paystar.ir/api/pardakht'
-    REDIRECT_BASE_URL = 'https://raastin.business'
+    REDIRECT_BASE_URL = 'https://raastin.com'
 
     def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
         fee = self.get_ipg_fee(amount)
