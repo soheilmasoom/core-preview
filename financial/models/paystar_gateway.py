@@ -2,6 +2,7 @@ import hashlib
 import hmac
 
 import requests
+from django.conf import settings
 from django.urls import reverse
 
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
@@ -12,7 +13,6 @@ from ledger.utils.wallet_pipeline import WalletPipeline
 
 class PaystarGateway(Gateway):
     BASE_URL = 'https://core.paystar.ir/api/pardakht'
-    REDIRECT_BASE_URL = 'https://raastin.com'
 
     def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
         fee = self.get_ipg_fee(amount)
@@ -28,7 +28,7 @@ class PaystarGateway(Gateway):
         rial_amount = amount * 10
 
         order_id = str(payment_request.id)
-        callback_url = self.REDIRECT_BASE_URL + reverse('finance:paystar-callback') + f'?id={payment_request.id}'
+        callback_url = settings.HOST_URL + reverse('finance:paystar-callback') + f'?id={payment_request.id}'
 
         sign_message = f'{rial_amount}#{order_id}#{callback_url}'
         sign = hmac.new(self.deposit_api_secret.encode(), sign_message.encode(), hashlib.sha512).hexdigest()
