@@ -13,11 +13,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='historicalsystemconfig',
             name='disable_new_positions',
-            field=models.BooleanField(default=True),
+            field=models.BooleanField(default=False),
         ),
         migrations.AddField(
             model_name='systemconfig',
             name='disable_new_positions',
-            field=models.BooleanField(default=True),
+            field=models.BooleanField(default=False),
         ),
     ]

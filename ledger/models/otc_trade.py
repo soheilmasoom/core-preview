@@ -163,37 +163,46 @@ class OTCTrade(models.Model):
             raise TokenExpired()
 
         if self.execution_type == self.MARKET:
-            with WalletPipeline() as pipeline:
-                fok_success = self.try_fok_fill(pipeline)
-
-                if not fok_success:
-                    raise HedgeError
+            try:
+                self.try_fok_fill()
+            except Exception as exp:
+                logger.exception('Error in hedging market otc request')
+                self.reject()
+                raise
         else:
-            self.try_provider_fill()
+            try:
+                self.hedge_with_provider()
+            except HedgeError:
+                logger.exception('Error in hedging provider otc request')
+                self.reject()
+                raise
 
         return self
 
-    def try_fok_fill(self, pipeline: WalletPipeline) -> bool:
+    def try_fok_fill(self):
         assert self.execution_type == self.MARKET
 
         symbol = self.otc_request.symbol
         from market.models import Order
 
-        fok_order = new_order(
-            pipeline=pipeline,
-            symbol=symbol,
-            account=Account.objects.get(id=OTC_ACCOUNT_ID),
-            amount=self.otc_request.amount,
-            price=self.otc_request.price,
-            side=self.otc_request.side,
-            time_in_force=Order.FOK,
-            pass_min_notional=True,
-            client_order_id=self.group_id
-        )
+        with WalletPipeline() as pipeline:
+            fok_order = new_order(
+                pipeline=pipeline,
+                symbol=symbol,
+                account=Account.objects.get(id=OTC_ACCOUNT_ID),
+                amount=self.otc_request.amount,
+                price=self.otc_request.price,
+                side=self.otc_request.side,
+                time_in_force=Order.FOK,
+                pass_min_notional=True,
+                client_order_id=self.group_id
+            )
 
-        self.order_id = fok_order.id
+            self.order_id = fok_order.id
 
-        if fok_order.status == Order.FILLED:
+            if fok_order.status != Order.FILLED:
+                raise HedgeError
+
             trades_base_sum = Trade.objects.filter(order_id=fok_order.id).aggregate(
                 sum=Sum(F('amount') * F('price'))
             )['sum'] or 0
@@ -212,21 +221,6 @@ class OTCTrade(models.Model):
                 source=TradeRevenue.OTC_MARKET,
                 hedge_key=str(fok_order.id),
             ).save()
-
-            return True
-        else:
-            self.save(update_fields=['order_id'])
-            self.reject()
-
-        return False
-
-    def try_provider_fill(self):
-        try:
-            self.hedge_with_provider()
-        except HedgeError:
-            logger.exception('Error in hedging otc request')
-            self.reject()
-            raise
 
     def reject(self):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
