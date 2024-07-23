@@ -17,5 +17,4 @@ def free_missing_locks():
         for k in open_keys:
             p.release_lock(k)
 
-    print('locks freed: %s' % len(open_keys))
-    print(open_keys)
+    print(f'locks freed: {len(open_keys)} {open_keys}')
