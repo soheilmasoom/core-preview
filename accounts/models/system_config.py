@@ -59,6 +59,8 @@ class SystemConfig(models.Model):
 
     disable_trade_with_api = models.BooleanField(default=False)
 
+    disable_new_positions = models.BooleanField(default=True)
+
     def __str__(self):
         return self.name
 
