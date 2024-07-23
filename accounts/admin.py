@@ -242,14 +242,15 @@ class ChangePhoneAdmin(BaseChangeAdmin):
 
 @admin.register(SystemConfig)
 class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
-    list_display = ('name', 'active', 'withdraw_status', 'deposit_status')
+    list_display = ('name', 'active', 'withdraw_status', 'deposit_status', 'disable_trade_with_api')
     list_editable = ('withdraw_status', 'deposit_status')
 
     default_edit_condition = M.superuser
 
     fields_edit_conditions = {
         'withdraw_status': True,
-        'deposit_status': True
+        'deposit_status': True,
+        'disable_trade_with_api': True,
     }
 
     actions = ('reset_users_default_margin_leverage', )
