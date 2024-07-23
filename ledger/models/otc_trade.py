@@ -102,12 +102,12 @@ class OTCTrade(models.Model):
                 to_buy_amount=otc_request.amount if otc_request.side == BUY else -otc_request.amount,
                 hedged=True
             )
-            pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
-                    reason=WalletPipeline.TRADE)
+            pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount, reason=WalletPipeline.TRADE)
 
         if otc_trade:
             if otc_request.type == OTCRequest.LIMIT:
                 return otc_trade
+
             return otc_trade.execute_trade()
 
     @classmethod
