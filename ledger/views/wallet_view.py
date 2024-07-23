@@ -511,13 +511,14 @@ class ConvertDustView(APIView):
 class ConvertDustViewV2(APIView):
     def get(self, *args):
         account = self.request.user.get_account()
+        irt_asset = Asset.get(Asset.IRT)
 
         spot_wallets = list(Wallet.objects.filter(
             account=account,
             market=Wallet.SPOT,
             balance__gt=0,
             variant__isnull=True
-        ).prefetch_related('asset'))
+        ).exclude(asset=irt_asset).prefetch_related('asset'))
 
         allowed_conversion = []
 
@@ -530,9 +531,9 @@ class ConvertDustViewV2(APIView):
             if price is None:
                 continue
 
-            free = wallet.get_free()
-            free_asset_irt_value = free * price
-            if Decimal(0) < free_asset_irt_value < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
+            asset_irt_balance = wallet.balance * price
+
+            if Decimal(0) < asset_irt_balance < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
                 allowed_conversion.append(wallet.asset.symbol)
 
         return Response({'symbols': allowed_conversion}, status=status.HTTP_200_OK)
