@@ -88,8 +88,8 @@ class TradeTokenAuthentication(CustomTokenAuthentication):
             msg = _('permission denied')
             raise exceptions.AuthenticationFailed(msg)
 
-        if request.method == 'POST' and not token.throttle_exempted:
-            if SystemConfig.get_system_config().disable_trade_with_api:
+        if request.method == 'POST':
+            if SystemConfig.get_system_config().disable_trade_with_api and not user.get_account().is_system():
                 msg = _('trade is closed')
                 raise TradeClosedException(msg)
 
