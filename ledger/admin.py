@@ -404,7 +404,7 @@ class OTCTradeAdmin(admin.ModelAdmin):
     @admin.action(description='Cancel Trade', permissions=['change'])
     def cancel_trade(self, request, queryset):
         for otc in queryset.filter(status=PENDING):
-            otc.cancel()
+            otc.reject()
 
     @admin.action(description='Revert', permissions=['change'])
     def revert(self, request, queryset):
