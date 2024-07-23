@@ -1111,8 +1111,8 @@ class AlertTriggerAdmin(admin.ModelAdmin):
 
 @admin.register(DepositRecoveryRequest)
 class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
-    list_display = ('created', 'asset', 'network', 'amount', 'memo', 'status', 'get_user')
-    list_filter = ('status', 'asset',)
+    list_display = ('created', 'asset', 'network', 'amount', 'memo', 'scope', 'status', 'get_user')
+    list_filter = ('status', 'asset', 'scope')
     readonly_fields = ('created', 'verifier', 'get_images', 'images')
     actions = ('verify_requests', 'reject_requests', 'accept_requests',)
     raw_id_fields = ('user',)

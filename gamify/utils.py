@@ -17,7 +17,10 @@ def check_prize_achievements(account: Account, task_scope: str = None):
         scopes = [task_scope]
 
         if task_scope == Task.TRADE:
-            scopes.append(Task.WEEKLY_TRADE)
+            scopes.append(Task.TRADE_FROM_NOW)
+
+        if task_scope == Task.DEPOSIT:
+            scopes.append(Task.DEPOSIT_FROM_NOW)
 
         extra = {'mission__task__scope__in': scopes}
 

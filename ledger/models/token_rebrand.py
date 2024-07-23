@@ -28,7 +28,7 @@ class TokenRebrand(models.Model):
 
     status = get_status_field(default=PENDING)
 
-    testers = models.ManyToManyField(User, limit_choices_to={'is_staff': True}, null=True, blank=True)
+    testers = models.ManyToManyField(User, limit_choices_to={'is_staff': True}, blank=True)
 
     group_id = get_group_id_field()
 
