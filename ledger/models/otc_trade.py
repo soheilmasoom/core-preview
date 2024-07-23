@@ -169,7 +169,6 @@ class OTCTrade(models.Model):
                 self.hedged = False
                 self.save(update_fields=['execution_type', 'hedged'])
 
-
         if not fok_success:
             self.try_provider_fill()
 
@@ -226,7 +225,7 @@ class OTCTrade(models.Model):
 
         try:
             self.hedge_with_provider()
-        except (HedgeError):
+        except HedgeError:
             logger.exception('Error in hedging otc request')
             self.cancel()
             raise

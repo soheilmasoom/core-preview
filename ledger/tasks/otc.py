@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def accept_pending_otc_trades():
     expire = timezone.now() - timedelta(seconds=60)
 
-    for otc in OTCTrade.objects.filter(status=OTCTrade.PENDING, created__lt=expire):
+    for otc in OTCTrade.objects.filter(status=OTCTrade.PENDING, execution_type=OTCTrade.PROVIDER, created__lt=expire):
         try:
             otc.hedge_with_provider()
         except Exception as e:
