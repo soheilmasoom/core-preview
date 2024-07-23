@@ -103,8 +103,8 @@ class Wallet(models.Model):
         assert self.market in Wallet.NEGATIVE_MARKETS
         return self.balance < 0
 
-    def airdrop(self, amount: Decimal, i_am_sure: bool = False):
-        assert settings.DEBUG_OR_TESTING or i_am_sure
+    def airdrop(self, amount: Decimal):
+        assert settings.DEBUG_OR_TESTING
         from accounts.models import Account
 
         from ledger.models import Trx

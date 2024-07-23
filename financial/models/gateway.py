@@ -7,7 +7,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from accounting.models import VaultItem, Vault
-from accounts.models import User, SystemConfig
+from accounts.models import User, SystemConfig, Account
 from financial.models import BankCard, Payment, PaymentRequest
 from financial.utils.admin import MultiSelectArrayField
 from financial.utils.bank import BANK_INFO, get_bank_from_iban
@@ -114,10 +114,22 @@ class Gateway(models.Model):
         return v and v.free
 
     @classmethod
-    def get_withdraw_fee(cls, amount):
+    def get_withdraw_fee(cls, amount: Decimal, account: Account) -> Decimal:
         config = SystemConfig.get_system_config()
-        return max(min(amount * config.withdraw_fee_percent // 100, config.withdraw_fee_max),
-                   config.withdraw_fee_min)
+        initial_fee = amount * config.withdraw_fee_percent // 100
+
+        fee = max(
+            min(
+                initial_fee,
+                config.withdraw_fee_max
+            ),
+            config.withdraw_fee_min
+        )
+
+        if account.increase_fiat_withdraw_fee:
+            fee = max(fee, amount * config.withdraw_fee_percent_after_max // 100)
+
+        return fee
 
     @classmethod
     def _find_best_deposit_gateway(cls, user: User, amount: Decimal = 0) -> 'Gateway':

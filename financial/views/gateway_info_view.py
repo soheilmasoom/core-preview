@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from decouple import config
 from django.db.models import Sum
 from rest_framework import serializers
@@ -21,6 +23,7 @@ class GatewaySerializer(serializers.ModelSerializer):
     withdraw_fee_min = serializers.SerializerMethodField()
     withdraw_fee_max = serializers.SerializerMethodField()
     withdraw_fee_percent = serializers.SerializerMethodField()
+    withdraw_fee_percent_after_max = serializers.SerializerMethodField()
 
     suspended = serializers.SerializerMethodField()
 
@@ -31,6 +34,15 @@ class GatewaySerializer(serializers.ModelSerializer):
     def get_withdraw_fee_max(self, gateway):
         system_config = SystemConfig.get_system_config()
         return system_config.withdraw_fee_max
+
+    def get_withdraw_fee_percent_after_max(self, gateway):
+        system_config = SystemConfig.get_system_config()
+
+        account = self.context['request'].user.get_account()
+        if account.increase_fiat_withdraw_fee:
+            return get_presentation_amount(system_config.withdraw_fee_percent_after_max)
+        else:
+            return Decimal(0)
 
     def get_withdraw_fee_percent(self, gateway):
         system_config = SystemConfig.get_system_config()
@@ -66,8 +78,8 @@ class GatewaySerializer(serializers.ModelSerializer):
         model = Gateway
         fields = (
             'id', 'min_deposit_amount', 'max_deposit_amount', 'next_ach_time', 'pay_id_enable', 'ipg_fee_min',
-            'ipg_fee_max', 'ipg_fee_percent', 'withdraw_fee_min', 'withdraw_fee_max', 'withdraw_fee_percent',
-            'suspended'
+            'ipg_fee_max', 'ipg_fee_percent', 'suspended',
+            'withdraw_fee_min', 'withdraw_fee_max', 'withdraw_fee_percent', 'withdraw_fee_percent_after_max'
         )
 
 

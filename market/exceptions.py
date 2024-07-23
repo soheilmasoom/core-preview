@@ -1,3 +1,0 @@
-
-class NegativeGapRevenue(Exception):
-    pass

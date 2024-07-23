@@ -1,10 +1,17 @@
 import logging
 from decimal import Decimal
+import os
 from uuid import uuid4
+
+from django.utils import timezone
+
+from ledger.utils.price import get_depth_price, get_price
+
 
 from django.conf import settings
 from django.db import models
 from django.db.models import F, Sum
+from ledger.utils.external_price import BUY, SELL, get_other_side
 
 from _base.settings import OTC_ACCOUNT_ID
 from accounting.models import TradeRevenue
@@ -18,7 +25,6 @@ from ledger.utils.fields import get_amount_field
 from ledger.utils.precision import floor_precision, get_symbol_presentation_price
 from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
-from market.exceptions import NegativeGapRevenue
 from market.models import Trade, PairSymbol
 from market.utils.order_utils import new_order
 from market.utils.trade import register_fee_transactions
@@ -31,7 +37,7 @@ class TokenExpired(Exception):
 
 
 class OTCTrade(models.Model):
-    PENDING, CANCELED, DONE, REVERT = 'pending', 'canceled', 'done', 'revert'
+    PENDING, CANCELED, DONE, REVERT, EXPIRED = 'pending', 'canceled', 'done', 'revert', 'expired'
     MARKET, PROVIDER = 'm', 'p'
 
     created = models.DateTimeField(auto_now_add=True)
@@ -44,6 +50,7 @@ class OTCTrade(models.Model):
         max_length=8,
         choices=[(PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE), (REVERT, REVERT)],
     )
+
     execution_type = models.CharField(max_length=1, choices=((MARKET, 'market'), (PROVIDER, 'provider')))
 
     gap_revenue = get_amount_field(default=0)
@@ -81,15 +88,9 @@ class OTCTrade(models.Model):
         return 'otc-%s' % self.id
 
     @classmethod
-    def execute_trade(cls, otc_request: OTCRequest, force: bool = False) -> 'OTCTrade':
-
-        if otc_request.expired():
-            raise TokenExpired()
-
+    def handle_otc_request(cls, otc_request: OTCRequest) -> 'OTCTrade':
         account = otc_request.account
-
         from_asset = otc_request.from_asset
-
         from_wallet = from_asset.get_wallet(account, market=otc_request.market)
         amount = otc_request.get_paying_amount()
         from_wallet.has_balance(amount, raise_exception=True)
@@ -101,26 +102,78 @@ class OTCTrade(models.Model):
                 to_buy_amount=otc_request.amount if otc_request.side == BUY else -otc_request.amount,
                 hedged=True
             )
+            pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
+                    reason=WalletPipeline.TRADE)
 
+        if otc_trade:
+            if otc_request.type == OTCRequest.LIMIT:
+                return otc_trade
+            return otc_trade.execute_trade()
+
+    @classmethod
+    def handle_expired(cls):
+        query_set = cls.get_untriggered_otc_trade_queryset().filter(
+            otc_request__gtd__lt=timezone.now())
+        with WalletPipeline() as pipeline:
+            for otc_trade in query_set:
+                pipeline.release_lock(otc_trade.group_id)
+            query_set.update(status=OTCTrade.EXPIRED)
+
+    @classmethod
+    def handle_trigger_price(cls, symbol: str, side: str, current_price: Decimal):
+        def is_triggered_price(otc_request: OTCRequest) -> bool:
+            current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
+            trigger_price = otc_request.trigger_price
+            side = otc_request.side
+            if side == SELL and Decimal(current_price) * Decimal("0.8") < trigger_price < Decimal(current_price):
+                return True
+            elif side == BUY and Decimal(current_price) < trigger_price < Decimal(current_price) * Decimal("1.2"):
+                return True
+            return False
+
+        triggered = cls.get_untriggered_otc_trade_queryset().filter(
+            otc_request__symbol__name=symbol,
+            otc_request__side=side,
+            otc_request__gtd__gt=timezone.now(),
+            otc_request__trigger_price__gte=Decimal(current_price) if side == BUY else Decimal(current_price) * Decimal("0.8"),
+            otc_request__trigger_price__lte=Decimal(current_price) * Decimal("1.2") if side == BUY else Decimal(current_price)
+        )
+
+        print("triggered_requests:#", list(triggered))
+        triggered_otc_trades = list(triggered)
+        for triggered_otc_trade in triggered_otc_trades:
+            if is_triggered_price(triggered_otc_trade.otc_request):
+                triggered_otc_trade.execute_trade()
+
+    @classmethod
+    def get_untriggered_otc_trade_queryset(cls):
+        result = OTCTrade.objects.filter(otc_request__type=OTCRequest.LIMIT, status=OTCTrade.PENDING).select_related('otc_request')
+        print("untriggered_otc_trade:#",list(result))
+        return result
+
+    def execute_trade(self) -> 'OTCTrade':
+        if self.otc_request.type == OTCRequest.MARKET and self.otc_request.expired():
+            raise TokenExpired()
+
+        with WalletPipeline() as pipeline:
             # todo: add lock when new engine deployed
-            fok_success = otc_trade.try_fok_fill(pipeline)
+            fok_success = self.try_fok_fill(pipeline)
 
             if not fok_success:
-                if otc_trade.otc_request.symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
-                    logger.warning(f'Hedge otc from market failed in {otc_request.symbol}', extra={
-                        'otc_request_id': otc_request.id
+                if self.otc_request.symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
+                    logger.warning(f'Hedge otc from market failed in {self.otc_request.symbol}', extra={
+                        'otc_request_id': self.otc_request.id
                     })
                     raise HedgeError
-                otc_trade.execution_type = OTCTrade.PROVIDER
-                otc_trade.hedged = False
-                otc_trade.save(update_fields=['execution_type', 'hedged'])
-                pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
-                                  reason=WalletPipeline.TRADE)
+                self.execution_type = OTCTrade.PROVIDER
+                self.hedged = False
+                self.save(update_fields=['execution_type', 'hedged'])
+
 
         if not fok_success:
-            otc_trade.try_provider_fill()
+            self.try_provider_fill()
 
-        return otc_trade
+        return self
 
     def try_fok_fill(self, pipeline: WalletPipeline) -> bool:
         assert self.execution_type == self.MARKET
@@ -171,13 +224,12 @@ class OTCTrade(models.Model):
 
     def try_provider_fill(self):
 
-        if self.otc_request.account.is_ordinary_user():
-            try:
-                self.hedge_with_provider()
-            except (HedgeError, NegativeGapRevenue):
-                logger.exception('Error in hedging otc request')
-                self.cancel()
-                raise
+        try:
+            self.hedge_with_provider()
+        except (HedgeError):
+            logger.exception('Error in hedging otc request')
+            self.cancel()
+            raise
 
     def cancel(self):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
@@ -185,8 +237,7 @@ class OTCTrade(models.Model):
             self.change_status(self.CANCELED)
 
     def accept(self, pipeline: WalletPipeline):
-        if self.execution_type == self.PROVIDER:
-            pipeline.release_lock(self.group_id)
+        pipeline.release_lock(self.group_id)
 
         self.change_status(self.DONE)
         self.create_ledger(pipeline)

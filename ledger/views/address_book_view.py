@@ -29,12 +29,13 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
         account = user.get_account()
         name = attrs['name']
         address = attrs['address']
-        network = get_object_or_404(Network, symbol=attrs['network'])
+        network = get_object_or_404(Network, symbol=attrs['network'], can_withdraw=True)
         sms_code = attrs.get('sms_code', '')
         totp = attrs.get('totp', '')
 
         if attrs['coin']:
             asset = get_object_or_404(Asset, symbol=attrs['coin'])
+            get_object_or_404(NetworkAsset, network=network, asset=asset, can_withdraw=True)
         else:
             asset = None
 
@@ -161,7 +162,8 @@ class AddressBookView(ModelViewSet):
             ).values_list('network', flat=True))
 
             address_books = address_books.filter(
-                Q(asset=asset) | Q(asset__isnull=True, network_id__in=can_withdraw_networks)
+                Q(asset=asset) | Q(asset__isnull=True),
+                network_id__in=can_withdraw_networks
             )
 
         if query_params.get('general') in ['0', '1']:

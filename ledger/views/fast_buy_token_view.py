@@ -49,7 +49,8 @@ class FastBuyTokenSerializer(serializers.ModelSerializer):
                 from_asset=Asset.get('IRT'),
                 to_asset=asset,
                 from_amount=Decimal(validated_data['amount']),
-                market=Wallet.SPOT
+                market=Wallet.SPOT,
+                order_type=OTCRequest.MARKET
             )
         except SmallDepthError as exp:
             max_amount = get_symbol_presentation_amount(f'{asset}IRT', exp.args[0])
