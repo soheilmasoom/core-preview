@@ -42,6 +42,8 @@ class WalletPipeline(Atomic):
 
         self._market_cache = MarketStreamCache()
 
+        self.positions = defaultdict(Decimal)
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -166,6 +168,9 @@ class WalletPipeline(Atomic):
         self._wallet_balances[sender.id] -= amount
         self._wallet_balances[receiver.id] += amount
 
+    def add_position_equity(self, position, amount):
+        self.positions[position.id] += amount
+
     def _build_wallet_updates(self) -> dict:
         balances = sorted_flatten_dict(self._wallet_balances)
         locks = sorted_flatten_dict(self._wallet_locks)
@@ -216,5 +221,9 @@ class WalletPipeline(Atomic):
 
         if self._locks:
             BalanceLock.objects.bulk_create(list(self._locks.values()))
+
+        for id, equity in self.positions.items():
+            from ledger.models import MarginPosition
+            MarginPosition.objects.filter(id=id).update(equity=F('equity') + equity)
 
         self._market_cache.execute()
