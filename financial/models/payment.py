@@ -55,7 +55,7 @@ class PaymentRequest(models.Model):
     def rial_amount(self):
         return (self.fee + self.amount) * 10
 
-    def get_or_create_payment(self):
+    def get_or_create_payment(self) -> 'Payment':
         with transaction.atomic():
             payment, created = Payment.objects.get_or_create(
                 group_id=self.group_id,
@@ -106,6 +106,7 @@ class Payment(models.Model):
     description = models.CharField(max_length=DESCRIPTION_SIZE, blank=True)
 
     source = models.CharField(max_length=16, choices=[(s, s) for s in SOURCES], db_index=True)
+    card_pan = models.CharField(max_length=32, blank=True)
 
     def __str__(self):
         return f'{humanize_number(self.amount)} IRT to {self.user} ({self.status})'

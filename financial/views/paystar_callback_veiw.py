@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.views.generic import TemplateView
 from rest_framework.exceptions import ValidationError
 
-from financial.models import PaymentRequest, Gateway
+from financial.models import PaymentRequest, Gateway, Payment
 from ledger.utils.fields import CANCELED, PENDING
 
 logger = logging.getLogger(__name__)
@@ -30,13 +30,14 @@ class PaystarCallbackView(TemplateView):
             with transaction.atomic():
                 payment = payment_request.get_or_create_payment()
                 payment.ref_id = tracking_code
-                payment.save(update_fields=['ref_id'])
+                payment.card_pan = card_number
+                payment.save(update_fields=['ref_id', 'card_pan'])
 
         if payment.status == PENDING:
             if status != '1':
                 payment.status = CANCELED
                 payment.save()
             else:
-                payment_request.get_gateway().verify(payment, card_number=card_number)
+                payment_request.get_gateway().verify(payment)
 
         return payment.redirect_to_app()

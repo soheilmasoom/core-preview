@@ -209,15 +209,15 @@ class Gateway(models.Model):
     def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
         raise NotImplementedError
 
-    def verify(self, payment: Payment, **kwargs):
-        self._verify(payment=payment, **kwargs)
+    def verify(self, payment: Payment):
+        self._verify(payment=payment)
 
         fast_buy_token = FastBuyToken.objects.filter(payment_request=payment.paymentrequest).last()
 
         if fast_buy_token:
             fast_buy_token.create_otc_for_fast_buy_token(payment)
 
-    def _verify(self, payment: Payment, **kwargs):
+    def _verify(self, payment: Payment):
         raise NotImplementedError
 
     def get_ipg_fee(self, amount: int) -> int:
