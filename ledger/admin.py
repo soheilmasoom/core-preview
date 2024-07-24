@@ -1326,7 +1326,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
 @admin.register(MarginHistoryModel)
 class MarginHistoryModelAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'position', 'asset', 'amount', 'type')
-    readonly_fields = ('created', 'position', 'asset', 'amount', 'type', 'group_id', 'account')
+    readonly_fields = ('created', 'position', 'asset', 'type', 'group_id', 'account')
     search_fields = ('group_id', 'asset__symbol', 'position__symbol__name', 'type')
     list_filter = ('type', 'asset')
 
