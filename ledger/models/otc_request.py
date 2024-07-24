@@ -9,7 +9,7 @@ from rest_framework.exceptions import ValidationError
 from accounts.models import Account
 from ledger.exceptions import SmallAmountTrade, LargeAmountTrade, NoPriceError
 from ledger.models import Asset, Wallet
-from ledger.utils.external_price import get_other_side, BUY
+from ledger.utils.external_price import get_other_side, BUY, SELL
 from ledger.utils.fields import get_amount_field
 from ledger.utils.otc import get_trading_pair
 from ledger.utils.precision import floor_precision, get_presentation_amount
@@ -171,6 +171,13 @@ class OTCRequest(BaseTrade):
 
     def get_expire_time(self) -> datetime:
         return self.created + timedelta(seconds=OTCRequest.EXPIRATION_TIME)
+
+    def get_receiving_amount(self):
+        if self.side == SELL:
+            price = self.price if self.type == OTCRequest.MARKET else self.trigger_price
+            return self.amount * price
+        else:
+            return self.amount
 
     def expired(self):
         return (timezone.now() - self.created).total_seconds() >= self.EXPIRATION_TIME
