@@ -17,7 +17,7 @@ from ledger.utils.external_price import SHORT, LONG, BUY, SELL, get_other_side
 from ledger.utils.fields import get_amount_field
 from ledger.utils.precision import floor_precision, ceil_precision
 from ledger.utils.price import get_depth_price, get_base_depth_price, get_price
-from market.models import PairSymbol, Order
+from market.models import PairSymbol
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +28,9 @@ MARGIN_POOL_ACCOUNT = config('MARGIN_POOL_ACCOUNT', cast=int)
 class MarginPosition(models.Model):
     history = HistoricalRecords()
 
-    OPEN, CLOSED, TERMINATING = 'open', 'closed', 'terminating'
+    INIT, OPEN, CLOSED, TERMINATING = 'init', 'open', 'closed', 'terminating'
     STATUS_LIST = [OPEN, CLOSED, TERMINATING]
-    STATUS_CHOICES = [(OPEN, OPEN), (CLOSED, CLOSED), (TERMINATING, TERMINATING)]
+    STATUS_CHOICES = [(INIT, INIT), (OPEN, OPEN), (CLOSED, CLOSED), (TERMINATING, TERMINATING)]
     SIDE_CHOICES = [(LONG, LONG), (SHORT, SHORT)]
 
     created = models.DateTimeField(auto_now_add=True)
@@ -45,7 +45,7 @@ class MarginPosition(models.Model):
     average_price = get_amount_field(default=0)
     liquidation_price = get_amount_field(null=True)
     side = models.CharField(max_length=8, choices=SIDE_CHOICES)
-    status = models.CharField(default=OPEN, max_length=12, choices=STATUS_CHOICES)
+    status = models.CharField(default=INIT, max_length=12, choices=STATUS_CHOICES)
     leverage = models.PositiveSmallIntegerField()
     alert_mode = models.BooleanField(default=False, db_index=True)
 
@@ -176,10 +176,10 @@ class MarginPosition(models.Model):
                 scope=Trx.MARGIN_TRANSFER
             )
 
-            self.create_transfer_equity_history(amount=amount, total_balance=traded_total_balance,
+            self.create_transfer_equity_history(pipeline=pipeline, amount=amount, total_balance=traded_total_balance,
                                                 debt_amount=traded_debt_amount, group_id=group_id, price=price)
 
-    def create_transfer_equity_history(self, amount, total_balance, debt_amount, group_id, price: Decimal = None):
+    def create_transfer_equity_history(self, pipeline, amount, total_balance, debt_amount, group_id, price: Decimal = None):
 
         if not price:
             price = self.symbol.last_trade_price
@@ -198,15 +198,18 @@ class MarginPosition(models.Model):
 
         realized_pnl = amount - to_transfer_equity
 
-        self.create_history(
-            asset=self.symbol.base_asset,
-            amount=realized_pnl,
-            group_id=group_id,
-            type=MarginHistoryModel.PNL
-        )
+        if realized_pnl:
+            self.create_history(
+                asset=self.symbol.base_asset,
+                amount=realized_pnl,
+                group_id=group_id,
+                type=MarginHistoryModel.PNL
+            )
 
-        self.equity -= to_transfer_equity
-        self.save(update_fields=['equity'])
+        pipeline.add_position_equity(self, -to_transfer_equity)
+
+        # self.equity -= to_transfer_equity
+        # self.save(update_fields=['equity'])
 
     @classmethod
     def get_by(cls, symbol: PairSymbol, account: Account, order_side: str, is_open_position: bool):
@@ -221,7 +224,7 @@ class MarginPosition(models.Model):
         position = cls.objects.filter(
             account=account,
             symbol=symbol,
-            status__in=[cls.OPEN, cls.TERMINATING],
+            status__in=[cls.INIT, cls.OPEN, cls.TERMINATING],
             side=position_side
         ).first()
 
@@ -240,7 +243,7 @@ class MarginPosition(models.Model):
             return cls.objects.create(
                 account=account,
                 symbol=symbol,
-                status=cls.OPEN,
+                status=cls.INIT,
                 group_id=group_id,
                 base_wallet=symbol.base_asset.get_wallet(account, Wallet.MARGIN, group_id),
                 asset_wallet=symbol.asset.get_wallet(account, Wallet.MARGIN, group_id),
@@ -522,7 +525,8 @@ class MarginPosition(models.Model):
                 amount=free,
                 group_id=group_id,
                 type=MarginHistoryModel.DUST,
-                account=self.account
+                account=self.account,
+                position=self
             )
 
     def close(self, amount=None):
