@@ -392,7 +392,7 @@ class Transfer(models.Model):
         else:
             action = 'withdraw'
 
-        return f'{action} {self.amount} {self.network}/{self.asset} ({self.usdt_value}$)'
+        return f'{action} {self.amount} {self.asset}/{self.network} ({self.usdt_value}$)'
 
 
 @receiver(post_save, sender=Transfer)
