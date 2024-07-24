@@ -93,9 +93,9 @@ class OTCInfoView(APIView):
             risky = True
 
         if otc.side == BUY:
-            from_precision, to_precision = Asset.PRECISION, symbol.step_size
+            from_precision, to_precision, trigger_price_precision = Asset.PRECISION, symbol.step_size, Asset.PRECISION,
         else:
-            from_precision, to_precision = symbol.step_size, Asset.PRECISION
+            from_precision, to_precision, trigger_price_precision = symbol.step_size, Asset.PRECISION, Asset.PRECISION,
 
         return Response({
             'base_asset': symbol.base_asset.symbol,
@@ -106,6 +106,7 @@ class OTCInfoView(APIView):
             'risky': risky,
             'from_precision': from_precision,
             'to_precision': to_precision,
+            'trigger_price_precision': trigger_price_precision,
         })
 
 
