@@ -2,12 +2,15 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
+from simple_history.models import HistoricalRecords
 
 
 class Network(models.Model):
     ETH = 'ETH'
     TRX = 'TRX'
     BSC = 'BSC'
+
+    history = HistoricalRecords()
 
     symbol = models.CharField(max_length=16, unique=True, db_index=True)
     name = models.CharField(max_length=128, blank=True)

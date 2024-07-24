@@ -64,7 +64,7 @@ class AssetVariantInline(admin.TabularInline):
 
 
 @admin.register(models.Asset)
-class AssetAdmin(AdvancedAdmin):
+class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
     fields_edit_conditions = {
         'order': True,
@@ -229,7 +229,7 @@ class WithdrawFeedbackAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.Network)
-class NetworkAdmin(admin.ModelAdmin):
+class NetworkAdmin(SimpleHistoryAdmin):
     list_display = (
         'symbol', 'can_withdraw', 'can_deposit', 'min_confirm', 'unlock_confirm', 'need_memo', 'address_regex',
     )
@@ -256,7 +256,7 @@ class NetworkAssetFilter(admin.SimpleListFilter):
 
 
 @admin.register(NetworkAsset)
-class NetworkAssetAdmin(admin.ModelAdmin):
+class NetworkAssetAdmin(SimpleHistoryAdmin):
     list_display = ('network', 'asset', 'get_withdraw_fee', 'get_withdraw_min', 'get_withdraw_max', 'get_deposit_min',
                     'can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider', 'network_order',
                     'last_provider_update', 'expected_hw_balance', 'hedger_withdraw_enable', 'hedger_deposit_enable',)
