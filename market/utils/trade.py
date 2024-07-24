@@ -11,7 +11,7 @@ from django.utils import timezone
 from accounts.models import Referral, SystemConfig
 from ledger.models import Wallet, Trx, Asset
 from ledger.models.margin import REPAY, BORROW, OPEN
-from ledger.models.position import MarginHistoryModel
+from ledger.models.position import MarginHistoryModel, MarginPosition
 from ledger.utils.cache import cache_for
 from ledger.utils.external_price import BUY, SELL, LONG, SHORT
 from ledger.utils.precision import floor_precision, get_symbol_presentation_price
@@ -132,9 +132,9 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
         total_balance = asset_balance * position.symbol.last_trade_price + loan_balance
 
         is_position_closed = (trade_info.loan_type == Order.LIQUIDATION or
-                             (((floored_asset_balance > Decimal('0') and floored_loan_balance >= 0) or
-                               (floored_asset_balance == 0 and total_balance >= Decimal('0'))) and
-                              trade_info.loan_type != BORROW))
+                              (((floored_asset_balance > Decimal('0') and floored_loan_balance >= 0) or
+                                (floored_asset_balance == 0)) and
+                               trade_info.loan_type != BORROW))
 
         if is_position_closed:
             logger.info(f"Closing position:{position.id}")
@@ -175,6 +175,7 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
                 )
 
                 position.create_transfer_equity_history(
+                    pipeline=pipeline,
                     amount=remaining_balance,
                     debt_amount=position.debt_amount,
                     total_balance=position.total_balance,
@@ -291,6 +292,7 @@ def _register_margin_transaction(pipeline: WalletPipeline, pair: TradesPair, loa
                         scope=Trx.MARGIN_TRANSFER
                     )
                     position.equity += trade_value
+                    position.status = MarginPosition.OPEN
 
                 order.symbol.get_margin_position(order.account, order.side, order.is_open_position)
                 fee_amount = floor_precision(trade.fee_amount,
