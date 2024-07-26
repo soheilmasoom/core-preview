@@ -196,6 +196,11 @@ class StopLossAdmin(admin.ModelAdmin):
             f'<span dir="ltr">{stop_loss.wallet}</span>'
         )
 
+    @admin.action(description='Cancel', permissions=['change'])
+    def cancel(self, request, queryset):
+        for stop_loss in queryset:
+            stop_loss.delete()
+
 
 @admin.register(OCO)
 class OCOAdmin(admin.ModelAdmin):
