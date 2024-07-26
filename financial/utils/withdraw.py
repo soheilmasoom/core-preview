@@ -718,9 +718,18 @@ class PaystarChannel(FiatWithdraw):
     def get_wallet_data(self) -> Wallet:
         resp = self.collect_api('/wallets-balance', data={'wallet_hashid': self.gateway.wallet_id}).get_success_data()
 
+        total_amount = resp['total_amount']
+        available_amount = resp['available_amount']
+
+        if isinstance(total_amount, str):
+            total_amount = int(total_amount.replace(',', ''))
+
+        if isinstance(available_amount, str):
+            available_amount = int(available_amount.replace(',', ''))
+
         return Wallet(
-            balance=int(resp['total_amount'].replace(',', '')) // 10,
-            free=int(resp['available_amount'].replace(',', '')) // 10,
+            balance=total_amount // 10,
+            free=available_amount // 10,
         )
 
     def _get_sign(self):

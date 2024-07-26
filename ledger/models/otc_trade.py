@@ -96,19 +96,19 @@ class OTCTrade(models.Model):
         from_wallet.has_balance(amount, raise_exception=True)
 
         with WalletPipeline() as pipeline:
+            execution_type = OTCTrade.get_fill_type(otc_request.symbol)
             otc_trade = OTCTrade.objects.create(
                 otc_request=otc_request,
-                execution_type=OTCTrade.MARKET,
+                execution_type=execution_type,
                 to_buy_amount=otc_request.amount if otc_request.side == BUY else -otc_request.amount,
-                hedged=True
+                hedged=execution_type == OTCTrade.MARKET
             )
-            pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
-                    reason=WalletPipeline.TRADE)
+            pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount, reason=WalletPipeline.TRADE)
 
-        if otc_trade:
-            if otc_request.type == OTCRequest.LIMIT:
-                return otc_trade
-            return otc_trade.execute_trade()
+        if otc_request.type == OTCRequest.LIMIT:
+            return otc_trade
+
+        return otc_trade.execute_trade()
 
     @classmethod
     def handle_expired(cls):
@@ -151,37 +151,41 @@ class OTCTrade(models.Model):
         print("untriggered_otc_trade:#",list(result))
         return result
 
+    @classmethod
+    def get_fill_type(cls, symbol: PairSymbol):
+        if symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
+            return cls.MARKET
+        else:
+            return cls.PROVIDER
+
     def execute_trade(self) -> 'OTCTrade':
         if self.otc_request.type == OTCRequest.MARKET and self.otc_request.expired():
             raise TokenExpired()
 
-        with WalletPipeline() as pipeline:
-            # todo: add lock when new engine deployed
-            fok_success = self.try_fok_fill(pipeline)
-
-            if not fok_success:
-                if self.otc_request.symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
-                    logger.warning(f'Hedge otc from market failed in {self.otc_request.symbol}', extra={
-                        'otc_request_id': self.otc_request.id
-                    })
-                    raise HedgeError
-                self.execution_type = OTCTrade.PROVIDER
-                self.hedged = False
-                self.save(update_fields=['execution_type', 'hedged'])
-
-
-        if not fok_success:
-            self.try_provider_fill()
+        if self.execution_type == self.MARKET:
+            try:
+                self.try_fok_fill()
+            except Exception as exp:
+                logger.exception('Error in hedging market otc request')
+                self.reject()
+                raise
+        else:
+            try:
+                self.hedge_with_provider()
+            except HedgeError:
+                logger.exception('Error in hedging provider otc request')
+                self.reject()
+                raise
 
         return self
 
-    def try_fok_fill(self, pipeline: WalletPipeline) -> bool:
+    def try_fok_fill(self):
         assert self.execution_type == self.MARKET
 
         symbol = self.otc_request.symbol
-        if symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
-            from market.models import Order
+        from market.models import Order
 
+        with WalletPipeline() as pipeline:
             fok_order = new_order(
                 pipeline=pipeline,
                 symbol=symbol,
@@ -196,45 +200,32 @@ class OTCTrade(models.Model):
 
             self.order_id = fok_order.id
 
-            if fok_order.status == Order.FILLED:
-                trades_base_sum = Trade.objects.filter(order_id=fok_order.id).aggregate(
-                    sum=Sum(F('amount') * F('price'))
-                )['sum'] or 0
+            if fok_order.status != Order.FILLED:
+                raise HedgeError
 
-                otc_base_amount = self.otc_request.amount * self.otc_request.price
-                self.gap_revenue = (otc_base_amount - trades_base_sum) * self.otc_request.base_usdt_price
-                if self.otc_request.side == SELL:
-                    self.gap_revenue = -self.gap_revenue
+            trades_base_sum = Trade.objects.filter(order_id=fok_order.id).aggregate(
+                sum=Sum(F('amount') * F('price'))
+            )['sum'] or 0
 
-                self.save(update_fields=['order_id', 'gap_revenue'])
-                self.accept(pipeline)
+            otc_base_amount = self.otc_request.amount * self.otc_request.price
+            self.gap_revenue = (otc_base_amount - trades_base_sum) * self.otc_request.base_usdt_price
+            if self.otc_request.side == SELL:
+                self.gap_revenue = -self.gap_revenue
 
-                TradeRevenue.new(
-                    user_trade=self.otc_request,
-                    group_id=self.group_id,
-                    source=TradeRevenue.OTC_MARKET,
-                    hedge_key=str(fok_order.id),
-                ).save()
+            self.save(update_fields=['order_id', 'gap_revenue'])
+            self.accept(pipeline)
 
-                return True
-            else:
-                self.save(update_fields=['order_id'])
+            TradeRevenue.new(
+                user_trade=self.otc_request,
+                group_id=self.group_id,
+                source=TradeRevenue.OTC_MARKET,
+                hedge_key=str(fok_order.id),
+            ).save()
 
-        return False
-
-    def try_provider_fill(self):
-
-        try:
-            self.hedge_with_provider()
-        except (HedgeError):
-            logger.exception('Error in hedging otc request')
-            self.cancel()
-            raise
-
-    def cancel(self, is_user_request=False):
+    def reject(self):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
             pipeline.release_lock(self.group_id)
-            self.change_status(self.USER_CANCELED) if is_user_request else self.change_status(self.CANCELED)
+            self.change_status(self.CANCELED)
 
     def accept(self, pipeline: WalletPipeline):
         pipeline.release_lock(self.group_id)

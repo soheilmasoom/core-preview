@@ -15,7 +15,7 @@ SMS_IR_TOKEN_KEY = 'sms-ir-token'
 
 
 def send_message_by_kavenegar(phone: str, template: str, token: str, send_type: str = 'sms'):
-    if settings.DEBUG_OR_TESTING_OR_STAGING:
+    if not phone or settings.DEBUG_OR_TESTING_OR_STAGING:
         return
 
     api_key = config('KAVENEGAR_KEY')
@@ -35,8 +35,8 @@ def send_message_by_kavenegar(phone: str, template: str, token: str, send_type: 
 
 
 def send_kavenegar_exclusive_sms(phone: str, content: str):
-    if settings.DEBUG_OR_TESTING_OR_STAGING or not settings.EXCLUSIVE_SMS_NUMBER:
-        return
+    if not phone or settings.DEBUG_OR_TESTING_OR_STAGING or not settings.EXCLUSIVE_SMS_NUMBER:
+        return True
 
     api_key = config('KAVENEGAR_KEY')
     api = KavenegarAPI(apikey=api_key)

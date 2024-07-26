@@ -115,6 +115,10 @@ def check_margin_order(account, attrs):
         raise ValidationError('Cant place margin order Due to Terminating position')
 
     if attrs.get('is_open_position'):
+
+        if SystemConfig.get_system_config().disable_new_positions:
+            raise ValidationError('در حال حاضر امکان ایجاد موقعیت تعهدی وجود ندارد.')
+
         base = USDT if attrs['symbol']['name'].upper().endswith(USDT) else IRT
         sys_config = SystemConfig.get_system_config()
         total_equity = MarginPosition.objects.filter(

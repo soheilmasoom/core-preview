@@ -2,14 +2,21 @@ import logging
 
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
-from rest_framework import exceptions
+from rest_framework import exceptions, status
 from rest_framework.authentication import TokenAuthentication, get_authorization_header
+from rest_framework.exceptions import APIException
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.models import CustomToken
+from accounts.models import CustomToken, SystemConfig
 from accounts.utils.ip import get_client_ip
 
 logger = logging.getLogger(__name__)
+
+
+class TradeClosedException(APIException):
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = _('Trade closed.')
+    default_code = 'trade_error'
 
 
 class CustomTokenAuthentication(TokenAuthentication):
@@ -65,7 +72,7 @@ class WithdrawTokenAuthentication(CustomTokenAuthentication):
         if not auth_detail:
             return None
         user, token = auth_detail
-        if not (token.scopes and CustomToken.WITHDRAW in token.scopes):
+        if CustomToken.WITHDRAW not in token.scopes:
             msg = _('permission denied')
             raise exceptions.AuthenticationFailed(msg)
         return user, token
@@ -77,9 +84,15 @@ class TradeTokenAuthentication(CustomTokenAuthentication):
         if not auth_detail:
             return None
         user, token = auth_detail
-        if not (token.scopes and CustomToken.TRADE in token.scopes):
+        if CustomToken.TRADE not in token.scopes:
             msg = _('permission denied')
             raise exceptions.AuthenticationFailed(msg)
+
+        if request.method == 'POST':
+            if SystemConfig.get_system_config().disable_trade_with_api and not user.get_account().is_system():
+                msg = _('trade is closed')
+                raise TradeClosedException(msg)
+
         return user, token
 
 

@@ -242,14 +242,15 @@ class ChangePhoneAdmin(BaseChangeAdmin):
 
 @admin.register(SystemConfig)
 class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
-    list_display = ('name', 'active', 'withdraw_status', 'deposit_status')
+    list_display = ('name', 'active', 'withdraw_status', 'deposit_status', 'disable_trade_with_api')
     list_editable = ('withdraw_status', 'deposit_status')
 
     default_edit_condition = M.superuser
 
     fields_edit_conditions = {
         'withdraw_status': True,
-        'deposit_status': True
+        'deposit_status': True,
+        'disable_trade_with_api': True,
     }
 
     actions = ('reset_users_default_margin_leverage', )
@@ -315,7 +316,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
             ),
         }),
         (_('Important dates'), {'fields': (
-            'get_last_login_jalali', 'get_date_joined_jalali',
+            'get_last_login_jalali', 'get_date_joined_jalali', 'get_first_fiat_deposit_date_jalali',
             'get_first_crypto_deposit_date_jalali', 'get_level_2_verify_datetime_jalali',
             'get_level_3_verify_datetime_jalali', 'get_selfie_image_uploaded',
             'margin_quiz_pass_date',
@@ -361,7 +362,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet',
         'get_sum_of_value_buy_sell',
         'get_selfie_image', 'get_level_2_verify_datetime_jalali', 'get_level_3_verify_datetime_jalali',
-        'get_first_crypto_deposit_date_jalali',
+        'get_first_fiat_deposit_date_jalali', 'get_first_crypto_deposit_date_jalali',
         'get_date_joined_jalali', 'get_last_login_jalali',
         'get_remaining_fiat_withdraw_limit', 'get_remaining_crypto_withdraw_limit', 'get_deposit_address',
         'get_bank_card_link', 'get_bank_account_link', 'get_transfer_link', 'get_finotech_request_link',
@@ -669,6 +670,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         return gregorian_to_jalali_datetime_str(user.level_3_verify_datetime)
 
     get_level_3_verify_datetime_jalali.short_description = 'تاریخ تایید سطح ۳'
+
+    @admin.display(description='تاریخ اولین واریز ریالی')
+    def get_first_fiat_deposit_date_jalali(self, user: User):
+        date = gregorian_to_jalali_datetime_str(user.first_fiat_deposit_date)
+
+        return mark_safe("<span>%s</span>" % date)
 
     @admin.display(description='تاریخ اولین واریز رمزارزی')
     def get_first_crypto_deposit_date_jalali(self, user: User):

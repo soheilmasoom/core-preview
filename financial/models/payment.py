@@ -46,6 +46,8 @@ class PaymentRequest(models.Model):
     group_id = get_group_id_field()
     payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.SET_NULL)
 
+    details = models.TextField(blank=True)
+
     def get_gateway(self):
         return self.gateway.get_concrete_gateway()
 

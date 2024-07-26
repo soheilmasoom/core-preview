@@ -98,7 +98,7 @@ class WithdrawRequestSerializer(serializers.ModelSerializer):
         if not gateway:
             raise ValidationError('در حال حاضر امکان برداشت وجود ندارد.')
 
-        fee_amount = gateway.get_withdraw_fee(amount=amount)
+        fee_amount = gateway.get_withdraw_fee(amount=amount, account=account)
         withdraw_amount = amount - fee_amount
 
         try:

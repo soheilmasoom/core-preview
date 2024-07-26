@@ -60,8 +60,7 @@ def process_bulk_notifications():
 
 @shared_task(queue='notif-manager')
 def send_sms_notifications():
-    for notif in SmsNotification.objects.filter(sent=False).order_by('id')[:100]:
-
+    for notif in SmsNotification.objects.filter(sent=False).order_by('id')[:1000]:
         resp = send_kavenegar_exclusive_sms(
             phone=notif.recipient.phone,
             content=notif.content
@@ -74,7 +73,7 @@ def send_sms_notifications():
 
 @shared_task(queue='notif-manager')
 def send_email_notifications():
-    for email_notif in EmailNotification.objects.filter(sent=False):
+    for email_notif in EmailNotification.objects.filter(sent=False).order_by('id'):
         if not email_notif.recipient.email:
             email_notif.sent = True
             email_notif.save(update_fields=['sent'])
