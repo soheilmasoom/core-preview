@@ -18,7 +18,7 @@ from rest_framework.viewsets import ModelViewSet
 from _base.settings import SYSTEM_ACCOUNT_ID
 from accounts.models import SystemConfig
 from accounts.views.jwt_views import DelegatedAccountMixin
-from ledger.models import Wallet, DepositAddress, NetworkAsset, Trx, Network
+from ledger.models import Wallet, DepositAddress, NetworkAsset, Trx, Network, Dust
 from ledger.models.asset import Asset, AssetSerializerMini
 from ledger.utils.external_price import BUY, SELL
 from ledger.utils.fields import get_irt_market_asset_symbols
@@ -511,6 +511,9 @@ class ConvertDustView(APIView):
 class ConvertDustViewV2(APIView):
     def get(self, *args):
         account = self.request.user.get_account()
+        if Dust.has_recent_conversion(account=account):
+            return Response({'message': "user has recent conversion"}, status=status.HTTP_400_BAD_REQUEST)
+
         irt_asset = Asset.get(Asset.IRT)
 
         spot_wallets = list(Wallet.objects.filter(
@@ -591,9 +594,16 @@ class ConvertDustViewV2(APIView):
                         group_id=group_id,
                         scope=Trx.DUST
                     )
+                    Dust.object.create(
+                        sender=wallet,
+                        receiver=wallet.asset.get_wallet(SYSTEM_ACCOUNT_ID),
+                        amount=free,
+                        base_asset=base_asset,
+                        converted_amount=free * price,
+                        group_id=group_id,
+                    )
 
                     base_amount += price * free
-
                     any_converted = True
 
             pipeline.new_trx(
@@ -602,6 +612,14 @@ class ConvertDustViewV2(APIView):
                 amount=base_amount,
                 group_id=group_id,
                 scope=Trx.DUST,
+             )
+            Dust.object.create(
+                sender=base_asset.get_wallet(SYSTEM_ACCOUNT_ID),
+                receiver=base_asset.get_wallet(account),
+                amount=base_amount,
+                base_asset=base_asset,
+                converted_amount=base_amount,
+                group_id=group_id,
             )
 
         if not any_converted:
