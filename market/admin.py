@@ -189,6 +189,7 @@ class StopLossAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_masked_wallet', 'symbol', 'fill_type', 'amount', 'filled_amount', 'trigger_price', 'price', 'side')
     readonly_fields = ('wallet', 'symbol', 'group_id', 'login_activity')
     search_fields = ('wallet__account__user__phone', 'symbol__name')
+    actions = ('cancel',)
 
     @admin.display(description='wallet')
     def get_masked_wallet(self, stop_loss: StopLoss):
