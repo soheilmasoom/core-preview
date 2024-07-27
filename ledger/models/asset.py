@@ -7,6 +7,7 @@ from django.conf import settings
 from django.db import models
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
+from simple_history.models import HistoricalRecords
 
 from ledger.models import Wallet
 from ledger.utils.external_price import BUY, SELL
@@ -30,6 +31,8 @@ class Asset(models.Model):
     ACTIVE, DISABLED = 'active', 'disabled'
 
     PRECISION = 8
+
+    history = HistoricalRecords()
 
     objects = models.Manager()
     live_objects = LiveAssetManager()

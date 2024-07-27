@@ -189,12 +189,18 @@ class StopLossAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_masked_wallet', 'symbol', 'fill_type', 'amount', 'filled_amount', 'trigger_price', 'price', 'side')
     readonly_fields = ('wallet', 'symbol', 'group_id', 'login_activity')
     search_fields = ('wallet__account__user__phone', 'symbol__name')
+    actions = ('cancel',)
 
     @admin.display(description='wallet')
     def get_masked_wallet(self, stop_loss: StopLoss):
         return mark_safe(
             f'<span dir="ltr">{stop_loss.wallet}</span>'
         )
+
+    @admin.action(description='Cancel', permissions=['change'])
+    def cancel(self, request, queryset):
+        for stop_loss in queryset:
+            stop_loss.delete()
 
 
 @admin.register(OCO)

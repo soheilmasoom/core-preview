@@ -70,9 +70,9 @@ class PaystarGateway(Gateway):
     def get_payment_url(cls, payment_request: PaymentRequest):
         return f'https://core.paystar.ir/api/pardakht/payment?token={payment_request.token}'
 
-    def _verify(self, payment: Payment, **kwargs):
+    def _verify(self, payment: Payment):
         payment_request = payment.paymentrequest
-        card_number = kwargs['card_number']
+        card_number = payment.card_pan
 
         amount = payment_request.rial_amount
         ref_num = payment_request.authority

@@ -37,15 +37,13 @@ class Gateway(models.Model):
 
     active = models.BooleanField(default=False)
     active_for_staff = models.BooleanField(default=False)
-    active_for_trusted = models.BooleanField(default=False)
 
     ipg_deposit_enable = models.BooleanField(default=True)
     pay_id_deposit_enable = models.BooleanField(default=False)
     withdraw_enable = models.BooleanField(default=False)
 
     min_deposit_amount = models.PositiveIntegerField(default=10000)
-    max_deposit_amount = models.PositiveIntegerField(default=50000000)
-    max_daily_deposit_amount = models.PositiveIntegerField(default=100000000)
+    max_deposit_amount = models.PositiveIntegerField(default=25000000)
 
     max_auto_withdraw_amount = models.PositiveIntegerField(null=True, blank=True)
     expected_withdraw_datetime = models.DateTimeField(null=True, blank=True)
@@ -139,37 +137,9 @@ class Gateway(models.Model):
             if gateway:
                 return gateway
 
-        trusted_gateway = Gateway.objects.filter(active_for_trusted=True, ipg_deposit_enable=True).order_by('id').first()
-
-        if trusted_gateway:
-            payments = user.payment_set.filter(status=DONE)
-
-            if payments.count() >= 2 and (payments.aggregate(sum=Sum('amount'))['sum'] or 0) >= 10_000_000:
-                return trusted_gateway
-
         gateways = Gateway.objects.filter(active=True, ipg_deposit_enable=True).order_by('-deposit_priority')
 
-        gateway = gateways.first()
-
-        if gateways.count() <= 1:
-            return gateway
-
-        today = timezone.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
-
-        today_payments = dict(Payment.objects.filter(
-            paymentrequest__isnull=False,
-            user=user,
-            created__gte=today,
-            status=DONE
-        ).values('paymentrequest__gateway').annotate(
-            total=Sum('amount')
-        ).values_list('paymentrequest__gateway', 'total'))
-
-        for g in gateways:
-            if amount + today_payments.get(g.id, 0) <= g.max_daily_deposit_amount:
-                return g
-
-        return gateway
+        return gateways.first()
 
     @classmethod
     def get_active_deposit(cls, user: User, amount: Decimal = 0) -> 'Gateway':
@@ -239,15 +209,15 @@ class Gateway(models.Model):
     def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
         raise NotImplementedError
 
-    def verify(self, payment: Payment, **kwargs):
-        self._verify(payment=payment, **kwargs)
+    def verify(self, payment: Payment):
+        self._verify(payment=payment)
 
         fast_buy_token = FastBuyToken.objects.filter(payment_request=payment.paymentrequest).last()
 
         if fast_buy_token:
             fast_buy_token.create_otc_for_fast_buy_token(payment)
 
-    def _verify(self, payment: Payment, **kwargs):
+    def _verify(self, payment: Payment):
         raise NotImplementedError
 
     def get_ipg_fee(self, amount: int) -> int:

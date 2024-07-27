@@ -25,7 +25,7 @@ def handle_missing_payments():
         payment.paymentrequest.get_gateway().verify(payment)
 
     # update missing payments
-    for gateway in Gateway.objects.filter(Q(active=True) | Q(active_for_trusted=True), ipg_deposit_enable=True):
+    for gateway in Gateway.objects.filter(active=True, ipg_deposit_enable=True):
         try:
             channel = FiatWithdraw.get_withdraw_channel(gateway)
             channel.update_missing_payments()

@@ -160,6 +160,7 @@ class OTCTrade(models.Model):
 
     def execute_trade(self) -> 'OTCTrade':
         if self.otc_request.type == OTCRequest.MARKET and self.otc_request.expired():
+            self.reject()
             raise TokenExpired()
 
         if self.execution_type == self.MARKET:

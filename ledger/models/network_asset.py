@@ -6,6 +6,7 @@ from typing import Union
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import CheckConstraint, Q
+from simple_history.models import HistoricalRecords
 
 from ledger.models import Asset
 from ledger.utils.dto import NetworkInfo
@@ -16,6 +17,8 @@ MIN_PRECISION_AMOUNT = Decimal('0.00000001')
 
 
 class NetworkAsset(models.Model):
+    history = HistoricalRecords()
+
     asset = models.ForeignKey('ledger.Asset', on_delete=models.PROTECT)
     network = models.ForeignKey('ledger.Network', on_delete=models.PROTECT)
 
