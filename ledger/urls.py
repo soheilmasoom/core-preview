@@ -98,6 +98,8 @@ urlpatterns = [
     path('v1/convert/dust/', views.ConvertDustView.as_view()),
     path('v2/convert/dust/', views.ConvertDustViewV2.as_view()),
     path('v1/convert/dust/list/', views.DustsHistoryView.as_view()),
+    path('v2/convert/dust/list/<int:pk>/', views.DustHistoryDetailViewV2.as_view()),
+    path('v2/convert/dust/list/', views.DustHistoryListViewV2.as_view()),
     path('v1/pnl/overview/', views.PNLOverview.as_view()),
 
     path('v1/fast_buy/', views.FastBuyTokenAPI.as_view()),

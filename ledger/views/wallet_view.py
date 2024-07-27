@@ -670,3 +670,85 @@ class DustsHistoryView(ListAPIView):
         )
         return (Trx.objects.filter(Q(sender__in=wallets) | Q(receiver__in=wallets), scope=Trx.DUST)
                 .prefetch_related('sender__asset', 'sender__account')).order_by('-created')
+
+
+class DustsHistoryView(ListAPIView):
+    serializer_class = DustsHistorySerializer
+    pagination_class = LimitOffsetPagination
+
+    filter_backends = [DjangoFilterBackend]
+    filter_class = AssetFilter
+
+    def get_serializer_context(self):
+        return {
+            **super(DustsHistoryView, self).get_serializer_context(),
+            'account': self.request.user.get_account()
+        }
+
+    def get_queryset(self):
+        wallets = Wallet.objects.filter(
+            market=Wallet.SPOT,
+            variant__isnull=True,
+            account=self.request.user.get_account()
+        )
+        return (Trx.objects.filter(Q(sender__in=wallets) | Q(receiver__in=wallets), scope=Trx.DUST)
+                .prefetch_related('sender__asset', 'sender__account')).order_by('-created')
+
+
+class DustHistoryListSerializerV2(serializers.ModelSerializer):
+    class Meta:
+        model = Dust
+        fields = ('id', 'amount', 'created')
+
+class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
+    asset = AssetSerializerMini(source='sender.asset', read_only=True)
+    amount = serializers.SerializerMethodField()
+
+    def get_amount(self, trx: Trx):
+        cof = -1 if trx.sender.account == self.context.get('account') else 1
+        return get_presentation_amount(trx.amount * cof)
+
+    class Meta:
+        model = Dust
+        fields = ('id', 'asset', 'amount', 'created', 'converted_amount', 'base_asset')
+
+class DustHistoryListViewV2(ListAPIView):
+    serializer_class = DustHistoryListSerializerV2
+    pagination_class = LimitOffsetPagination
+
+    filter_backends = [DjangoFilterBackend]
+
+    def get_serializer_context(self):
+        return {
+            **super(DustHistoryListViewV2, self).get_serializer_context(),
+            'account': self.request.user.get_account()
+        }
+
+    def get_queryset(self):
+        wallets = Wallet.objects.filter(
+            market=Wallet.SPOT,
+            variant__isnull=True,
+            account=self.request.user.get_account()
+        )
+        return Dust.objects.filter(Q(receiver__in=wallets)).order_by('-created')
+
+class DustHistoryDetailViewV2(ListAPIView):
+    serializer_class = DustHistoryDetailSerializerV2
+    pagination_class = LimitOffsetPagination
+
+    filter_backends = [DjangoFilterBackend]
+
+    def get_serializer_context(self):
+        return {
+            **super(DustHistoryDetailViewV2, self).get_serializer_context(),
+            'account': self.request.user.get_account()
+        }
+
+    def get_queryset(self):
+        wallets = Wallet.objects.filter(
+            market=Wallet.SPOT,
+            variant__isnull=True,
+            account=self.request.user.get_account()
+        )
+        dust = get_object_or_404(Dust, id=int(self.kwargs['pk']))
+        return Dust.objects.filter(sender__in=wallets, group_id=dust.group_id).order_by('-created')
