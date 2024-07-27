@@ -131,8 +131,11 @@ class WalletPipeline(Atomic):
                 return
 
             if amount is None:
-                self._locks_amount[key] -= lock.amount
-                self._wallet_locks[lock.wallet_id] -= lock.amount
+                released_lock = self._locks_amount.get(key, 0)
+                to_release_lock = lock.amount + released_lock
+
+                self._locks_amount[key] -= to_release_lock
+                self._wallet_locks[lock.wallet_id] -= to_release_lock
             else:
                 self._locks_amount[key] -= amount
                 self._wallet_locks[lock.wallet_id] -= amount
