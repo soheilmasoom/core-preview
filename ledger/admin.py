@@ -780,7 +780,7 @@ class AddressBookAdmin(SimpleHistoryAdmin):
     list_display = ('name', 'get_username', 'network', 'address', 'asset',)
     search_fields = ('address', 'name', 'account__user__phone')
     raw_id_fields = ('account', )
-    actions = ('clone', )
+    actions = ('clone', 'update_solana_trxs')
 
     @admin.display(description='user')
     def get_username(self, address_book: models.AddressBook):
@@ -792,6 +792,13 @@ class AddressBookAdmin(SimpleHistoryAdmin):
     def clone(self, request, queryset):
         for q in queryset:
             clone_model(q)
+
+    @admin.action(description='Update Solana Trxs', permissions=['change'])
+    def update_solana_trxs(self, request, queryset):
+        from ledger.requester.address_requester import AddressRequester
+        requester = AddressRequester()
+        for q in queryset.filter(network='SOL'):
+            requester.refresh_solana_transactions(address=q.address, architecture=q.network)
 
 
 class PrizeUserFilter(admin.SimpleListFilter):
