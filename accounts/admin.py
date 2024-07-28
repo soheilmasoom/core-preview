@@ -26,7 +26,7 @@ from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_cryp
 from gamify.utils import check_prize_achievements
 from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx, MarginLeverage
 from ledger.utils.external_price import BUY
-from ledger.utils.fields import PENDING
+from ledger.utils.fields import PENDING, DONE
 from ledger.utils.precision import humanize_number
 from ledger.utils.report import export_transactions
 from market.models import Trade, ReferralTrx, Order
@@ -333,7 +333,9 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         }),
         (_('اطلاعات مالی کاربر'), {'fields': (
             'get_sum_of_value_buy_sell', 'get_remaining_fiat_withdraw_limit',
-            'get_remaining_crypto_withdraw_limit', 'get_last_trade', 'get_total_balance_irt_admin'
+            'get_remaining_crypto_withdraw_limit', 'get_last_trade', 'get_total_balance_irt_admin',
+            'get_total_fiat_deposits', 'get_total_fiat_withdraws', 'get_total_crypto_deposits',
+            'get_total_crypto_withdraws',
         )}),
         (_("جایزه‌های دریافتی"), {'fields': ('get_user_prizes',)}),
         (_("کدهای دعوت کاربر"), {'fields': (
@@ -371,7 +373,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'get_revenue_of_referred', 'get_open_order_address', 'get_selfie_image_uploaded', 'get_referred_user',
         'get_login_activity_link', 'get_last_trade', 'get_total_balance_irt_admin', 'get_order_link',
         'get_notifications_link', 'get_staking_link', 'get_prizes_link', 'get_suspended',
-        'suspension_reason', 'get_bots_link', 'is_2fa_active', 'get_totp', 'get_dust'
+        'suspension_reason', 'get_bots_link', 'is_2fa_active', 'get_totp', 'get_dust', 'get_total_fiat_deposits',
+        'get_total_fiat_withdraws', 'get_total_crypto_deposits', 'get_total_crypto_withdraws'
     )
     preserve_filters = ('archived', )
 
@@ -747,6 +750,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     get_revenue_of_referred.short_description = 'درآمد حاصل از کد دعوت استفاده شده'
 
+    @admin.display(description='زمان آپلود عکس سلفی')
     def get_selfie_image_uploaded(self, user: User):
         latest_null = user.history.filter(selfie_image__isnull=True).order_by('history_date').last()
 
@@ -759,14 +763,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
             if history:
                 return gregorian_to_jalali_datetime_str(history.history_date)
 
-    get_selfie_image_uploaded.short_description = 'زمان آپلود عکس سلفی'
-
+    @admin.display(description='آدرس‌های کیف پول')
     def get_deposit_address(self, user: User):
         link = url_to_admin_list(DepositAddress) + '?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
-    get_deposit_address.short_description = 'آدرس‌های کیف پول'
-
+    @admin.display(description='دارایی به تومان')
     def get_total_balance_irt_admin(self, user: User):
         try:
             total_balance_irt = user.get_account().get_total_balance_irt(side=BUY)
@@ -774,7 +776,32 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         except:
             pass
 
-    get_total_balance_irt_admin.short_description = 'دارایی به تومان'
+    @admin.display(description='مجموع واریز‌های ریالی')
+    def get_total_fiat_deposits(self, user: User):
+        return Payment.objects.filter(user=user, status=DONE).aggregate(s=Sum('amount'))['s'] or 0
+
+    @admin.display(description='مجموع برداشت‌های ریالی')
+    def get_total_fiat_withdraws(self, user: User):
+        return FiatWithdrawRequest.objects.filter(
+            bank_account__user=user,
+            status=DONE
+        ).aggregate(s=Sum('amount'))['s'] or 0
+
+    @admin.display(description='مجموع واریز‌های رمزارزی')
+    def get_total_crypto_deposits(self, user: User):
+        return Transfer.objects.filter(
+            wallet__account__user=user,
+            status=DONE,
+            deposit=True
+        ).aggregate(s=Sum('irt_value'))['s'] or 0
+
+    @admin.display(description='مجموع برداشت‌های رمزارزی')
+    def get_total_crypto_withdraws(self, user: User):
+        return Transfer.objects.filter(
+            wallet__account__user=user,
+            status=DONE,
+            deposit=False
+        ).aggregate(s=Sum('irt_value'))['s'] or 0
 
     @admin.display(description='اعلانات')
     def get_notifications_link(self, user: User):
