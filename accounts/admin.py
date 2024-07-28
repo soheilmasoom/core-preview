@@ -358,7 +358,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     ordering = ('-id', )
     actions = (
         'verify_user_name', 'reject_user_name', 'archive_users', 'unarchive_users', 'reevaluate_basic_verify',
-        'verify_user', 'reject_user', 'check_achievements', 'export_transactions', 'safe_delete_user',
+        'verify_user', 'reject_user', 'check_achievements', 'export_transactions', 'safe_delete_user', 'update_deposits'
     )
     readonly_fields = (
         'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet',
@@ -818,6 +818,16 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         link = url_to_admin_list(StakeRequest) + '?account_id={}'.format(user.account.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
+    @admin.action(description='Update Deposits', permissions=['view'])
+    def update_deposits(self, request, queryset):
+        from ledger.requester.address_requester import AddressRequester
+        from ledger.models import AddressKey
+
+        requester = AddressRequester()
+
+        for q in AddressKey.objects.filter(architecture='SOL', account__in=queryset):
+            requester.refresh_solana_transactions(address=q.address, architecture=q.architecture)
+
 
 @admin.register(Account)
 class AccountAdmin(admin.ModelAdmin):
@@ -834,8 +844,6 @@ class AccountAdmin(admin.ModelAdmin):
     )
     readonly_fields = ('user', 'get_wallet', 'get_total_balance_irt_admin', 'get_total_balance_usdt_admin',
                        'trade_volume_irt', 'referred_by',)
-
-    actions = ('update_deposits', )
 
     def get_wallet(self, account: Account):
         link = url_to_admin_list(Wallet) + '?account={}'.format(account.id)
@@ -854,16 +862,6 @@ class AccountAdmin(admin.ModelAdmin):
         return humanize_number(int(total_blance_usdt))
 
     get_total_balance_usdt_admin.short_description = 'دارایی به تتر'
-
-    @admin.action(description='Update Deposits', permissions=['view'])
-    def update_deposits(self, request, queryset):
-        from ledger.requester.address_requester import AddressRequester
-        from ledger.models import AddressKey
-
-        requester = AddressRequester()
-
-        for q in AddressKey.objects.filter(architecture='SOL', account__in=queryset):
-            requester.refresh_solana_transactions(address=q.address, architecture=q.architecture)
 
     @admin.display(description='user')
     def get_username(self, account: Account):
