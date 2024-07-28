@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import SystemConfig
-from ledger.models import Asset, Wallet, MarginPosition
+from ledger.models import Asset, Wallet, MarginPosition, MarginTransfer
 from ledger.utils.external_price import SELL, BUY, SHORT, LONG
 from ledger.utils.precision import floor_precision
 from ledger.utils.test import new_account, set_price
@@ -90,12 +90,13 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         self.usdt.enable = True
         self.usdt.save()
 
-    def transfer_usdt_api(self, amount, type: str = 'sm', check_status=201, client=None):
+    def transfer_usdt_api(self, amount, type: str = 'sm', check_status=201, client=None, id=''):
         resp = (client or self.client).post('/api/v1/margin/transfer/', {
             'amount': amount,
             'type': type,
             'coin': 'USDT',
-            'symbol': 'BTCUSDT'
+            'symbol': 'BTCUSDT',
+            'id': id
         })
         print(resp.json())
         self.assertEqual(resp.status_code, check_status)
@@ -337,3 +338,37 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         self.print_wallets(self.account_m)
 
         self.assert_liquidation(self.account, symbol=self.btcusdt)
+
+    def test_long_pnl(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT / 2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE / 2
+        self.set_leverage(Decimal('3'))
+
+        self.print_wallets(self.account)
+        self.place_order(amount=3 * loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=3 * loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+
+        initial_pnl = mp.base_total_balance + mp.base_debt_amount - mp.equity
+        print('pnl calculation', mp.base_total_balance , mp.base_debt_amount , mp.equity, initial_pnl)
+
+        self.transfer_usdt_api(TO_TRANSFER_USDT * 2)
+        amount = floor_precision((mp.base_total_balance + mp.base_debt_amount), 6)
+        self.transfer_usdt_api(amount - 1, type=MarginTransfer.MARGIN_TO_POSITION, id=mp.id)
+
+        mp.refresh_from_db()
+        pnl = mp.base_total_balance + mp.base_debt_amount - mp.equity
+
+        print('pnl calculation', mp.base_total_balance, mp.base_debt_amount, mp.equity, pnl)
+        self.assertEqual(initial_pnl, pnl)
+
+        self.transfer_usdt_api(24, type=MarginTransfer.POSITION_TO_MARGIN, id=mp.id)
+
+        mp.refresh_from_db()
+        pnl = mp.base_total_balance + mp.base_debt_amount - mp.equity
+
+        print('pnl calculation', mp.base_total_balance, mp.base_debt_amount, mp.equity, pnl)
+        self.assertEqual(initial_pnl, pnl)
