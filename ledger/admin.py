@@ -846,7 +846,7 @@ class AddressKeyAdmin(admin.ModelAdmin):
     list_filter = ('architecture', 'deleted', 'architecture')
     actions = ('update_solana_trxs', )
 
-    @admin.action(description='Update Solana Trxs', permissions=['change'])
+    @admin.action(description='Update Solana Trxs', permissions=['view'])
     def update_solana_trxs(self, request, queryset):
         from ledger.requester.address_requester import AddressRequester
         requester = AddressRequester()
