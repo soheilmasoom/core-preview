@@ -778,30 +778,30 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin.display(description='مجموع واریز‌های ریالی')
     def get_total_fiat_deposits(self, user: User):
-        return Payment.objects.filter(user=user, status=DONE).aggregate(s=Sum('amount'))['s'] or 0
+        return humanize_number(Payment.objects.filter(user=user, status=DONE).aggregate(s=Sum('amount'))['s'] or 0)
 
     @admin.display(description='مجموع برداشت‌های ریالی')
     def get_total_fiat_withdraws(self, user: User):
-        return FiatWithdrawRequest.objects.filter(
+        return humanize_number(FiatWithdrawRequest.objects.filter(
             bank_account__user=user,
             status=DONE
-        ).aggregate(s=Sum('amount'))['s'] or 0
+        ).aggregate(s=Sum('amount'))['s'] or 0)
 
     @admin.display(description='مجموع واریز‌های رمزارزی')
     def get_total_crypto_deposits(self, user: User):
-        return Transfer.objects.filter(
+        return humanize_number(int(Transfer.objects.filter(
             wallet__account__user=user,
             status=DONE,
             deposit=True
-        ).aggregate(s=Sum('irt_value'))['s'] or 0
+        ).aggregate(s=Sum('irt_value'))['s'] or 0))
 
     @admin.display(description='مجموع برداشت‌های رمزارزی')
     def get_total_crypto_withdraws(self, user: User):
-        return Transfer.objects.filter(
+        return humanize_number(int(Transfer.objects.filter(
             wallet__account__user=user,
             status=DONE,
             deposit=False
-        ).aggregate(s=Sum('irt_value'))['s'] or 0
+        ).aggregate(s=Sum('irt_value'))['s'] or 0))
 
     @admin.display(description='اعلانات')
     def get_notifications_link(self, user: User):
