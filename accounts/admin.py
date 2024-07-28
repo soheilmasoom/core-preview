@@ -835,6 +835,8 @@ class AccountAdmin(admin.ModelAdmin):
     readonly_fields = ('user', 'get_wallet', 'get_total_balance_irt_admin', 'get_total_balance_usdt_admin',
                        'trade_volume_irt', 'referred_by',)
 
+    actions = ('update_deposits', )
+
     def get_wallet(self, account: Account):
         link = url_to_admin_list(Wallet) + '?account={}'.format(account.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
@@ -852,6 +854,16 @@ class AccountAdmin(admin.ModelAdmin):
         return humanize_number(int(total_blance_usdt))
 
     get_total_balance_usdt_admin.short_description = 'دارایی به تتر'
+
+    @admin.action(description='Update Deposits', permissions=['view'])
+    def update_deposits(self, request, queryset):
+        from ledger.requester.address_requester import AddressRequester
+        from ledger.models import AddressKey
+
+        requester = AddressRequester()
+
+        for q in AddressKey.objects.filter(architecture='SOL', account__in=queryset):
+            requester.refresh_solana_transactions(address=q.address, architecture=q.architecture)
 
     @admin.display(description='user')
     def get_username(self, account: Account):
