@@ -18,7 +18,7 @@ class AddressRequester:
             )
         }
         url = self.base_url + '/api/v1/tracker/wallets/'
-        return requests.post(url=url, data=data, headers=self.header, timeout=10).json()
+        return requests.post(url=url, data=data, headers=self.header, timeout=30).json()
 
     def refresh_solana_transactions(self, address, architecture):
         assert architecture == 'SOL'
@@ -28,4 +28,4 @@ class AddressRequester:
             'pointer_address': address
         }
         url = self.base_url + '/api/v1/tracker/address/update/'
-        return requests.put(url=url, data=data, headers=self.header, timeout=10).json()
+        return requests.put(url=url, data=data, headers=self.header, timeout=30).json()
