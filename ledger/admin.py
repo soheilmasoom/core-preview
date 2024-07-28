@@ -844,14 +844,6 @@ class AddressKeyAdmin(admin.ModelAdmin):
     readonly_fields = ('address', 'account', 'memo')
     search_fields = ('address', 'public_address', 'account__user__phone', 'memo')
     list_filter = ('architecture', 'deleted', 'architecture')
-    actions = ('update_solana_trxs', )
-
-    @admin.action(description='Update Solana Trxs', permissions=['view'])
-    def update_solana_trxs(self, request, queryset):
-        from ledger.requester.address_requester import AddressRequester
-        requester = AddressRequester()
-        for q in queryset.filter(architecture='SOL'):
-            requester.refresh_solana_transactions(address=q.address, architecture=q.architecture)
 
 
 @admin.register(models.AssetSpreadCategory)
