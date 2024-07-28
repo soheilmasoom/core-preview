@@ -3,6 +3,12 @@ from django.conf import settings
 
 
 class AddressRequester:
+    def __init__(self):
+        self.base_url = settings.BLOCKLINK_BASE_URL
+        self.header = {
+            'Authorization': settings.BLOCKLINK_TOKEN
+        }
+
     def create_wallet(self, account, architecture):
         data = {
             'architecture': architecture,
@@ -11,8 +17,15 @@ class AddressRequester:
                 account_id=account.id,
             )
         }
-        url = settings.BLOCKLINK_BASE_URL + '/api/v1/tracker/wallets/'
-        header = {
-            'Authorization': settings.BLOCKLINK_TOKEN
+        url = self.base_url + '/api/v1/tracker/wallets/'
+        return requests.post(url=url, data=data, headers=self.header, timeout=10).json()
+
+    def refresh_solana_transactions(self, address, architecture):
+        assert architecture == 'SOL'
+
+        data = {
+            'architecture': architecture,
+            'pointer_address': address
         }
-        return requests.post(url=url, data=data, headers=header, timeout=10).json()
+        url = self.base_url + '/api/v1/tracker/address/update/'
+        return requests.put(url=url, data=data, headers=self.header, timeout=10).json()
