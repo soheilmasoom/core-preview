@@ -333,8 +333,8 @@ class BankCardUserFilter(SimpleListFilter):
 class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
 
-    list_display = ('created', 'card_pan', 'get_username', 'verified', 'deleted')
-    list_filter = (BankCardUserFilter,)
+    list_display = ('created', 'card_pan', 'get_username', 'type', 'verified', 'deleted')
+    list_filter = (BankCardUserFilter, 'deleted', 'verified')
     search_fields = ('card_pan', )
     raw_id_fields = ('user',)
 
