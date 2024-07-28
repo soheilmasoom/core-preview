@@ -850,8 +850,8 @@ class AddressKeyAdmin(admin.ModelAdmin):
     def update_solana_trxs(self, request, queryset):
         from ledger.requester.address_requester import AddressRequester
         requester = AddressRequester()
-        for q in queryset.filter(network='SOL'):
-            requester.refresh_solana_transactions(address=q.address, architecture=q.network)
+        for q in queryset.filter(architecture='SOL'):
+            requester.refresh_solana_transactions(address=q.address, architecture=q.architecture)
 
 
 @admin.register(models.AssetSpreadCategory)
