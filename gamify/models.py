@@ -26,6 +26,12 @@ class MissionJourney(models.Model):
         return self.name
 
     @classmethod
+    def get_default_promotion(cls):
+        journey = MissionJourney.objects.filter(active=True).order_by('-default').first()
+        if journey:
+            return journey.promotion
+
+    @classmethod
     def get_journey(cls, account: Account) -> 'MissionJourney':
         journey = MissionJourney.objects.filter(promotion=account.user.promotion, active=True).first()
         if not journey:
