@@ -15,8 +15,6 @@ from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from django.db.models import F
-
 
 from _base.settings import SYSTEM_ACCOUNT_ID
 from accounts.models import SystemConfig
