@@ -1,6 +1,7 @@
 import logging
 from decimal import Decimal
 from uuid import uuid4
+from django.utils import timezone
 
 import django_filters
 from django.conf import settings
@@ -18,7 +19,7 @@ from rest_framework.viewsets import ModelViewSet
 from _base.settings import SYSTEM_ACCOUNT_ID
 from accounts.models import SystemConfig
 from accounts.views.jwt_views import DelegatedAccountMixin
-from ledger.models import Wallet, DepositAddress, NetworkAsset, Trx, Network
+from ledger.models import Wallet, DepositAddress, NetworkAsset, Trx, Network, ConvertDust, ConvertDustTrx
 from ledger.models.asset import Asset, AssetSerializerMini
 from ledger.utils.external_price import BUY, SELL
 from ledger.utils.fields import get_irt_market_asset_symbols
@@ -511,6 +512,9 @@ class ConvertDustView(APIView):
 class ConvertDustViewV2(APIView):
     def get(self, *args):
         account = self.request.user.get_account()
+        if Dust.has_recent_conversion(account=account):
+            return Response({'message': "user has recent conversion"}, status=status.HTTP_400_BAD_REQUEST)
+
         irt_asset = Asset.get(Asset.IRT)
 
         spot_wallets = list(Wallet.objects.filter(
@@ -527,8 +531,9 @@ class ConvertDustViewV2(APIView):
                 wallet.asset.symbol + Asset.IRT,
                 side=BUY
             )
+            usdt_irt_price = get_price(Asset.USDT + Asset.IRT, side=BUY)
 
-            if price is None:
+            if price is None or usdt_irt_price is None:
                 continue
 
             asset_irt_balance = wallet.balance * price
@@ -568,6 +573,14 @@ class ConvertDustViewV2(APIView):
         any_converted = False
 
         with WalletPipeline() as pipeline:
+            convert_dust = ConvertDust.object.create(
+                created=timezone.now(),
+                account=account,
+                base_asset=base_asset,
+                converted_amount=base_amount,
+                group_id=group_id,
+            )
+
             for wallet in spot_wallets:
                 price = get_price(
                     wallet.asset.symbol + base,
@@ -590,9 +603,15 @@ class ConvertDustViewV2(APIView):
                         group_id=group_id,
                         scope=Trx.DUST
                     )
+                    ConvertDustTrx.object.create(
+                        convert_dust=convert_dust,
+                        asset=wallet.asset,
+                        amount=free,
+                        base_asset=base_asset,
+                        converted_amount=free * price,
+                    )
 
                     base_amount += price * free
-
                     any_converted = True
 
             pipeline.new_trx(
@@ -602,6 +621,9 @@ class ConvertDustViewV2(APIView):
                 group_id=group_id,
                 scope=Trx.DUST,
             )
+            convert_dust.converted_amount=base_amount
+            convert_dust.save()
+
 
         if not any_converted:
             raise ValidationError('هیچ گزینه‌ای برای تبدیل خرد وجود ندارد.')
@@ -651,3 +673,44 @@ class DustsHistoryView(ListAPIView):
         )
         return (Trx.objects.filter(Q(sender__in=wallets) | Q(receiver__in=wallets), scope=Trx.DUST)
                 .prefetch_related('sender__asset', 'sender__account')).order_by('-created')
+
+
+class DustHistoryListSerializerV2(serializers.ModelSerializer):
+    class Meta:
+        model = ConvertDust
+        fields = ('id', 'converted_amount', 'created', 'base_asset')
+
+class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
+    class Meta:
+        model = ConvertDustTrx
+        fields = ('id', 'asset', 'amount', 'converted_amount', 'base_asset', 'convert_dust')
+
+class DustHistoryListViewV2(ListAPIView):
+    serializer_class = DustHistoryListSerializerV2
+    pagination_class = LimitOffsetPagination
+
+    filter_backends = [DjangoFilterBackend]
+
+    def get_serializer_context(self):
+        return {
+            **super(DustHistoryListViewV2, self).get_serializer_context(),
+            'account': self.request.user.get_account()
+        }
+
+    def get_queryset(self):
+        return ConvertDust.objects.filter(account=self.request.user.get_account()).order_by('-created')
+
+class DustHistoryDetailViewV2(ListAPIView):
+    serializer_class = DustHistoryDetailSerializerV2
+    pagination_class = LimitOffsetPagination
+
+    filter_backends = [DjangoFilterBackend]
+
+    def get_serializer_context(self):
+        return {
+            **super(DustHistoryDetailViewV2, self).get_serializer_context(),
+            'account': self.request.user.get_account()
+        }
+
+    def get_queryset(self):
+        return ConvertDustTrx.objects.filter(convert_dust__id=int(self.kwargs['pk']))

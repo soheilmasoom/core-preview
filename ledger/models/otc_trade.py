@@ -37,7 +37,7 @@ class TokenExpired(Exception):
 
 
 class OTCTrade(models.Model):
-    PENDING, CANCELED, DONE, REVERT, EXPIRED = 'pending', 'canceled', 'done', 'revert', 'expired'
+    PENDING, CANCELED, USER_CANCELED, DONE, REVERT, EXPIRED = 'pending', 'canceled', 'user_canceled', 'done', 'revert', 'expired'
     MARKET, PROVIDER = 'm', 'p'
 
     created = models.DateTimeField(auto_now_add=True)
@@ -47,8 +47,8 @@ class OTCTrade(models.Model):
 
     status = models.CharField(
         default=PENDING,
-        max_length=8,
-        choices=[(PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE), (REVERT, REVERT)],
+        max_length=16,
+        choices=[(PENDING, PENDING), (CANCELED, CANCELED), (USER_CANCELED, USER_CANCELED), (DONE, DONE), (REVERT, REVERT), (EXPIRED, EXPIRED)],
     )
 
     execution_type = models.CharField(max_length=1, choices=((MARKET, 'market'), (PROVIDER, 'provider')))
