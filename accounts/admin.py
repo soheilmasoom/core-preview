@@ -16,7 +16,8 @@ from jalali_date.admin import ModelAdminJalaliMixin
 from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationCode, \
-    UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone
+    UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
+    AttributionTracker
 from accounts.models import UserComment, TrafficSource, Referral
 from accounts.utils.admin import url_to_admin_list, url_to_edit_object
 from financial.models.bank_card import BankCard, BankAccount
@@ -1004,14 +1005,26 @@ class FirebaseTokenAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
     search_fields = ('user__phone', 'token')
 
 
+@admin.register(AttributionTracker)
+class AttributionTrackerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'type', 'key', )
+    readonly_fields = ('key', 'get_postback_link')
+    list_filter = ('type', )
+
+    @admin.display(description="Postback Link")
+    def get_postback_link(self, tracker: AttributionTracker):
+        return tracker.get_postback_link()
+
+
 @admin.register(Attribution)
 class AttributionAdmin(admin.ModelAdmin):
-    list_display = ['created', 'tracker_code', 'network_name', 'campaign_name', 'adgroup_name', 'gps_adid']
+    list_display = ('created', 'tracker', 'gps_adid', 'installed_at', 'app_id')
 
 
 @admin.register(AppStatus)
 class AppStatusAdmin(admin.ModelAdmin):
     list_display = ['latest_version', 'force_update_version', 'active']
+
 
 @admin.register(VerificationCode)
 class VerificationCodeAdmin(admin.ModelAdmin):
