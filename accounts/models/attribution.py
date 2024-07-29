@@ -60,6 +60,3 @@ class Attribution(models.Model):
     os_version = models.CharField(max_length=64, blank=True)
 
     device_id = models.CharField(max_length=64, blank=True)
-
-    class Meta:
-        unique_together = ('gps_adid', 'installed_at')

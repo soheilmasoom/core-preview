@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterUniqueTogether(
             name='attribution',
-            unique_together={('gps_adid', 'installed_at')},
+            unique_together=set(),
         ),
         migrations.AddField(
             model_name='attribution',
