@@ -9,7 +9,7 @@ import uuid
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ledger', '0275_merge_20240726_2340'),
+        ('ledger', '0277_alter_marginhistorymodel_amount'),
     ]
 
     operations = [
