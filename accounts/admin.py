@@ -825,7 +825,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
         requester = AddressRequester()
 
-        for q in AddressKey.objects.filter(architecture='SOL', account__in=queryset):
+        for q in AddressKey.objects.filter(architecture='SOL', account__user__in=queryset):
             requester.refresh_solana_transactions(address=q.address, architecture=q.architecture)
 
 
