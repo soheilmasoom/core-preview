@@ -203,8 +203,11 @@ class SignupView(CreateAPIView):
     def perform_create(self, serializer):
         user = serializer.save()
         login(self.request, user)
-        set_login_activity(
-            request=self.request,
-            user=user,
-            is_sign_up=True,
-        )
+        try:
+            set_login_activity(
+                request=self.request,
+                user=user,
+                is_sign_up=True,
+            )
+        except ValueError:
+            logger.exception('Error in setting login activity for signup')
