@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ledger', '0276_convertdust_convertdusttrx_and_more'),
+        ('ledger', '0277_alter_marginhistorymodel_amount'),
     ]
 
     operations = [
