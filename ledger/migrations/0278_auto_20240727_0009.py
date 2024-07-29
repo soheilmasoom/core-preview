@@ -48,7 +48,7 @@ def data_migration(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ledger', '0277_alter_marginhistorymodel_amount'),
+        ('ledger', '0277_alter_convertdust_account_alter_convertdusttrx_asset_and_more'),
     ]
 
     operations = [
