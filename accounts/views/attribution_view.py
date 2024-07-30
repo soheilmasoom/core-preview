@@ -34,8 +34,8 @@ class AttributionAPIView(APIView):
 
         to_update = {}
 
-        for (tracker_field, field_name) in AttributionTracker.YANDEX_FIELDS.items():
-            d = data.get(tracker_field)
+        for field_name in AttributionTracker.YANDEX_FIELDS.values():
+            d = data.get(field_name)
 
             if not d:
                 field = getattr(Attribution, field_name).field

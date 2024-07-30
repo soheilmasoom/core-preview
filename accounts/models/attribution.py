@@ -28,7 +28,7 @@ class AttributionTracker(models.Model):
     key = models.CharField(max_length=8, default=get_random_str, unique=True)
 
     def __str__(self):
-        return f'{self.type} {self.key}'
+        return f'{self.type} ({self.key})'
 
     def get_postback_link(self):
         fields = "&".join(["%s={%s}" % (field, tracker_field) for tracker_field, field in self.YANDEX_FIELDS.items()])
