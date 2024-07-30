@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -788,3 +789,24 @@ class LongIsolatedMarginTestCase(TestCase):
         self.place_order(amount=Decimal('0.01'), side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=False, fill_type='market')
 
         self.assert_liquidation(self.account, self.btcusdt)
+
+    def test_long_buy_17(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT/2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=floor_precision(loan_amount / 5, 4), market=Wallet.SPOT, price=BTC_USDT_PRICE - 100)
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=floor_precision(loan_amount / 5, 4), market=Wallet.SPOT, price=BTC_USDT_PRICE - 102)
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=floor_precision(loan_amount / 5, 4), market=Wallet.SPOT, price=BTC_USDT_PRICE - 103)
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=3 * loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE - 106)
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+        self.close_position(mp.id)
+        self.print_wallets(self.account)
+
+        self.assert_liquidation(self.account, self.btcusdt)
+        self.assertTrue(not Trx.objects.filter(receiver=mp.base_wallet, scope=Trx.MARGIN_INSURANCE).exists())
