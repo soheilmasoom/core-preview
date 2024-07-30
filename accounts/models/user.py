@@ -459,13 +459,26 @@ class User(AbstractUser):
 
     def ban_deposit_by_credit_cards(self):
         with transaction.atomic():
+            if not self.ban_deposit_with_credit_bank_cards:
+                Notification.send(
+                    recipient=self,
+                    title='غیر فعال شدن واریز با کارت‌های هدیه و مجازی',
+                    message='در راستای افزایش امنیت حساب کاربری شما، واریز با کارت‌های هدیه و مجازی غیر فعال شد. توجه داشته باشید که همچنان می‌توانید با کارت‌های اعتباری از طریق درگاه پرداخت، حساب خود را شارژ نمایید.'
+                )
+
             self.ban_deposit_with_credit_bank_cards = True
             self.save(update_fields=['ban_deposit_with_credit_bank_cards'])
 
             from financial.models import BankCard
 
-            for card in BankCard.objects.filter(user=self, verified=True, deleted=False):
+            cards = BankCard.objects.filter(user=self, verified=True, deleted=False)
+
+            for card in cards.filter(type__in=BankCard.CREDIT_FAMILY_TYPES):
                 card.reject(BankCard.CREDIT_CARD)
+
+            for card in cards.filter(type=''):
+                card.verified = None
+                card.save(update_fields=['verified'])
 
 
 @receiver(post_save, sender=User)

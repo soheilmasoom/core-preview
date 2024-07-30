@@ -182,7 +182,7 @@ def verify_bank_card(bank_card: BankCard, retry: int = 2) -> Union[bool, None]:
         if resp.success:
             update_bank_card_info(bank_card, data)
 
-            if bank_card.user.ban_deposit_with_credit_bank_cards and bank_card.is_credit_family():
+            if bank_card.user.ban_deposit_with_credit_bank_cards and bank_card.type in BankCard.CREDIT_FAMILY_TYPES:
                 bank_card.reject(BankCard.CREDIT_CARD)
                 return False
 
