@@ -10,7 +10,7 @@ class AttributionTracker(models.Model):
     YANDEX_FIELDS = {
         'profile_id': 'profile_id',
         'google_aid': 'gps_adid',
-        'store_app_id': 'app_id',
+        'app_package_name': 'app_id',
         'install_datetime': 'installed_at',
         'click_datetime': 'clicked_at',
         'install_ipv6': 'install_ip',
@@ -21,6 +21,9 @@ class AttributionTracker(models.Model):
         'os_name': 'os_name',
         'os_version': 'os_version',
         'appmetrica_device_id': 'device_id',
+        'country_iso_code': 'country',
+        'operator_name': 'operator',
+        'click_url_parameters': 'click_url_params',
     }
 
     name = models.CharField(max_length=64)
@@ -61,3 +64,8 @@ class Attribution(models.Model):
     os_version = models.CharField(max_length=64, blank=True)
 
     device_id = models.CharField(max_length=64, blank=True)
+
+    country = models.CharField(max_length=64, blank=True)
+    operator = models.CharField(max_length=64, blank=True)
+
+    click_url_params = models.CharField(max_length=256, blank=True)
