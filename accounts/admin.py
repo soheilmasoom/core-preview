@@ -1018,7 +1018,12 @@ class AttributionTrackerAdmin(admin.ModelAdmin):
 
 @admin.register(Attribution)
 class AttributionAdmin(admin.ModelAdmin):
-    list_display = ('created', 'tracker', 'gps_adid', 'installed_at', 'app_id')
+    list_display = ('created', 'tracker', 'installed_at', 'gps_adid', 'device_type', 'get_device', 'app_id')
+    list_filter = ('tracker', 'app_id', 'device_type')
+
+    @admin.display(description="Device")
+    def get_device(self, attribution: Attribution):
+        return f'{attribution.device_model} ({attribution.os_name} {attribution.os_version})'
 
 
 @admin.register(AppStatus)
