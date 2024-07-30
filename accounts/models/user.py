@@ -183,6 +183,8 @@ class User(AbstractUser):
     suspended_until = models.DateTimeField(null=True, blank=True, verbose_name='زمان تعلیق شدن کاربر')
     suspension_reason = models.CharField(max_length=128, blank=True, null=True)
 
+    ban_deposit_with_credit_bank_cards = models.BooleanField(default=False)
+
     def __str__(self):
         name = get_masked_phone(self.username)
 
@@ -454,6 +456,16 @@ class User(AbstractUser):
             return True
 
         return self.show_margin
+
+    def ban_deposit_by_credit_cards(self):
+        with transaction.atomic():
+            self.ban_deposit_with_credit_bank_cards = True
+            self.save(update_fields=['ban_deposit_with_credit_bank_cards'])
+
+            from financial.models import BankCard
+
+            for card in BankCard.objects.filter(user=self, verified=True, deleted=False):
+                card.reject(BankCard.CREDIT_CARD)
 
 
 @receiver(post_save, sender=User)

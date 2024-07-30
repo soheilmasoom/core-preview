@@ -313,7 +313,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 'is_active', 'is_staff', 'is_superuser',
                 'groups', 'user_permissions', 'show_margin', 'show_strategy_bot', 'show_staking', 'show_community',
                 'can_trade', 'can_withdraw', 'can_withdraw_crypto',
-                'withdraw_limit_whitelist', 'withdraw_risk_level_multiplier', 'custom_crypto_withdraw_ceil'
+                'withdraw_limit_whitelist', 'withdraw_risk_level_multiplier', 'custom_crypto_withdraw_ceil',
+                'ban_deposit_with_credit_bank_cards'
             ),
         }),
         (_('Important dates'), {'fields': (
@@ -332,7 +333,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 'get_notifications_link', 'get_prizes_link', 'get_bots_link', 'get_totp', 'get_dust'
             )
         }),
-        (_('اطلاعات مالی کاربر'), {'fields': (
+        (_('فعالیت کاربر'), {'fields': (
             'get_sum_of_value_buy_sell', 'get_remaining_fiat_withdraw_limit',
             'get_remaining_crypto_withdraw_limit', 'get_last_trade', 'get_total_balance_irt_admin',
             'get_total_fiat_deposits', 'get_total_fiat_withdraws', 'get_total_crypto_deposits',
@@ -359,7 +360,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     ordering = ('-id', )
     actions = (
         'verify_user_name', 'reject_user_name', 'archive_users', 'unarchive_users', 'reevaluate_basic_verify',
-        'verify_user', 'reject_user', 'check_achievements', 'export_transactions', 'safe_delete_user', 'update_deposits'
+        'verify_user', 'reject_user', 'check_achievements', 'export_transactions', 'safe_delete_user',
+        'update_deposits', 'ban_credit_deposit'
     )
     readonly_fields = (
         'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet',
@@ -828,6 +830,11 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
         for q in AddressKey.objects.filter(architecture='SOL', account__user__in=queryset):
             requester.refresh_solana_transactions(address=q.address, architecture=q.architecture)
+
+    @admin.action(description='Ban Credit Card Deposit', permissions=['change'])
+    def ban_credit_deposit(self, request, queryset):
+        for user in queryset:
+            user.ban_deposit_by_credit_cards()
 
 
 @admin.register(Account)

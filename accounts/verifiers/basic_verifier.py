@@ -170,9 +170,7 @@ def verify_bank_card(bank_card: BankCard, retry: int = 2) -> Union[bool, None]:
 
     if BankCard.live_objects.filter(card_pan=bank_card.card_pan, verified=True).exclude(id=bank_card.id).exists():
         logger.info('rejecting bank card because of duplication')
-        bank_card.reject_reason = BankCard.DUPLICATED
-        bank_card.verified = False
-        bank_card.save(update_fields=['reject_reason', 'verified'])
+        bank_card.reject(BankCard.DUPLICATED)
         return False
 
     requester = JibitRequester(bank_card.user)
@@ -184,21 +182,19 @@ def verify_bank_card(bank_card: BankCard, retry: int = 2) -> Union[bool, None]:
         if resp.success:
             update_bank_card_info(bank_card, data)
 
-            verified = name_similarity(bank_card.user.get_legal_name(), bank_card.owner_name)
+            if bank_card.user.ban_deposit_with_credit_bank_cards and bank_card.is_credit_family():
+                bank_card.reject(BankCard.CREDIT_CARD)
+                return False
 
-            bank_card.verified = verified
+            else:
+                verified = name_similarity(bank_card.user.get_legal_name(), bank_card.owner_name)
+                if not verified:
+                    bank_card.reject(BankCard.NAME_MISMATCH)
 
-            if not verified:
-                bank_card.reject_reason = 'name.mismatch'
-
-            bank_card.save(update_fields=['verified'])
-
-            return verified
+                return verified
 
         elif data.code == 'INVALID_DATA':
-            bank_card.verified = False
-            bank_card.reject_reason = data.code
-            bank_card.save(update_fields=['verified', 'reject_reason'])
+            bank_card.reject(data.code)
 
             return False
         else:
@@ -287,9 +283,7 @@ def verify_bank_card_by_national_code(bank_card: BankCard, retry: int = 2) -> Un
 
     if BankCard.live_objects.filter(card_pan=bank_card.card_pan, verified=True).exclude(id=bank_card.id).exists():
         logger.info('rejecting bank card because of duplication')
-        bank_card.reject_reason = BankCard.DUPLICATED
-        bank_card.verified = False
-        bank_card.save(update_fields=['reject_reason', 'verified'])
+        bank_card.reject(BankCard.DUPLICATED)
         user.change_status(User.REJECTED)
         return False
 
