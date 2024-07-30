@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 
+import pytz
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -44,6 +45,12 @@ class AttributionAPIView(APIView):
 
             if not (d and d.startswith('{')):
                 to_update[field_name] = d
+
+        for field_name in ('installed_at', 'clicked_at'):
+            if to_update.get(field_name):
+                to_update[field_name] = datetime.strptime(to_update.get(field_name), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc).astimezone()
+                if to_update[field_name].year < 2020:
+                    to_update[field_name] = None
 
         Attribution.objects.get_or_create(
             tracker=tracker,
