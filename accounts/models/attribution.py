@@ -31,8 +31,9 @@ class AttributionTracker(models.Model):
         return f'{self.type} ({self.key})'
 
     def get_postback_link(self):
-        fields = "&".join(["%s={%s}" % (field, tracker_field) for tracker_field, field in self.YANDEX_FIELDS.items()])
-        return f'{settings.HOST_URL}/api/v1/accounts/attribution/?key={self.key}&{fields}'
+        if self.id:
+            fields = "&".join(["%s={%s}" % (field, tracker_field) for tracker_field, field in self.YANDEX_FIELDS.items()])
+            return f'{settings.HOST_URL}/api/v1/accounts/attribution/?key={self.key}&{fields}'
 
 
 class Attribution(models.Model):
