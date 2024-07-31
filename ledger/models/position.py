@@ -15,6 +15,7 @@ from accounts.models import Account, SystemConfig
 from ledger.models import Trx, Wallet
 from ledger.utils.external_price import SHORT, LONG, BUY, SELL, get_other_side
 from ledger.utils.fields import get_amount_field
+from ledger.utils.margin import alert_system_insurance_trx
 from ledger.utils.precision import floor_precision, ceil_precision
 from ledger.utils.price import get_depth_price, get_base_depth_price, get_price
 from market.models import PairSymbol
@@ -312,6 +313,7 @@ class MarginPosition(models.Model):
         group_id = uuid.uuid4()
 
         loss_amount = (to_close_amount - free_amount) * Decimal('1.05') * price
+        insurance_amount = 0
         if loss_amount > 0:
             pipeline.new_trx(
                 sender=self.get_insurance_wallet(),
@@ -320,6 +322,7 @@ class MarginPosition(models.Model):
                 scope=Trx.MARGIN_INSURANCE,
                 group_id=group_id,
             )
+            insurance_amount += loss_amount
 
         if self.side == SHORT:
             to_close_amount = ceil_precision(to_close_amount, self.symbol.step_size)
@@ -383,6 +386,7 @@ class MarginPosition(models.Model):
                     group_id,
                 )
                 charged_amount = min(loss_amount, remaining_base_asset) - loss_amount
+                insurance_amount -= min(loss_amount, remaining_base_asset)
         else:
             if remaining_base_asset < 0 and charge_insurance and is_liquidation_order_filled:
                 logger.warning(f"Position:{self.id} charging")
@@ -395,6 +399,7 @@ class MarginPosition(models.Model):
                     group_id=group_id,
                 )
                 charged_amount = -remaining_base_asset
+                insurance_amount += -remaining_base_asset
 
         if charged_amount != 0:
             self.create_history(
@@ -432,6 +437,9 @@ class MarginPosition(models.Model):
 
         self.save(update_fields=['amount', 'status'])
         self.set_liquidation_price(pipeline)
+
+        if insurance_amount:
+            alert_system_insurance_trx(position=self, amount=insurance_amount)
 
         if charge_insurance:
             from ledger.utils.margin import alert_liquidate
