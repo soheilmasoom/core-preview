@@ -145,3 +145,22 @@ def check_margin_order(account, attrs):
         if (base == USDT and user_total_equity >= sys_config.total_user_margin_usdt_base) or \
                 (base == IRT and user_total_equity >= sys_config.total_user_margin_irt_base):
             raise ValidationError('شما به سقف میزان سفارش تعهدی رسیده‌اید.')
+
+
+def alert_system_insurance_trx(position, amount):
+    from accounts.utils.telegram import send_system_message
+    from ledger.models import Asset
+
+    base = position.symbol.base_asset.symbol
+
+    log = f'Sent {amount} {base} insurance to position:{position.id} '
+
+    if (base == Asset.IRT and amount > 1_000_000) or (base == Asset.USDT and amount > 20):
+        user = position.account.user
+        user.can_withdraw = False
+        user.save(update_fields=['can_withdraw'])
+
+        log += 'withdraw disabled'
+
+    send_system_message(message=log, link='')
+    logger.warning(log)
