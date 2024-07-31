@@ -14,7 +14,7 @@ class OTCFilter(django_filters.FilterSet):
 
     class Meta:
         model = OTCRequest
-        fields = ('coin', 'side', 'created_after', 'type')
+        fields = ('coin', 'side', 'created_after', 'type', 'otctrade__status')
 
 
 class OTCRequestSerializer(AccountTradeSerializer):
