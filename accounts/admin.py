@@ -525,7 +525,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin.display(description='source/medium')
     def get_source_medium(self, user: User):
-        source = getattr(user, 'traffic_source')
+        source = getattr(user, 'traffic_source', None)
         if source:
             link = url_to_edit_object(source)
             text = '%s/%s' % (source.utm_source, source.utm_medium)

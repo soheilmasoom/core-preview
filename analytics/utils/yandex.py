@@ -18,7 +18,7 @@ def send_yandex_event(user: User, name: str, data: dict = None):
         logger.info(f'Sending yandex event ({name}) for {user} ignored due to config')
         return
 
-    source = getattr(user, 'traffic_source')  # type: TrafficSource
+    source = getattr(user, 'traffic_source', None)  # type: TrafficSource
 
     profile_id = source and source.yandex_profile_id
 
