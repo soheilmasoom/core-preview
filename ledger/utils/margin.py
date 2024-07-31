@@ -151,13 +151,16 @@ def alert_system_insurance_trx(position, amount):
     from accounts.utils.telegram import send_system_message
     from ledger.models import Asset
 
-    log = f'sent {amount} Insurance to position:{position.id}'
+    base = position.symbol.base_asset.symbol
 
-    send_system_message(message=log, link='')
-    logger.warning(log)
+    log = f'Sent {amount} {base} insurance to position:{position.id} '
 
-    if (position.symbol.base_asset.symbol == Asset.IRT and amount > 1_000_000) or \
-            (position.symbol.base_asset.symbol == Asset.USDT and amount > 20):
+    if (base == Asset.IRT and amount > 1_000_000) or (base == Asset.USDT and amount > 20):
         user = position.account.user
         user.can_withdraw = False
         user.save(update_fields=['can_withdraw'])
+
+        log += 'withdraw disabled'
+
+    send_system_message(message=log, link='')
+    logger.warning(log)
