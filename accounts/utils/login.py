@@ -31,7 +31,7 @@ def get_login_user_agent_data_from_request(request) -> dict:
         device_type = LoginActivity.UNKNOWN
 
     return {
-        'user_agent': request.META['HTTP_USER_AGENT'],
+        'user_agent': request.META.get('HTTP_USER_AGENT', ''),
         'device_type': device_type,
         'device': device,
         'os': os,
