@@ -24,7 +24,7 @@ class OTCRequestSerializer(AccountTradeSerializer):
 
     class Meta(AccountTradeSerializer.Meta):
         model = OTCRequest
-        fields = (*AccountTradeSerializer.Meta.fields, 'from_asset', 'to_asset', 'otc_trade_status', 'otctrade', 'type', 'gtd', 'trigger_price')
+        fields = (*AccountTradeSerializer.Meta.fields, 'from_asset', 'to_asset', 'from_amount', 'to_amount', 'otc_trade_status', 'otctrade', 'type', 'gtd', 'trigger_price')
         ref_name = 'OTCHistoryRequestSerializer'  # Unique name
 
 
