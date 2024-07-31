@@ -5,7 +5,7 @@ from accounts.models import User
 
 class TrafficSource(models.Model):
     created = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
-    user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name='کاربر')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name='کاربر', related_name='traffic_source')
 
     utm_source = models.CharField(max_length=256, blank=True)
     utm_medium = models.CharField(max_length=256, blank=True)

@@ -525,9 +525,10 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin.display(description='source/medium')
     def get_source_medium(self, user: User):
-        if hasattr(user, 'trafficsource'):
-            link = url_to_edit_object(user.trafficsource)
-            text = '%s/%s' % (user.trafficsource.utm_source, user.trafficsource.utm_medium)
+        source = getattr(user, 'traffic_source')
+        if source:
+            link = url_to_edit_object(source)
+            text = '%s/%s' % (source.utm_source, source.utm_medium)
 
             return mark_safe("<a href='%s'>%s</a>" % (link, text))
 
@@ -974,8 +975,8 @@ class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
 @admin.register(TrafficSource)
 class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ['get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
-    search_fields = ['user__phone', 'gps_adid', 'ip']
+    list_display = ('created', 'get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term')
+    search_fields = ('user__phone', 'gps_adid', 'ip', 'profile_id')
     readonly_fields = ('user', )
 
     @admin.display(description='user')

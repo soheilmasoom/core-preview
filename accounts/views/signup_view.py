@@ -18,6 +18,7 @@ from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.utils.ip import get_client_ip
 from accounts.utils.login import set_login_activity
 from accounts.validators import mobile_number_validator, password_validator, company_national_id_validator
+from analytics.utils.yandex import send_yandex_event
 from gamify.models import MissionJourney
 
 logger = logging.getLogger(__name__)
@@ -120,6 +121,8 @@ class SignupSerializer(serializers.Serializer):
         self.create_traffic_source(user, utm)
 
         self.set_missions_to_user(user)
+
+        send_yandex_event(user, 'sign_up')
 
         return user
 
