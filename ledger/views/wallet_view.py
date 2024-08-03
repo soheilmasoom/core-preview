@@ -512,7 +512,7 @@ class ConvertDustView(APIView):
 class ConvertDustViewV2(APIView):
     def get(self, *args):
         account = self.request.user.get_account()
-        if Dust.has_recent_conversion(account=account):
+        if ConvertDust.has_recent_conversion(account=account):
             return Response({'message': "user has recent conversion"}, status=status.HTTP_400_BAD_REQUEST)
 
         irt_asset = Asset.get(Asset.IRT)
