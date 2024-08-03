@@ -676,6 +676,7 @@ class DustsHistoryView(ListAPIView):
 
 
 class DustHistoryListSerializerV2(serializers.ModelSerializer):
+    base_asset = AssetSerializerMini()
     class Meta:
         model = ConvertDust
         fields = ('id', 'converted_amount', 'created', 'base_asset')
