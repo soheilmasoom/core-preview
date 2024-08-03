@@ -1324,7 +1324,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         return price
     
     @admin.action(description='convert dust and close', permissions=['change'])
-    def convert_dust_close(self, queryset):
+    def convert_dust_close(self, request, queryset):
         positions = []
         group_id = uuid4()
 
