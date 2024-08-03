@@ -161,13 +161,13 @@ class SignupSerializer(serializers.Serializer):
 
                 attribution = Attribution.objects.filter(gps_adid=gps_adid).order_by('created').last()
 
-                if not attribution or not attribution.tracker_code:
-                    utm_medium = 'organic'
-                else:
-                    utm_medium = attribution.network_name
-                    utm_campaign = attribution.campaign_name
-                    utm_content = attribution.adgroup_name
-                    utm_term = attribution.creative_name
+                # if not attribution:
+                #     utm_medium = 'organic'
+                # else:
+                #     utm_medium = attribution.network_name
+                #     utm_campaign = attribution.campaign_name
+                #     utm_content = attribution.adgroup_name
+                #     utm_term = attribution.creative_name
 
         TrafficSource.objects.create(
             user=user,
