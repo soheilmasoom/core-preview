@@ -682,6 +682,9 @@ class DustHistoryListSerializerV2(serializers.ModelSerializer):
         fields = ('id', 'converted_amount', 'created', 'base_asset')
 
 class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
+    base_asset = AssetSerializerMini()
+    asset = AssetSerializerMini()
+
     class Meta:
         model = ConvertDustTrx
         fields = ('id', 'asset', 'amount', 'converted_amount', 'base_asset', 'convert_dust')
