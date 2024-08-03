@@ -314,7 +314,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 'groups', 'user_permissions', 'show_margin', 'show_strategy_bot', 'show_staking', 'show_community',
                 'can_trade', 'can_withdraw', 'can_withdraw_crypto',
                 'withdraw_limit_whitelist', 'withdraw_risk_level_multiplier', 'custom_crypto_withdraw_ceil',
-                'ban_deposit_with_credit_bank_cards'
+                'ban_deposit_with_credit_bank_cards',
             ),
         }),
         (_('Important dates'), {'fields': (
@@ -329,7 +329,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 'get_withdraw_address', 'get_otctrade_address', 'get_fill_order_address', 'get_order_link',
                 'get_open_order_address', 'get_deposit_address', 'get_bank_card_link',
                 'get_bank_account_link', 'get_finotech_request_link', 'get_staking_link',
-                'get_user_with_same_national_code', 'get_referred_user', 'get_login_activity_link',
+                'get_referred_user', 'get_login_activity_link',
                 'get_notifications_link', 'get_prizes_link', 'get_bots_link', 'get_totp', 'get_dust'
             )
         }),
@@ -371,7 +371,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'get_date_joined_jalali', 'get_last_login_jalali',
         'get_remaining_fiat_withdraw_limit', 'get_remaining_crypto_withdraw_limit', 'get_deposit_address',
         'get_bank_card_link', 'get_bank_account_link', 'get_transfer_link', 'get_finotech_request_link',
-        'get_user_reject_reason', 'get_user_with_same_national_code', 'get_user_prizes', 'get_source_medium',
+        'get_user_reject_reason', 'get_user_prizes', 'get_source_medium',
         'get_fill_order_address', 'selfie_image_verifier', 'get_revenue_of_referral', 'get_referred_count',
         'get_revenue_of_referred', 'get_open_order_address', 'get_selfie_image_uploaded', 'get_referred_user',
         'get_login_activity_link', 'get_last_trade', 'get_total_balance_irt_admin', 'get_order_link',
@@ -656,18 +656,6 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_login_activity_link.short_description = 'تاریخچه ورود به حساب'
 
-    def get_user_with_same_national_code(self, user: User):
-        user_count = User.objects.filter(
-            ~Q(id=user.id) & Q(national_code=user.national_code) & ~Q(national_code='')
-        ).count()
-        return mark_safe(
-            "<a href='/admin/accounts/user/?national_code=%s&user_id_exclude=%s'> دیدن (%sکاربر)  </a>" % (
-                user.national_code, user.id, user_count
-            )
-        )
-
-    get_user_with_same_national_code.short_description = 'کاربرانی با این کد ملی'
-
     def get_level_2_verify_datetime_jalali(self, user: User):
         return gregorian_to_jalali_datetime_str(user.level_2_verify_datetime)
 
@@ -707,17 +695,15 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     get_remaining_fiat_withdraw_limit.short_description = 'باقی مانده سقف مجاز برداشت ریالی روزانه'
 
+    @admin.display(description='باقی مانده سقف مجاز برداشت رمزارز روزانه')
     def get_remaining_crypto_withdraw_limit(self, user: User):
         return humanize_number(
             LevelGrants.get_max_daily_crypto_withdraw(user) - get_crypto_withdraw_irt_value(user)
         )
 
-    get_remaining_crypto_withdraw_limit.short_description = 'باقی مانده سقف مجاز برداشت رمزارز   روزانه'
-
+    @admin.display(description='عکس سلفی')
     def get_selfie_image(self, user: User):
         return mark_safe("<img src='%s' width='200' height='200' />" % user.selfie_image.get_absolute_image_url())
-
-    get_selfie_image.short_description = 'عکس سلفی'
 
     def get_user_prizes(self, user: User):
         prizes = user.get_account().prize_set.all()
