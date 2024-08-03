@@ -1293,6 +1293,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
                        'liquidation_price', 'status', 'leverage', 'equity', 'group_id')
     list_filter = (PositionStatusFilter, 'side', 'symbol')
     search_fields = ('symbol__name', 'status', 'account__user__phone')
+    actions = ('convert_dust_close', )
 
     @admin.display(description='Orders')
     def get_orders(self, obj):
@@ -1321,6 +1322,29 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         if price is not None:
             price = floor_precision(obj.average_price, obj.symbol.tick_size)
         return price
+    
+    @admin.action(description='convert dust and close', permissions=['change'])
+    def convert_dust_close(self, queryset):
+        positions = []
+        group_id = uuid4()
+
+        with WalletPipeline() as pipeline:
+            for position in queryset:
+                position.convert_dust(pipeline)
+
+                isolated = position.base_wallet
+                isolated.refresh_from_db()
+                remaining_balance = isolated.balance + pipeline.get_wallet_balance_diff(isolated.id)
+
+                if remaining_balance > Decimal('0'):
+                    cross = isolated.asset.get_wallet(position.account, market=Wallet.MARGIN, variant=None)
+                    pipeline.new_trx(isolated, cross, remaining_balance, Trx.MANUAL, group_id)
+
+                position.status = MarginPosition.CLOSED
+                positions.append(position)
+
+            if positions:
+                MarginPosition.objects.bulk_update(positions, ['status'])
 
 
 @admin.register(MarginHistoryModel)
