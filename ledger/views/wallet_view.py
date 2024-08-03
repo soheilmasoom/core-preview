@@ -573,7 +573,7 @@ class ConvertDustViewV2(APIView):
         any_converted = False
 
         with WalletPipeline() as pipeline:
-            convert_dust = ConvertDust.object.create(
+            convert_dust = ConvertDust.objects.create(
                 created=timezone.now(),
                 account=account,
                 base_asset=base_asset,
@@ -603,7 +603,7 @@ class ConvertDustViewV2(APIView):
                         group_id=group_id,
                         scope=Trx.DUST
                     )
-                    ConvertDustTrx.object.create(
+                    ConvertDustTrx.objects.create(
                         convert_dust=convert_dust,
                         asset=wallet.asset,
                         amount=free,
