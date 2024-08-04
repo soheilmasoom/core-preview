@@ -1,6 +1,7 @@
 import django_filters
 
 from ledger.models import OTCTrade, OTCRequest
+from ledger.utils.precision import get_presentation_amount
 from market.serializers.trade_serializer import AccountTradeSerializer
 from market.views import AccountTradeHistoryView
 from rest_framework import serializers
@@ -21,6 +22,12 @@ class OTCRequestSerializer(AccountTradeSerializer):
     from_asset = serializers.CharField(source='from_asset.symbol')
     to_asset = serializers.CharField(source='to_asset.symbol')
     otc_trade_status = serializers.CharField(source='otctrade.status')
+
+    def get_from_amount(self, otc_request: OTCRequest):
+        get_presentation_amount(otc_request.from_amount)
+
+    def get_to_amount(self, otc_request: OTCRequest):
+        get_presentation_amount(otc_request.to_amount)
 
     class Meta(AccountTradeSerializer.Meta):
         model = OTCRequest
