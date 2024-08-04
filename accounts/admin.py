@@ -272,6 +272,10 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, UserAdmin):
     default_edit_condition = M.superuser
 
+    fields_view_conditions = {
+        'get_selfie_image': M.has_perm('accounts.can_view_user_selfie'),
+    }
+
     fields_edit_conditions = {
         'password': None,
         'first_name': True,
