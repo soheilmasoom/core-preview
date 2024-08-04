@@ -258,6 +258,10 @@ class FiatWithdrawRequest(BaseTransfer):
         verbose_name = 'درخواست برداشت'
         verbose_name_plural = 'درخواست‌های برداشت'
 
+        permissions = [
+            ("list_fiatwithdrawrequest", "Can list fiat withdraw request"),
+        ]
+
 
 @receiver(post_save, sender=FiatWithdrawRequest)
 def handle_withdraw_request_save(sender, instance, created, **kwargs):
