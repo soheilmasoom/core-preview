@@ -95,6 +95,10 @@ class Trx(models.Model):
             models.Index(fields=['scope', 'sender', 'created'], name="trx_margin_idx")
         ]
 
+        permissions = [
+            ("list_trx", "Can list trx"),
+        ]
+
     def save(self, *args, **kwargs):
         assert self.sender.asset == self.receiver.asset
         assert self.sender != self.receiver

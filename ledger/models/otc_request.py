@@ -192,3 +192,7 @@ class OTCRequest(BaseTrade):
                 fee_amount__gte=0,
             ), name='otc_request_check_trade_amounts', ),
         ]
+
+        permissions = [
+            ("list_otcrequest", "Can list otc request"),
+        ]

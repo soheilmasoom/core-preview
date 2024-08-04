@@ -129,6 +129,8 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin):
     actions = ('accept_withdraw_request', 'reject_withdraw_request', 'refund', 'resend_withdraw_request',
                'change_to_active_gateway', 'accept_manual')
 
+    list_permission_exclude_filters = ('id', 'user')
+
     @admin.display(description='نام و نام خانوادگی')
     def get_withdraw_request_user(self, withdraw_request: FiatWithdrawRequest):
         return withdraw_request.bank_account.user.get_full_name()
@@ -260,7 +262,7 @@ class PaymentUserFilter(SimpleListFilter):
 
 
 @admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
+class PaymentAdmin(AdvancedAdmin):
     list_display = ('created', 'get_amount', 'get_fee', 'status', 'ref_id', 'ref_status',
                     'source', 'get_card_pan', 'get_user',)
     list_filter = (PaymentUserFilter, 'status', 'source')
@@ -269,6 +271,8 @@ class PaymentAdmin(admin.ModelAdmin):
     readonly_fields = ('group_id', 'user', 'amount', 'fee', 'source')
     actions = ('refund', 'accept_deposit', 'reject_deposit')
     raw_id_fields = ('user', )
+
+    list_permission_exclude_filters = ('id', 'user')
 
     @admin.display(description='مقدار')
     def get_amount(self, payment: Payment):
@@ -344,6 +348,8 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'verified': M.superuser | M('verified')
     }
 
+    list_permission_exclude_filters = ('id', 'user')
+
     @admin.action(description='تایید خودکار شماره کارت', permissions=['change'])
     def verify_bank_cards(self, request, queryset):
         for bank_card in queryset:
@@ -404,6 +410,8 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     fields_edit_conditions = {
         'verified': M.superuser | M('verified')
     }
+
+    list_permission_exclude_filters = ('id', 'user')
 
     @admin.action(description='درخواست تایید خودکار شماره شبا', permissions=['change'])
     def verify_bank_accounts_auto(self, request, queryset):

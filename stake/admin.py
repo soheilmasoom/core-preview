@@ -3,6 +3,7 @@ from django.contrib.admin import SimpleListFilter
 from django.db.models import Sum
 from django.utils.safestring import mark_safe
 
+from accounts.admin_guard.admin import AdvancedAdmin
 from accounts.models import User
 from accounts.utils.admin import url_to_admin_list, url_to_edit_object
 from ledger.utils.precision import get_presentation_amount
@@ -49,7 +50,7 @@ class StakeStatusFilter(SimpleListFilter):
 
 
 @admin.register(StakeRequest)
-class StakeRequestAdmin(admin.ModelAdmin):
+class StakeRequestAdmin(AdvancedAdmin):
     list_display = ['get_stake_option_asset', 'get_stake_option_apr', 'created', 'get_amount', 'get_user', 'status',
                     'start_at', 'cancel_request_at', 'cancel_pending_at', 'end_at', 'get_stake_revenue']
     actions = ('stake_request_processing', 'stake_request_done',
@@ -58,6 +59,7 @@ class StakeRequestAdmin(admin.ModelAdmin):
                        'get_user', 'login_activity', 'group_id')
     list_filter = ('status', StakeStatusFilter)
     search_fields = ('account__user__phone', 'stake_option__asset__symbol')
+    list_permission_exclude_filters = ('id', 'account')
 
     def get_stake_option_asset(self, stake_request: StakeRequest):
         return stake_request.stake_option.asset

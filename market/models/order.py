@@ -158,6 +158,10 @@ class Order(models.Model):
             ),
         ]
 
+        permissions = [
+            ("list_order", "Can list order"),
+        ]
+
     objects = models.Manager()
     open_objects = OpenOrderManager()
 

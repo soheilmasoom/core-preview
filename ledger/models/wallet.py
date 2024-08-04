@@ -72,6 +72,10 @@ class Wallet(models.Model):
             ),
         ]
 
+        permissions = [
+            ("list_wallet", "Can list wallet"),
+        ]
+
     def get_free(self) -> Decimal:
         return self.balance - self.locked
 

@@ -34,7 +34,7 @@ from market.models import Trade, ReferralTrx, Order
 from stake.models import StakeRequest
 from .admin_guard import M
 from .admin_guard.admin import AdvancedAdmin
-from .models import User, Account, Notification, FinotechRequest, Company, LevelGrants
+from .models import User, Account, Notification, UserAuthRequest, Company, LevelGrants
 from .models.login_activity import LoginActivity
 from .models.sms_notification import SmsNotification
 from .models.user_feature_perm import UserFeaturePerm
@@ -314,7 +314,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 'groups', 'user_permissions', 'show_margin', 'show_strategy_bot', 'show_staking', 'show_community',
                 'can_trade', 'can_withdraw', 'can_withdraw_crypto',
                 'withdraw_limit_whitelist', 'withdraw_risk_level_multiplier', 'custom_crypto_withdraw_ceil',
-                'ban_deposit_with_credit_bank_cards'
+                'ban_deposit_with_credit_bank_cards',
             ),
         }),
         (_('Important dates'), {'fields': (
@@ -329,7 +329,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 'get_withdraw_address', 'get_otctrade_address', 'get_fill_order_address', 'get_order_link',
                 'get_open_order_address', 'get_deposit_address', 'get_bank_card_link',
                 'get_bank_account_link', 'get_finotech_request_link', 'get_staking_link',
-                'get_user_with_same_national_code', 'get_referred_user', 'get_login_activity_link',
+                'get_referred_user', 'get_login_activity_link',
                 'get_notifications_link', 'get_prizes_link', 'get_bots_link', 'get_totp', 'get_dust'
             )
         }),
@@ -371,7 +371,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'get_date_joined_jalali', 'get_last_login_jalali',
         'get_remaining_fiat_withdraw_limit', 'get_remaining_crypto_withdraw_limit', 'get_deposit_address',
         'get_bank_card_link', 'get_bank_account_link', 'get_transfer_link', 'get_finotech_request_link',
-        'get_user_reject_reason', 'get_user_with_same_national_code', 'get_user_prizes', 'get_source_medium',
+        'get_user_reject_reason', 'get_user_prizes', 'get_source_medium',
         'get_fill_order_address', 'selfie_image_verifier', 'get_revenue_of_referral', 'get_referred_count',
         'get_revenue_of_referred', 'get_open_order_address', 'get_selfie_image_uploaded', 'get_referred_user',
         'get_login_activity_link', 'get_last_trade', 'get_total_balance_irt_admin', 'get_order_link',
@@ -382,6 +382,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     preserve_filters = ('archived', )
 
     search_fields = (*UserAdmin.search_fields, 'national_code', 'phone')
+
+    list_permission_exclude_filters = ('id', 'phone')
 
     @admin.action(description='حذف امن کاربر', permissions=['change'])
     def safe_delete_user(self, request, queryset : List[User]):
@@ -639,34 +641,20 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     get_transfer_link.short_description = 'تراکنش‌های رمزارزی'
 
+    @admin.display(description='درخواست‌های احراز هویت')
     def get_finotech_request_link(self, user: User):
-        link = url_to_admin_list(FinotechRequest) + '?user={}'.format(user.id)
+        link = url_to_admin_list(UserAuthRequest) + '?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
-    get_finotech_request_link.short_description = 'درخواست‌های فینوتک'
-
+    @admin.display(description='کاربران دعوت شده')
     def get_referred_user(self, user: User):
-
         link = url_to_admin_list(User) + '?owner_id={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
-    get_referred_user.short_description = 'کاربران دعوت شده'
 
     def get_login_activity_link(self, user: User):
         link = url_to_admin_list(LoginActivity) + '?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_login_activity_link.short_description = 'تاریخچه ورود به حساب'
-
-    def get_user_with_same_national_code(self, user: User):
-        user_count = User.objects.filter(
-            ~Q(id=user.id) & Q(national_code=user.national_code) & ~Q(national_code='')
-        ).count()
-        return mark_safe(
-            "<a href='/admin/accounts/user/?national_code=%s&user_id_exclude=%s'> دیدن (%sکاربر)  </a>" % (
-                user.national_code, user.id, user_count
-            )
-        )
-
-    get_user_with_same_national_code.short_description = 'کاربرانی با این کد ملی'
 
     def get_level_2_verify_datetime_jalali(self, user: User):
         return gregorian_to_jalali_datetime_str(user.level_2_verify_datetime)
@@ -707,17 +695,15 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     get_remaining_fiat_withdraw_limit.short_description = 'باقی مانده سقف مجاز برداشت ریالی روزانه'
 
+    @admin.display(description='باقی مانده سقف مجاز برداشت رمزارز روزانه')
     def get_remaining_crypto_withdraw_limit(self, user: User):
         return humanize_number(
             LevelGrants.get_max_daily_crypto_withdraw(user) - get_crypto_withdraw_irt_value(user)
         )
 
-    get_remaining_crypto_withdraw_limit.short_description = 'باقی مانده سقف مجاز برداشت رمزارز   روزانه'
-
+    @admin.display(description='عکس سلفی')
     def get_selfie_image(self, user: User):
         return mark_safe("<img src='%s' width='200' height='200' />" % user.selfie_image.get_absolute_image_url())
-
-    get_selfie_image.short_description = 'عکس سلفی'
 
     def get_user_prizes(self, user: User):
         prizes = user.get_account().prize_set.all()
@@ -819,7 +805,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin.display(description='لیست استیکینگ‌ (staking) کاربر')
     def get_staking_link(self, user: User):
-        link = url_to_admin_list(StakeRequest) + '?account_id={}'.format(user.account.id)
+        link = url_to_admin_list(StakeRequest) + '?account={}'.format(user.account.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
     @admin.action(description='Update Deposits', permissions=['view'])
@@ -907,16 +893,18 @@ class FinotechRequestUserFilter(SimpleListFilter):
             return queryset
 
 
-@admin.register(FinotechRequest)
-class FinotechRequestAdmin(admin.ModelAdmin):
+@admin.register(UserAuthRequest)
+class UserAuthRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'url', 'status_code')
     list_filter = (FinotechRequestUserFilter, 'status_code')
     ordering = ('-created', )
     search_fields = ('url', 'data')
     raw_id_fields = ('user', )
 
+    list_permission_exclude_filters = ('id', 'user')
+
     @admin.display(description='user')
-    def get_username(self, req: FinotechRequest):
+    def get_username(self, req: UserAuthRequest):
         return mark_safe(
             f'<span dir="ltr">{req.user}</span>'
         )

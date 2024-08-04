@@ -8,7 +8,7 @@ from urllib3.exceptions import ReadTimeoutError
 from decouple import config
 from decouple import config
 
-from accounts.models import FinotechRequest
+from accounts.models import UserAuthRequest
 from accounts.utils.validation import gregorian_to_jalali_date_str
 
 logger = logging.getLogger(__name__)
@@ -59,10 +59,10 @@ class FinotechRequester:
                     search_key: str = None) -> dict:
 
         if search_key:
-            request = FinotechRequest.objects.filter(
+            request = UserAuthRequest.objects.filter(
                 created__gt=timezone.now() - datetime.timedelta(days=30),
                 search_key=search_key,
-                service=FinotechRequest.FINOTECH
+                service=UserAuthRequest.FINOTECH
             ).order_by('-created').first()
 
             if request:
@@ -82,12 +82,12 @@ class FinotechRequester:
 
         url = 'https://apibeta.finnotech.ir' + path.format(clientId='raastin')
 
-        req_object = FinotechRequest.objects.create(
+        req_object = UserAuthRequest.objects.create(
             url=url,
             method=method,
             data=data,
             user=self._user,
-            service=FinotechRequest.FINOTECH
+            service=UserAuthRequest.FINOTECH
         )
 
         url += '?trackId=%s' % req_object.track_id

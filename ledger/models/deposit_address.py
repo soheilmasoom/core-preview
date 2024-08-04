@@ -53,3 +53,7 @@ class DepositAddress(models.Model):
 
     class Meta:
         unique_together = ('address_key', 'network', 'address')
+
+        permissions = [
+            ("list_depositaddress", "Can list deposit address"),
+        ]
