@@ -677,6 +677,9 @@ class DustsHistoryView(ListAPIView):
 
 class DustHistoryListSerializerV2(serializers.ModelSerializer):
     base_asset = AssetSerializerMini()
+
+    def get_converted_amount(self, convert_dust: ConvertDust):
+        get_presentation_amount(convert_dust.converted_amount)
     class Meta:
         model = ConvertDust
         fields = ('id', 'converted_amount', 'created', 'base_asset')
@@ -684,6 +687,12 @@ class DustHistoryListSerializerV2(serializers.ModelSerializer):
 class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
     base_asset = AssetSerializerMini()
     asset = AssetSerializerMini()
+
+    def get_converted_amount(self, convert_dust: ConvertDust):
+        get_presentation_amount(convert_dust.converted_amount)
+
+    def get_amount(self, convert_dust: ConvertDust):
+        get_presentation_amount(convert_dust.amount)
 
     class Meta:
         model = ConvertDustTrx
