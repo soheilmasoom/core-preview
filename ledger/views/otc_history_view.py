@@ -24,12 +24,16 @@ class OTCRequestSerializer(AccountTradeSerializer):
     otc_trade_status = serializers.CharField(source='otctrade.status')
     from_amount = serializers.SerializerMethodField()
     to_amount = serializers.SerializerMethodField()
+    trigger_price = serializers.SerializerMethodField()
 
     def get_from_amount(self, otc_request: OTCRequest):
         return get_presentation_amount(otc_request.from_amount)
 
     def get_to_amount(self, otc_request: OTCRequest):
         return get_presentation_amount(otc_request.to_amount)
+
+    def get_trigger_price(self, otc_request: OTCRequest):
+        return get_presentation_amount(otc_request.trigger_price)
 
     class Meta(AccountTradeSerializer.Meta):
         model = OTCRequest
