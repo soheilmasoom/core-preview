@@ -338,11 +338,12 @@ class OTCRequestUserFilter(SimpleListFilter):
 
 
 @admin.register(models.OTCRequest)
-class OTCRequestAdmin(admin.ModelAdmin):
+class OTCRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'symbol', 'side', 'price', 'amount', 'fee_amount', 'fee_revenue')
     readonly_fields = ('account', 'login_activity')
     search_fields = ('token', 'symbol__name', 'account__user__phone')
     list_filter = (OTCRequestUserFilter,)
+    list_permission_exclude_filters = ('id', 'user')
 
     @admin.display(description='user')
     def get_username(self, otc_request: models.OTCRequest):
@@ -522,7 +523,7 @@ class WalletAdmin(AdvancedAdmin):
     readonly_fields = ('account', 'asset', 'market', 'balance', 'locked', 'variant')
     search_fields = ('account__user__phone', 'asset__symbol')
     actions = ('sync_wallet_lock', )
-    list_permission_exclude_filters = ('id', 'user')
+    list_permission_exclude_filters = ('id', 'account')
 
     def get_queryset(self, request):
         qs = super(WalletAdmin, self).get_queryset(request)
