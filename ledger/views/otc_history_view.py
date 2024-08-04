@@ -22,6 +22,8 @@ class OTCRequestSerializer(AccountTradeSerializer):
     from_asset = serializers.CharField(source='from_asset.symbol')
     to_asset = serializers.CharField(source='to_asset.symbol')
     otc_trade_status = serializers.CharField(source='otctrade.status')
+    from_amount = serializers.SerializerMethodField()
+    to_amount = serializers.SerializerMethodField()
 
     def get_from_amount(self, otc_request: OTCRequest):
         return get_presentation_amount(otc_request.from_amount)
