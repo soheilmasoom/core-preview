@@ -305,11 +305,13 @@ class DepositAddressUserFilter(admin.SimpleListFilter):
 
 
 @admin.register(models.DepositAddress)
-class DepositAddressAdmin(admin.ModelAdmin):
+class DepositAddressAdmin(AdvancedAdmin):
     list_display = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     readonly_fields = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     list_filter = ('network', DepositAddressUserFilter)
     search_fields = ('address', 'address_key__account__user__phone', 'address_key__memo')
+
+    list_permission_exclude_filters = ('id', 'user')
 
     @admin.display(description='memo')
     def get_memo(self, deposit_address: models.DepositAddress):
@@ -365,13 +367,15 @@ class OTCUserFilter(SimpleListFilter):
 
 
 @admin.register(models.OTCTrade)
-class OTCTradeAdmin(admin.ModelAdmin):
+class OTCTradeAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'otc_request', 'status', 'get_value', 'get_value_irt',
                     'execution_type', 'gap_revenue', 'hedged')
     list_filter = (OTCUserFilter, 'status', 'execution_type', 'hedged')
     search_fields = ('group_id', 'order_id', 'otc_request__symbol__asset__symbol', 'otc_request__account__user__phone')
     readonly_fields = ('otc_request', 'get_username')
     actions = ('accept_trade', 'accept_trade_without_hedge', 'cancel_trade', 'revert')
+
+    list_permission_exclude_filters = ('id', 'user')
 
     def get_queryset(self, request):
         return super(OTCTradeAdmin, self).get_queryset(request).prefetch_related('otc_request__account__user')
@@ -433,13 +437,15 @@ class TrxUserFilter(SimpleListFilter):
 
 
 @admin.register(models.Trx)
-class TrxAdmin(admin.ModelAdmin):
+class TrxAdmin(AdvancedAdmin):
     list_display = ('created', 'get_masked_sender', 'get_masked_receiver', 'amount', 'scope', 'group_id')
     search_fields = ('sender__asset__symbol', 'sender__account__user__phone', 'receiver__account__user__phone',
                      'group_id')
     readonly_fields = ('sender', 'receiver',)
     list_filter = ('scope', TrxUserFilter)
     actions = ('revert',)
+
+    list_permission_exclude_filters = ('id', 'user')
 
     @admin.display(description='sender')
     def get_masked_sender(self, trx: Trx):
@@ -504,7 +510,7 @@ class WalletBalanceFilter(SimpleListFilter):
 
 
 @admin.register(models.Wallet)
-class WalletAdmin(admin.ModelAdmin):
+class WalletAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'asset', 'market', 'get_free', 'locked', 'get_value_usdt', 'get_value_irt',
                     'credit', 'variant')
     inlines = [BalanceLockInline]
@@ -516,6 +522,7 @@ class WalletAdmin(admin.ModelAdmin):
     readonly_fields = ('account', 'asset', 'market', 'balance', 'locked', 'variant')
     search_fields = ('account__user__phone', 'asset__symbol')
     actions = ('sync_wallet_lock', )
+    list_permission_exclude_filters = ('id', 'user')
 
     def get_queryset(self, request):
         qs = super(WalletAdmin, self).get_queryset(request)
@@ -596,6 +603,8 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit', 'refund_deposit',
                'terminate_withdraw')
+
+    list_permission_exclude_filters = ('id', 'user')
 
     def save_model(self, request, obj: models.Transfer, form, change):
         if obj.id and obj.status == DONE:
@@ -810,15 +819,15 @@ class PrizeUserFilter(admin.SimpleListFilter):
 
 
 @admin.register(models.Prize)
-class PrizeAdmin(admin.ModelAdmin):
+class PrizeAdmin(AdvancedAdmin):
     list_display = ('created', 'achievement', 'get_username', 'get_asset_amount', 'redeemed', 'value')
     readonly_fields = ('account', 'asset',)
     list_filter = ('achievement', 'redeemed', PrizeUserFilter)
+    list_permission_exclude_filters = ('id', 'user')
 
+    @admin.display(description='amount')
     def get_asset_amount(self, prize: Prize):
         return '%s %s' % (get_presentation_amount(prize.amount), prize.asset)
-
-    get_asset_amount.short_description = 'مقدار'
 
     @admin.display(description='user')
     def get_username(self, prize: models.Prize):

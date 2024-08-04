@@ -641,17 +641,15 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     get_transfer_link.short_description = 'تراکنش‌های رمزارزی'
 
+    @admin.display(description='درخواست‌های احراز هویت')
     def get_finotech_request_link(self, user: User):
         link = url_to_admin_list(UserAuthRequest) + '?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
-    get_finotech_request_link.short_description = 'درخواست‌های فینوتک'
-
+    @admin.display(description='کاربران دعوت شده')
     def get_referred_user(self, user: User):
-
         link = url_to_admin_list(User) + '?owner_id={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
-    get_referred_user.short_description = 'کاربران دعوت شده'
 
     def get_login_activity_link(self, user: User):
         link = url_to_admin_list(LoginActivity) + '?user={}'.format(user.id)
@@ -807,7 +805,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin.display(description='لیست استیکینگ‌ (staking) کاربر')
     def get_staking_link(self, user: User):
-        link = url_to_admin_list(StakeRequest) + '?account_id={}'.format(user.account.id)
+        link = url_to_admin_list(StakeRequest) + '?account={}'.format(user.account.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
     @admin.action(description='Update Deposits', permissions=['view'])
@@ -896,12 +894,14 @@ class FinotechRequestUserFilter(SimpleListFilter):
 
 
 @admin.register(UserAuthRequest)
-class UserAuthRequestAdmin(admin.ModelAdmin):
+class UserAuthRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'url', 'status_code')
     list_filter = (FinotechRequestUserFilter, 'status_code')
     ordering = ('-created', )
     search_fields = ('url', 'data')
     raw_id_fields = ('user', )
+
+    list_permission_exclude_filters = ('id', 'user')
 
     @admin.display(description='user')
     def get_username(self, req: UserAuthRequest):

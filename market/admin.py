@@ -3,6 +3,7 @@ from django.contrib.admin import SimpleListFilter
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
+from accounts.admin_guard.admin import AdvancedAdmin
 from ledger.models import Asset, MarginPosition
 from ledger.utils.precision import get_presentation_amount
 from market.models import Order, Trade, PairSymbol, CancelRequest, ReferralTrx, StopLoss, OCO
@@ -102,11 +103,13 @@ class OrderPositionFilter(admin.SimpleListFilter):
 
 
 @admin.register(Order)
-class OrderAdmin(admin.ModelAdmin):
+class OrderAdmin(AdvancedAdmin):
     list_display = ('created', 'created_at_millis', 'symbol', 'account', 'side', 'fill_type', 'status', 'price', 'amount')
     list_filter = (TypeFilter, UserFilter, 'side', 'fill_type', 'status', 'symbol')
     readonly_fields = ('wallet', 'symbol', 'account', 'stop_loss', 'login_activity', 'position')
     actions = ('cancel_order', )
+
+    list_permission_exclude_filters = ('id', 'user')
 
     def created_at_millis(self, instance):
         created = instance.created.astimezone()
@@ -150,13 +153,15 @@ class TradePositionFilter(admin.SimpleListFilter):
 
 
 @admin.register(Trade)
-class TradeAdmin(admin.ModelAdmin):
+class TradeAdmin(AdvancedAdmin):
     list_display = ('created', 'created_at_millis', 'account', 'symbol', 'side', 'price', 'is_maker', 'market',
                     'amount', 'fee_amount', 'fee_revenue', 'get_value_irt', 'get_value_usdt')
     list_filter = ('trade_source', UserTradeFilter, 'symbol', 'market')
     readonly_fields = ('symbol', 'order_id', 'account', 'login_activity', 'group_id', 'position')
     search_fields = ('symbol__name', )
     actions = ('revert', )
+
+    list_permission_exclude_filters = ('id', 'user')
 
     def created_at_millis(self, instance):
         created = instance.created.astimezone()
