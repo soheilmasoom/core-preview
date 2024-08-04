@@ -512,8 +512,6 @@ class ConvertDustView(APIView):
 class ConvertDustViewV2(APIView):
     def get(self, *args):
         account = self.request.user.get_account()
-        if ConvertDust.has_recent_conversion(account=account):
-            return Response({'message': "user has recent conversion"}, status=status.HTTP_400_BAD_REQUEST)
 
         irt_asset = Asset.get(Asset.IRT)
 
@@ -546,6 +544,9 @@ class ConvertDustViewV2(APIView):
     def post(self, *args):
         account = self.request.user.get_account()
         serializer = ConvertDustSerializer(data=self.request.data)
+
+        if ConvertDust.has_recent_conversion(account=account):
+            return Response({'message': "user has recent conversion"}, status=status.HTTP_400_BAD_REQUEST)
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
