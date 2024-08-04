@@ -24,10 +24,10 @@ class OTCRequestSerializer(AccountTradeSerializer):
     otc_trade_status = serializers.CharField(source='otctrade.status')
 
     def get_from_amount(self, otc_request: OTCRequest):
-        get_presentation_amount(otc_request.from_amount)
+        return get_presentation_amount(otc_request.from_amount)
 
     def get_to_amount(self, otc_request: OTCRequest):
-        get_presentation_amount(otc_request.to_amount)
+        return get_presentation_amount(otc_request.to_amount)
 
     class Meta(AccountTradeSerializer.Meta):
         model = OTCRequest

@@ -692,10 +692,10 @@ class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
     asset = AssetSerializerMini()
 
     def get_converted_amount(self, convert_dust: ConvertDust):
-        get_presentation_amount(convert_dust.converted_amount)
+        return get_presentation_amount(convert_dust.converted_amount)
 
     def get_amount(self, convert_dust: ConvertDust):
-        get_presentation_amount(convert_dust.amount)
+        return get_presentation_amount(convert_dust.amount)
 
     class Meta:
         model = ConvertDustTrx
