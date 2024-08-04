@@ -621,6 +621,8 @@ class ConvertDustViewV2(APIView):
                 group_id=group_id,
                 scope=Trx.DUST,
             )
+            if base_amount == 0:
+                raise ValidationError('خطایی رخ داد.')
             convert_dust.converted_amount=base_amount
             convert_dust.save()
 
