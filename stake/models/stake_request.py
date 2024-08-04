@@ -174,3 +174,8 @@ class StakeRequest(models.Model):
         else:
             self.status = new_status
             self.save()
+
+    class Meta:
+        permissions = [
+            ("list_stakerequest", "Can list stake request"),
+        ]

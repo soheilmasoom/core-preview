@@ -87,6 +87,10 @@ class BankCard(models.Model):
             )
         ]
 
+        permissions = [
+            ("list_bankcard", "Can list bank card"),
+        ]
+
 
 class BankAccount(models.Model):
     ACTIVE, DEPOSITABLE_SUSPENDED, NON_DEPOSITABLE_SUSPENDED, STAGNANT, UNKNOWN = 'active', 'suspend', 'nsuspend', 'stagnant', 'unknown'
@@ -155,6 +159,10 @@ class BankAccount(models.Model):
                 name="unique_bank_account_verified_iban",
                 condition=Q(verified=True, deleted=False),
             )
+        ]
+
+        permissions = [
+            ("list_bankaccount", "Can list bank account"),
         ]
 
 

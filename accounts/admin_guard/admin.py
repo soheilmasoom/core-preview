@@ -31,7 +31,7 @@ class AdvancedAdmin(ModelAdmin):
         # 'get_list_item_initializer',
     ]
 
-    list_permission_exclude_filter = 'id'
+    list_permission_exclude_filters = ['id']
 
     def __init__(self, model, admin_site):
         self.model = model
@@ -67,7 +67,9 @@ class AdvancedAdmin(ModelAdmin):
         return request.path.endswith('/add/')
 
     def get_changelist(self, request, **kwargs):
-        if self.has_list_permission(request) or request.GET.get(self.list_permission_exclude_filter):
+        if self.has_list_permission(request) or \
+                any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters)):
+
             return super(AdvancedAdmin, self).get_changelist(request, **kwargs)
 
         raise PermissionDenied

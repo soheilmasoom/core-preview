@@ -34,7 +34,7 @@ from market.models import Trade, ReferralTrx, Order
 from stake.models import StakeRequest
 from .admin_guard import M
 from .admin_guard.admin import AdvancedAdmin
-from .models import User, Account, Notification, FinotechRequest, Company, LevelGrants
+from .models import User, Account, Notification, UserAuthRequest, Company, LevelGrants
 from .models.login_activity import LoginActivity
 from .models.sms_notification import SmsNotification
 from .models.user_feature_perm import UserFeaturePerm
@@ -383,6 +383,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     search_fields = (*UserAdmin.search_fields, 'national_code', 'phone')
 
+    list_permission_exclude_filters = ('id', 'phone')
+
     @admin.action(description='حذف امن کاربر', permissions=['change'])
     def safe_delete_user(self, request, queryset : List[User]):
         for user in queryset:
@@ -640,7 +642,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     get_transfer_link.short_description = 'تراکنش‌های رمزارزی'
 
     def get_finotech_request_link(self, user: User):
-        link = url_to_admin_list(FinotechRequest) + '?user={}'.format(user.id)
+        link = url_to_admin_list(UserAuthRequest) + '?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
     get_finotech_request_link.short_description = 'درخواست‌های فینوتک'
@@ -893,8 +895,8 @@ class FinotechRequestUserFilter(SimpleListFilter):
             return queryset
 
 
-@admin.register(FinotechRequest)
-class FinotechRequestAdmin(admin.ModelAdmin):
+@admin.register(UserAuthRequest)
+class UserAuthRequestAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_username', 'url', 'status_code')
     list_filter = (FinotechRequestUserFilter, 'status_code')
     ordering = ('-created', )
@@ -902,7 +904,7 @@ class FinotechRequestAdmin(admin.ModelAdmin):
     raw_id_fields = ('user', )
 
     @admin.display(description='user')
-    def get_username(self, req: FinotechRequest):
+    def get_username(self, req: UserAuthRequest):
         return mark_safe(
             f'<span dir="ltr">{req.user}</span>'
         )

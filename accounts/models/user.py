@@ -274,8 +274,8 @@ class User(AbstractUser):
         return self.bankcard_set.filter(kyc=True).first()
 
     def get_verify_weight(self) -> int:
-        from accounts.models import FinotechRequest
-        return FinotechRequest.objects.filter(
+        from accounts.models import UserAuthRequest
+        return UserAuthRequest.objects.filter(
             user=self,
             search_key__isnull=False
         ).exclude(search_key='').aggregate(w=Sum('weight'))['w'] or 0
