@@ -14,14 +14,11 @@ logger = logging.getLogger(__name__)
 class ConvertDust(models.Model):
     created = models.DateTimeField()
     account = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
-    converted_amount = get_amount_field(null=True)
+    converted_amount = get_amount_field(default=0)
     base_asset = models.ForeignKey('Asset', on_delete=models.CASCADE)
     group_id = models.UUIDField(default=uuid4, db_index=True)
 
     class Meta:
-        constraints = [
-            CheckConstraint(check=Q(converted_amount__gt=0), name='check_ledger_dust_converted_amount', ),
-        ]
         indexes = [
             models.Index(fields=['account', 'created'], name="ledger_dust_acc_created_idx")
         ]
