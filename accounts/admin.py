@@ -1016,6 +1016,7 @@ class AttributionTrackerAdmin(admin.ModelAdmin):
 class AttributionAdmin(admin.ModelAdmin):
     list_display = ('created', 'tracker', 'installed_at', 'gps_adid', 'device_type', 'get_device', 'app_id')
     list_filter = ('tracker', 'app_id', 'device_type')
+    search_fields = ('gps_adid', 'device_id', 'profile_id')
 
     @admin.display(description="Device")
     def get_device(self, attribution: Attribution):
