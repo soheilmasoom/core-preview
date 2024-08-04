@@ -387,7 +387,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     search_fields = (*UserAdmin.search_fields, 'national_code', 'phone')
 
-    list_permission_exclude_filters = ('id', 'phone')
+    list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
     @admin.action(description='حذف امن کاربر', permissions=['change'])
     def safe_delete_user(self, request, queryset : List[User]):
