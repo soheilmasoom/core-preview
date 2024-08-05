@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @shared_task(queue='celery')
 def check_maker_order_price(dry_run=True):
     logger.info('check_maker_order_price')
-    if not SystemConfig.get_system_config().market_maker_emergency_break:
+    if not SystemConfig.get_system_config().market_maker_emergency_brake:
         logger.info('check_maker_order_price canceled due to system config')
         return
 

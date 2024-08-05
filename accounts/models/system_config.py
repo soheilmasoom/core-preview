@@ -51,7 +51,7 @@ class SystemConfig(models.Model):
 
     fiat_daily_auto_verify_limit = models.PositiveIntegerField(default=200_000_000)
 
-    market_maker_emergency_break = models.BooleanField(default=False)
+    market_maker_emergency_brake = models.BooleanField(default=False)
 
     dust_convert_threshold = models.PositiveIntegerField(default=100_000, validators=[MaxValueValidator(1000_000)])
 
