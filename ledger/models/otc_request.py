@@ -128,6 +128,7 @@ class OTCRequest(BaseTrade):
             trigger_price=trigger_price
         )
         other_side = get_other_side(pair.side)
+        coin_trigger_amount = 0
 
         usdt_irt_price = get_price(USDT_IRT, side=other_side, allow_stale=True)
 
@@ -144,7 +145,8 @@ class OTCRequest(BaseTrade):
             if price is None:
                 raise NoPriceError
 
-            coin_trigger_amount = floor_precision(pair.base_amount / trigger_price, symbol.step_size)
+            if trigger_price:
+                coin_trigger_amount = floor_precision(pair.base_amount / trigger_price, symbol.step_size)
             coin_amount = floor_precision(pair.base_amount / price, symbol.step_size)
         else:
             coin_trigger_amount = pair.coin_amount
@@ -156,7 +158,8 @@ class OTCRequest(BaseTrade):
             raise NoPriceError
 
         if pair.coin_amount is None:
-            coin_trigger_amount = floor_precision(pair.base_amount / trigger_price, symbol.step_size)
+            if trigger_price:
+                coin_trigger_amount = floor_precision(pair.base_amount / trigger_price, symbol.step_size)
             coin_amount = floor_precision(pair.base_amount / price, symbol.step_size)
         else:
             coin_trigger_amount = pair.coin_amount
