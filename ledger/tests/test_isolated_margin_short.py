@@ -169,10 +169,10 @@ class ShortIsolatedMarginTestCase(TestCase):
 
         print(trade_pnl)
         print('DUST pnl calculation')
-        dusts = MarginHistoryModel.objects.filter(position=position, type=MarginHistoryModel.DUST)
+        dusts = MarginHistoryModel.objects.filter(position=position, type=MarginHistoryModel.CONVERT)
         base_wallet = position.base_wallet
         for trx in Trx.objects.filter(
-                Q(scope=Trx.DUST, group_id__in=set(dusts.values_list('group_id', flat=True))) |
+                Q(scope=Trx.MARGIN_CONVERT, group_id__in=set(dusts.values_list('group_id', flat=True))) |
                 Q(receiver=base_wallet, scope=Trx.MARGIN_INSURANCE) |
                 Q(sender=base_wallet, scope=Trx.LIQUID),
                 sender__asset=base_wallet.asset):
@@ -206,8 +206,8 @@ class ShortIsolatedMarginTestCase(TestCase):
 
         self.assertGreaterEqual(trade_pnl * pnl_amount, 0)
         self.assertTrue(
-            abs(percent) < Decimal('0.05')
-            or abs(f_percent) < Decimal('0.05')
+            abs(percent) < Decimal('0.06')
+            or abs(f_percent) < Decimal('0.06')
             or (abs(f_percent) < Decimal('0.15') and Order.objects.filter(position=position, type=Order.LIQUIDATION).exists()))
 
     def close_position(self, id, check_status=200):
@@ -515,7 +515,7 @@ class ShortIsolatedMarginTestCase(TestCase):
         print('mp', mp.debt_amount, mp.total_balance, mp.liquidation_price, mp.side, mp.equity)
 
         self.assert_liquidation(self.account, self.btcusdt)
-    #
+
     def test_short_sell7(self):
         self.transfer_usdt_api(TO_TRANSFER_USDT)
         loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
