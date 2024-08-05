@@ -7,6 +7,15 @@ from market.views import AccountTradeHistoryView
 from rest_framework import serializers
 from django.db.models import Q
 
+def get_request_from_amount(otc_request: OTCRequest) -> str:
+    if not otc_request.from_amount:
+        return otc_request.amount * otc_request.price if otc_request.type == OTCRequest.MARKET else otc_request.amount * otc_request.trigger_price
+    return otc_request.from_amount
+
+def get_request_to_amount(otc_request: OTCRequest) -> str:
+    if not otc_request.to_amount:
+        return otc_request.amount
+    return otc_request.to_amount
 
 class OTCFilter(django_filters.FilterSet):
     coin = django_filters.CharFilter(field_name='symbol__asset__symbol', lookup_expr='iexact')
@@ -27,10 +36,10 @@ class OTCRequestSerializer(AccountTradeSerializer):
     trigger_price = serializers.SerializerMethodField()
 
     def get_from_amount(self, otc_request: OTCRequest):
-        return get_presentation_amount(otc_request.from_amount)
+        return get_presentation_amount(get_request_from_amount(otc_request))
 
     def get_to_amount(self, otc_request: OTCRequest):
-        return get_presentation_amount(otc_request.to_amount)
+        return get_presentation_amount(get_request_to_amount(otc_request))
 
     def get_trigger_price(self, otc_request: OTCRequest):
         return get_presentation_amount(otc_request.trigger_price)
