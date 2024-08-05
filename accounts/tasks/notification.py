@@ -1,6 +1,8 @@
 import logging
+from datetime import timedelta
 
 from celery import shared_task
+from django.utils import timezone
 
 from accounts.models import Notification, BulkNotification, User, EmailNotification
 from accounts.models.sms_notification import SmsNotification
@@ -14,6 +16,13 @@ logger = logging.getLogger(__name__)
 
 @shared_task(queue='notif-manager')
 def send_notifications_push():
+    Notification.objects.filter(
+        push_status=Notification.PUSH_WAITING,
+        created__lt=timezone.now() - timedelta(hours=1)
+    ).update(
+        push_status=Notification.PUSH_CANCELED
+    )
+
     for notif in Notification.objects.filter(push_status=Notification.PUSH_WAITING).order_by('id')[:100]:
         send_push_notif_to_user(
             user=notif.recipient,
