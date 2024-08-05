@@ -190,6 +190,8 @@ def verify_bank_card(bank_card: BankCard, retry: int = 2) -> Union[bool, None]:
                 verified = name_similarity(bank_card.user.get_legal_name(), bank_card.owner_name)
                 if not verified:
                     bank_card.reject(BankCard.NAME_MISMATCH)
+                else:
+                    bank_card.accept()
 
                 return verified
 

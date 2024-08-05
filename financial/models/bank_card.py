@@ -51,6 +51,10 @@ class BankCard(models.Model):
             self.reject_reason = reason
             self.save(update_fields=['verified', 'reject_reason'])
 
+    def accept(self):
+        self.verified = True
+        self.save(update_fields=['verified'])
+
     def __str__(self):
         if len(self.card_pan) < 10:
             return self.card_pan
