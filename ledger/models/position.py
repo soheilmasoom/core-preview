@@ -584,7 +584,7 @@ class MarginHistoryModel(models.Model):
     type_list = [PNL, TRANSFER, TRADE_FEE, INTEREST_FEE, INSURANCE_FEE]
 
     created = models.DateTimeField(auto_now_add=True)
-    position = models.ForeignKey('ledger.MarginPosition', on_delete=models.CASCADE, null=True)
+    position = models.ForeignKey('ledger.MarginPosition', on_delete=models.CASCADE, null=True, blank=True)
     account = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
     asset = models.ForeignKey('ledger.Asset', on_delete=models.CASCADE)
     amount = get_amount_field(validators=())
