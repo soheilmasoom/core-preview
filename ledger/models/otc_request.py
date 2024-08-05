@@ -179,6 +179,16 @@ class OTCRequest(BaseTrade):
         else:
             return self.amount
 
+    def get_paying_amount(self):
+        if self.side == BUY:
+            price = self.price if self.type == OTCRequest.MARKET else self.trigger_price
+            return self.amount * price
+        else:
+            return self.amount
+
+    def get_net_receiving_amount(self):
+        return self.get_receiving_amount() - self.fee_amount
+
     def expired(self):
         return (timezone.now() - self.created).total_seconds() >= self.EXPIRATION_TIME
 
