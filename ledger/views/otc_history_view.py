@@ -6,6 +6,8 @@ from market.serializers.trade_serializer import AccountTradeSerializer
 from market.views import AccountTradeHistoryView
 from rest_framework import serializers
 from django.db.models import Q
+from ledger.utils.external_price import BUY
+
 
 def get_request_from_amount(otc_request: OTCRequest) -> str:
     if not otc_request.from_amount:
@@ -14,7 +16,7 @@ def get_request_from_amount(otc_request: OTCRequest) -> str:
 
 def get_request_to_amount(otc_request: OTCRequest) -> str:
     if not otc_request.to_amount:
-        return otc_request.amount
+        return otc_request.amount if otc_request.side == BUY else otc_request.base_amount
     return otc_request.to_amount
 
 class OTCFilter(django_filters.FilterSet):
