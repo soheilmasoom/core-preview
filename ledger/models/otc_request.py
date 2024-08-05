@@ -144,8 +144,10 @@ class OTCRequest(BaseTrade):
             if price is None:
                 raise NoPriceError
 
+            coin_trigger_amount = floor_precision(pair.base_amount / trigger_price, symbol.step_size)
             coin_amount = floor_precision(pair.base_amount / price, symbol.step_size)
         else:
+            coin_trigger_amount = pair.coin_amount
             coin_amount = pair.coin_amount
 
         price = get_depth_price(symbol.name, side=other_side, amount=coin_amount)
@@ -154,11 +156,13 @@ class OTCRequest(BaseTrade):
             raise NoPriceError
 
         if pair.coin_amount is None:
+            coin_trigger_amount = floor_precision(pair.base_amount / trigger_price, symbol.step_size)
             coin_amount = floor_precision(pair.base_amount / price, symbol.step_size)
         else:
+            coin_trigger_amount = pair.coin_amount
             coin_amount = pair.coin_amount
 
-        otc_request.amount = coin_amount
+        otc_request.amount = coin_amount if otc_request.type == OTCRequest.MARKET else coin_trigger_amount
         otc_request.price = price
 
         fee_info = get_fee_info(otc_request)
