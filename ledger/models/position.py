@@ -292,7 +292,7 @@ class MarginPosition(models.Model):
         if side == BUY:
             price = max(price * Decimal('1.03'), self.liquidation_price * Decimal('1.1'))
         else:
-            price = min(price * Decimal('0.93'), self.liquidation_price * Decimal('0.9'))
+            price = min(price * Decimal('0.97'), self.liquidation_price * Decimal('0.9'))
 
         free_amount = (floor_precision(self.margin_wallet.get_free(), self.symbol.step_size) +
                        pipeline.get_wallet_free_balance_diff(self.margin_wallet.id))
