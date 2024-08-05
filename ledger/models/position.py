@@ -285,20 +285,14 @@ class MarginPosition(models.Model):
 
         if self.side == SHORT:
             side = BUY
-            price = get_depth_price(
-                symbol=self.symbol.name,
-                side=get_other_side(side),
-                amount=to_close_amount,
-                depth_check=False
-            )
         else:
             side = SELL
-            price = get_base_depth_price(
-                symbol=self.symbol.name,
-                side=get_other_side(side),
-                amount=to_close_amount,
-                depth_check=False
-            )
+
+        price = Order.get_market_price(self.symbol, Order.get_opposite_side(side))
+        if side == BUY:
+            price = max(price * Decimal('1.03'), self.liquidation_price * Decimal('1.1'))
+        else:
+            price = min(price * Decimal('0.93'), self.liquidation_price * Decimal('0.9'))
 
         free_amount = (floor_precision(self.margin_wallet.get_free(), self.symbol.step_size) +
                        pipeline.get_wallet_free_balance_diff(self.margin_wallet.id))
@@ -336,20 +330,14 @@ class MarginPosition(models.Model):
 
         is_liquidation_order_filled = False
         if to_close_amount > 0:
-            price = Order.get_market_price(self.symbol, Order.get_opposite_side(side))
-            if price:
-                if side == BUY:
-                    price *= Decimal('1.05')
-                else:
-                    price *= Decimal('0.95')
-                price = floor_precision(price, self.symbol.step_size)
+            price = floor_precision(price, self.symbol.step_size)
 
             liquidation_order = new_order(
                 pipeline=pipeline,
                 symbol=self.symbol,
                 account=self.account,
                 amount=to_close_amount,
-                fill_type=Order.MARKET,
+                fill_type=Order.IOC,
                 side=side,
                 market=Wallet.MARGIN,
                 variant=self.group_id,
@@ -529,7 +517,7 @@ class MarginPosition(models.Model):
             )
 
             MarginHistoryModel.objects.create(
-                asset=self.base_wallet.asset,
+                asset=self.asset_wallet.asset,
                 amount=free,
                 group_id=group_id,
                 type=MarginHistoryModel.DUST,

@@ -515,7 +515,7 @@ class ShortIsolatedMarginTestCase(TestCase):
         print('mp', mp.debt_amount, mp.total_balance, mp.liquidation_price, mp.side, mp.equity)
 
         self.assert_liquidation(self.account, self.btcusdt)
-    #
+
     def test_short_sell7(self):
         self.transfer_usdt_api(TO_TRANSFER_USDT)
         loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
