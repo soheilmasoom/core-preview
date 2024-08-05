@@ -505,7 +505,7 @@ class MarginPosition(models.Model):
                 receiver=self.asset_wallet.asset.get_wallet(SYSTEM_ACCOUNT_ID),
                 amount=free,
                 group_id=group_id,
-                scope=Trx.DUST
+                scope=Trx.MARGIN_CONVERT
             )
 
             pipeline.new_trx(
@@ -513,14 +513,14 @@ class MarginPosition(models.Model):
                 receiver=self.base_wallet,
                 amount=price * free,
                 group_id=group_id,
-                scope=Trx.DUST,
+                scope=Trx.MARGIN_CONVERT,
             )
 
             MarginHistoryModel.objects.create(
                 asset=self.asset_wallet.asset,
                 amount=free,
                 group_id=group_id,
-                type=MarginHistoryModel.DUST,
+                type=MarginHistoryModel.CONVERT,
                 account=self.account,
                 position=self
             )
@@ -580,7 +580,7 @@ class MarginPositionTradeInfo:
 
 
 class MarginHistoryModel(models.Model):
-    PNL, TRANSFER, POSITION_TRANSFER, TRADE_FEE, INTEREST_FEE, INSURANCE_FEE, DUST = 'pnl', 'transfer', 'p_transfer', 'trade_fee', 'int_fee', 'ins_fee', 'dust'
+    PNL, TRANSFER, POSITION_TRANSFER, TRADE_FEE, INTEREST_FEE, INSURANCE_FEE, CONVERT = 'pnl', 'transfer', 'p_transfer', 'trade_fee', 'int_fee', 'ins_fee', 'convert'
     type_list = [PNL, TRANSFER, TRADE_FEE, INTEREST_FEE, INSURANCE_FEE]
 
     created = models.DateTimeField(auto_now_add=True)
@@ -590,7 +590,7 @@ class MarginHistoryModel(models.Model):
     amount = get_amount_field(validators=())
     type = models.CharField(
         choices=[(PNL, PNL), (TRANSFER, TRANSFER), (TRADE_FEE, TRADE_FEE), (INTEREST_FEE, INTEREST_FEE),
-                 (INSURANCE_FEE, INSURANCE_FEE), (POSITION_TRANSFER, POSITION_TRANSFER), (DUST, DUST)],
+                 (INSURANCE_FEE, INSURANCE_FEE), (POSITION_TRANSFER, POSITION_TRANSFER), (CONVERT, CONVERT)],
         max_length=12
     )
     group_id = models.UUIDField()

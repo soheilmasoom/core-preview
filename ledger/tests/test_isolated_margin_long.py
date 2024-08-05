@@ -827,4 +827,4 @@ class LongIsolatedMarginTestCase(TestCase):
             new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=3 * loan_amount, market=Wallet.SPOT, price=mp.liquidation_price * Decimal('0.9'))
 
         self.assert_liquidation(self.account, self.btcusdt)
-        self.assertTrue(not MarginHistoryModel.objects.filter(position=mp, type=MarginHistoryModel.DUST))
+        self.assertTrue(not MarginHistoryModel.objects.filter(position=mp, type=MarginHistoryModel.CONVERT))

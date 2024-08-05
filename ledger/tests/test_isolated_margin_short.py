@@ -169,7 +169,7 @@ class ShortIsolatedMarginTestCase(TestCase):
 
         print(trade_pnl)
         print('DUST pnl calculation')
-        dusts = MarginHistoryModel.objects.filter(position=position, type=MarginHistoryModel.DUST)
+        dusts = MarginHistoryModel.objects.filter(position=position, type=MarginHistoryModel.CONVERT)
         base_wallet = position.base_wallet
         for trx in Trx.objects.filter(
                 Q(scope=Trx.DUST, group_id__in=set(dusts.values_list('group_id', flat=True))) |
