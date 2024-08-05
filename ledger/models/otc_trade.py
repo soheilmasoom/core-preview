@@ -223,10 +223,13 @@ class OTCTrade(models.Model):
                 hedge_key=str(fok_order.id),
             ).save()
 
-    def reject(self):
+    def reject(self, is_user_canceled=False):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
             pipeline.release_lock(self.group_id)
-            self.change_status(self.CANCELED)
+            if is_user_canceled:
+                self.change_status(self.USER_CANCELED)
+            else:
+                self.change_status(self.CANCELED)
 
     def accept(self, pipeline: WalletPipeline):
         pipeline.release_lock(self.group_id)

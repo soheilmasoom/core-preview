@@ -30,7 +30,7 @@ class CancelLimitOTCView(APIView):
         try:
             cancel_otc = OTCTrade.get_untriggered_otc_trade_queryset().filter(id=cancel_id).first()
             if cancel_otc:
-                cancel_otc.reject()
+                cancel_otc.reject(is_user_canceled=True)
             else:
                 return Response({"message": 'not found'}, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
