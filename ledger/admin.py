@@ -1300,7 +1300,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
     readonly_fields = ('account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'average_price', 'side',
                        'liquidation_price', 'status', 'leverage', 'equity', 'group_id')
     list_filter = (PositionStatusFilter, 'side', 'symbol')
-    search_fields = ('symbol__name', 'status', 'account__user__phone')
+    search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
     actions = ('convert_dust_close', )
 
     @admin.display(description='Orders')
