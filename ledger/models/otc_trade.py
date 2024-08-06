@@ -6,6 +6,7 @@ from uuid import uuid4
 from django.utils import timezone
 
 from ledger.utils.price import get_depth_price, get_price
+from accounts.models import Notification
 
 
 from django.conf import settings
@@ -117,7 +118,13 @@ class OTCTrade(models.Model):
         with WalletPipeline() as pipeline:
             for otc_trade in query_set:
                 pipeline.release_lock(otc_trade.group_id)
-            query_set.update(status=OTCTrade.EXPIRED)
+                query_set.update(status=OTCTrade.EXPIRED)
+                symbol = otc_trade.otc_request.symbol.name
+                Notification.send(
+                    recipient=otc_trade.otc_request.account.user,
+                    title='سفارش قیمت ثابت منقضی شد',
+                    message=f'سفارش {symbol} شما منقضی شد'
+                )
 
     @classmethod
     def handle_trigger_price(cls, symbol: str, side: str, current_price: Decimal):
@@ -222,6 +229,14 @@ class OTCTrade(models.Model):
                 source=TradeRevenue.OTC_MARKET,
                 hedge_key=str(fok_order.id),
             ).save()
+            if self.otc_request.type == OTCRequest.LIMIT:
+                symbol = self.otc_request.symbol.name
+                Notification.send(
+                    recipient=self.otc_request.account.user,
+                    title='سفارش قیمت ثابت شما انجام شد',
+                    message=f'سفارش {symbol} شما انجام شد'
+                )
+
 
     def reject(self, is_user_canceled=False):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
@@ -337,6 +352,14 @@ class OTCTrade(models.Model):
                 source=TradeRevenue.OTC_PROVIDER,
                 hedge_key=hedge_key,
             ).save()
+            if self.otc_request.type == OTCRequest.LIMIT:
+                symbol = self.otc_request.symbol.name
+                Notification.send(
+                    recipient=self.otc_request.account.user,
+                    title='سفارش قیمت ثابت شما انجام شد',
+                    message=f'سفارش {symbol} شما انجام شد'
+                )
+
 
     def revert(self):
         with WalletPipeline() as pipeline:
