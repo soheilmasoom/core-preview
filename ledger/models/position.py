@@ -232,7 +232,8 @@ class MarginPosition(models.Model):
         if position:
             return position
         else:
-            group_id = uuid.uuid5(uuid.NAMESPACE_X500, f'{account.id}-{symbol.name}-{position_side}')
+            # group_id = uuid.uuid5(uuid.NAMESPACE_X500, f'{account.id}-{symbol.name}-{position_side}')
+            group_id = uuid.uuid4()
 
             margin_leverage, _ = MarginLeverage.objects.get_or_create(
                 account=account,

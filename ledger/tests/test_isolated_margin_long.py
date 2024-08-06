@@ -114,7 +114,13 @@ class LongIsolatedMarginTestCase(TestCase):
             wallets = wallets.filter(account=account)
 
         for w in wallets:
-            print('%s %s %s %s %s: %s/%s' % (w.id, w.account, w.asset.symbol, w.market, w.variant, w.get_free(), w.balance))
+            log = '%s %s %s %s %s: %s/%s' % (w.id, w.account, w.asset.symbol, w.market, w.variant, w.get_free(), w.balance)
+
+            if w.market == 'margin' and w.variant:
+                position = (w.base_wallet.first() or w.asset_wallet.first())
+                log += f' {position.id}, {position.status}'
+
+            print(log)
 
         print("/////////////////////////////////////////////////////")
 
@@ -152,6 +158,8 @@ class LongIsolatedMarginTestCase(TestCase):
         self.assertEqual(resp.status_code, check_status)
 
     def assert_liquidation(self, account, symbol, liquidate=True):
+        self.assertEqual(MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).count(), 1)
+
         mp = MarginPosition.objects.filter(account=account, symbol=symbol).first()
 
         negative_wallets = Wallet.objects.filter(

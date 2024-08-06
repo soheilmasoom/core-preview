@@ -285,7 +285,7 @@ class Order(models.Model):
 
     def get_position_leverage(self):
         if self.wallet.market == Wallet.MARGIN:
-            return self.symbol.get_margin_position(self.account, self.side, self.is_open_position).leverage
+            return self.position.leverage
         return None
 
     def handle_oco_updates(self, pipeline):
