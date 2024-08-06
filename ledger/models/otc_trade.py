@@ -229,13 +229,6 @@ class OTCTrade(models.Model):
                 source=TradeRevenue.OTC_MARKET,
                 hedge_key=str(fok_order.id),
             ).save()
-            if self.otc_request.type == OTCRequest.LIMIT:
-                symbol = self.otc_request.symbol.name
-                Notification.send(
-                    recipient=self.otc_request.account.user,
-                    title='سفارش قیمت ثابت شما انجام شد',
-                    message=f'سفارش {symbol} شما انجام شد'
-                )
 
 
     def reject(self, is_user_canceled=False):
@@ -278,6 +271,14 @@ class OTCTrade(models.Model):
                 message=f"New unhedged trade: {req.side} {amount_present} {req.symbol.asset} ({round(req.usdt_value, 1)}$)",
                 link=url_to_edit_object(self)
             )
+        if self.otc_request.type == OTCRequest.LIMIT:
+            symbol = self.otc_request.symbol.name
+            Notification.send(
+                recipient=self.otc_request.account.user,
+                title='سفارش قیمت ثابت شما انجام شد',
+                message=f'سفارش {symbol} شما انجام شد'
+            )
+
 
     def get_pending_hedge_trades(self):
         return OTCTrade.objects.filter(
@@ -352,13 +353,7 @@ class OTCTrade(models.Model):
                 source=TradeRevenue.OTC_PROVIDER,
                 hedge_key=hedge_key,
             ).save()
-            if self.otc_request.type == OTCRequest.LIMIT:
-                symbol = self.otc_request.symbol.name
-                Notification.send(
-                    recipient=self.otc_request.account.user,
-                    title='سفارش قیمت ثابت شما انجام شد',
-                    message=f'سفارش {symbol} شما انجام شد'
-                )
+
 
 
     def revert(self):
