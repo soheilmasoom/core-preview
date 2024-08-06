@@ -129,12 +129,8 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
 
         floored_loan_balance = floor_precision(loan_balance, position.symbol.step_size)
 
-        total_balance = asset_balance * position.symbol.last_trade_price + loan_balance
-
-        is_position_closed = (trade_info.loan_type == Order.LIQUIDATION or
-                              (((floored_asset_balance > Decimal('0') and floored_loan_balance >= 0) or
-                                (floored_asset_balance == 0)) and
-                               trade_info.loan_type != BORROW))
+        is_position_closed = (((floored_asset_balance > Decimal('0') and floored_loan_balance >= 0) or
+                               (floored_asset_balance == 0)) and trade_info.loan_type != BORROW)
 
         if is_position_closed:
             logger.info(f"Closing position:{position.id}")
