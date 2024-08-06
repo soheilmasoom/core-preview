@@ -118,7 +118,7 @@ class OTCTrade(models.Model):
         with WalletPipeline() as pipeline:
             for otc_trade in query_set:
                 pipeline.release_lock(otc_trade.group_id)
-                query_set.update(status=OTCTrade.EXPIRED)
+                otc_trade.update(status=OTCTrade.EXPIRED)
                 symbol = otc_trade.otc_request.symbol.name
                 Notification.send(
                     recipient=otc_trade.otc_request.account.user,
