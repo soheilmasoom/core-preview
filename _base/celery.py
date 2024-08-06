@@ -303,6 +303,13 @@ app.conf.beat_schedule = {
             'expires': 60 * TASK_MULTIPLIER
         },
     },
+    'ban_credit_deposits': {
+        'task': 'accounts.tasks.fraud.ban_credit_deposit_of_free_riders',
+        'schedule': crontab(hour=0, minute=30),
+        'options': {
+            'queue': 'celery',
+        },
+    },
 
     'expire_missions': {
         'task': 'gamify.tasks.deactivate_expired_missions',
@@ -320,5 +327,4 @@ app.conf.beat_schedule = {
             'expires': 60
         }
     },
-
 }

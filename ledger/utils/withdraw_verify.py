@@ -299,8 +299,7 @@ def check_withdraw_conditions(account: Account, value_usdt: Decimal) -> bool:
     if Wallet.objects.filter(account=account, market=Wallet.DEBT, balance__lt=0):
         return False
 
-    if Wallet.objects.filter(account=account, market=Wallet.SPOT, balance__lt=0):
-        if account.get_total_balance_usdt() < value_usdt:
-            return False
+    if account.get_total_balance_usdt() < value_usdt * Decimal('0.95'):
+        return False
 
     return True

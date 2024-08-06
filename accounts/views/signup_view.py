@@ -18,6 +18,8 @@ from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.utils.ip import get_client_ip
 from accounts.utils.login import set_login_activity
 from accounts.validators import mobile_number_validator, password_validator, company_national_id_validator
+from analytics.utils.yandex import send_yandex_event
+from gamify.models import MissionJourney
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +85,9 @@ class SignupSerializer(serializers.Serializer):
         validate_password(password=password)
 
         phone = otp_code.phone
-        promotion = validated_data.get('promotion') or ''
+        promotion = validated_data.get('promotion')
+        if promotion not in User.PROMOTIONS:
+            promotion = MissionJourney.get_default_promotion() or ''
 
         with transaction.atomic():
 
@@ -118,6 +122,8 @@ class SignupSerializer(serializers.Serializer):
 
         self.set_missions_to_user(user)
 
+        send_yandex_event(user, 'sign_up')
+
         return user
 
     def create_traffic_source(self, user, utm: dict):
@@ -140,6 +146,7 @@ class SignupSerializer(serializers.Serializer):
         utm_content = clean_data(utm.get('utm_content'))
         utm_term = clean_data(utm.get('utm_term'))
         gps_adid = clean_data(utm.get('gps_adid'))
+        profile_id = clean_data(utm.get('profile_id'))
 
         if utm_source == 'pwa_app':
             if utm_term.startswith('gclid'):
@@ -154,13 +161,11 @@ class SignupSerializer(serializers.Serializer):
 
                 attribution = Attribution.objects.filter(gps_adid=gps_adid).order_by('created').last()
 
-                if not attribution or not attribution.tracker_code:
+                if not attribution:
                     utm_medium = 'organic'
                 else:
-                    utm_medium = attribution.network_name
-                    utm_campaign = attribution.campaign_name
-                    utm_content = attribution.adgroup_name
-                    utm_term = attribution.creative_name
+                    utm_medium = attribution.tracker.type
+                    utm_campaign = attribution.tracker.key
 
         TrafficSource.objects.create(
             user=user,
@@ -170,8 +175,9 @@ class SignupSerializer(serializers.Serializer):
             utm_content=utm_content,
             utm_term=utm_term,
             gps_adid=gps_adid,
+            yandex_profile_id=profile_id,
             ip=get_client_ip(self.context['request']),
-            user_agent=self.context['request'].META['HTTP_USER_AGENT'][:256],
+            user_agent=self.context['request'].META.get('HTTP_USER_AGENT', '')[:256],
         )
 
     def set_missions_to_user(self, user):
@@ -200,8 +206,11 @@ class SignupView(CreateAPIView):
     def perform_create(self, serializer):
         user = serializer.save()
         login(self.request, user)
-        set_login_activity(
-            request=self.request,
-            user=user,
-            is_sign_up=True,
-        )
+        try:
+            set_login_activity(
+                request=self.request,
+                user=user,
+                is_sign_up=True,
+            )
+        except ValueError:
+            logger.exception('Error in setting login activity for signup')

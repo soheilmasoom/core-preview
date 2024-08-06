@@ -16,6 +16,7 @@ class Trx(models.Model):
     MARGIN_BORROW = 'b'
     MARGIN_INSURANCE = 'mi'
     MARGIN_INTEREST = 'in'
+    MARGIN_CONVERT = 'mc'
     CLOSE_MARGIN = 'cm'
     FAST_LIQUID = 'fl'
     LIQUID = 'l'
@@ -43,6 +44,7 @@ class Trx(models.Model):
         MARGIN_BORROW: 'margin_borrow',
         MARGIN_INSURANCE: 'margin_insurance',
         MARGIN_INTEREST: 'margin_interest',
+        MARGIN_CONVERT: 'margin_convert',
         CLOSE_MARGIN: 'close_margin',
         FAST_LIQUID: 'fast_liquid',
         LIQUID: 'liquid',
@@ -93,6 +95,10 @@ class Trx(models.Model):
         ]
         indexes = [
             models.Index(fields=['scope', 'sender', 'created'], name="trx_margin_idx")
+        ]
+
+        permissions = [
+            ("list_trx", "Can list trx"),
         ]
 
     def save(self, *args, **kwargs):

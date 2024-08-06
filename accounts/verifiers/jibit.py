@@ -7,7 +7,7 @@ from django.core.cache import caches
 from django.utils import timezone
 from urllib3.exceptions import ReadTimeoutError
 
-from accounts.models import FinotechRequest
+from accounts.models import UserAuthRequest
 from accounts.utils.validation import gregorian_to_jalali_date_str
 from accounts.verifiers.utils import *
 
@@ -67,10 +67,10 @@ class JibitRequester:
                     search_key: str = None, weight: int = 0) -> Response:
 
         if search_key:
-            request = FinotechRequest.objects.filter(
+            request = UserAuthRequest.objects.filter(
                 created__gt=timezone.now() - datetime.timedelta(days=30),
                 search_key=search_key,
-                service=FinotechRequest.JIBIT,
+                service=UserAuthRequest.JIBIT,
                 weight=weight,
             ).order_by('-created').first()
 
@@ -88,12 +88,12 @@ class JibitRequester:
 
         url = self.BASE_URL + path
 
-        req_object = FinotechRequest.objects.create(
+        req_object = UserAuthRequest.objects.create(
             url=url,
             method=method,
             data=data,
             user=self._user,
-            service=FinotechRequest.JIBIT,
+            service=UserAuthRequest.JIBIT,
             weight=weight,
         )
 
@@ -177,7 +177,7 @@ class JibitRequester:
             path='/v1/services/matching',
             data=params,
             search_key=key,
-            weight=FinotechRequest.JIBIT_ADVANCED_MATCHING if national_code else FinotechRequest.JIBIT_SIMPLE_MATCHING
+            weight=UserAuthRequest.JIBIT_ADVANCED_MATCHING if national_code else UserAuthRequest.JIBIT_SIMPLE_MATCHING
         )
         data = resp.data
         resp.data = MatchingData(
@@ -200,7 +200,7 @@ class JibitRequester:
             path='/v1/ibans',
             data=params,
             search_key=key,
-            weight=FinotechRequest.JIBIT_IBAN_INFO_WEIGHT,
+            weight=UserAuthRequest.JIBIT_IBAN_INFO_WEIGHT,
         )
         data = resp.data
         info = data.get('ibanInfo', {})
@@ -224,7 +224,7 @@ class JibitRequester:
             path='/v1/cards',
             data=params,
             search_key=key,
-            weight=FinotechRequest.JIBIT_CARD_INFO_WEIGHT
+            weight=UserAuthRequest.JIBIT_CARD_INFO_WEIGHT
         )
         data = resp.data
         info = data.get('cardInfo', {})

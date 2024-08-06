@@ -31,6 +31,9 @@ class Prize(models.Model):
     class Meta:
         unique_together = [('account', 'achievement', 'variant')]
         constraints = [CheckConstraint(check=Q(amount__gte=0), name='check_ledger_prize_amount', ), ]
+        permissions = [
+            ("list_prize", "Can list prize"),
+        ]
 
     def build_trx(self, pipeline: WalletPipeline):
         if self.redeemed:

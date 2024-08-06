@@ -52,6 +52,10 @@ class Trade(BaseTrade):
             ), name='check_market_trade_amounts', ),
         ]
 
+        permissions = [
+            ("list_trade", "Can list trade"),
+        ]
+
     def __str__(self):
         return f'{self.symbol}-{self.side} ' \
                f'[p:{self.price:.2f}] (a:{self.amount:.5f})'

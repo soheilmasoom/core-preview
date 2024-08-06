@@ -349,3 +349,8 @@ class OTCTrade(models.Model):
 
     def __str__(self):
         return '%s [%s]' % (self.otc_request, self.status)
+
+    class Meta:
+        permissions = [
+            ("list_otctrade", "Can list otc trade"),
+        ]

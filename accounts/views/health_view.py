@@ -66,8 +66,13 @@ class HealthCheckView(APIView):
 
         for service in ['MASTERKEY_', 'BLOCKLINK_', 'PROVIDER_']:
             service += 'BACKUP_'
+            endpoint = config(f'{service}MINIO_CDN_ENDPOINT', None)
+
+            if not endpoint:
+                continue
+
             client = Minio(
-                config(f'{service}MINIO_CDN_ENDPOINT'),
+                endpoint,
                 access_key=config(f'{service}MINIO_ACCESS_KEY'),
                 secret_key=config(f'{service}MINIO_SECRET_KEY'),
                 secure=False

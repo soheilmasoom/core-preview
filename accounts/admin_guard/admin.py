@@ -1,6 +1,8 @@
 import copy
 
 from django.contrib.admin import ModelAdmin
+from django.contrib.auth import get_permission_codename
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
 
 from . import M
@@ -29,6 +31,8 @@ class AdvancedAdmin(ModelAdmin):
         # 'get_list_item_initializer',
     ]
 
+    list_permission_exclude_filters = None
+
     def __init__(self, model, admin_site):
         self.model = model
         self.request = None
@@ -41,6 +45,11 @@ class AdvancedAdmin(ModelAdmin):
 
         else:
             return self.request.get_full_path()
+
+    def has_list_permission(self, request):
+        opts = self.opts
+        codename = get_permission_codename("list", opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
         self.request = request
@@ -56,6 +65,14 @@ class AdvancedAdmin(ModelAdmin):
 
     def get_add_mode(self, request):
         return request.path.endswith('/add/')
+
+    def get_changelist(self, request, **kwargs):
+        if self.list_permission_exclude_filters is None or self.has_list_permission(request) or \
+                any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters)):
+
+            return super(AdvancedAdmin, self).get_changelist(request, **kwargs)
+
+        raise PermissionDenied
 
     def get_fieldsets(self, request, obj=None):
         add_mode = self.get_add_mode(request)

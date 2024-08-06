@@ -14,7 +14,8 @@ class LiveManager(models.Manager):
 
 
 class BankCard(models.Model):
-    DUPLICATED = 'duplicated'
+    CREDIT_FAMILY_TYPES = ('ONLINE_PREPAID', 'CREDIT', 'GIFT_CARD', 'VIRTUAL_CARD')
+    REJECT_REASONS = DUPLICATED, NAME_MISMATCH, CREDIT_CARD = 'duplicated', 'name.mismatch', 'type.credit'
 
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
@@ -43,6 +44,16 @@ class BankCard(models.Model):
 
     objects = models.Manager()
     live_objects = LiveManager()
+
+    def reject(self, reason: str):
+        if self.verified:
+            self.verified = False
+            self.reject_reason = reason
+            self.save(update_fields=['verified', 'reject_reason'])
+
+    def accept(self):
+        self.verified = True
+        self.save(update_fields=['verified'])
 
     def __str__(self):
         if len(self.card_pan) < 10:
@@ -78,6 +89,10 @@ class BankCard(models.Model):
                 name="unique_bank_card_verified_card_pan",
                 condition=Q(verified=True, deleted=False),
             )
+        ]
+
+        permissions = [
+            ("list_bankcard", "Can list bank card"),
         ]
 
 
@@ -148,6 +163,10 @@ class BankAccount(models.Model):
                 name="unique_bank_account_verified_iban",
                 condition=Q(verified=True, deleted=False),
             )
+        ]
+
+        permissions = [
+            ("list_bankaccount", "Can list bank account"),
         ]
 
 

@@ -173,7 +173,7 @@ class User(AbstractUser):
         choices=((1, 1), (2, 2), (3, 3), (5, 5), (10, 10), (20, 20), (40, 40))
     )
 
-    promotion = models.CharField(max_length=256, blank=True, choices=[(p, p) for p in PROMOTIONS])
+    promotion = models.CharField(max_length=256, choices=[(p, p) for p in PROMOTIONS])
 
     custom_crypto_withdraw_ceil = models.PositiveBigIntegerField(null=True, blank=True)
     custom_fiat_withdraw_ceil = models.PositiveBigIntegerField(null=True, blank=True)
@@ -182,6 +182,8 @@ class User(AbstractUser):
 
     suspended_until = models.DateTimeField(null=True, blank=True, verbose_name='زمان تعلیق شدن کاربر')
     suspension_reason = models.CharField(max_length=128, blank=True, null=True)
+
+    ban_deposit_with_credit_bank_cards = models.BooleanField(default=False)
 
     def __str__(self):
         name = get_masked_phone(self.username)
@@ -272,8 +274,8 @@ class User(AbstractUser):
         return self.bankcard_set.filter(kyc=True).first()
 
     def get_verify_weight(self) -> int:
-        from accounts.models import FinotechRequest
-        return FinotechRequest.objects.filter(
+        from accounts.models import UserAuthRequest
+        return UserAuthRequest.objects.filter(
             user=self,
             search_key__isnull=False
         ).exclude(search_key='').aggregate(w=Sum('weight'))['w'] or 0
@@ -293,6 +295,8 @@ class User(AbstractUser):
         permissions = [
             ("can_generate_notification", "Can Generate All Kind Of Notification"),
             ("manage_users", "Manage Users Info"),
+            ("list_user", "Can list user"),
+            ("can_view_user_selfie", "Can view user selfie"),
         ]
 
     def change_status(self, status: str, reason: str = ''):
@@ -454,6 +458,29 @@ class User(AbstractUser):
             return True
 
         return self.show_margin
+
+    def ban_deposit_by_credit_cards(self):
+        with transaction.atomic():
+            if not self.ban_deposit_with_credit_bank_cards:
+                Notification.send(
+                    recipient=self,
+                    title='غیر فعال شدن واریز با کارت‌های هدیه و مجازی',
+                    message='در راستای افزایش امنیت حساب کاربری شما، واریز با کارت‌های هدیه و مجازی غیر فعال شد. توجه داشته باشید که همچنان می‌توانید با کارت‌های اعتباری از طریق درگاه پرداخت، حساب خود را شارژ نمایید.'
+                )
+
+            self.ban_deposit_with_credit_bank_cards = True
+            self.save(update_fields=['ban_deposit_with_credit_bank_cards'])
+
+            from financial.models import BankCard
+
+            cards = BankCard.objects.filter(user=self, verified=True, deleted=False)
+
+            for card in cards.filter(type__in=BankCard.CREDIT_FAMILY_TYPES):
+                card.reject(BankCard.CREDIT_CARD)
+
+            for card in cards.filter(type=''):
+                card.verified = None
+                card.save(update_fields=['verified'])
 
 
 @receiver(post_save, sender=User)

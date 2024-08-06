@@ -158,6 +158,10 @@ class Order(models.Model):
             ),
         ]
 
+        permissions = [
+            ("list_order", "Can list order"),
+        ]
+
     objects = models.Manager()
     open_objects = OpenOrderManager()
 
@@ -281,7 +285,7 @@ class Order(models.Model):
 
     def get_position_leverage(self):
         if self.wallet.market == Wallet.MARGIN:
-            return self.symbol.get_margin_position(self.account, self.side, self.is_open_position).leverage
+            return self.position.leverage
         return None
 
     def handle_oco_updates(self, pipeline):

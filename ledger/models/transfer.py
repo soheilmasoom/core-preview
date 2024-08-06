@@ -386,6 +386,10 @@ class Transfer(models.Model):
             ),
         ]
 
+        permissions = [
+            ("list_transfer", "Can list transfer"),
+        ]
+
     def __str__(self):
         if self.deposit:
             action = 'deposit'

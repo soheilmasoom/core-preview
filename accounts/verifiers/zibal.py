@@ -6,7 +6,7 @@ from decouple import config
 from urllib3.exceptions import ReadTimeoutError
 
 from accounts.utils.similarity import split_names
-from accounts.models import User, FinotechRequest
+from accounts.models import User, UserAuthRequest
 from accounts.verifiers.utils import *
 
 logger = logging.getLogger(__name__)
@@ -39,12 +39,12 @@ class ZibalRequester:
             data = {}
         url = self.BASE_URL + path
 
-        req_object = FinotechRequest(
+        req_object = UserAuthRequest(
             url=url,
             method=method,
             data=data,
             user=self._user,
-            service=FinotechRequest.ZIBAL,
+            service=UserAuthRequest.ZIBAL,
             weight=weight,
         )
 
@@ -102,7 +102,7 @@ class ZibalRequester:
             data=params,
             path='/v1/facility/shahkarInquiry',
             method='POST',
-            weight=FinotechRequest.JIBIT_ADVANCED_MATCHING if national_code else FinotechRequest.JIBIT_SIMPLE_MATCHING
+            weight=UserAuthRequest.JIBIT_ADVANCED_MATCHING if national_code else UserAuthRequest.JIBIT_SIMPLE_MATCHING
         )
         data = resp.data.get('data', {})
         resp.data = MatchingData(
@@ -119,7 +119,7 @@ class ZibalRequester:
             data=params,
             path='/v1/facility/ibanInquiry',
             method='POST',
-            weight=FinotechRequest.JIBIT_IBAN_INFO_WEIGHT,
+            weight=UserAuthRequest.JIBIT_IBAN_INFO_WEIGHT,
         )
         data = resp.data.get('data', {})
         resp.data = IBANInfoData(
@@ -140,7 +140,7 @@ class ZibalRequester:
             path='/v1/facility/cardInquiry',
             method='POST',
             data=params,
-            weight=FinotechRequest.JIBIT_CARD_INFO_WEIGHT
+            weight=UserAuthRequest.JIBIT_CARD_INFO_WEIGHT
         )
         data = resp.data.get('data', {})
         resp.data = CardInfoData(

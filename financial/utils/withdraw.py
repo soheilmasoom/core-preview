@@ -368,6 +368,9 @@ class ZibalChannel(FiatWithdraw):
         )
 
     def update_missing_payments(self):
+        if not self.gateway.withdraw_api_secret:
+            return
+
         transactions = self.get_transactions(self.gateway.merchant_id, status=2)
 
         for t in transactions:

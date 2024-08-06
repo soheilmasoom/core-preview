@@ -4,9 +4,10 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.viewsets import ModelViewSet
 
-from accounts.models import User, FinotechRequest
+from accounts.models import User, UserAuthRequest
 from accounts.tasks import basic_verify_user
 from accounts.utils.similarity import clean_persian_name
+from analytics.utils.yandex import send_yandex_event
 from financial.models.bank_card import BankCard, BankCardSerializer
 from financial.validators import bank_card_pan_validator
 
@@ -64,7 +65,7 @@ class BasicInfoSerializer(serializers.ModelSerializer):
         if user.level > User.LEVEL1:
             raise ValidationError('کاربر تایید شده است.')
 
-        if user.get_verify_weight() >= FinotechRequest.MAX_WEIGHT:
+        if user.get_verify_weight() >= UserAuthRequest.MAX_WEIGHT:
             raise ValidationError('به خاطر تلاش‌های مکرر امکان تایید خودکار وجود ندارد. برای ارتقای حساب با پشتیبانی صحبت کنید.')
 
         # if user.national_code_verified is False:
@@ -119,6 +120,8 @@ class BasicInfoSerializer(serializers.ModelSerializer):
 
         if not settings.DEBUG_OR_TESTING_OR_STAGING:
             basic_verify_user.s(user.id).apply_async(countdown=60)
+
+        send_yandex_event(user, 'try_basic_verify')
 
         return user
 

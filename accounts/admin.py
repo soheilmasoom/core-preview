@@ -16,7 +16,8 @@ from jalali_date.admin import ModelAdminJalaliMixin
 from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationCode, \
-    UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone
+    UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
+    AttributionTracker
 from accounts.models import UserComment, TrafficSource, Referral
 from accounts.utils.admin import url_to_admin_list, url_to_edit_object
 from financial.models.bank_card import BankCard, BankAccount
@@ -26,14 +27,14 @@ from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_cryp
 from gamify.utils import check_prize_achievements
 from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx, MarginLeverage
 from ledger.utils.external_price import BUY
-from ledger.utils.fields import PENDING
+from ledger.utils.fields import PENDING, DONE
 from ledger.utils.precision import humanize_number
 from ledger.utils.report import export_transactions
 from market.models import Trade, ReferralTrx, Order
 from stake.models import StakeRequest
 from .admin_guard import M
 from .admin_guard.admin import AdvancedAdmin
-from .models import User, Account, Notification, FinotechRequest, Company, LevelGrants
+from .models import User, Account, Notification, UserAuthRequest, Company, LevelGrants
 from .models.login_activity import LoginActivity
 from .models.sms_notification import SmsNotification
 from .models.user_feature_perm import UserFeaturePerm
@@ -271,6 +272,10 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, UserAdmin):
     default_edit_condition = M.superuser
 
+    fields_view_conditions = {
+        'get_selfie_image': M.has_perm('accounts.can_view_user_selfie'),
+    }
+
     fields_edit_conditions = {
         'password': None,
         'first_name': True,
@@ -312,7 +317,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 'is_active', 'is_staff', 'is_superuser',
                 'groups', 'user_permissions', 'show_margin', 'show_strategy_bot', 'show_staking', 'show_community',
                 'can_trade', 'can_withdraw', 'can_withdraw_crypto',
-                'withdraw_limit_whitelist', 'withdraw_risk_level_multiplier', 'custom_crypto_withdraw_ceil'
+                'withdraw_limit_whitelist', 'withdraw_risk_level_multiplier', 'custom_crypto_withdraw_ceil',
+                'ban_deposit_with_credit_bank_cards',
             ),
         }),
         (_('Important dates'), {'fields': (
@@ -327,13 +333,15 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 'get_withdraw_address', 'get_otctrade_address', 'get_fill_order_address', 'get_order_link',
                 'get_open_order_address', 'get_deposit_address', 'get_bank_card_link',
                 'get_bank_account_link', 'get_finotech_request_link', 'get_staking_link',
-                'get_user_with_same_national_code', 'get_referred_user', 'get_login_activity_link',
+                'get_referred_user', 'get_login_activity_link',
                 'get_notifications_link', 'get_prizes_link', 'get_bots_link', 'get_totp', 'get_dust'
             )
         }),
-        (_('اطلاعات مالی کاربر'), {'fields': (
+        (_('فعالیت کاربر'), {'fields': (
             'get_sum_of_value_buy_sell', 'get_remaining_fiat_withdraw_limit',
-            'get_remaining_crypto_withdraw_limit', 'get_last_trade', 'get_total_balance_irt_admin'
+            'get_remaining_crypto_withdraw_limit', 'get_last_trade', 'get_total_balance_irt_admin',
+            'get_total_fiat_deposits', 'get_total_fiat_withdraws', 'get_total_crypto_deposits',
+            'get_total_crypto_withdraws',
         )}),
         (_("جایزه‌های دریافتی"), {'fields': ('get_user_prizes',)}),
         (_("کدهای دعوت کاربر"), {'fields': (
@@ -357,6 +365,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     actions = (
         'verify_user_name', 'reject_user_name', 'archive_users', 'unarchive_users', 'reevaluate_basic_verify',
         'verify_user', 'reject_user', 'check_achievements', 'export_transactions', 'safe_delete_user',
+        'update_deposits', 'ban_credit_deposit'
     )
     readonly_fields = (
         'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet',
@@ -366,16 +375,19 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'get_date_joined_jalali', 'get_last_login_jalali',
         'get_remaining_fiat_withdraw_limit', 'get_remaining_crypto_withdraw_limit', 'get_deposit_address',
         'get_bank_card_link', 'get_bank_account_link', 'get_transfer_link', 'get_finotech_request_link',
-        'get_user_reject_reason', 'get_user_with_same_national_code', 'get_user_prizes', 'get_source_medium',
+        'get_user_reject_reason', 'get_user_prizes', 'get_source_medium',
         'get_fill_order_address', 'selfie_image_verifier', 'get_revenue_of_referral', 'get_referred_count',
         'get_revenue_of_referred', 'get_open_order_address', 'get_selfie_image_uploaded', 'get_referred_user',
         'get_login_activity_link', 'get_last_trade', 'get_total_balance_irt_admin', 'get_order_link',
         'get_notifications_link', 'get_staking_link', 'get_prizes_link', 'get_suspended',
-        'suspension_reason', 'get_bots_link', 'is_2fa_active', 'get_totp', 'get_dust'
+        'suspension_reason', 'get_bots_link', 'is_2fa_active', 'get_totp', 'get_dust', 'get_total_fiat_deposits',
+        'get_total_fiat_withdraws', 'get_total_crypto_deposits', 'get_total_crypto_withdraws'
     )
     preserve_filters = ('archived', )
 
     search_fields = (*UserAdmin.search_fields, 'national_code', 'phone')
+
+    list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
     @admin.action(description='حذف امن کاربر', permissions=['change'])
     def safe_delete_user(self, request, queryset : List[User]):
@@ -519,9 +531,10 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin.display(description='source/medium')
     def get_source_medium(self, user: User):
-        if hasattr(user, 'trafficsource'):
-            link = url_to_edit_object(user.trafficsource)
-            text = '%s/%s' % (user.trafficsource.utm_source, user.trafficsource.utm_medium)
+        source = getattr(user, 'traffic_source', None)
+        if source:
+            link = url_to_edit_object(source)
+            text = '%s/%s' % (source.utm_source, source.utm_medium)
 
             return mark_safe("<a href='%s'>%s</a>" % (link, text))
 
@@ -632,34 +645,20 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     get_transfer_link.short_description = 'تراکنش‌های رمزارزی'
 
+    @admin.display(description='درخواست‌های احراز هویت')
     def get_finotech_request_link(self, user: User):
-        link = url_to_admin_list(FinotechRequest) + '?user={}'.format(user.id)
+        link = url_to_admin_list(UserAuthRequest) + '?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
-    get_finotech_request_link.short_description = 'درخواست‌های فینوتک'
-
+    @admin.display(description='کاربران دعوت شده')
     def get_referred_user(self, user: User):
-
         link = url_to_admin_list(User) + '?owner_id={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
-    get_referred_user.short_description = 'کاربران دعوت شده'
 
     def get_login_activity_link(self, user: User):
         link = url_to_admin_list(LoginActivity) + '?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_login_activity_link.short_description = 'تاریخچه ورود به حساب'
-
-    def get_user_with_same_national_code(self, user: User):
-        user_count = User.objects.filter(
-            ~Q(id=user.id) & Q(national_code=user.national_code) & ~Q(national_code='')
-        ).count()
-        return mark_safe(
-            "<a href='/admin/accounts/user/?national_code=%s&user_id_exclude=%s'> دیدن (%sکاربر)  </a>" % (
-                user.national_code, user.id, user_count
-            )
-        )
-
-    get_user_with_same_national_code.short_description = 'کاربرانی با این کد ملی'
 
     def get_level_2_verify_datetime_jalali(self, user: User):
         return gregorian_to_jalali_datetime_str(user.level_2_verify_datetime)
@@ -700,17 +699,15 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     get_remaining_fiat_withdraw_limit.short_description = 'باقی مانده سقف مجاز برداشت ریالی روزانه'
 
+    @admin.display(description='باقی مانده سقف مجاز برداشت رمزارز روزانه')
     def get_remaining_crypto_withdraw_limit(self, user: User):
         return humanize_number(
             LevelGrants.get_max_daily_crypto_withdraw(user) - get_crypto_withdraw_irt_value(user)
         )
 
-    get_remaining_crypto_withdraw_limit.short_description = 'باقی مانده سقف مجاز برداشت رمزارز   روزانه'
-
+    @admin.display(description='عکس سلفی')
     def get_selfie_image(self, user: User):
         return mark_safe("<img src='%s' width='200' height='200' />" % user.selfie_image.get_absolute_image_url())
-
-    get_selfie_image.short_description = 'عکس سلفی'
 
     def get_user_prizes(self, user: User):
         prizes = user.get_account().prize_set.all()
@@ -747,6 +744,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     get_revenue_of_referred.short_description = 'درآمد حاصل از کد دعوت استفاده شده'
 
+    @admin.display(description='زمان آپلود عکس سلفی')
     def get_selfie_image_uploaded(self, user: User):
         latest_null = user.history.filter(selfie_image__isnull=True).order_by('history_date').last()
 
@@ -759,14 +757,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
             if history:
                 return gregorian_to_jalali_datetime_str(history.history_date)
 
-    get_selfie_image_uploaded.short_description = 'زمان آپلود عکس سلفی'
-
+    @admin.display(description='آدرس‌های کیف پول')
     def get_deposit_address(self, user: User):
         link = url_to_admin_list(DepositAddress) + '?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
-    get_deposit_address.short_description = 'آدرس‌های کیف پول'
-
+    @admin.display(description='دارایی به تومان')
     def get_total_balance_irt_admin(self, user: User):
         try:
             total_balance_irt = user.get_account().get_total_balance_irt(side=BUY)
@@ -774,7 +770,32 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         except:
             pass
 
-    get_total_balance_irt_admin.short_description = 'دارایی به تومان'
+    @admin.display(description='مجموع واریز‌های ریالی')
+    def get_total_fiat_deposits(self, user: User):
+        return humanize_number(Payment.objects.filter(user=user, status=DONE).aggregate(s=Sum('amount'))['s'] or 0)
+
+    @admin.display(description='مجموع برداشت‌های ریالی')
+    def get_total_fiat_withdraws(self, user: User):
+        return humanize_number(FiatWithdrawRequest.objects.filter(
+            bank_account__user=user,
+            status=DONE
+        ).aggregate(s=Sum('amount'))['s'] or 0)
+
+    @admin.display(description='مجموع واریز‌های رمزارزی')
+    def get_total_crypto_deposits(self, user: User):
+        return humanize_number(int(Transfer.objects.filter(
+            wallet__account__user=user,
+            status=DONE,
+            deposit=True
+        ).aggregate(s=Sum('irt_value'))['s'] or 0))
+
+    @admin.display(description='مجموع برداشت‌های رمزارزی')
+    def get_total_crypto_withdraws(self, user: User):
+        return humanize_number(int(Transfer.objects.filter(
+            wallet__account__user=user,
+            status=DONE,
+            deposit=False
+        ).aggregate(s=Sum('irt_value'))['s'] or 0))
 
     @admin.display(description='اعلانات')
     def get_notifications_link(self, user: User):
@@ -788,8 +809,23 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin.display(description='لیست استیکینگ‌ (staking) کاربر')
     def get_staking_link(self, user: User):
-        link = url_to_admin_list(StakeRequest) + '?account_id={}'.format(user.account.id)
+        link = url_to_admin_list(StakeRequest) + '?account={}'.format(user.account.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
+
+    @admin.action(description='Update Deposits', permissions=['view'])
+    def update_deposits(self, request, queryset):
+        from ledger.requester.address_requester import AddressRequester
+        from ledger.models import AddressKey
+
+        requester = AddressRequester()
+
+        for q in AddressKey.objects.filter(architecture='SOL', account__user__in=queryset):
+            requester.refresh_solana_transactions(address=q.address, architecture=q.architecture)
+
+    @admin.action(description='Ban Credit Card Deposit', permissions=['change'])
+    def ban_credit_deposit(self, request, queryset):
+        for user in queryset:
+            user.ban_deposit_by_credit_cards()
 
 
 @admin.register(Account)
@@ -861,16 +897,18 @@ class FinotechRequestUserFilter(SimpleListFilter):
             return queryset
 
 
-@admin.register(FinotechRequest)
-class FinotechRequestAdmin(admin.ModelAdmin):
+@admin.register(UserAuthRequest)
+class UserAuthRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'url', 'status_code')
     list_filter = (FinotechRequestUserFilter, 'status_code')
     ordering = ('-created', )
     search_fields = ('url', 'data')
     raw_id_fields = ('user', )
 
+    list_permission_exclude_filters = ('id', 'user')
+
     @admin.display(description='user')
-    def get_username(self, req: FinotechRequest):
+    def get_username(self, req: UserAuthRequest):
         return mark_safe(
             f'<span dir="ltr">{req.user}</span>'
         )
@@ -929,8 +967,8 @@ class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
 @admin.register(TrafficSource)
 class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ['get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
-    search_fields = ['user__phone', 'gps_adid', 'ip']
+    list_display = ('created', 'get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term')
+    search_fields = ('user__phone', 'gps_adid', 'ip', 'profile_id')
     readonly_fields = ('user', )
 
     @admin.display(description='user')
@@ -967,14 +1005,32 @@ class FirebaseTokenAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
     search_fields = ('user__phone', 'token')
 
 
+@admin.register(AttributionTracker)
+class AttributionTrackerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'type', 'key', )
+    readonly_fields = ('key', 'get_postback_link')
+    list_filter = ('type', )
+
+    @admin.display(description="Postback Link")
+    def get_postback_link(self, tracker: AttributionTracker):
+        return tracker.get_postback_link()
+
+
 @admin.register(Attribution)
 class AttributionAdmin(admin.ModelAdmin):
-    list_display = ['created', 'tracker_code', 'network_name', 'campaign_name', 'adgroup_name', 'gps_adid']
+    list_display = ('created', 'tracker', 'installed_at', 'gps_adid', 'device_type', 'get_device', 'app_id')
+    list_filter = ('tracker', 'app_id', 'device_type')
+    search_fields = ('gps_adid', 'device_id', 'profile_id')
+
+    @admin.display(description="Device")
+    def get_device(self, attribution: Attribution):
+        return f'{attribution.device_model} ({attribution.os_name} {attribution.os_version})'
 
 
 @admin.register(AppStatus)
 class AppStatusAdmin(admin.ModelAdmin):
     list_display = ['latest_version', 'force_update_version', 'active']
+
 
 @admin.register(VerificationCode)
 class VerificationCodeAdmin(admin.ModelAdmin):

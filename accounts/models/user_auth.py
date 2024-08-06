@@ -3,7 +3,7 @@ import uuid
 from django.db import models
 
 
-class FinotechRequest(models.Model):
+class UserAuthRequest(models.Model):
     FINOTECH, JIBIT, ZIBAL = 'finotech', 'jibit', 'zibal'
 
     JIBIT_ADVANCED_MATCHING = 3
@@ -33,3 +33,8 @@ class FinotechRequest(models.Model):
     user = models.ForeignKey(to='accounts.User', on_delete=models.CASCADE)
 
     weight = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        permissions = [
+            ("list_userauthrequest", "Can list user auth request"),
+        ]

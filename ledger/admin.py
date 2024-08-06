@@ -1,13 +1,11 @@
 from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
-from django.contrib import messages
 
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import SimpleListFilter
-from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F, Sum, Q, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
@@ -305,11 +303,13 @@ class DepositAddressUserFilter(admin.SimpleListFilter):
 
 
 @admin.register(models.DepositAddress)
-class DepositAddressAdmin(admin.ModelAdmin):
+class DepositAddressAdmin(AdvancedAdmin):
     list_display = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     readonly_fields = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     list_filter = ('network', DepositAddressUserFilter)
     search_fields = ('address', 'address_key__account__user__phone', 'address_key__memo')
+
+    list_permission_exclude_filters = ('id', 'user')
 
     @admin.display(description='memo')
     def get_memo(self, deposit_address: models.DepositAddress):
@@ -336,11 +336,12 @@ class OTCRequestUserFilter(SimpleListFilter):
 
 
 @admin.register(models.OTCRequest)
-class OTCRequestAdmin(admin.ModelAdmin):
+class OTCRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'symbol', 'side', 'price', 'amount', 'fee_amount', 'fee_revenue')
     readonly_fields = ('account', 'login_activity')
     search_fields = ('token', 'symbol__name', 'account__user__phone')
     list_filter = (OTCRequestUserFilter,)
+    list_permission_exclude_filters = ('id', 'user')
 
     @admin.display(description='user')
     def get_username(self, otc_request: models.OTCRequest):
@@ -365,13 +366,15 @@ class OTCUserFilter(SimpleListFilter):
 
 
 @admin.register(models.OTCTrade)
-class OTCTradeAdmin(admin.ModelAdmin):
+class OTCTradeAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'otc_request', 'status', 'get_value', 'get_value_irt',
                     'execution_type', 'gap_revenue', 'hedged')
     list_filter = (OTCUserFilter, 'status', 'execution_type', 'hedged')
     search_fields = ('group_id', 'order_id', 'otc_request__symbol__asset__symbol', 'otc_request__account__user__phone')
     readonly_fields = ('otc_request', 'get_username')
     actions = ('accept_trade', 'accept_trade_without_hedge', 'cancel_trade', 'revert')
+
+    list_permission_exclude_filters = ('id', 'user')
 
     def get_queryset(self, request):
         return super(OTCTradeAdmin, self).get_queryset(request).prefetch_related('otc_request__account__user')
@@ -433,13 +436,15 @@ class TrxUserFilter(SimpleListFilter):
 
 
 @admin.register(models.Trx)
-class TrxAdmin(admin.ModelAdmin):
+class TrxAdmin(AdvancedAdmin):
     list_display = ('created', 'get_masked_sender', 'get_masked_receiver', 'amount', 'scope', 'group_id')
     search_fields = ('sender__asset__symbol', 'sender__account__user__phone', 'receiver__account__user__phone',
                      'group_id')
     readonly_fields = ('sender', 'receiver',)
     list_filter = ('scope', TrxUserFilter)
     actions = ('revert',)
+
+    list_permission_exclude_filters = ('id', 'user')
 
     @admin.display(description='sender')
     def get_masked_sender(self, trx: Trx):
@@ -504,7 +509,7 @@ class WalletBalanceFilter(SimpleListFilter):
 
 
 @admin.register(models.Wallet)
-class WalletAdmin(admin.ModelAdmin):
+class WalletAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'asset', 'market', 'get_free', 'locked', 'get_value_usdt', 'get_value_irt',
                     'credit', 'variant')
     inlines = [BalanceLockInline]
@@ -516,6 +521,7 @@ class WalletAdmin(admin.ModelAdmin):
     readonly_fields = ('account', 'asset', 'market', 'balance', 'locked', 'variant')
     search_fields = ('account__user__phone', 'asset__symbol')
     actions = ('sync_wallet_lock', )
+    list_permission_exclude_filters = ('id', 'account')
 
     def get_queryset(self, request):
         qs = super(WalletAdmin, self).get_queryset(request)
@@ -596,6 +602,8 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit', 'refund_deposit',
                'terminate_withdraw')
+
+    list_permission_exclude_filters = ('id', 'user')
 
     def save_model(self, request, obj: models.Transfer, form, change):
         if obj.id and obj.status == DONE:
@@ -810,15 +818,15 @@ class PrizeUserFilter(admin.SimpleListFilter):
 
 
 @admin.register(models.Prize)
-class PrizeAdmin(admin.ModelAdmin):
+class PrizeAdmin(AdvancedAdmin):
     list_display = ('created', 'achievement', 'get_username', 'get_asset_amount', 'redeemed', 'value')
     readonly_fields = ('account', 'asset',)
     list_filter = ('achievement', 'redeemed', PrizeUserFilter)
+    list_permission_exclude_filters = ('id', 'user')
 
+    @admin.display(description='amount')
     def get_asset_amount(self, prize: Prize):
         return '%s %s' % (get_presentation_amount(prize.amount), prize.asset)
-
-    get_asset_amount.short_description = 'مقدار'
 
     @admin.display(description='user')
     def get_username(self, prize: models.Prize):
@@ -844,14 +852,6 @@ class AddressKeyAdmin(admin.ModelAdmin):
     readonly_fields = ('address', 'account', 'memo')
     search_fields = ('address', 'public_address', 'account__user__phone', 'memo')
     list_filter = ('architecture', 'deleted', 'architecture')
-    actions = ('update_solana_trxs', )
-
-    @admin.action(description='Update Solana Trxs', permissions=['view'])
-    def update_solana_trxs(self, request, queryset):
-        from ledger.requester.address_requester import AddressRequester
-        requester = AddressRequester()
-        for q in queryset.filter(architecture='SOL'):
-            requester.refresh_solana_transactions(address=q.address, architecture=q.architecture)
 
 
 @admin.register(models.AssetSpreadCategory)
@@ -1300,7 +1300,8 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
     readonly_fields = ('account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'average_price', 'side',
                        'liquidation_price', 'status', 'leverage', 'equity', 'group_id')
     list_filter = (PositionStatusFilter, 'side', 'symbol')
-    search_fields = ('symbol__name', 'status', 'account__user__phone')
+    search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
+    actions = ('convert_dust_close', )
 
     @admin.display(description='Orders')
     def get_orders(self, obj):
@@ -1329,6 +1330,29 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         if price is not None:
             price = floor_precision(obj.average_price, obj.symbol.tick_size)
         return price
+    
+    @admin.action(description='convert dust and close', permissions=['change'])
+    def convert_dust_close(self, request, queryset):
+        positions = []
+        group_id = uuid4()
+
+        with WalletPipeline() as pipeline:
+            for position in queryset:
+                position.convert_dust(pipeline)
+
+                isolated = position.base_wallet
+                isolated.refresh_from_db()
+                remaining_balance = isolated.balance + pipeline.get_wallet_balance_diff(isolated.id)
+
+                if remaining_balance > Decimal('0'):
+                    cross = isolated.asset.get_wallet(position.account, market=Wallet.MARGIN, variant=None)
+                    pipeline.new_trx(isolated, cross, remaining_balance, Trx.MANUAL, group_id)
+
+                position.status = MarginPosition.CLOSED
+                positions.append(position)
+
+            if positions:
+                MarginPosition.objects.bulk_update(positions, ['status'])
 
 
 @admin.register(MarginHistoryModel)

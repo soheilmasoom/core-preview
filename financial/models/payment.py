@@ -75,6 +75,10 @@ class PaymentRequest(models.Model):
     class Meta:
         unique_together = [('authority', 'gateway')]
 
+        permissions = [
+            ("list_paymentrequest", "Can list payment request"),
+        ]
+
     def __str__(self):
         return '%s %s' % (self.gateway, self.bank_card)
 
@@ -217,6 +221,10 @@ class Payment(models.Model):
 
     class Meta:
         constraints = [
+        ]
+
+        permissions = [
+            ("list_payment", "Can list payment"),
         ]
 
 

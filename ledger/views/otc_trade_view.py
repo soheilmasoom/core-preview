@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from accounts.models import Account, LoginActivity
 from accounts.permissions import can_trade
+from analytics.utils.yandex import send_yandex_event
 from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecrease, HedgeError, LargeAmountTrade, \
     SmallDepthError, NoPriceError
 from ledger.models import OTCRequest, Asset, OTCTrade, Wallet
@@ -269,7 +270,9 @@ class OTCTradeSerializer(serializers.ModelSerializer):
             return otc_trade
 
         try:
-            return OTCTrade.handle_otc_request(otc_request)
+            otc_trade = OTCTrade.handle_otc_request(otc_request)
+            send_yandex_event(request.user, 'purchase')
+            return otc_trade
         except TokenExpired:
             raise ValidationError({'token': 'سفارش منقضی شده است. لطفا دوباره اقدام کنید.'})
         except InsufficientBalance:
