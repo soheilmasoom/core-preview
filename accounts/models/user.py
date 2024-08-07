@@ -401,9 +401,9 @@ class User(AbstractUser):
 
         from accounts.models import LoginActivity
         if old and old.password != self.password:
-            for login_Activity in (LoginActivity.objects.filter(user=self)
+            for login_activity in (LoginActivity.objects.filter(user=self)  # todo: maybe error prone
                     .exclude(refresh_token__isnull=True, session__isnull=True)):
-                login_Activity.destroy()
+                login_activity.destroy()
 
         if self.level == self.LEVEL2 and self.verify_status == self.PENDING:
             if self.national_code_phone_verified and self.selfie_image_verified:
