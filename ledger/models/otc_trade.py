@@ -124,7 +124,7 @@ class OTCTrade(models.Model):
                 Notification.send(
                     recipient=otc_trade.otc_request.account.user,
                     title='سفارش قیمت ثابت منقضی شد',
-                    message=f'سفارش {symbol} شما منقضی شد',
+                    message=f'سفارش {symbol} شما منقضی شد.',
                     link="/trade/otc/history?tab=convert-history"
                 )
 
