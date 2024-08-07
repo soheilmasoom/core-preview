@@ -184,6 +184,12 @@ class Order(models.Model):
             order.save(update_fields=['status'])
             pipeline.release_lock(key=order.group_id)
 
+            position = order.position
+            from ledger.models import MarginPosition
+            if position and position.status == MarginPosition.INIT and not Order.open_objects.filter(position=position).exists():
+                position.status = MarginPosition.CLOSED
+                position.save(update_fields=['status'])
+
             pipeline.add_market_cache_data(self.symbol, [order], side=order.side, canceled=True)
 
     @classmethod
