@@ -1274,32 +1274,13 @@ class TokenDelistAdmin(admin.ModelAdmin):
         return mark_safe(get_table_html(['name', 'value'], rows))
 
 
-class PositionStatusFilter(SimpleListFilter):
-    title = 'status'
-    parameter_name = 'status'
-
-    def lookups(self, request, model_admin):
-        lookups = [(MarginPosition.OPEN, MarginPosition.OPEN), (MarginPosition.CLOSED, MarginPosition.CLOSED),
-                   (MarginPosition.TERMINATING, MarginPosition.TERMINATING), ('live', 'live')]
-        return lookups
-
-    def queryset(self, request, queryset):
-        status_filter = request.GET.get('status')
-        if status_filter is not None:
-            if status_filter in MarginPosition.STATUS_LIST:
-                queryset = queryset.filter(status=status_filter)
-            elif status_filter == 'live':
-                queryset = queryset.filter(status=MarginPosition.OPEN, liquidation_price__isnull=False)
-        return queryset
-
-
 @admin.register(MarginPosition)
 class MarginPositionAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'account', 'symbol', 'side', 'status', 'leverage', 'get_equity', 'amount',
                     'get_liquidation_price', 'get_average_price', 'get_orders', 'get_trades')
     readonly_fields = ('account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'average_price', 'side',
                        'liquidation_price', 'status', 'leverage', 'equity', 'group_id')
-    list_filter = (PositionStatusFilter, 'side', 'symbol')
+    list_filter = ('side', 'symbol')
     search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
     actions = ('convert_dust_close', )
 
