@@ -16,7 +16,7 @@ class ConvertDust(models.Model):
     account = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
     converted_amount = get_amount_field(default=0)
     base_asset = models.ForeignKey('Asset', on_delete=models.CASCADE)
-    group_id = models.UUIDField(default=uuid4, db_index=True)
+    group_id = models.UUIDField(default=uuid4, unique=True)
 
     class Meta:
         indexes = [

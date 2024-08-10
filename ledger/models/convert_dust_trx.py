@@ -15,6 +15,7 @@ class ConvertDustTrx(models.Model):
     converted_amount = get_amount_field()
 
     class Meta:
+        unique_together = ('convert_dust', 'asset')
         constraints = [
             CheckConstraint(check=Q(converted_amount__gt=0), name='check_ledger_dust_trx_amount', ),
         ]
