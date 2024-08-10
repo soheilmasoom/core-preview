@@ -556,13 +556,13 @@ class WalletAdmin(AdvancedAdmin):
             f'<span dir="ltr">{wallet.account}</span>'
         )
 
-    @admin.action(description='Sync Lock', permissions=['change'])
+    @admin.action(description='Sync Lock')
     def sync_wallet_lock(self, request, queryset):
         for wallet in queryset:
             wallet.locked = BalanceLock.objects.filter(wallet=wallet, amount__gt=0).aggregate(sum=Sum('amount'))['sum'] or 0
             wallet.save(update_fields=['locked'])
 
-    @admin.action(description='Clear Debt', permissions=['change'])
+    @admin.action(description='Clear Debt')
     def clear_debt(self, request, queryset):
         for debt_wallet in queryset.filter(market=Wallet.DEBT):  # type: Wallet
             clear_debt(
