@@ -94,9 +94,9 @@ class OTCInfoView(APIView):
             risky = True
 
         if otc.side == BUY:
-            from_precision, to_precision, trigger_price_precision = Asset.PRECISION, symbol.step_size, Asset.PRECISION,
+            from_precision, to_precision = Asset.PRECISION, symbol.step_size
         else:
-            from_precision, to_precision, trigger_price_precision = symbol.step_size, Asset.PRECISION, Asset.PRECISION,
+            from_precision, to_precision = symbol.step_size, Asset.PRECISION
 
         return Response({
             'base_asset': symbol.base_asset.symbol,
@@ -107,7 +107,6 @@ class OTCInfoView(APIView):
             'risky': risky,
             'from_precision': from_precision,
             'to_precision': to_precision,
-            'trigger_price_precision': trigger_price_precision,
         })
 
 
@@ -118,7 +117,6 @@ class OTCRequestSerializer(serializers.ModelSerializer):
     to_amount = get_serializer_amount_field(allow_null=True, required=False, write_only=True)
 
     gtd = serializers.ChoiceField(choices=OTCRequest.EXPIRATION_CHOICES, allow_null=True, required=False)
-    trigger_price = get_serializer_amount_field(allow_null=True, required=False)
     type = serializers.ChoiceField(required=False, choices=OTCRequest.TYPE_CHOICES)
 
     paying_amount = serializers.SerializerMethodField()
@@ -126,7 +124,7 @@ class OTCRequestSerializer(serializers.ModelSerializer):
     net_receiving_amount = serializers.SerializerMethodField()
 
     expire = serializers.SerializerMethodField()
-    price = get_serializer_amount_field(read_only=True)
+    price = get_serializer_amount_field(allow_null=True)
     asset = serializers.CharField(source='symbol.asset.symbol', read_only=True)
     base_asset = serializers.CharField(source='symbol.base_asset.symbol', read_only=True)
     fee = get_serializer_amount_field(source='fee_amount', read_only=True)
@@ -139,7 +137,7 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         if type == OTCRequest.LIMIT:
             if not attrs.get('gtd'):
                 raise ValidationError('زمان انقضا باید مشخص باشد.')
-            if not attrs.get('trigger_price'):
+            if not attrs.get('price'):
                 raise ValidationError('قیمت اجرا باید مشخص باشد.')
 
 
@@ -183,12 +181,11 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         from_amount = validated_data.get('from_amount')
 
         order_type = validated_data.get('type', OTCRequest.MARKET)
-        gtd, trigger_price = None, None
+        gtd, price = None, None
         if order_type == OTCRequest.LIMIT:
             delta = validated_data.get('gtd')
             gtd = OTCRequest.get_gtd_from_delta(delta)
-            trigger_price = validated_data.get('trigger_price')
-
+            price = validated_data.get('price')
 
         try:
             otc_request = OTCRequest.new_trade(
@@ -200,7 +197,7 @@ class OTCRequestSerializer(serializers.ModelSerializer):
                 market=Wallet.SPOT,
                 order_type=order_type,
                 gtd=gtd,
-                trigger_price=trigger_price
+                price=price
             )
             otc_request.login_activity = LoginActivity.from_request(request=request)
             otc_request.save(update_fields=['login_activity'])
@@ -242,7 +239,7 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         model = OTCRequest
         fields = ('from_asset', 'to_asset', 'from_amount', 'to_amount',
                   'token', 'expire', 'price', 'asset', 'base_asset', 'paying_amount', 'receiving_amount',
-                  'net_receiving_amount', 'fee', 'type', 'gtd', 'trigger_price')
+                  'net_receiving_amount', 'fee', 'type', 'gtd')
 
 
 class OTCTradeRequestView(CreateAPIView):

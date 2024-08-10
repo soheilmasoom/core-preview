@@ -39,7 +39,6 @@ class OTCRequest(BaseTrade):
     to_amount = get_amount_field(null=True)
 
     gtd = models.DateTimeField(null=True, db_index=True, blank=True)
-    trigger_price = get_amount_field(null=True)
     type = models.CharField(max_length=16, default=MARKET, choices=TYPE_CHOICES)
 
     @property
@@ -61,7 +60,7 @@ class OTCRequest(BaseTrade):
     @classmethod
     def new_trade(cls, account: Account, market: str, from_asset: Asset, to_asset: Asset, order_type: str,
                   from_amount: Decimal = None, to_amount: Decimal = None, allow_dust: bool = False,
-                  check_enough_balance: bool = True, gtd: datetime = None, trigger_price: Decimal = None) -> 'OTCRequest':
+                  check_enough_balance: bool = True, gtd: datetime = None, price: Decimal = None) -> 'OTCRequest':
 
         assert order_type in cls.ORDER_TYPES
         assert from_amount or to_amount
@@ -76,7 +75,7 @@ class OTCRequest(BaseTrade):
             market=market,
             order_type=order_type,
             gtd=gtd,
-            trigger_price=trigger_price
+            price=price,
         )
 
         if not allow_dust:
@@ -103,7 +102,7 @@ class OTCRequest(BaseTrade):
     @classmethod
     def get_otc_request(cls, account: Account, from_asset: Asset, to_asset: Asset, order_type: str,
                         from_amount: Decimal = None, to_amount: Decimal = None, market: str = Wallet.SPOT,
-                        gtd: datetime = None, trigger_price: Decimal = None) -> 'OTCRequest':
+                        gtd: datetime = None, price: Decimal = None) -> 'OTCRequest':
 
         from market.models import PairSymbol
         assert order_type in cls.ORDER_TYPES
@@ -125,10 +124,9 @@ class OTCRequest(BaseTrade):
             side=pair.side,
             type=order_type,
             gtd=gtd,
-            trigger_price=trigger_price
+            price=price
         )
         other_side = get_other_side(pair.side)
-        coin_trigger_amount = 0
 
         usdt_irt_price = get_price(USDT_IRT, side=other_side, allow_stale=True)
 
@@ -140,32 +138,28 @@ class OTCRequest(BaseTrade):
             otc_request.base_irt_price = 1
 
         if pair.coin_amount is None:
-            price = get_price(symbol.name, side=other_side)
+            if otc_request.type == OTCRequest.MARKET:
+                price = get_price(symbol.name, side=other_side)
 
             if price is None:
                 raise NoPriceError
 
-            if trigger_price:
-                coin_trigger_amount = floor_precision(pair.base_amount / trigger_price, symbol.step_size)
             coin_amount = floor_precision(pair.base_amount / price, symbol.step_size)
         else:
-            coin_trigger_amount = pair.coin_amount
             coin_amount = pair.coin_amount
 
-        price = get_depth_price(symbol.name, side=other_side, amount=coin_amount)
+        if otc_request.type == OTCRequest.MARKET:
+            price = get_depth_price(symbol.name, side=other_side, amount=coin_amount)
 
         if price is None:
             raise NoPriceError
 
         if pair.coin_amount is None:
-            if trigger_price:
-                coin_trigger_amount = floor_precision(pair.base_amount / trigger_price, symbol.step_size)
             coin_amount = floor_precision(pair.base_amount / price, symbol.step_size)
         else:
-            coin_trigger_amount = pair.coin_amount
             coin_amount = pair.coin_amount
 
-        otc_request.amount = coin_amount if otc_request.type == OTCRequest.MARKET else coin_trigger_amount
+        otc_request.amount = coin_amount
         otc_request.price = price
 
         fee_info = get_fee_info(otc_request)
@@ -181,15 +175,13 @@ class OTCRequest(BaseTrade):
 
     def get_receiving_amount(self):
         if self.side == SELL:
-            price = self.price if self.type == OTCRequest.MARKET else self.trigger_price
-            return self.amount * price
+            return self.amount * self.price
         else:
             return self.amount
 
     def get_paying_amount(self):
         if self.side == BUY:
-            price = self.price if self.type == OTCRequest.MARKET else self.trigger_price
-            return self.amount * price
+            return self.amount * self.price
         else:
             return self.amount
 

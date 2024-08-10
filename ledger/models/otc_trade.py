@@ -132,11 +132,10 @@ class OTCTrade(models.Model):
     def handle_trigger_price(cls, symbol: str, side: str, current_price: Decimal):
         def is_triggered_price(otc_request: OTCRequest) -> bool:
             current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
-            trigger_price = otc_request.trigger_price
             side = otc_request.side
-            if side == SELL and Decimal(current_price) * Decimal("0.8") < trigger_price < Decimal(current_price):
+            if side == SELL and Decimal(current_price) * Decimal("0.8") < otc_request.price < Decimal(current_price):
                 return True
-            elif side == BUY and Decimal(current_price) < trigger_price < Decimal(current_price) * Decimal("1.2"):
+            elif side == BUY and Decimal(current_price) < otc_request.price < Decimal(current_price) * Decimal("1.2"):
                 return True
             return False
 
@@ -144,8 +143,8 @@ class OTCTrade(models.Model):
             otc_request__symbol__name=symbol,
             otc_request__side=side,
             otc_request__gtd__gt=timezone.now(),
-            otc_request__trigger_price__gte=Decimal(current_price) if side == BUY else Decimal(current_price) * Decimal("0.8"),
-            otc_request__trigger_price__lte=Decimal(current_price) * Decimal("1.2") if side == BUY else Decimal(current_price)
+            otc_request__price__gte=Decimal(current_price) if side == BUY else Decimal(current_price) * Decimal("0.8"),
+            otc_request__price__lte=Decimal(current_price) * Decimal("1.2") if side == BUY else Decimal(current_price)
         )
 
         print("triggered_requests:#", list(triggered))
