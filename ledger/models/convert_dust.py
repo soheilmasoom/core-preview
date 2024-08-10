@@ -1,12 +1,12 @@
 import logging
-from uuid import uuid4
 from datetime import timedelta
-from django.utils import timezone
+from uuid import uuid4
 
 from django.db import models
-from django.db.models import CheckConstraint, Q
-from ledger.utils.fields import get_amount_field
+from django.utils import timezone
+
 from accounts.models import SystemConfig
+from ledger.utils.fields import get_amount_field
 
 logger = logging.getLogger(__name__)
 

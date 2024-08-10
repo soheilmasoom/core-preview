@@ -33,7 +33,8 @@ from gamify.utils import clone_model
 from ledger import models
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
-    MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer
+    MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer, ConvertDust, \
+    ConvertDustTrx
 from ledger.models.asset_alert import AssetAlert, AlertTrigger, BulkAssetAlert
 from ledger.models.wallet import ReserveWallet
 from ledger.utils.external_price import BUY
@@ -1347,4 +1348,18 @@ class MarginHistoryModelAdmin(admin.ModelAdmin):
 @admin.register(MarginLeverage)
 class MarginLeverageAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'leverage')
+    readonly_fields = ('account', )
 
+
+@admin.register(ConvertDust)
+class ConvertDustAdmin(admin.ModelAdmin):
+    list_display = ('created', 'account', 'converted_amount', 'base_asset')
+    readonly_fields = ('account', )
+    search_fields = ('group_id', )
+
+
+@admin.register(ConvertDustTrx)
+class ConvertDustTrxAdmin(admin.ModelAdmin):
+    list_display = ('created', 'account', 'converted_amount', 'base_asset')
+    readonly_fields = ('account', )
+    search_fields = ('group_id', )
