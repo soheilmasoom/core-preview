@@ -124,7 +124,7 @@ class OTCRequestSerializer(serializers.ModelSerializer):
     net_receiving_amount = serializers.SerializerMethodField()
 
     expire = serializers.SerializerMethodField()
-    price = get_serializer_amount_field(allow_null=True)
+    price = get_serializer_amount_field(allow_null=True, required=False)
     asset = serializers.CharField(source='symbol.asset.symbol', read_only=True)
     base_asset = serializers.CharField(source='symbol.base_asset.symbol', read_only=True)
     fee = get_serializer_amount_field(source='fee_amount', read_only=True)
