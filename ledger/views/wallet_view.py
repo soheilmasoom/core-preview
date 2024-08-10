@@ -717,7 +717,7 @@ class DustHistoryListViewV2(ListAPIView):
         }
 
     def get_queryset(self):
-        return ConvertDust.objects.filter(account=self.request.user.get_account()).order_by('-id')
+        return ConvertDust.objects.filter(account=self.request.user.get_account()).order_by('-created')
 
 
 class DustHistoryDetailViewV2(ListAPIView):
