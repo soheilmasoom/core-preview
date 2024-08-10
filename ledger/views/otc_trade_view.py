@@ -7,7 +7,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import Account, LoginActivity
+from accounts.models import Account, LoginActivity, SystemConfig
 from accounts.permissions import can_trade
 from analytics.utils.yandex import send_yandex_event
 from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecrease, HedgeError, LargeAmountTrade, \
@@ -135,6 +135,10 @@ class OTCRequestSerializer(serializers.ModelSerializer):
 
         type = attrs.get('type')
         if type == OTCRequest.LIMIT:
+
+            if not SystemConfig.get_system_config().enable_otc_limit:
+                raise ValidationError('در حال حاضر امکان سفارش قیمت ثابت وجود ندارد.')
+
             if not attrs.get('gtd'):
                 raise ValidationError('زمان انقضا باید مشخص باشد.')
             if not attrs.get('price'):
