@@ -385,7 +385,9 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     )
     preserve_filters = ('archived', )
 
-    search_fields = (*UserAdmin.search_fields, 'national_code', 'phone')
+    search_fields = (
+        *UserAdmin.search_fields, 'national_code', 'phone', 'traffic_source__utm_source', 'traffic_source__utm_medium',
+    )
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
@@ -967,7 +969,8 @@ class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
 @admin.register(TrafficSource)
 class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term')
+    list_display = ('created', 'get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+                    'gps_adid')
     search_fields = ('user__phone', 'gps_adid', 'ip', 'profile_id')
     readonly_fields = ('user', )
 
