@@ -76,7 +76,6 @@ class OTCTestCase(TestCase):
             'from_amount': 10,
             "type": "limit",
             "gtd": "d1",
-            "trigger_price": "30010"
         })
 
         self.assertEqual(resp.status_code, 201)
@@ -112,7 +111,6 @@ class OTCTestCase(TestCase):
             'from_amount': 0.001,
             "type": "limit",
             "gtd": "d1",
-            "trigger_price": "29990"
         })
 
         self.assertEqual(resp.status_code, 201)
@@ -148,7 +146,6 @@ class OTCTestCase(TestCase):
             'from_amount': 10,
             "type": "limit",
             "gtd": "d1",
-            "trigger_price": "30010"
         })
         self.assertEqual(resp.status_code, 201)
 
