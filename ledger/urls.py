@@ -55,6 +55,7 @@ urlpatterns = [
     path('v1/trade/otc/', views.OTCTradeView.as_view()),
     path('v1/trade/otc/info/', views.OTCInfoView.as_view()),
     path('v1/trade/otc/myTrades/', views.OTCHistoryView.as_view()),
+    path('v1/trade/otc/limit/cancel/', views.CancelLimitOTCView.as_view()),
 
     path('v1/margin/transfer/', views.MarginTransferViewSet.as_view({
         'get': 'list',
@@ -96,6 +97,8 @@ urlpatterns = [
     path('v1/convert/dust/', views.ConvertDustView.as_view()),
     path('v2/convert/dust/', views.ConvertDustViewV2.as_view()),
     path('v1/convert/dust/list/', views.DustsHistoryView.as_view()),
+    path('v2/convert/dust/list/<int:pk>/', views.DustHistoryDetailViewV2.as_view()),
+    path('v2/convert/dust/list/', views.DustHistoryListViewV2.as_view()),
     path('v1/pnl/overview/', views.PNLOverview.as_view()),
 
     path('v1/fast_buy/', views.FastBuyTokenAPI.as_view()),

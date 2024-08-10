@@ -129,12 +129,8 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
 
         floored_loan_balance = floor_precision(loan_balance, position.symbol.step_size)
 
-        total_balance = asset_balance * position.symbol.last_trade_price + loan_balance
-
-        is_position_closed = (trade_info.loan_type == Order.LIQUIDATION or
-                              (((floored_asset_balance > Decimal('0') and floored_loan_balance >= 0) or
-                                (floored_asset_balance == 0)) and
-                               trade_info.loan_type != BORROW))
+        is_position_closed = (((floored_asset_balance > Decimal('0') and floored_loan_balance >= 0) or
+                               (floored_asset_balance == 0)) and trade_info.loan_type != BORROW)
 
         if is_position_closed:
             logger.info(f"Closing position:{position.id}")
@@ -260,7 +256,7 @@ def _register_margin_transaction(pipeline: WalletPipeline, pair: TradesPair, loa
     trading_positions = []
     for order, trade in ((pair.maker_order, pair.maker_trade), (pair.taker_order, pair.taker_trade)):
         if order.wallet.market == Wallet.MARGIN:
-            position = order.symbol.get_margin_position(order.account, order.side, order.is_open_position)
+            position = order.position
             if position.side == LONG:
                 from ledger.utils.external_price import get_other_side
                 order_side = get_other_side(order_side)
@@ -294,7 +290,6 @@ def _register_margin_transaction(pipeline: WalletPipeline, pair: TradesPair, loa
                     position.equity += trade_value
                     position.status = MarginPosition.OPEN
 
-                order.symbol.get_margin_position(order.account, order.side, order.is_open_position)
                 fee_amount = floor_precision(trade.fee_amount,
                                              Trade.fee_amount.field.decimal_places) if trade.fee_amount else Decimal(0)
                 trade_amount = trade.amount - fee_amount if order_side == BUY else trade.amount

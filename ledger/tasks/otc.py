@@ -28,7 +28,7 @@ def handle_limit_otc_request():
     try:
         OTCTrade.handle_expired()
         distinct_symbol_and_side = list(OTCTrade.get_untriggered_otc_trade_queryset().distinct("otc_request__symbol", "otc_request__side").values_list("otc_request__symbol__name", "otc_request__side"))
-        logger.info('handle limit otc request', extra={'distinct_symbol_and_side': distinct_symbol_and_side})
+        logger.info(f'handle limit otc request: distinct_symbol_and_side: {distinct_symbol_and_side}')
 
         for untriggered in distinct_symbol_and_side:
             symbol = untriggered[0]
@@ -36,7 +36,7 @@ def handle_limit_otc_request():
 
             price = get_price(symbol, side=get_other_side(side))
             OTCTrade.handle_trigger_price(symbol, side, price)
-            logger.info('handle limit otc request', extra={'symbol': symbol, 'side': side, 'price': price})
+            logger.info(f'handle limit otc request "symbol": {symbol}, "side": {side}, "price": {price}')
 
     except Exception as e:
             logger.exception('failed to handle limit otc request', extra={'exp': e})

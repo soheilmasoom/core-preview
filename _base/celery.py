@@ -110,6 +110,15 @@ app.conf.beat_schedule = {
         },
     },
 
+    'limit_otc_requests': {
+        'task': 'ledger.tasks.otc.handle_limit_otc_request',
+        'schedule': 30,
+        'options': {
+            'queue': 'celery',
+            'expires': 30
+        },
+    },
+
     'check_maker_order_price': {
         'task': 'market.tasks.order.check_maker_order_price',
         'schedule': 30,

@@ -2,7 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
 
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.test import Client
 from django.test import TestCase
 from django.utils import timezone
@@ -114,7 +114,13 @@ class LongIsolatedMarginTestCase(TestCase):
             wallets = wallets.filter(account=account)
 
         for w in wallets:
-            print('%s %s %s %s %s: %s/%s' % (w.id, w.account, w.asset.symbol, w.market, w.variant, w.get_free(), w.balance))
+            log = '%s %s %s %s %s: %s/%s' % (w.id, w.account, w.asset.symbol, w.market, w.variant, w.get_free(), w.balance)
+
+            if w.market == 'margin' and w.variant:
+                position = (w.base_wallet.first() or w.asset_wallet.first())
+                log += f' {position.id}, {position.status}'
+
+            print(log)
 
         print("/////////////////////////////////////////////////////")
 
@@ -152,6 +158,8 @@ class LongIsolatedMarginTestCase(TestCase):
         self.assertEqual(resp.status_code, check_status)
 
     def assert_liquidation(self, account, symbol, liquidate=True):
+        self.assertEqual(MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).count(), 1)
+
         mp = MarginPosition.objects.filter(account=account, symbol=symbol).first()
 
         negative_wallets = Wallet.objects.filter(
@@ -828,3 +836,36 @@ class LongIsolatedMarginTestCase(TestCase):
 
         self.assert_liquidation(self.account, self.btcusdt)
         self.assertTrue(not MarginHistoryModel.objects.filter(position=mp, type=MarginHistoryModel.CONVERT))
+
+    def test_long_buy19(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT/2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=floor_precision(loan_amount / 2, 6), side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=floor_precision(loan_amount/4, 6), market=Wallet.SPOT, price=BTC_USDT_PRICE)
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=floor_precision(loan_amount/4, 6), market=Wallet.SPOT, price=BTC_USDT_PRICE)
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE - 10)
+
+        self.place_order(amount=floor_precision(loan_amount / 2, 6), side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE - 10, is_open_position=True)
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=floor_precision(loan_amount/4, 6), market=Wallet.SPOT, price=mp.liquidation_price * Decimal('0.92'))
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=floor_precision(loan_amount, 6), market=Wallet.SPOT, price=mp.liquidation_price * Decimal('0.9'))
+
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT, price=mp.liquidation_price * Decimal('0.95'))
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT, price=mp.liquidation_price * Decimal('0.95'))
+
+        self.print_wallets(self.account)
+
+        for i in MarginHistoryModel.objects.filter(position=mp, type=MarginHistoryModel.CONVERT):
+            print(i.amount * BTC_USDT_PRICE, i.asset)
+
+        self.assertTrue(
+            (MarginHistoryModel.objects.filter(position=mp, type=MarginHistoryModel.CONVERT).aggregate(s=Sum('amount'))['s'] or 0)
+            * BTC_USDT_PRICE < 10)
+
+        self.assert_liquidation(self.account, self.btcusdt)

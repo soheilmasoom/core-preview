@@ -6,6 +6,7 @@ from uuid import uuid4
 from django.utils import timezone
 
 from ledger.utils.price import get_depth_price, get_price
+from accounts.models import Notification
 
 
 from django.conf import settings
@@ -37,7 +38,7 @@ class TokenExpired(Exception):
 
 
 class OTCTrade(models.Model):
-    PENDING, CANCELED, DONE, REVERT, EXPIRED = 'pending', 'canceled', 'done', 'revert', 'expired'
+    PENDING, CANCELED, USER_CANCELED, DONE, REVERT, EXPIRED = 'pending', 'canceled', 'user_canceled', 'done', 'revert', 'expired'
     MARKET, PROVIDER = 'm', 'p'
 
     created = models.DateTimeField(auto_now_add=True)
@@ -47,8 +48,8 @@ class OTCTrade(models.Model):
 
     status = models.CharField(
         default=PENDING,
-        max_length=8,
-        choices=[(PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE), (REVERT, REVERT)],
+        max_length=16,
+        choices=[(PENDING, PENDING), (CANCELED, CANCELED), (USER_CANCELED, USER_CANCELED), (DONE, DONE), (REVERT, REVERT), (EXPIRED, EXPIRED)],
     )
 
     execution_type = models.CharField(max_length=1, choices=((MARKET, 'market'), (PROVIDER, 'provider')))
@@ -117,17 +118,24 @@ class OTCTrade(models.Model):
         with WalletPipeline() as pipeline:
             for otc_trade in query_set:
                 pipeline.release_lock(otc_trade.group_id)
-            query_set.update(status=OTCTrade.EXPIRED)
+                otc_trade.status = OTCTrade.EXPIRED
+                otc_trade.save(update_fields=['status'])
+                symbol = otc_trade.otc_request.symbol.name
+                Notification.send(
+                    recipient=otc_trade.otc_request.account.user,
+                    title='سفارش قیمت ثابت منقضی شد',
+                    message=f'سفارش {symbol} شما منقضی شد.',
+                    link="/trade/otc/history?tab=convert-history"
+                )
 
     @classmethod
     def handle_trigger_price(cls, symbol: str, side: str, current_price: Decimal):
         def is_triggered_price(otc_request: OTCRequest) -> bool:
             current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
-            trigger_price = otc_request.trigger_price
             side = otc_request.side
-            if side == SELL and Decimal(current_price) * Decimal("0.8") < trigger_price < Decimal(current_price):
+            if side == SELL and Decimal(current_price) * Decimal("0.8") < otc_request.price < Decimal(current_price):
                 return True
-            elif side == BUY and Decimal(current_price) < trigger_price < Decimal(current_price) * Decimal("1.2"):
+            elif side == BUY and Decimal(current_price) < otc_request.price < Decimal(current_price) * Decimal("1.2"):
                 return True
             return False
 
@@ -135,8 +143,8 @@ class OTCTrade(models.Model):
             otc_request__symbol__name=symbol,
             otc_request__side=side,
             otc_request__gtd__gt=timezone.now(),
-            otc_request__trigger_price__gte=Decimal(current_price) if side == BUY else Decimal(current_price) * Decimal("0.8"),
-            otc_request__trigger_price__lte=Decimal(current_price) * Decimal("1.2") if side == BUY else Decimal(current_price)
+            otc_request__price__gte=Decimal(current_price) if side == BUY else Decimal(current_price) * Decimal("0.8"),
+            otc_request__price__lte=Decimal(current_price) * Decimal("1.2") if side == BUY else Decimal(current_price)
         )
 
         print("triggered_requests:#", list(triggered))
@@ -223,10 +231,14 @@ class OTCTrade(models.Model):
                 hedge_key=str(fok_order.id),
             ).save()
 
-    def reject(self):
+
+    def reject(self, is_user_canceled=False):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
             pipeline.release_lock(self.group_id)
-            self.change_status(self.CANCELED)
+            if is_user_canceled:
+                self.change_status(self.USER_CANCELED)
+            else:
+                self.change_status(self.CANCELED)
 
     def accept(self, pipeline: WalletPipeline):
         pipeline.release_lock(self.group_id)
@@ -260,6 +272,15 @@ class OTCTrade(models.Model):
                 message=f"New unhedged trade: {req.side} {amount_present} {req.symbol.asset} ({round(req.usdt_value, 1)}$)",
                 link=url_to_edit_object(self)
             )
+        if self.otc_request.type == OTCRequest.LIMIT:
+            symbol = self.otc_request.symbol.name
+            Notification.send(
+                recipient=self.otc_request.account.user,
+                title='سفارش قیمت ثابت شما انجام شد',
+                message=f'سفارش {symbol} شما انجام شد.',
+                link="/trade/otc/history?tab=convert-history"
+            )
+
 
     def get_pending_hedge_trades(self):
         return OTCTrade.objects.filter(
@@ -334,6 +355,8 @@ class OTCTrade(models.Model):
                 source=TradeRevenue.OTC_PROVIDER,
                 hedge_key=hedge_key,
             ).save()
+
+
 
     def revert(self):
         with WalletPipeline() as pipeline:

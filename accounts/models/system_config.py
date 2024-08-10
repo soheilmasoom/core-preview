@@ -61,6 +61,8 @@ class SystemConfig(models.Model):
 
     disable_new_positions = models.BooleanField(default=False)
 
+    convert_dust_retry_hours_limit = models.PositiveIntegerField(default=12)
+
     def __str__(self):
         return self.name
 

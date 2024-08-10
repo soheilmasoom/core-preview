@@ -151,6 +151,9 @@ class MarginPositionDetailedSerializer(MarginPositionSerializer):
     def get_closing_orders(self, instance):
         return instance.order_set.filter(side=self.get_closing_side(instance), filled_amount__gt=0)
 
+    def get_closing_trades(self, instance):
+        return instance.trade_set.filter(side=self.get_closing_side(instance))
+
     def get_closed_time(self, instance: MarginPosition):
         if instance.status == MarginPosition.CLOSED:
             last_trade = instance.trade_set.filter(side=self.get_closing_side(instance)).order_by('-created').first()
@@ -158,9 +161,9 @@ class MarginPositionDetailedSerializer(MarginPositionSerializer):
         return None
 
     def get_average_closed_price(self, instance: MarginPosition):
-        return self.get_closing_orders(instance). \
-            annotate(value=F('filled_amount') * F('price')). \
-            aggregate(sum=Sum('value') / Sum('filled_amount'))['sum'] or 0
+        return self.get_closing_trades(instance). \
+            annotate(value=F('amount') * F('price')). \
+            aggregate(sum=Sum('value') / Sum('amount'))['sum'] or 0
 
     def get_closed_volume(self, instance: MarginPosition):
         return self.get_closing_orders(instance).aggregate(sum=Sum('filled_amount'))['sum'] or 0

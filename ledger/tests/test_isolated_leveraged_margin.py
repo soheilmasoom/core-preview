@@ -153,6 +153,8 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         self.assertEqual(resp.status_code, check_status)
 
     def assert_liquidation(self, account, symbol, liquidate=True):
+        self.assertEqual(MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).count(), 1)
+
         mp = MarginPosition.objects.filter(account=account, symbol=symbol).first()
 
         negetive_wallets = Wallet.objects.filter(

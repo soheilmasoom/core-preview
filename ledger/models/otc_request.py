@@ -9,7 +9,7 @@ from rest_framework.exceptions import ValidationError
 from accounts.models import Account
 from ledger.exceptions import SmallAmountTrade, LargeAmountTrade, NoPriceError
 from ledger.models import Asset, Wallet
-from ledger.utils.external_price import get_other_side, BUY
+from ledger.utils.external_price import get_other_side, BUY, SELL
 from ledger.utils.fields import get_amount_field
 from ledger.utils.otc import get_trading_pair
 from ledger.utils.precision import floor_precision, get_presentation_amount
@@ -39,7 +39,6 @@ class OTCRequest(BaseTrade):
     to_amount = get_amount_field(null=True)
 
     gtd = models.DateTimeField(null=True, db_index=True, blank=True)
-    trigger_price = get_amount_field(null=True)
     type = models.CharField(max_length=16, default=MARKET, choices=TYPE_CHOICES)
 
     @property
@@ -61,7 +60,7 @@ class OTCRequest(BaseTrade):
     @classmethod
     def new_trade(cls, account: Account, market: str, from_asset: Asset, to_asset: Asset, order_type: str,
                   from_amount: Decimal = None, to_amount: Decimal = None, allow_dust: bool = False,
-                  check_enough_balance: bool = True, gtd: datetime = None, trigger_price: Decimal = None) -> 'OTCRequest':
+                  check_enough_balance: bool = True, gtd: datetime = None, price: Decimal = None) -> 'OTCRequest':
 
         assert order_type in cls.ORDER_TYPES
         assert from_amount or to_amount
@@ -76,7 +75,7 @@ class OTCRequest(BaseTrade):
             market=market,
             order_type=order_type,
             gtd=gtd,
-            trigger_price=trigger_price
+            price=price,
         )
 
         if not allow_dust:
@@ -103,7 +102,7 @@ class OTCRequest(BaseTrade):
     @classmethod
     def get_otc_request(cls, account: Account, from_asset: Asset, to_asset: Asset, order_type: str,
                         from_amount: Decimal = None, to_amount: Decimal = None, market: str = Wallet.SPOT,
-                        gtd: datetime = None, trigger_price: Decimal = None) -> 'OTCRequest':
+                        gtd: datetime = None, price: Decimal = None) -> 'OTCRequest':
 
         from market.models import PairSymbol
         assert order_type in cls.ORDER_TYPES
@@ -125,7 +124,7 @@ class OTCRequest(BaseTrade):
             side=pair.side,
             type=order_type,
             gtd=gtd,
-            trigger_price=trigger_price
+            price=price
         )
         other_side = get_other_side(pair.side)
 
@@ -139,7 +138,8 @@ class OTCRequest(BaseTrade):
             otc_request.base_irt_price = 1
 
         if pair.coin_amount is None:
-            price = get_price(symbol.name, side=other_side)
+            if otc_request.type == OTCRequest.MARKET:
+                price = get_price(symbol.name, side=other_side)
 
             if price is None:
                 raise NoPriceError
@@ -148,7 +148,8 @@ class OTCRequest(BaseTrade):
         else:
             coin_amount = pair.coin_amount
 
-        price = get_depth_price(symbol.name, side=other_side, amount=coin_amount)
+        if otc_request.type == OTCRequest.MARKET:
+            price = get_depth_price(symbol.name, side=other_side, amount=coin_amount)
 
         if price is None:
             raise NoPriceError
@@ -171,6 +172,21 @@ class OTCRequest(BaseTrade):
 
     def get_expire_time(self) -> datetime:
         return self.created + timedelta(seconds=OTCRequest.EXPIRATION_TIME)
+
+    def get_receiving_amount(self):
+        if self.side == SELL:
+            return self.amount * self.price
+        else:
+            return self.amount
+
+    def get_paying_amount(self):
+        if self.side == BUY:
+            return self.amount * self.price
+        else:
+            return self.amount
+
+    def get_net_receiving_amount(self):
+        return self.get_receiving_amount() - self.fee_amount
 
     def expired(self):
         return (timezone.now() - self.created).total_seconds() >= self.EXPIRATION_TIME

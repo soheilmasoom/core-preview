@@ -8,7 +8,7 @@ from minio import Minio
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ledger.models import NetworkAsset, MarginPosition, MarginHistoryModel
+from ledger.models import NetworkAsset, MarginPosition, MarginHistoryModel, Wallet
 from ledger.utils.external_price import fetch_external_price, SIDES
 
 
@@ -100,6 +100,12 @@ class HealthCheckView(APIView):
         lost_positions = set(MarginPosition.objects.filter(~Q(asset_wallet__balance=0), status=MarginPosition.OPEN, liquidation_price__isnull=True).exclude(trade__isnull=True).values_list('id', flat=True))
         if lost_positions:
             unhealthy_services.append(f'Lost position liquidation price: {lost_positions}')
+
+        queryset = (Wallet.objects.filter(market='margin', variant__isnull=False)
+                    .exclude(Q(base_wallet__status='open') | Q(asset_wallet__status='open')).exclude(balance=0))
+
+        if queryset.count() > 0:
+            unhealthy_services.append(f'Closed Position non zero wallets:{set(queryset.values_list("id", flat=True))}')
 
         if unhealthy_services:
             return Response({'status': 'dead', 'errors': unhealthy_services})
