@@ -544,9 +544,13 @@ class ConvertDustViewV2(APIView):
     def post(self, *args):
         account = self.request.user.get_account()
         serializer = ConvertDustSerializer(data=self.request.data)
+        in_last_hours: int = SystemConfig.get_system_config().convert_dust_retry_hours_limit
 
         if ConvertDust.has_recent_conversion(account=account):
-            return Response({'message': "user has recent conversion"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data={'message': "باید از آخرین تبدیل خرد حداقل %s ساعت بگذرد." % in_last_hours},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
@@ -684,9 +688,11 @@ class DustHistoryListSerializerV2(serializers.ModelSerializer):
 
     def get_converted_amount(self, convert_dust: ConvertDust):
         return get_presentation_amount(convert_dust.converted_amount)
+
     class Meta:
         model = ConvertDust
         fields = ('id', 'converted_amount', 'created', 'base_asset')
+
 
 class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
     base_asset = AssetSerializerMini()
