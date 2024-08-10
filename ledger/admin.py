@@ -1348,7 +1348,7 @@ class MarginHistoryModelAdmin(admin.ModelAdmin):
 @admin.register(MarginLeverage)
 class MarginLeverageAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'leverage')
-    readonly_fields = ('account', )
+    readonly_fields = ('account', 'group_id')
 
 
 @admin.register(ConvertDust)
