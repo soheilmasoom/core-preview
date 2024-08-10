@@ -122,7 +122,7 @@ class SignupSerializer(serializers.Serializer):
 
         self.set_missions_to_user(user)
 
-        send_yandex_event(user, 'sign_up')
+        send_yandex_event(user, 'sign_up', {'id': user.id})
 
         return user
 
