@@ -342,7 +342,7 @@ class OTCRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'symbol', 'side', 'price', 'amount', 'fee_amount', 'fee_revenue')
     readonly_fields = ('account', 'login_activity')
     search_fields = ('token', 'symbol__name', 'account__user__phone')
-    list_filter = (OTCRequestUserFilter,)
+    list_filter = (OTCRequestUserFilter, 'type')
     list_permission_exclude_filters = ('id', 'user')
 
     @admin.display(description='user')
@@ -367,13 +367,29 @@ class OTCUserFilter(SimpleListFilter):
             return queryset
 
 
+class OrderTypeOTCFilter(SimpleListFilter):
+    title = 'Order Type'
+    parameter_name = 'order_type'
+
+    def lookups(self, request, model_admin):
+        return models.OTCRequest.ORDER_TYPE_CHOICES
+
+    def queryset(self, request, queryset):
+        order_type = self.value()
+
+        if order_type is not None:
+            queryset = queryset.filter(otc_request__type=order_type)
+
+        return queryset
+
+
 @admin.register(models.OTCTrade)
 class OTCTradeAdmin(AdvancedAdmin):
-    list_display = ('created', 'get_username', 'otc_request', 'status', 'get_value', 'get_value_irt',
+    list_display = ('created', 'get_username', 'otc_request', 'get_order_type', 'status', 'get_value', 'get_value_irt',
                     'execution_type', 'gap_revenue', 'hedged')
-    list_filter = (OTCUserFilter, 'status', 'execution_type', 'hedged')
+    list_filter = (OTCUserFilter, 'status', 'execution_type', 'hedged', OrderTypeOTCFilter)
     search_fields = ('group_id', 'order_id', 'otc_request__symbol__asset__symbol', 'otc_request__account__user__phone')
-    readonly_fields = ('otc_request', 'get_username')
+    readonly_fields = ('otc_request', 'get_username', 'get_order_type')
     actions = ('accept_trade', 'accept_trade_without_hedge', 'cancel_trade', 'revert')
 
     list_permission_exclude_filters = ('id', 'user')
@@ -395,6 +411,10 @@ class OTCTradeAdmin(AdvancedAdmin):
             title=f'<span dir="ltr">{otc_trade.otc_request.account.user}</span>',
             url=url_to_edit_object(otc_trade.otc_request.account.user)
         )
+
+    @admin.display(description='order type')
+    def get_order_type(self, otc_trade: models.OTCTrade):
+        return otc_trade.otc_request.type
 
     @admin.action(description='Accept Trade', permissions=['change'])
     def accept_trade(self, request, queryset):

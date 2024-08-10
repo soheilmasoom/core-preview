@@ -117,7 +117,7 @@ class OTCRequestSerializer(serializers.ModelSerializer):
     to_amount = get_serializer_amount_field(allow_null=True, required=False, write_only=True)
 
     gtd = serializers.ChoiceField(choices=OTCRequest.EXPIRATION_CHOICES, allow_null=True, required=False)
-    type = serializers.ChoiceField(required=False, choices=OTCRequest.TYPE_CHOICES)
+    type = serializers.ChoiceField(required=False, choices=OTCRequest.ORDER_TYPE_CHOICES)
 
     paying_amount = serializers.SerializerMethodField()
     receiving_amount = serializers.SerializerMethodField()
