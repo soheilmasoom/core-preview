@@ -163,7 +163,7 @@ class MarginPositionDetailedSerializer(MarginPositionSerializer):
     def get_average_closed_price(self, instance: MarginPosition):
         return self.get_closing_trades(instance). \
             annotate(value=F('amount') * F('price')). \
-            aggregate(sum=Sum('value') / Sum('filled_amount'))['sum'] or 0
+            aggregate(sum=Sum('value') / Sum('amount'))['sum'] or 0
 
     def get_closed_volume(self, instance: MarginPosition):
         return self.get_closing_orders(instance).aggregate(sum=Sum('filled_amount'))['sum'] or 0
