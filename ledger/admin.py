@@ -44,6 +44,7 @@ from ledger.utils.precision import get_presentation_amount, humanize_number, get
 from ledger.utils.provider import get_provider_requester
 from ledger.utils.withdraw_verify import RiskFactor, get_risks_html
 from market.utils.fix import create_symbols_for_asset
+from .fix.revert_trade import clear_debt
 from .models import Asset, BalanceLock
 from .models.asset import AssetVariant
 from .tasks import update_network_fees
@@ -521,7 +522,7 @@ class WalletAdmin(AdvancedAdmin):
     ]
     readonly_fields = ('account', 'asset', 'market', 'balance', 'locked', 'variant')
     search_fields = ('account__user__phone', 'asset__symbol')
-    actions = ('sync_wallet_lock', )
+    actions = ('sync_wallet_lock', 'clear_debt')
     list_permission_exclude_filters = ('id', 'account')
 
     def get_queryset(self, request):
@@ -560,6 +561,14 @@ class WalletAdmin(AdvancedAdmin):
         for wallet in queryset:
             wallet.locked = BalanceLock.objects.filter(wallet=wallet, amount__gt=0).aggregate(sum=Sum('amount'))['sum'] or 0
             wallet.save(update_fields=['locked'])
+
+    @admin.action(description='Clear Debt', permissions=['change'])
+    def clear_debt(self, request, queryset):
+        for debt_wallet in queryset.filter(market=Wallet.DEBT):  # type: Wallet
+            clear_debt(
+                spot_wallet=debt_wallet.asset.get_wallet(debt_wallet.account),
+                debt_wallet=debt_wallet
+            )
 
 
 class TransferUserFilter(SimpleListFilter):
@@ -1348,13 +1357,13 @@ class MarginHistoryModelAdmin(admin.ModelAdmin):
 @admin.register(MarginLeverage)
 class MarginLeverageAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'leverage')
-    readonly_fields = ('account', 'group_id')
+    readonly_fields = ('account',)
 
 
 @admin.register(ConvertDust)
 class ConvertDustAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'converted_amount', 'base_asset')
-    readonly_fields = ('account', )
+    readonly_fields = ('account', 'group_id')
     search_fields = ('group_id', )
 
 
