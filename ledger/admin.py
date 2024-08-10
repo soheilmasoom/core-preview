@@ -1360,6 +1360,4 @@ class ConvertDustAdmin(admin.ModelAdmin):
 
 @admin.register(ConvertDustTrx)
 class ConvertDustTrxAdmin(admin.ModelAdmin):
-    list_display = ('created', 'account', 'converted_amount', 'base_asset')
-    readonly_fields = ('account', )
-    search_fields = ('group_id', )
+    list_display = ('convert_dust', 'asset', 'base_asset', 'amount', 'converted_amount')
