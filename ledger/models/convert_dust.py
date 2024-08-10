@@ -23,6 +23,8 @@ class ConvertDust(models.Model):
             models.Index(fields=['account', 'created'], name="ledger_dust_acc_created_idx")
         ]
 
+        ordering = ('-id', )
+
     @classmethod
     def has_recent_conversion(cls, account):
         in_last_hours: int = SystemConfig.get_system_config().convert_dust_retry_hours_limit

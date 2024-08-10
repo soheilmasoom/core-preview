@@ -1360,11 +1360,17 @@ class MarginLeverageAdmin(admin.ModelAdmin):
     readonly_fields = ('account',)
 
 
+class ConvertDustTrxInline(admin.TabularInline):
+    model = ConvertDustTrx
+    extra = 0
+
+
 @admin.register(ConvertDust)
 class ConvertDustAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'converted_amount', 'base_asset')
     readonly_fields = ('account', 'group_id')
     search_fields = ('group_id', )
+    inlines = [ConvertDustTrxInline]
 
 
 @admin.register(ConvertDustTrx)
