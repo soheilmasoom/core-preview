@@ -133,6 +133,7 @@ class OTCTrade(models.Model):
         def is_triggered_price(otc_request: OTCRequest) -> bool:
             current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
             side = otc_request.side
+            print("handle_trigger_price:#", current_price, otc_request, otc_request.price)
             if side == SELL and Decimal(current_price) * Decimal("0.8") < otc_request.price < Decimal(current_price):
                 return True
             elif side == BUY and Decimal(current_price) < otc_request.price < Decimal(current_price) * Decimal("1.2"):
