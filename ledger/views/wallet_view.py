@@ -628,9 +628,9 @@ class ConvertDustViewV2(APIView):
             )
             if base_amount == 0:
                 raise ValidationError('خطایی رخ داد.')
+
             convert_dust.converted_amount=base_amount
             convert_dust.save()
-
 
         if not any_converted:
             raise ValidationError('هیچ گزینه‌ای برای تبدیل خرد وجود ندارد.')
