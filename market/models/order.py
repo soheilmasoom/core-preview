@@ -85,8 +85,10 @@ class Order(models.Model):
     BOT = 'bot'
     ORDINARY = None
     LIQUIDATION = 'liquid'
+    FAST_CLOSE = 'f_close'
 
-    TYPE_CHOICES = ((DEPTH, 'depth'), (BOT, 'bot'), (ORDINARY, 'ordinary'), (LIQUIDATION, LIQUIDATION))
+    TYPE_CHOICES = ((DEPTH, 'depth'), (BOT, 'bot'), (ORDINARY, 'ordinary'), (LIQUIDATION, LIQUIDATION),
+                    (FAST_CLOSE, 'fast_close'))
 
     type = models.CharField(
         max_length=8,
