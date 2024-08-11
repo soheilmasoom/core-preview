@@ -5,6 +5,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from decouple import config
+from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import UniqueConstraint, Q, Sum
@@ -13,7 +14,7 @@ from simple_history.models import HistoricalRecords
 from _base.settings import SYSTEM_ACCOUNT_ID
 from accounts.models import Account, SystemConfig
 from ledger.models import Trx, Wallet
-from ledger.utils.external_price import SHORT, LONG, BUY, SELL, get_other_side
+from ledger.utils.external_price import SHORT, LONG, BUY, SELL, get_other_side, IRT, USDT
 from ledger.utils.fields import get_amount_field
 from ledger.utils.margin import alert_system_insurance_trx
 from ledger.utils.precision import floor_precision, ceil_precision
@@ -488,7 +489,9 @@ class MarginPosition(models.Model):
 
     def convert_dust(self, pipeline):
         group_id = uuid.uuid4()
+
         self.asset_wallet.refresh_from_db()
+        self.base_wallet.refresh_from_db()
 
         price = get_price(
             self.asset_wallet.asset.symbol + self.base_wallet.asset.symbol,
@@ -499,6 +502,12 @@ class MarginPosition(models.Model):
             return
 
         free = self.asset_wallet.balance + pipeline.get_wallet_balance_diff(self.asset_wallet.id)
+
+        value = abs(free) * price
+        if ((self.base_wallet.asset.symbol == IRT and value > 1_000_000) or
+                (self.base_wallet.asset.symbol == USDT and value > 20)):
+            logger.warning(f'Failed to convert dust position:{self.id} due to VALUE:{value}')
+            return
 
         if free > 0:
             pipeline.new_trx(
@@ -520,6 +529,35 @@ class MarginPosition(models.Model):
             MarginHistoryModel.objects.create(
                 asset=self.asset_wallet.asset,
                 amount=free,
+                group_id=group_id,
+                type=MarginHistoryModel.CONVERT,
+                account=self.account,
+                position=self
+            )
+
+        elif free < 0:
+            free_base = self.base_wallet.balance + pipeline.get_wallet_balance_diff(self.base_wallet.id)
+            amount = min(free_base/price, -free)
+
+            pipeline.new_trx(
+                sender=self.base_wallet,
+                receiver=self.base_wallet.asset.get_wallet(SYSTEM_ACCOUNT_ID),
+                amount=amount * price,
+                group_id=group_id,
+                scope=Trx.MARGIN_CONVERT
+            )
+
+            pipeline.new_trx(
+                sender=self.asset_wallet.asset.get_wallet(SYSTEM_ACCOUNT_ID),
+                receiver=self.asset_wallet,
+                amount=amount,
+                group_id=group_id,
+                scope=Trx.MARGIN_CONVERT,
+            )
+
+            MarginHistoryModel.objects.create(
+                asset=self.base_wallet.asset,
+                amount=amount,
                 group_id=group_id,
                 type=MarginHistoryModel.CONVERT,
                 account=self.account,
@@ -554,7 +592,7 @@ class MarginPosition(models.Model):
                 market=Wallet.MARGIN,
                 variant=self.group_id,
                 pass_min_notional=True,
-                order_type=Order.ORDINARY,
+                order_type=Order.FAST_CLOSE,
                 parent_lock_group_id=uuid.uuid4(),
                 margin_position=self
             )
