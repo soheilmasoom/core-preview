@@ -33,7 +33,7 @@ class OTCRequestSerializer(AccountTradeSerializer):
 
     def get_to_amount(self, otc: OTCRequest):
         return get_presentation_amount(
-            (otc.amount if otc.side == BUY else otc.amount * otc.price) - otc.fee_amount
+            otc.amount if otc.side == BUY else otc.amount * otc.price
         )
 
     class Meta(AccountTradeSerializer.Meta):
