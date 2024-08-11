@@ -25,7 +25,7 @@ class OTCRequest(BaseTrade):
     EXPIRATION_TIME = 11
 
     ORDER_TYPES = LIMIT, MARKET = 'limit', 'market'
-    TYPE_CHOICES = [(t, t) for t in ORDER_TYPES]
+    ORDER_TYPE_CHOICES = [(t, t) for t in ORDER_TYPES]
 
     EXPIRATIONS = H1, D1, D3, D7 = 'h1', 'd1', 'd3', 'd7'
     EXPIRATION_CHOICES = [(e, e) for e in EXPIRATIONS]
@@ -39,7 +39,7 @@ class OTCRequest(BaseTrade):
     to_amount = get_amount_field(null=True)
 
     gtd = models.DateTimeField(null=True, db_index=True, blank=True)
-    type = models.CharField(max_length=16, default=MARKET, choices=TYPE_CHOICES)
+    type = models.CharField(max_length=16, default=MARKET, choices=ORDER_TYPE_CHOICES)
 
     @property
     def is_maker(self) -> bool:

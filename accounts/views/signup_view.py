@@ -154,18 +154,19 @@ class SignupSerializer(serializers.Serializer):
             elif 'google-play' in utm_term and 'organic' in utm_term:
                 utm_medium = 'organic'
                 utm_content = 'google_play'
-            elif not gps_adid:
+            elif not profile_id:
                 utm_medium = 'organic'
             else:
                 from accounts.models import Attribution
 
-                attribution = Attribution.objects.filter(gps_adid=gps_adid).order_by('created').last()
+                attribution = Attribution.objects.filter(profile_id=profile_id).order_by('created').last()
 
                 if not attribution:
                     utm_medium = 'organic'
                 else:
-                    utm_medium = attribution.tracker.type
-                    utm_campaign = attribution.tracker.key
+                    utm_medium = attribution.utm_medium
+                    utm_campaign = attribution.utm_campaign
+                    utm_content = attribution.utm_content
 
         TrafficSource.objects.create(
             user=user,

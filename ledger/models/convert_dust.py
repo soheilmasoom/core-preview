@@ -1,12 +1,12 @@
 import logging
-from uuid import uuid4
 from datetime import timedelta
-from django.utils import timezone
+from uuid import uuid4
 
 from django.db import models
-from django.db.models import CheckConstraint, Q
-from ledger.utils.fields import get_amount_field
+from django.utils import timezone
+
 from accounts.models import SystemConfig
+from ledger.utils.fields import get_amount_field
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +16,14 @@ class ConvertDust(models.Model):
     account = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
     converted_amount = get_amount_field(default=0)
     base_asset = models.ForeignKey('Asset', on_delete=models.CASCADE)
-    group_id = models.UUIDField(default=uuid4, db_index=True)
+    group_id = models.UUIDField(default=uuid4, unique=True)
 
     class Meta:
         indexes = [
             models.Index(fields=['account', 'created'], name="ledger_dust_acc_created_idx")
         ]
+
+        ordering = ('-id', )
 
     @classmethod
     def has_recent_conversion(cls, account):

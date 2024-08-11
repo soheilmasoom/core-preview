@@ -200,7 +200,7 @@ class BulkCancelOrderAPIView(APIView):
             logger.exception(f'failed bulk cancel order due to {e}', extra={
                 'e': e
             })
-            return Response({"Error": 'failed'}, 400)
+            return Response({"Error": 'خطایی رخ داد.'}, 400)
 
         return Response({'status': 'done'}, status=200)
 

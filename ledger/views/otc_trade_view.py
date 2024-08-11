@@ -7,7 +7,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import Account, LoginActivity
+from accounts.models import Account, LoginActivity, SystemConfig
 from accounts.permissions import can_trade
 from analytics.utils.yandex import send_yandex_event
 from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecrease, HedgeError, LargeAmountTrade, \
@@ -107,6 +107,7 @@ class OTCInfoView(APIView):
             'risky': risky,
             'from_precision': from_precision,
             'to_precision': to_precision,
+            'price_precision': symbol.tick_size
         })
 
 
@@ -117,14 +118,14 @@ class OTCRequestSerializer(serializers.ModelSerializer):
     to_amount = get_serializer_amount_field(allow_null=True, required=False, write_only=True)
 
     gtd = serializers.ChoiceField(choices=OTCRequest.EXPIRATION_CHOICES, allow_null=True, required=False)
-    type = serializers.ChoiceField(required=False, choices=OTCRequest.TYPE_CHOICES)
+    type = serializers.ChoiceField(required=False, choices=OTCRequest.ORDER_TYPE_CHOICES)
 
     paying_amount = serializers.SerializerMethodField()
     receiving_amount = serializers.SerializerMethodField()
     net_receiving_amount = serializers.SerializerMethodField()
 
     expire = serializers.SerializerMethodField()
-    price = get_serializer_amount_field(allow_null=True)
+    price = get_serializer_amount_field(allow_null=True, required=False)
     asset = serializers.CharField(source='symbol.asset.symbol', read_only=True)
     base_asset = serializers.CharField(source='symbol.base_asset.symbol', read_only=True)
     fee = get_serializer_amount_field(source='fee_amount', read_only=True)
@@ -135,11 +136,14 @@ class OTCRequestSerializer(serializers.ModelSerializer):
 
         type = attrs.get('type')
         if type == OTCRequest.LIMIT:
+
+            if not self.context['request'].user.is_staff and not SystemConfig.get_system_config().enable_otc_limit:
+                raise ValidationError('در حال حاضر امکان سفارش قیمت ثابت وجود ندارد.')
+
             if not attrs.get('gtd'):
                 raise ValidationError('زمان انقضا باید مشخص باشد.')
             if not attrs.get('price'):
                 raise ValidationError('قیمت اجرا باید مشخص باشد.')
-
 
         if not {Asset.IRT, Asset.USDT} & {from_symbol, to_symbol}:
             raise ValidationError('یکی از دارایی‌ها باید تومان یا تتر باشد.')
