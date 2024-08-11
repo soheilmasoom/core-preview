@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
+from ledger.models.otc_request import OTCRequest
 
 from ledger.models.otc_trade import OTCTrade
 from ledger.utils.external_price import get_other_side
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 def accept_pending_otc_trades():
     expire = timezone.now() - timedelta(seconds=60)
 
-    for otc in OTCTrade.objects.filter(status=OTCTrade.PENDING, execution_type=OTCTrade.PROVIDER, created__lt=expire):
+    for otc in OTCTrade.objects.filter(status=OTCTrade.PENDING, execution_type=OTCTrade.PROVIDER, otc_request__type=OTCRequest.MARKET, created__lt=expire):
         try:
             otc.hedge_with_provider()
         except Exception as e:

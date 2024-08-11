@@ -710,6 +710,7 @@ class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
         model = ConvertDustTrx
         fields = ('id', 'asset', 'amount', 'converted_amount', 'base_asset', 'convert_dust')
 
+
 class DustHistoryListViewV2(ListAPIView):
     serializer_class = DustHistoryListSerializerV2
     pagination_class = LimitOffsetPagination
