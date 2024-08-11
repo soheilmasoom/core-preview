@@ -54,7 +54,7 @@ class DepositSerializer(serializers.ModelSerializer):
             if asset:
                 coin_mult = asset.get_coin_multiplier()
 
-        need_memo = network.need_memo
+        need_memo = network.deposit_need_memo
 
         address_key = AddressKey.objects.filter(
             address=receiver_address,

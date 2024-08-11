@@ -20,7 +20,8 @@ class FastForwardTestCase(TestCase):
             symbol='XRP',
             name='XRP',
             address_regex=r'\w+',
-            need_memo=True
+            deposit_need_memo=True,
+            withdraw_allow_memo=True
         )
 
     def setUp(self) -> None:

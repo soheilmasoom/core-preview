@@ -25,7 +25,7 @@ from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
 from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_crypto_withdraw_irt_value
 from gamify.utils import check_prize_achievements
-from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx, MarginLeverage
+from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx, MarginLeverage, MarginPosition
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import PENDING, DONE
 from ledger.utils.precision import humanize_number
@@ -329,7 +329,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         )}),
         (_('لینک های مهم'), {
             'fields': (
-                'get_wallet', 'get_transfer_link', 'get_payment_address',
+                'get_wallet', 'get_transfer_link', 'get_payment_address', 'get_positions',
                 'get_withdraw_address', 'get_otctrade_address', 'get_fill_order_address', 'get_order_link',
                 'get_open_order_address', 'get_deposit_address', 'get_bank_card_link',
                 'get_bank_account_link', 'get_finotech_request_link', 'get_staking_link',
@@ -368,7 +368,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'update_deposits', 'ban_credit_deposit'
     )
     readonly_fields = (
-        'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet',
+        'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet', 'get_positions',
         'get_sum_of_value_buy_sell',
         'get_selfie_image', 'get_level_2_verify_datetime_jalali', 'get_level_3_verify_datetime_jalali',
         'get_first_fiat_deposit_date_jalali', 'get_first_crypto_deposit_date_jalali',
@@ -385,7 +385,9 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     )
     preserve_filters = ('archived', )
 
-    search_fields = (*UserAdmin.search_fields, 'national_code', 'phone')
+    search_fields = (
+        *UserAdmin.search_fields, 'national_code', 'phone', 'traffic_source__utm_source', 'traffic_source__utm_medium',
+    )
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
@@ -601,6 +603,11 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     @admin.display(description='لیست تراکنش های خرد')
     def get_dust(self, user: User):
         link = url_to_admin_list(Trx) + f'?user={user.id}&scope__exact={Trx.DUST}'
+        return mark_safe("<a href='%s'>دیدن</a>" % link)
+
+    @admin.display(description='لیست پوزیشن ها')
+    def get_positions(self, user: User):
+        link = url_to_admin_list(MarginPosition) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
     def get_sum_of_value_buy_sell(self, user: User):
@@ -967,7 +974,8 @@ class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
 @admin.register(TrafficSource)
 class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term')
+    list_display = ('created', 'get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+                    'gps_adid')
     search_fields = ('user__phone', 'gps_adid', 'ip', 'profile_id')
     readonly_fields = ('user', )
 

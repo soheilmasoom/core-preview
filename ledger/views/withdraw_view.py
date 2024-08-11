@@ -133,7 +133,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
         my_deposit_addresses = DepositAddress.objects.filter(address=address, address_key__account=account)
 
-        if network.need_memo:
+        if network.withdraw_allow_memo:
             if not memo:
                 my_deposit_addresses = DepositAddress.objects.none()
             else:

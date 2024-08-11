@@ -31,7 +31,7 @@ class AttributionTracker(models.Model):
     key = models.CharField(max_length=8, default=get_random_str, unique=True)
 
     def __str__(self):
-        return f'{self.type} ({self.key})'
+        return self.name
 
     def get_postback_link(self):
         if self.id:
