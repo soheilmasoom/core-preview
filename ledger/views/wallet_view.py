@@ -546,7 +546,8 @@ class ConvertDustViewV2(APIView):
         serializer = ConvertDustSerializer(data=self.request.data)
 
         if ConvertDust.has_recent_conversion(account=account):
-            return Response({'message': "user has recent conversion"}, status=status.HTTP_400_BAD_REQUEST)
+            in_last_hours: int = SystemConfig.get_system_config().convert_dust_retry_hours_limit
+            return Response({'message': f'در هر {in_last_hours} مجاز به انجام تبدیل خرد هستید.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
