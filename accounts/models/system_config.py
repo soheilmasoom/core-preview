@@ -63,6 +63,8 @@ class SystemConfig(models.Model):
 
     convert_dust_retry_hours_limit = models.PositiveIntegerField(default=12)
 
+    enable_otc_limit = models.BooleanField(default=False)
+
     def __str__(self):
         return self.name
 

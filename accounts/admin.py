@@ -975,9 +975,10 @@ class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 @admin.register(TrafficSource)
 class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
     list_display = ('created', 'get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
-                    'gps_adid')
+                    'gps_adid', 'yandex_profile_id')
     search_fields = ('user__phone', 'gps_adid', 'ip', 'profile_id')
     readonly_fields = ('user', )
+    list_filter = ('utm_source', 'utm_medium')
 
     @admin.display(description='user')
     def get_username(self, traffic_source: TrafficSource):
