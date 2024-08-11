@@ -907,7 +907,7 @@ class FinotechRequestUserFilter(SimpleListFilter):
 @admin.register(UserAuthRequest)
 class UserAuthRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'url', 'status_code')
-    list_filter = (FinotechRequestUserFilter, 'status_code')
+    list_filter = (FinotechRequestUserFilter, 'status_code', 'service')
     ordering = ('-created', )
     search_fields = ('url', 'data')
     raw_id_fields = ('user', )

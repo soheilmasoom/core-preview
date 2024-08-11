@@ -136,14 +136,13 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         type = attrs.get('type')
         if type == OTCRequest.LIMIT:
 
-            if not SystemConfig.get_system_config().enable_otc_limit:
+            if not self.context['request'].user.is_staff and not SystemConfig.get_system_config().enable_otc_limit:
                 raise ValidationError('در حال حاضر امکان سفارش قیمت ثابت وجود ندارد.')
 
             if not attrs.get('gtd'):
                 raise ValidationError('زمان انقضا باید مشخص باشد.')
             if not attrs.get('price'):
                 raise ValidationError('قیمت اجرا باید مشخص باشد.')
-
 
         if not {Asset.IRT, Asset.USDT} & {from_symbol, to_symbol}:
             raise ValidationError('یکی از دارایی‌ها باید تومان یا تتر باشد.')
