@@ -344,6 +344,8 @@ def trigger_wallet_event(threshold=1000):
     wallet_list = Wallet.objects.filter(
         id__gt=tracker.last_id,
         account__user__isnull=False
+    ).exclude(
+        market=Wallet.VOUCHER
     ).order_by('id')[:threshold]
 
     for wallet in wallet_list:
@@ -365,6 +367,10 @@ def trigger_transaction_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.TRANSACTION)
     trx_list = Trx.objects.filter(
         id__gt=tracker.last_id
+    ).exclude(
+        sender__market=Wallet.VOUCHER
+    ).exclude(
+        receiver__market=Wallet.VOUCHER
     ).order_by('id')[:threshold]
 
     for trx in trx_list:

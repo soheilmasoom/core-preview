@@ -611,3 +611,37 @@ class ShortIsolatedMarginTestCase(TestCase):
         self.print_wallets(self.account)
 
         self.assert_liquidation(self.account, self.btcusdt)
+
+    def test_short_sell_11(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT * 2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+        position = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+
+        with WalletPipeline() as pipeline:
+            pipeline.new_trx(
+                position.loan_wallet,
+                position.loan_wallet.asset.get_wallet(self.account2),
+                abs(position.debt_amount) * position.get_interest_rate() * 2,
+                Trx.MARGIN_INTEREST,
+                uuid4(),
+                )
+
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=floor_precision(BTC_USDT_PRICE * Decimal('0.9') + 2, 2), is_open_position=False)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=floor_precision(loan_amount * Decimal('0.5'), 4), market=Wallet.SPOT,
+                      price=floor_precision(BTC_USDT_PRICE * Decimal('0.9'), 2))
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=floor_precision(loan_amount, 4), market=Wallet.SPOT,
+                      price=floor_precision(BTC_USDT_PRICE * Decimal('0.9') + 1, 2))
+
+        self.print_wallets(self.account)
+        self.close_position(id=position.id)
+
+        self.print_wallets(self.account)
+        self.assert_liquidation(self.account, self.btcusdt)
