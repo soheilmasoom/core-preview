@@ -18,6 +18,7 @@ from simple_history.models import HistoricalRecords
 from accounts.models import Account, Notification, EmailNotification, User
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
+from ledger.fields import WithdrawSources
 from ledger.models import Trx, NetworkAsset, Asset, DepositAddress
 from ledger.models import Wallet, Network
 from ledger.utils.fields import get_amount_field, get_address_field, CANCELED, DONE, PROCESS, INIT, get_status_field, \
@@ -36,9 +37,6 @@ class Transfer(models.Model):
     FREEZE_SECONDS = 30
 
     COMPLETE_STATUSES = (CANCELED, DONE)
-
-    SELF, INTERNAL, PROVIDER, MANUAL = 'self', 'internal', 'provider', 'manual'
-    SOURCE_CHOICES = (SELF, SELF), (INTERNAL, INTERNAL), (PROVIDER, PROVIDER), (MANUAL, MANUAL)
 
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     accepted_datetime = models.DateTimeField(auto_now_add=True, null=True, blank=True)
@@ -65,12 +63,7 @@ class Transfer(models.Model):
     out_address = get_address_field()
     memo = models.CharField(max_length=64, blank=True)
 
-    source = models.CharField(
-        max_length=8,
-        default=SELF,
-        choices=SOURCE_CHOICES
-    )
-
+    source = WithdrawSources.get_db_field()
     irt_value = get_amount_field(default=Decimal(0))
     usdt_value = get_amount_field(default=Decimal(0))
 
@@ -189,7 +182,7 @@ class Transfer(models.Model):
                 group_id=group_id,
                 trx_hash='internal: <%s>' % str(group_id),
                 out_address=address,
-                source=Transfer.INTERNAL,
+                source=WithdrawSources.INTERNAL,
                 usdt_value=amount * price_usdt,
                 irt_value=amount * price_irt,
             )
@@ -205,7 +198,7 @@ class Transfer(models.Model):
                 group_id=group_id,
                 trx_hash='internal: <%s>' % str(group_id),
                 out_address=sender_deposit_address.address,
-                source=Transfer.INTERNAL,
+                source=WithdrawSources.INTERNAL,
                 usdt_value=amount * price_usdt,
                 irt_value=amount * price_irt,
             )
@@ -251,7 +244,7 @@ class Transfer(models.Model):
                 network=network,
                 amount=amount - commission,
                 fee_amount=commission,
-                source=cls.SELF,
+                source=network_asset.withdraw_source,
                 out_address=address,
                 deposit=False,
                 memo=memo,

@@ -5,6 +5,7 @@ from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
+from ledger.fields import WithdrawSources
 from ledger.models import Transfer, ManualWithdraw
 from ledger.requester.withdraw_requester import RequestWithdraw
 from ledger.utils.fields import PROCESS, PENDING, DONE
@@ -15,43 +16,43 @@ from ledger.withdraw.exchange import handle_provider_withdraw, change_to_manual
 logger = logging.getLogger(__name__)
 
 
-@shared_task(queue='transfer')
-def create_provider_withdraw(transfer_id: int):
-    handle_provider_withdraw(transfer_id)
+# @shared_task(queue='transfer')
+# def create_provider_withdraw(transfer_id: int):
+#     handle_provider_withdraw(transfer_id)
 
 
-@shared_task(queue='transfer')
-def update_provider_withdraw():
-    return
-
-    re_handle_transfers = Transfer.objects.filter(
-        deposit=False,
-        source=Transfer.PROVIDER,
-        status=PROCESS,
-    )
-
-    for transfer in re_handle_transfers:
-        create_provider_withdraw.delay(transfer.id)
-
-    transfers = Transfer.objects.filter(
-        deposit=False,
-        source=Transfer.PROVIDER,
-        status=PENDING
-    )
-
-    for transfer in transfers:
-        data = get_provider_requester().get_transfer_status(transfer)
-
-        if not data:
-            continue
-
-        status = data.status
-
-        if status == CANCELED:
-            change_to_manual(transfer)
-
-        elif status == DONE:
-            transfer.accept(data.tx_id)
+# @shared_task(queue='transfer')
+# def update_provider_withdraw():
+#     return
+#
+#     re_handle_transfers = Transfer.objects.filter(
+#         deposit=False,
+#         source=WithdrawSources.PROVIDER,
+#         status=PROCESS,
+#     )
+#
+#     for transfer in re_handle_transfers:
+#         create_provider_withdraw.delay(transfer.id)
+#
+#     transfers = Transfer.objects.filter(
+#         deposit=False,
+#         source=WithdrawSources.PROVIDER,
+#         status=PENDING
+#     )
+#
+#     for transfer in transfers:
+#         data = get_provider_requester().get_transfer_status(transfer)
+#
+#         if not data:
+#             continue
+#
+#         status = data.status
+#
+#         if status == CANCELED:
+#             change_to_manual(transfer)
+#
+#         elif status == DONE:
+#             transfer.accept(data.tx_id)
 
 
 @shared_task(queue='transfer')
@@ -67,7 +68,7 @@ def create_withdraw(transfer_id: int):
         if transfer.in_freeze_time():
             return
 
-        if transfer.source != Transfer.SELF:
+        if transfer.source != WithdrawSources.SELF:
             logger.info('ignored because non self source')
             return
 
@@ -146,7 +147,7 @@ def update_withdraws():
 
     re_handle_transfers = Transfer.objects.filter(
         deposit=False,
-        source=Transfer.SELF,
+        source=WithdrawSources.SELF,
         status=PROCESS,
         created__lte=timezone.now() - timedelta(seconds=Transfer.FREEZE_SECONDS),
     )

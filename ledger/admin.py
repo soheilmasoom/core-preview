@@ -264,7 +264,7 @@ class NetworkAssetAdmin(SimpleHistoryAdmin):
     list_editable = ('can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider',
                      'expected_hw_balance', 'network_order')
     list_filter = (NetworkAssetFilter, 'can_deposit', 'can_withdraw', 'network', 'update_fee_with_provider',
-                   'update_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable')
+                   'update_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable', 'withdraw_source')
     actions = ('update_fees', )
     ordering = ('asset', 'network_order')
 
