@@ -107,6 +107,7 @@ class OTCInfoView(APIView):
             'risky': risky,
             'from_precision': from_precision,
             'to_precision': to_precision,
+            'price_precision': symbol.tick_size
         })
 
 
