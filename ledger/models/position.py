@@ -506,6 +506,7 @@ class MarginPosition(models.Model):
         value = abs(free) * price
         if ((self.base_wallet.asset.symbol == IRT and value > 1_000_000) or
                 (self.base_wallet.asset.symbol == USDT and value > 20)):
+            logger.warning(f'Failed to convert dust position:{self.id} due to VALUE:{value}')
             return
 
         if free > 0:
