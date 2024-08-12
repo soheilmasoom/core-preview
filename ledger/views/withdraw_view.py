@@ -1,5 +1,8 @@
 import re
 
+from django.conf import settings
+from django.db import transaction
+from django.template.loader import render_to_string
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
@@ -9,7 +12,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.authentication import WithdrawTokenAuthentication
-from accounts.models import VerificationCode, LoginActivity, User
+from accounts.models import VerificationCode, LoginActivity, User, SmsNotification
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from accounts.utils.validation import persian_timedelta
@@ -19,7 +22,7 @@ from ledger.models import Asset, Transfer, NetworkAsset, AddressBook, DepositAdd
 from ledger.models import WithdrawFeedback, FeedbackCategory
 from ledger.models.asset import CoinField
 from ledger.models.network import NetworkField
-from ledger.utils.precision import get_precision, get_presentation_amount
+from ledger.utils.precision import get_precision, get_presentation_amount, humanize_number
 from ledger.utils.price import get_last_price
 from ledger.utils.withdraw_verify import can_withdraw
 from ledger.views.address_book_view import AddressBookCreateSerializer
@@ -183,21 +186,42 @@ class WithdrawSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
+        whitelist = validated_data['whitelist']
+        amount = validated_data['amount']
+        wallet = validated_data['wallet']
+
+        sms_content = ''
+
+        if whitelist:
+            sms_content = render_to_string('accounts/notif/sms/whitelist_crypto_withdraw_success.txt', context={
+                'brand': settings.BRAND,
+                'amount': humanize_number(amount),
+                'coin': wallet.asset.name_fa
+            })
+
         try:
-            transfer = Transfer.new_withdraw(
-                wallet=validated_data['wallet'],
-                network=validated_data['network'],
-                amount=validated_data['amount'],
-                address=validated_data['out_address'],
-                memo=validated_data['memo'],
-                whitelist=validated_data['whitelist'],
-            )
+            with transaction.atomic():
 
-            transfer.login_activity = LoginActivity.from_request(request=self.context['request'])
-            transfer.normal_address_book = validated_data['address_book']
-            transfer.save(update_fields=['address_book', 'login_activity'])
+                transfer = Transfer.new_withdraw(
+                    wallet=wallet,
+                    network=validated_data['network'],
+                    amount=amount,
+                    address=validated_data['out_address'],
+                    memo=validated_data['memo'],
+                    whitelist=whitelist,
+                )
 
-            return transfer
+                transfer.login_activity = LoginActivity.from_request(request=self.context['request'])
+                transfer.address_book = validated_data['address_book']
+                transfer.save(update_fields=['address_book', 'login_activity'])
+
+                if whitelist:
+                    SmsNotification.objects.create(
+                        recipient=self.context['request'].user,
+                        content=sms_content
+                    )
+
+                return transfer
         except InsufficientBalance:
             raise ValidationError('موجودی کافی نیست.')
 
