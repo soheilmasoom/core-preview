@@ -143,6 +143,25 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
             position.base_wallet.refresh_from_db()
             remaining_balance = position.base_wallet.balance + pipeline.get_wallet_balance_diff(position.base_wallet.id)
 
+            if trade_info.loan_type == Order.LIQUIDATION:
+                sender = position.get_insurance_wallet()
+                receiver = position.base_wallet
+                scope = Trx.MARGIN_INSURANCE
+                group_id = trade_info.group_id
+
+                key = (sender, receiver, scope, group_id)
+                if key in pipeline._trxs:
+                    received_fund = pipeline._trxs[key].amount
+                    to_send_fund = min(received_fund, remaining_balance)
+                    pipeline.new_trx(
+                        sender=receiver,
+                        receiver=sender,
+                        amount=to_send_fund,
+                        scope=scope,
+                        group_id=group_id
+                    )
+                    remaining_balance -= to_send_fund
+
             insurance_fee_amount = max(Decimal('0'), remaining_balance * SystemConfig.get_system_config().insurance_fee)
             if insurance_fee_amount > Decimal(0) and trade_info.loan_type == Order.LIQUIDATION:
                 group_id = uuid4()
