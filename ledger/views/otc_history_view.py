@@ -12,12 +12,16 @@ from ledger.utils.external_price import BUY
 def get_request_from_amount(otc_request: OTCRequest) -> str:
     if not otc_request.from_amount:
         return otc_request.amount * otc_request.price
+
     return otc_request.from_amount
+
 
 def get_request_to_amount(otc_request: OTCRequest):
     if not otc_request.to_amount:
         return otc_request.amount if otc_request.side == BUY else None
+
     return otc_request.to_amount
+
 
 class OTCFilter(django_filters.FilterSet):
     coin = django_filters.CharFilter(field_name='symbol__asset__symbol', lookup_expr='iexact')
@@ -36,14 +40,15 @@ class OTCRequestSerializer(AccountTradeSerializer):
     from_amount = serializers.SerializerMethodField()
     to_amount = serializers.SerializerMethodField()
 
-    def get_from_amount(self, otc_request: OTCRequest):
-        return get_presentation_amount(get_request_from_amount(otc_request))
+    def get_from_amount(self, otc: OTCRequest):
+        return get_presentation_amount(
+            otc.amount * otc.price if otc.side == BUY else otc.amount
+        )
 
-    def get_to_amount(self, otc_request: OTCRequest):
-        if get_request_to_amount(otc_request):
-            return get_presentation_amount(get_request_to_amount(otc_request))
-        else:
-            return None
+    def get_to_amount(self, otc: OTCRequest):
+        return get_presentation_amount(
+            otc.amount if otc.side == BUY else otc.amount * otc.price
+        )
 
     class Meta(AccountTradeSerializer.Meta):
         model = OTCRequest
@@ -56,7 +61,6 @@ class OTCHistoryView(AccountTradeHistoryView):
     serializer_class = OTCRequestSerializer
 
     def get_queryset(self):
-
         if getattr(self, 'swagger_fake_view', False):
             return OTCRequest.objects.none()
 

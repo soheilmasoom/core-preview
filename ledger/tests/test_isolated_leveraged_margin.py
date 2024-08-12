@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import SystemConfig
-from ledger.models import Asset, Wallet, MarginPosition, MarginTransfer
+from ledger.models import Asset, Wallet, MarginPosition, MarginTransfer, Trx, MarginHistoryModel
 from ledger.utils.external_price import SELL, BUY, SHORT, LONG
 from ledger.utils.precision import floor_precision
 from ledger.utils.test import new_account, set_price
@@ -167,6 +167,13 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         assertion = self.assertEqual if liquidate else self.assertNotEqual
         assertion(negetive_wallets, Decimal('0'))
         assertion(mp.status, MarginPosition.CLOSED)
+
+        if liquidate:
+            received = Trx.objects.filter(receiver=mp.base_wallet, scope=Trx.MARGIN_INSURANCE).aggregate(s=Sum('amount'))['s'] or 0
+            sent = Trx.objects.filter(sender=mp.base_wallet, scope=Trx.MARGIN_INSURANCE).aggregate(s=Sum('amount'))['s'] or 0
+            self.assertEqual(received - sent, 0)
+            if received - sent == 0:
+                self.assertEqual(MarginHistoryModel.objects.filter(position=mp, type=MarginHistoryModel.INSURANCE_FEE, amount__gt=0).count(), 0)
 
     def close_position(self, id, check_status=200, client=None):
         print('close position')

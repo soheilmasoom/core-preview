@@ -7,6 +7,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.authentication import CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
+from ledger.fields import WithdrawSources
 from ledger.models import Transfer
 from ledger.models.asset import AssetSerializerMini
 from ledger.utils.fields import INIT, PROCESS, REFUND, DONE
@@ -35,7 +36,7 @@ class TransferSerializer(serializers.ModelSerializer):
         return get_presentation_amount(transfer.fee_amount)
 
     def get_is_internal(self, transfer: Transfer):
-        return transfer.source == Transfer.INTERNAL
+        return transfer.source == WithdrawSources.INTERNAL
 
     def get_confirmation(self, transfer: Transfer):
         if transfer.status == DONE:

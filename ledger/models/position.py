@@ -309,16 +309,6 @@ class MarginPosition(models.Model):
         group_id = uuid.uuid4()
 
         loss_amount = (to_close_amount - free_amount) * Decimal('1.05') * price
-        insurance_amount = 0
-        if loss_amount > 0:
-            pipeline.new_trx(
-                sender=self.get_insurance_wallet(),
-                receiver=self.base_wallet,
-                amount=loss_amount,
-                scope=Trx.MARGIN_INSURANCE,
-                group_id=group_id,
-            )
-            insurance_amount += loss_amount
 
         if self.side == SHORT:
             to_close_amount = ceil_precision(to_close_amount, self.symbol.step_size)
@@ -332,6 +322,15 @@ class MarginPosition(models.Model):
 
         is_liquidation_order_filled = False
         if to_close_amount > 0:
+            if loss_amount > 0:
+                pipeline.new_trx(
+                    sender=self.get_insurance_wallet(),
+                    receiver=self.base_wallet,
+                    amount=loss_amount,
+                    scope=Trx.MARGIN_INSURANCE,
+                    group_id=group_id,
+                )
+
             price = floor_precision(price, self.symbol.step_size)
 
             liquidation_order = new_order(
@@ -357,47 +356,6 @@ class MarginPosition(models.Model):
 
                 self.status = self.TERMINATING
                 self.save(update_fields=['status'])
-
-        self.base_wallet.refresh_from_db()
-        remaining_base_asset = self.base_wallet.balance + pipeline.get_wallet_balance_diff(self.base_wallet.id)
-
-        charged_amount = 0
-        if self.side == SHORT:
-            if not charge_insurance and remaining_base_asset < loss_amount:
-                logger.warning(f"Position:{self.id} charged in close mode !!!")
-
-            if remaining_base_asset > 0 and loss_amount > 0:
-                logger.warning(f"Position:{self.id} charging")
-                pipeline.new_trx(
-                    self.base_wallet,
-                    self.get_insurance_wallet(),
-                    min(loss_amount, remaining_base_asset),
-                    Trx.MARGIN_INSURANCE,
-                    group_id,
-                )
-                charged_amount = min(loss_amount, remaining_base_asset) - loss_amount
-                insurance_amount -= min(loss_amount, remaining_base_asset)
-        else:
-            if remaining_base_asset < 0 and charge_insurance and is_liquidation_order_filled:
-                logger.warning(f"Position:{self.id} charging")
-
-                pipeline.new_trx(
-                    sender=self.get_insurance_wallet(),
-                    receiver=self.base_wallet,
-                    amount=-remaining_base_asset,
-                    scope=Trx.MARGIN_INSURANCE,
-                    group_id=group_id,
-                )
-                charged_amount = -remaining_base_asset
-                insurance_amount += -remaining_base_asset
-
-        if charged_amount != 0:
-            self.create_history(
-                asset=self.symbol.base_asset,
-                amount=charged_amount,
-                group_id=group_id,
-                type=MarginHistoryModel.INSURANCE_FEE
-            )
 
         if liquidation_order and is_liquidation_order_filled:
             liquidation_order.refresh_from_db()
@@ -428,8 +386,21 @@ class MarginPosition(models.Model):
         self.save(update_fields=['amount', 'status'])
         self.set_liquidation_price(pipeline)
 
-        if insurance_amount:
-            alert_system_insurance_trx(position=self, amount=insurance_amount)
+        received_fund = pipeline._trxs.get((self.get_insurance_wallet(), self.base_wallet, Trx.MARGIN_INSURANCE, group_id))
+        received_fund = (received_fund and received_fund.amount) or 0
+
+        sent_fund = pipeline._trxs.get((self.base_wallet, self.get_insurance_wallet(), Trx.MARGIN_INSURANCE, group_id))
+        sent_fund = (sent_fund and sent_fund.amount) or 0
+
+        diff = received_fund - sent_fund
+        if diff:
+            self.create_history(
+                asset=self.symbol.base_asset,
+                amount=diff,
+                group_id=group_id,
+                type=MarginHistoryModel.INSURANCE_FEE
+            )
+            alert_system_insurance_trx(position=self, amount=diff)
 
         if charge_insurance:
             from ledger.utils.margin import alert_liquidate
@@ -506,6 +477,7 @@ class MarginPosition(models.Model):
         value = abs(free) * price
         if ((self.base_wallet.asset.symbol == IRT and value > 1_000_000) or
                 (self.base_wallet.asset.symbol == USDT and value > 20)):
+            logger.warning(f'Failed to convert dust position:{self.id} due to VALUE:{value}')
             return
 
         if free > 0:

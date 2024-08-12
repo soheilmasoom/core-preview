@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404, CreateAPIView
 
 from accounts.authentication import CustomTokenAuthentication
+from ledger.fields import WithdrawSources
 from ledger.models.transfer import Transfer
 from ledger.utils.fields import PENDING, DONE, PROCESS, CANCELED
 
@@ -48,7 +49,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
             (PROCESS, CANCELED),
         ]
 
-        if transfer.source != Transfer.SELF:
+        if transfer.source != WithdrawSources.SELF:
             logger.error('Update Binance Withdraw', extra={
                 'requester_id': requester_id,
                 'status': status
