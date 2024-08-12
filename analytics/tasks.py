@@ -369,6 +369,9 @@ def trigger_transaction_event(threshold=1000):
         sender__market=Wallet.VOUCHER
     ).exclude(
         receiver__market=Wallet.VOUCHER
+    ).exclude(
+        sender__account__type__isnull=False,
+        receiver__account__type__isnull=False,
     ).order_by('id')[:threshold]
 
     for trx in trx_list:
