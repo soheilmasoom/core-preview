@@ -355,8 +355,6 @@ def trigger_wallet_event(threshold=1000):
             event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(wallet.id) + WalletEvent.type),
             id=wallet.id,
             balance=wallet.balance,
-            expiration=wallet.expiration,
-            credit=wallet.credit,
             coin=wallet.asset.symbol,
             market=wallet.market
         )
