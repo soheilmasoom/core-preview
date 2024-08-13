@@ -562,11 +562,14 @@ class ConvertDustViewV2(APIView):
 
         base = validated_data["base"]
         base_asset = Asset.get(base)
-        exclude_asset = Asset.get(Asset.IRT)
+        exclude_asset = list(Asset.get(Asset.IRT), Asset.get(Asset.USDT)) if base == Asset.USDT else list(Asset.get(Asset.IRT))
 
         assets_ids = list(Asset.objects.filter(
             symbol__in=validated_data["assets"]
         ).values_list('id'))
+
+        if base == Asset.USDT and Asset.USDT in validated_data["assets"] :
+                raise ValidationError('تبدیل خرد تتر به تتر مجاز نمی‌باشد.')
 
         spot_wallets = list(Wallet.objects.filter(
             account=account,
@@ -574,7 +577,7 @@ class ConvertDustViewV2(APIView):
             balance__gt=0,
             variant__isnull=True,
             asset__in=[i[0] for i in assets_ids]
-        ).exclude(asset=exclude_asset).prefetch_related('asset'))
+        ).exclude(asset__in=exclude_asset).prefetch_related('asset'))
         group_id = uuid4()
         base_amount = 0
 
