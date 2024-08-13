@@ -562,7 +562,7 @@ class ConvertDustViewV2(APIView):
 
         base = validated_data["base"]
         base_asset = Asset.get(base)
-        exclude_asset = list(Asset.get(Asset.IRT), Asset.get(Asset.USDT)) if base == Asset.USDT else list(Asset.get(Asset.IRT))
+        exclude_asset = [Asset.get(Asset.IRT), Asset.get(Asset.USDT)] if base == Asset.USDT else [Asset.get(Asset.IRT)]
 
         assets_ids = list(Asset.objects.filter(
             symbol__in=validated_data["assets"]
