@@ -183,7 +183,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
 
     withdraw_precision = serializers.SerializerMethodField()
 
-    need_memo = serializers.BooleanField(source='network.deposit_need_memo')
+    need_memo = serializers.BooleanField(source='network.withdraw_allow_memo')
     deposit_need_memo = serializers.BooleanField(source='network.deposit_need_memo')
     withdraw_allow_memo = serializers.BooleanField(source='network.withdraw_allow_memo')
     memo_title_fa = serializers.CharField(source='network.memo_title_fa')
