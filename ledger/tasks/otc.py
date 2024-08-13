@@ -36,6 +36,7 @@ def handle_limit_otc_request():
             side = untriggered[1]
 
             price = get_price(symbol, side=get_other_side(side))
+            logger.warning(f'failed to get_price in handle limit otc request "symbol": {symbol}')
             OTCTrade.handle_trigger_price(symbol, side, price)
             logger.info(f'handle limit otc request "symbol": {symbol}, "side": {side}, "price": {price}')
 
