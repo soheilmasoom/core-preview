@@ -355,8 +355,6 @@ def trigger_wallet_event(threshold=1000):
             event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(wallet.id) + WalletEvent.type),
             id=wallet.id,
             balance=wallet.balance,
-            expiration=wallet.expiration,
-            credit=wallet.credit,
             coin=wallet.asset.symbol,
             market=wallet.market
         )
@@ -371,6 +369,9 @@ def trigger_transaction_event(threshold=1000):
         sender__market=Wallet.VOUCHER
     ).exclude(
         receiver__market=Wallet.VOUCHER
+    ).exclude(
+        sender__account__type__isnull=False,
+        receiver__account__type__isnull=False,
     ).order_by('id')[:threshold]
 
     for trx in trx_list:
