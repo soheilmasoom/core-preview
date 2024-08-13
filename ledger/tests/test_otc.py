@@ -74,6 +74,7 @@ class OTCTestCase(TestCase):
             'from_asset': 'USDT',
             'to_asset': 'BTC',
             'from_amount': 10,
+            "price": 29900,
             "type": "limit",
             "gtd": "d1",
         })
@@ -95,11 +96,12 @@ class OTCTestCase(TestCase):
         self.wallet_usdt.refresh_from_db()
         self.wallet_btc.refresh_from_db()
 
-        self.assertLess(self.wallet_usdt.balance, 10)
-        self.assertEqual(self.wallet_usdt.locked, 0)
 
-        self.assertGreater(self.wallet_btc.balance, 0)
-        self.assertEqual(self.wallet_usdt.locked, 0)
+        self.assertEqual(self.wallet_usdt.balance, 10)
+        self.assertGreater(self.wallet_usdt.locked, 0)
+
+        self.assertEqual(self.wallet_btc.balance, 0)
+        self.assertEqual(self.wallet_btc.locked, 0)
 
     def test_sell_limit_otc_trade(self):
 
@@ -109,6 +111,7 @@ class OTCTestCase(TestCase):
             'from_asset': 'BTC',
             'to_asset': 'USDT',
             'from_amount': 0.001,
+            "price": 30900,
             "type": "limit",
             "gtd": "d1",
         })
@@ -130,10 +133,10 @@ class OTCTestCase(TestCase):
         self.wallet_usdt.refresh_from_db()
         self.wallet_btc.refresh_from_db()
 
-        self.assertLess(self.wallet_btc.balance, 0.001)
-        self.assertEqual(self.wallet_btc.locked, 0)
+        self.assertEqual(self.wallet_btc.balance, Decimal('0.001'))
+        self.assertGreater(self.wallet_btc.locked, 0)
 
-        self.assertGreater(self.wallet_usdt.balance, 0)
+        self.assertEqual(self.wallet_usdt.balance, 0)
         self.assertEqual(self.wallet_usdt.locked, 0)
 
     def test_expired_limit_otc_trade(self):
@@ -144,6 +147,7 @@ class OTCTestCase(TestCase):
             'from_asset': 'USDT',
             'to_asset': 'BTC',
             'from_amount': 10,
+            "price": 29900,
             "type": "limit",
             "gtd": "d1",
         })

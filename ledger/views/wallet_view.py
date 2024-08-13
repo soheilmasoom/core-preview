@@ -183,7 +183,9 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
 
     withdraw_precision = serializers.SerializerMethodField()
 
-    need_memo = serializers.BooleanField(source='network.need_memo')
+    need_memo = serializers.BooleanField(source='network.deposit_need_memo')
+    deposit_need_memo = serializers.BooleanField(source='network.deposit_need_memo')
+    withdraw_allow_memo = serializers.BooleanField(source='network.withdraw_allow_memo')
     memo_title_fa = serializers.CharField(source='network.memo_title_fa')
     memo_name_fa = serializers.CharField(source='network.memo_name_fa')
     memo_name = serializers.CharField(source='network.memo_name')
@@ -222,7 +224,8 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     class Meta:
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
                   'min_deposit', 'network_name', 'address_regex', 'withdraw_precision', 'need_memo', 'min_confirm',
-                  'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name')
+                  'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name', 'deposit_need_memo',
+                  'withdraw_allow_memo')
         model = NetworkAsset
 
 
@@ -402,8 +405,8 @@ class NetworkSerializer(serializers.ModelSerializer):
     network_name = serializers.CharField(source='name')
 
     class Meta:
-        fields = ('id', 'name', 'network_name', 'network', 'symbol', 'address_regex', 'need_memo', 'memo_title_fa',
-                  'memo_name_fa', 'memo_name', 'min_confirm')
+        fields = ('id', 'name', 'network_name', 'network', 'symbol', 'address_regex', 'deposit_need_memo',
+                  'withdraw_allow_memo', 'memo_title_fa', 'memo_name_fa', 'memo_name', 'min_confirm')
         model = Network
 
 
@@ -559,11 +562,14 @@ class ConvertDustViewV2(APIView):
 
         base = validated_data["base"]
         base_asset = Asset.get(base)
-        exclude_asset = Asset.get(Asset.IRT) if base == Asset.USDT else Asset.get(Asset.USDT)
+        exclude_asset = list(Asset.get(Asset.IRT), Asset.get(Asset.USDT)) if base == Asset.USDT else list(Asset.get(Asset.IRT))
 
         assets_ids = list(Asset.objects.filter(
             symbol__in=validated_data["assets"]
         ).values_list('id'))
+
+        if base == Asset.USDT and Asset.USDT in validated_data["assets"] :
+                raise ValidationError('تبدیل خرد تتر به تتر مجاز نمی‌باشد.')
 
         spot_wallets = list(Wallet.objects.filter(
             account=account,
@@ -571,7 +577,7 @@ class ConvertDustViewV2(APIView):
             balance__gt=0,
             variant__isnull=True,
             asset__in=[i[0] for i in assets_ids]
-        ).exclude(asset=exclude_asset).prefetch_related('asset'))
+        ).exclude(asset__in=exclude_asset).prefetch_related('asset'))
         group_id = uuid4()
         base_amount = 0
 

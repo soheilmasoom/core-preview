@@ -140,10 +140,10 @@ class Transfer(models.Model):
 
         queryset = DepositAddress.objects.filter(address=address)
 
-        if network.need_memo and memo:
+        if network.deposit_need_memo and memo:
             queryset = queryset.filter(address_key__memo=memo)
 
-        if not queryset.exists() or (network.need_memo and not memo):
+        if not queryset.exists() or (network.deposit_need_memo and not memo):
             return
 
         sender_deposit_address = DepositAddress.get_deposit_address(

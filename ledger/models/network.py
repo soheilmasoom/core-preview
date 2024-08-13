@@ -24,7 +24,8 @@ class Network(models.Model):
     explorer_link = models.CharField(max_length=128, blank=True)
     address_regex = models.CharField(max_length=128, blank=True)
 
-    need_memo = models.BooleanField(default=False)
+    deposit_need_memo = models.BooleanField(default=False)
+    withdraw_allow_memo = models.BooleanField(default=False)
     memo_title_fa = models.CharField(max_length=64, default="آدرس تگ یا ممو")
     memo_name_fa = models.CharField(max_length=64, default="ممو")
     memo_name = models.CharField(max_length=64, default="memo")

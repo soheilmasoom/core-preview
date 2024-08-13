@@ -9,20 +9,6 @@ from django.db.models import Q
 from ledger.utils.external_price import BUY
 
 
-def get_request_from_amount(otc_request: OTCRequest) -> str:
-    if not otc_request.from_amount:
-        return otc_request.amount * otc_request.price
-
-    return otc_request.from_amount
-
-
-def get_request_to_amount(otc_request: OTCRequest):
-    if not otc_request.to_amount:
-        return otc_request.amount if otc_request.side == BUY else None
-
-    return otc_request.to_amount
-
-
 class OTCFilter(django_filters.FilterSet):
     coin = django_filters.CharFilter(field_name='symbol__asset__symbol', lookup_expr='iexact')
     created_after = django_filters.DateTimeFilter(field_name='created', lookup_expr='gte')
