@@ -2,6 +2,7 @@ from django.db import models, transaction
 from simple_history.models import HistoricalRecords
 
 from accounts.models import User
+from ledger.fields import WithdrawSources
 from ledger.models import Asset, Network, Transfer
 from ledger.utils.fields import get_amount_field, get_address_field, get_status_field, PROCESS, DONE, CANCELED, PENDING
 from ledger.utils.price import get_last_price
@@ -79,7 +80,7 @@ class DepositRecoveryRequest(models.Model):
                 memo=recovery.memo,
                 amount=recovery.amount,
                 wallet=wallet,
-                source=Transfer.MANUAL,
+                source=WithdrawSources.MANUAL,
                 out_address='',
                 deposit=True,
                 usdt_value=recovery.amount * price_usdt,

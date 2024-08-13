@@ -31,7 +31,7 @@ class AttributionTracker(models.Model):
     key = models.CharField(max_length=8, default=get_random_str, unique=True)
 
     def __str__(self):
-        return f'{self.type} ({self.key})'
+        return self.name
 
     def get_postback_link(self):
         if self.id:
@@ -46,7 +46,7 @@ class Attribution(models.Model):
 
     tracker = models.ForeignKey(AttributionTracker, on_delete=models.CASCADE)
 
-    profile_id = models.CharField(max_length=64, blank=True)
+    profile_id = models.CharField(max_length=64, blank=True, db_index=True)
     gps_adid = models.CharField(max_length=64, blank=True, db_index=True)
     app_id = models.CharField(max_length=64, blank=True)
 
@@ -69,3 +69,15 @@ class Attribution(models.Model):
     operator = models.CharField(max_length=64, blank=True)
 
     click_url_params = models.CharField(max_length=256, blank=True)
+
+    @property
+    def utm_medium(self):
+        return self.tracker.type
+
+    @property
+    def utm_campaign(self):
+        return self.tracker.key
+
+    @property
+    def utm_content(self):
+        return self.tracker.name

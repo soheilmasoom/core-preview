@@ -183,7 +183,9 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
 
     withdraw_precision = serializers.SerializerMethodField()
 
-    need_memo = serializers.BooleanField(source='network.need_memo')
+    need_memo = serializers.BooleanField(source='network.deposit_need_memo')
+    deposit_need_memo = serializers.BooleanField(source='network.deposit_need_memo')
+    withdraw_allow_memo = serializers.BooleanField(source='network.withdraw_allow_memo')
     memo_title_fa = serializers.CharField(source='network.memo_title_fa')
     memo_name_fa = serializers.CharField(source='network.memo_name_fa')
     memo_name = serializers.CharField(source='network.memo_name')
@@ -222,7 +224,8 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     class Meta:
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
                   'min_deposit', 'network_name', 'address_regex', 'withdraw_precision', 'need_memo', 'min_confirm',
-                  'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name')
+                  'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name', 'deposit_need_memo',
+                  'withdraw_allow_memo')
         model = NetworkAsset
 
 
@@ -402,8 +405,8 @@ class NetworkSerializer(serializers.ModelSerializer):
     network_name = serializers.CharField(source='name')
 
     class Meta:
-        fields = ('id', 'name', 'network_name', 'network', 'symbol', 'address_regex', 'need_memo', 'memo_title_fa',
-                  'memo_name_fa', 'memo_name', 'min_confirm')
+        fields = ('id', 'name', 'network_name', 'network', 'symbol', 'address_regex', 'deposit_need_memo',
+                  'withdraw_allow_memo', 'memo_title_fa', 'memo_name_fa', 'memo_name', 'min_confirm')
         model = Network
 
 
@@ -544,9 +547,13 @@ class ConvertDustViewV2(APIView):
     def post(self, *args):
         account = self.request.user.get_account()
         serializer = ConvertDustSerializer(data=self.request.data)
+        in_last_hours: int = SystemConfig.get_system_config().convert_dust_retry_hours_limit
 
         if ConvertDust.has_recent_conversion(account=account):
-            return Response({'message': "user has recent conversion"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                data={'message': "باید از آخرین تبدیل خرد حداقل %s ساعت بگذرد." % in_last_hours},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
@@ -555,11 +562,14 @@ class ConvertDustViewV2(APIView):
 
         base = validated_data["base"]
         base_asset = Asset.get(base)
-        exclude_asset = Asset.get(Asset.IRT) if base == Asset.USDT else Asset.get(Asset.USDT)
+        exclude_asset = list(Asset.get(Asset.IRT), Asset.get(Asset.USDT)) if base == Asset.USDT else list(Asset.get(Asset.IRT))
 
         assets_ids = list(Asset.objects.filter(
             symbol__in=validated_data["assets"]
         ).values_list('id'))
+
+        if base == Asset.USDT and Asset.USDT in validated_data["assets"] :
+                raise ValidationError('تبدیل خرد تتر به تتر مجاز نمی‌باشد.')
 
         spot_wallets = list(Wallet.objects.filter(
             account=account,
@@ -567,7 +577,7 @@ class ConvertDustViewV2(APIView):
             balance__gt=0,
             variant__isnull=True,
             asset__in=[i[0] for i in assets_ids]
-        ).exclude(asset=exclude_asset).prefetch_related('asset'))
+        ).exclude(asset__in=exclude_asset).prefetch_related('asset'))
         group_id = uuid4()
         base_amount = 0
 
@@ -624,9 +634,9 @@ class ConvertDustViewV2(APIView):
             )
             if base_amount == 0:
                 raise ValidationError('خطایی رخ داد.')
+
             convert_dust.converted_amount=base_amount
             convert_dust.save()
-
 
         if not any_converted:
             raise ValidationError('هیچ گزینه‌ای برای تبدیل خرد وجود ندارد.')
@@ -684,9 +694,11 @@ class DustHistoryListSerializerV2(serializers.ModelSerializer):
 
     def get_converted_amount(self, convert_dust: ConvertDust):
         return get_presentation_amount(convert_dust.converted_amount)
+
     class Meta:
         model = ConvertDust
         fields = ('id', 'converted_amount', 'created', 'base_asset')
+
 
 class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
     base_asset = AssetSerializerMini()
@@ -704,6 +716,7 @@ class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
         model = ConvertDustTrx
         fields = ('id', 'asset', 'amount', 'converted_amount', 'base_asset', 'convert_dust')
 
+
 class DustHistoryListViewV2(ListAPIView):
     serializer_class = DustHistoryListSerializerV2
     pagination_class = LimitOffsetPagination
@@ -718,6 +731,7 @@ class DustHistoryListViewV2(ListAPIView):
 
     def get_queryset(self):
         return ConvertDust.objects.filter(account=self.request.user.get_account()).order_by('-created')
+
 
 class DustHistoryDetailViewV2(ListAPIView):
     serializer_class = DustHistoryDetailSerializerV2

@@ -1,12 +1,13 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytz
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import Attribution, AttributionTracker
+from accounts.models import Attribution, AttributionTracker, TrafficSource
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,18 @@ class AttributionAPIView(APIView):
                 if to_update[field_name].year < 2020:
                     to_update[field_name] = None
 
-        Attribution.objects.get_or_create(
+        attribution, _ = Attribution.objects.get_or_create(
             tracker=tracker,
             **to_update
+        )
+
+        TrafficSource.objects.filter(
+            utm_source='pwa_app',
+            utm_medium='organic',
+            yandex_profile_id=attribution.profile_id,
+            created__gte=timezone.now() - timedelta(days=1)
+        ).update(
+            utm_medium=attribution.utm_medium,
+            utm_campaign=attribution.utm_campaign,
+            utm_content=attribution.utm_content,
         )

@@ -157,7 +157,7 @@ class LongIsolatedMarginTestCase(TestCase):
         print(resp.json())
         self.assertEqual(resp.status_code, check_status)
 
-    def assert_liquidation(self, account, symbol, liquidate=True):
+    def assert_liquidation(self, account, symbol, liquidate=True, check_insurance=True):
         self.assertEqual(MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).count(), 1)
 
         mp = MarginPosition.objects.filter(account=account, symbol=symbol).first()
@@ -173,6 +173,13 @@ class LongIsolatedMarginTestCase(TestCase):
         assertion(mp.status, MarginPosition.CLOSED)
         assertion(negative_wallets, Decimal('0'))
         assertion(mp.status, MarginPosition.CLOSED)
+
+        if liquidate and check_insurance:
+            received = Trx.objects.filter(receiver=mp.base_wallet, scope=Trx.MARGIN_INSURANCE).aggregate(s=Sum('amount'))['s'] or 0
+            sent = Trx.objects.filter(sender=mp.base_wallet, scope=Trx.MARGIN_INSURANCE).aggregate(s=Sum('amount'))['s'] or 0
+            self.assertEqual(received - sent, 0)
+            if received - sent == 0:
+                self.assertEqual(MarginHistoryModel.objects.filter(position=mp, type=MarginHistoryModel.INSURANCE_FEE, amount__gt=0).count(), 0)
 
     def test_long_buy(self):
         self.transfer_usdt_api(TO_TRANSFER_USDT/2)
@@ -194,8 +201,7 @@ class LongIsolatedMarginTestCase(TestCase):
         self.assertEqual(mp.side, LONG)
         self.print_wallets(self.account)
 
-        with WalletPipeline() as pipeline:
-            mp.liquidate(pipeline, False)
+        mp.close()
         self.print_wallets(self.account)
 
         self.assert_liquidation(self.account, self.btcusdt)
@@ -378,7 +384,7 @@ class LongIsolatedMarginTestCase(TestCase):
                       price=Decimal(mp.liquidation_price / 2))
         self.print_wallets(self.account)
 
-        self.assert_liquidation(self.account, self.btcusdt)
+        self.assert_liquidation(self.account, self.btcusdt, check_insurance=False)
         mp.refresh_from_db()
         print(f'margin position: {mp.liquidation_price}', mp.equity)
 
@@ -738,7 +744,7 @@ class LongIsolatedMarginTestCase(TestCase):
                          price=floor_precision(initial_liquidation_price - 100, 2), is_open_position=False)
 
         self.print_wallets(self.account)
-        self.assert_liquidation(self.account, self.btcusdt)
+        self.assert_liquidation(self.account, self.btcusdt, check_insurance=False)
 
     def test_long_buy_15(self):
         self.transfer_usdt_api(TO_TRANSFER_USDT/2)
@@ -834,7 +840,7 @@ class LongIsolatedMarginTestCase(TestCase):
             new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT, price=mp.liquidation_price * Decimal('0.9'))
             new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=3 * loan_amount, market=Wallet.SPOT, price=mp.liquidation_price * Decimal('0.9'))
 
-        self.assert_liquidation(self.account, self.btcusdt)
+        self.assert_liquidation(self.account, self.btcusdt, check_insurance=False)
         self.assertTrue(not MarginHistoryModel.objects.filter(position=mp, type=MarginHistoryModel.CONVERT))
 
     def test_long_buy19(self):
@@ -868,4 +874,4 @@ class LongIsolatedMarginTestCase(TestCase):
             (MarginHistoryModel.objects.filter(position=mp, type=MarginHistoryModel.CONVERT).aggregate(s=Sum('amount'))['s'] or 0)
             * BTC_USDT_PRICE < 10)
 
-        self.assert_liquidation(self.account, self.btcusdt)
+        self.assert_liquidation(self.account, self.btcusdt, check_insurance=False)

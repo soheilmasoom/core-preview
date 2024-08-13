@@ -3,10 +3,12 @@ from ledger.models.trx import Trx as TrxModel
 from ledger.models.asset import Asset as AssetModel
 from django.db.models import Q
 
+
 def get_account(apps, sender, receiver):
     Asset = apps.get_model('ledger', 'Asset')
     irt_asset = Asset.objects.get(symbol=AssetModel.IRT)
     return receiver.account if sender.asset == irt_asset else sender.account
+
 
 def create_convert_dust_trx(apps, convert_dust, group_id):
     Trx = apps.get_model('ledger', 'Trx')
@@ -21,7 +23,7 @@ def create_convert_dust_trx(apps, convert_dust, group_id):
             asset=trx.sender.asset,
             base_asset=irt_asset,
             amount=trx.amount,
-            converted_amount = convert_dust.converted_amount/count,
+            converted_amount=convert_dust.converted_amount/count,
             )
 
 
@@ -37,13 +39,14 @@ def data_migration(apps, schema_editor):
     irt_asset = Asset.objects.get(symbol=AssetModel.IRT)
     for trx in Trx.objects.filter(scope=TrxModel.DUST, sender__asset=irt_asset):
         dust = ConvertDust.objects.create(
-            created = trx.created,
-            account = get_account(apps, trx.sender, trx.receiver),
+            created=trx.created,
+            account=get_account(apps, trx.sender, trx.receiver),
             base_asset=Asset.objects.get(symbol=AssetModel.IRT),
-            converted_amount = trx.amount,
-            group_id = trx.group_id,
+            converted_amount=trx.amount,
+            group_id=trx.group_id,
         )
         create_convert_dust_trx(apps, dust, trx.group_id)
+
 
 class Migration(migrations.Migration):
 
@@ -52,5 +55,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(code=data_migration, reverse_code=migrations.RunPython.noop),
+        # migrations.RunPython(code=data_migration, reverse_code=migrations.RunPython.noop),
     ]
