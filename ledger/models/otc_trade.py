@@ -131,7 +131,14 @@ class OTCTrade(models.Model):
     @classmethod
     def handle_trigger_price(cls, symbol: str, side: str, current_price: Decimal):
         def is_triggered_price(otc_request: OTCRequest) -> bool:
-            current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
+            try:
+                current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
+            except Exception as e:
+                logger.exception('Error in get_depth_price in limit otc', extra={
+                    'exp': e
+                })
+                return False
+
             side = otc_request.side
             print("handle_trigger_price:#", current_price, otc_request, otc_request.price)
             if side == SELL and Decimal(current_price) * Decimal("0.8") < otc_request.price < Decimal(current_price):
