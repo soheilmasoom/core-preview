@@ -134,7 +134,7 @@ class OTCTrade(models.Model):
             try:
                 current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
             except Exception as e:
-                logger.exception('Error in get_depth_price in limit otc', extra={
+                logger.warning('Error in get_depth_price in limit otc', extra={
                     'exp': e
                 })
                 return False
