@@ -364,8 +364,6 @@ class OTCTrade(models.Model):
                 hedge_key=hedge_key,
             ).save()
 
-
-
     def revert(self):
         with WalletPipeline() as pipeline:
             self.status = self.REVERT
