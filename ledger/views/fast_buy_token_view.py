@@ -28,7 +28,7 @@ class FastBuyTokenSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs['amount'] < FastBuyToken.MIN_ADMISSIBLE_VALUE:
-            raise ValidationError('حداقل مقدار سفارش 300 هزار تومان است.')
+            raise ValidationError('حداقل مقدار سفارش 50 هزار تومان است.')
         return attrs
 
     def create(self, validated_data):
