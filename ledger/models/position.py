@@ -470,6 +470,7 @@ class MarginPosition(models.Model):
         )
 
         if price is None:
+            logger.warning(f'Failed to convert dust position:{self.id} due to None Price')
             return
 
         free = self.asset_wallet.balance + pipeline.get_wallet_balance_diff(self.asset_wallet.id)
