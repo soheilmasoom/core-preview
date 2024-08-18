@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.authentication import CustomTokenAuthentication
-from accounts.models import User
+from accounts.models import User, SystemConfig
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from market.models import PairSymbol
 from market.serializers import BookMarkPairSymbolSerializer
@@ -57,6 +57,7 @@ class SymbolListAPIView(ListAPIView):
             ctx['bookmarks'] = []
 
         ctx['prices'] = get_symbol_prices()
+        ctx['system_config'] = SystemConfig.get_system_config()
 
         return ctx
 

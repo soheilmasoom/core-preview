@@ -33,3 +33,7 @@ class SmallDepthError(Exception):
 
 class NoPriceError(Exception):
     pass
+
+
+class FetchError(Exception):
+    pass

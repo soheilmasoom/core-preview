@@ -5,13 +5,13 @@ from decimal import Decimal
 from django.utils import timezone
 
 from accounting.models import Vault, Account
-from accounting.models.periodic_fetcher import FetchError
 from accounting.models.vault import VaultData, AssetPrice, VaultItem, ReservedAsset
 from accounts.verifiers.utils import ServerError
 from financial.models import Gateway
 from financial.utils.withdraw import FiatWithdraw
+from ledger.exceptions import FetchError
 from ledger.models import Asset
-from ledger.requester.internal_assets_requester import get_internal_asset_deposits
+from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.price import USDT_IRT, get_symbol_parts
 from ledger.utils.provider import get_provider_requester
 
@@ -87,7 +87,7 @@ def update_provider_vaults(now: datetime, prices: dict):
 
 def update_hot_wallet_vault(now: datetime, prices: dict):
     try:
-        data = get_internal_asset_deposits()
+        data = get_blocklink_requester().get_assets()
     except FetchError:
         logger.info('updating hot wallet vaults ignored due to fetch error')
         return
