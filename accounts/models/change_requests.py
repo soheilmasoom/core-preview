@@ -32,6 +32,13 @@ class BaseChangeRequest(models.Model):
         null=True
     )
 
+    @classmethod
+    def any_active_for(cls, user: User):
+        return cls.objects.filter(
+            user=user,
+            status=PENDING
+        ).exists()
+
     def accept(self):
         pass
 
