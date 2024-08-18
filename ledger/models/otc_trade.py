@@ -19,7 +19,7 @@ from accounting.models import TradeRevenue
 from accounts.models import Account, SystemConfig
 from accounts.utils.admin import url_to_edit_object
 from accounts.utils.telegram import send_system_message
-from ledger.exceptions import HedgeError
+from ledger.exceptions import HedgeError, SmallDepthError
 from ledger.models import OTCRequest, Trx, Wallet, Asset
 from ledger.utils.external_price import SELL, BUY
 from ledger.utils.fields import get_amount_field
@@ -133,7 +133,7 @@ class OTCTrade(models.Model):
         def is_triggered_price(otc_request: OTCRequest) -> bool:
             try:
                 current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
-            except Exception as e:
+            except SmallDepthError as e:
                 logger.exception('Error in get_depth_price in limit otc', extra={
                     'exp': e
                 })
@@ -363,8 +363,6 @@ class OTCTrade(models.Model):
                 source=TradeRevenue.OTC_PROVIDER,
                 hedge_key=hedge_key,
             ).save()
-
-
 
     def revert(self):
         with WalletPipeline() as pipeline:

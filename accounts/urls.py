@@ -118,4 +118,6 @@ urlpatterns = [
     path('notify/', views.NotifyView.as_view()),
 
     path('consultation/', views.ConsultationView.as_view()),
+
+    path('config/', views.ConfigView.as_view()),
 ]

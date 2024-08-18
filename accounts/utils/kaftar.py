@@ -20,7 +20,7 @@ def send_message(profile: str, text: str):
 
     try:
         requests.post(
-            'https://kaftar.raastin.com/api/v1/messaging/send/',
+            'https://kaftar.raastinwallet.com/api/v1/messaging/send/',
             headers={
                 'Authorization': token
             },
