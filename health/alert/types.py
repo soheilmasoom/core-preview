@@ -8,7 +8,7 @@ from django.utils import timezone
 from accounting.models import Vault, VaultItem
 from financial.models import FiatWithdrawRequest
 from ledger.models import Transfer, OTCTrade, Asset, SystemSnapshot, NetworkAsset
-from ledger.requester.internal_assets_requester import get_hot_wallet_balances
+from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.fields import PENDING, PROCESS
 from ledger.utils.precision import get_presentation_amount
 
@@ -220,7 +220,7 @@ class HotWalletLowBalanceAlert(BaseAlertHandler):
     HELP = 'multiplier to NetworkAsset\'s expected_hw_balance'
 
     def get_alerting(self, threshold: Decimal) -> list:
-        hw_balances = get_hot_wallet_balances()
+        hw_balances = get_blocklink_requester().get_hotwallet_balances()
 
         network_assets = NetworkAsset.objects.filter(expected_hw_balance__gt=0).prefetch_related('asset', 'network')
 

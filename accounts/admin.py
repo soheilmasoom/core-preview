@@ -1,10 +1,10 @@
 import csv
-
 from typing import List
-from django.contrib import messages
+
 from decouple import config
 from django.conf import settings
 from django.contrib import admin
+from django.contrib import messages
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import Q
@@ -25,7 +25,9 @@ from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
 from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_crypto_withdraw_irt_value
 from gamify.utils import check_prize_achievements
+from ledger.models import AddressKey
 from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx, MarginLeverage, MarginPosition
+from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import PENDING, DONE
 from ledger.utils.precision import humanize_number
@@ -821,13 +823,10 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin.action(description='Update Deposits', permissions=['view'])
     def update_deposits(self, request, queryset):
-        from ledger.requester.address_requester import AddressRequester
-        from ledger.models import AddressKey
-
-        requester = AddressRequester()
+        requester = get_blocklink_requester()
 
         for q in AddressKey.objects.filter(architecture='SOL', account__user__in=queryset):
-            requester.refresh_solana_transactions(address=q.address, architecture=q.architecture)
+            requester.refresh_deposits(address=q.address, arch=q.architecture)
 
     @admin.action(description='Ban Credit Card Deposit', permissions=['change'])
     def ban_credit_deposit(self, request, queryset):

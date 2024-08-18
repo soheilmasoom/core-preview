@@ -6,7 +6,7 @@ from celery import shared_task
 from decouple import config
 
 from accounting.models import PeriodicFetcher
-from accounting.models.periodic_fetcher import FetchError
+from ledger.exceptions import FetchError
 from marketing.models import AdsReport, CampaignPublisherReport
 
 

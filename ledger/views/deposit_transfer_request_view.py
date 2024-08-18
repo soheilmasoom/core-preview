@@ -11,7 +11,7 @@ from accounts.utils.admin import url_to_admin_list
 from accounts.utils.telegram import send_system_message
 from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset, DepositRecoveryRequest
 from ledger.models.transfer import Transfer
-from ledger.requester.architecture_requester import get_network_architecture
+from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.fields import PENDING, DONE, CANCELED, INIT
 from ledger.utils.fraud import verify_crypto_deposit
 from ledger.utils.price import get_last_price
@@ -58,7 +58,7 @@ class DepositSerializer(serializers.ModelSerializer):
 
         address_key = AddressKey.objects.filter(
             address=receiver_address,
-            architecture=get_network_architecture(network),
+            architecture=get_blocklink_requester().get_network_arch(network),
             deleted=False,
             memo=memo
         ).first()

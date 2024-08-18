@@ -48,6 +48,7 @@ from .fix.revert_trade import clear_debt
 from .models import Asset, BalanceLock
 from .models.asset import AssetVariant
 from .tasks import update_network_fees
+from .utils.blocklink import get_blocklink_requester
 from .utils.coins_info import get_coins_info
 from .utils.price import get_last_price
 from .utils.wallet_pipeline import WalletPipeline
@@ -741,10 +742,10 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='Terminate Withdraw', permissions=['change'])
     def terminate_withdraw(self, request, queryset):
-        from ledger.requester.withdraw_requester import RequestWithdraw
-        withdraw_requester = RequestWithdraw()
+        requester = get_blocklink_requester()
+
         for transfer in queryset.filter(deposit=False, status__in=[PROCESS, PENDING]):
-            withdraw_requester.terminate_withdraw(transfer.id)
+            requester.terminate_withdraw(transfer.id)
 
 
 class ManualWithdrawForm(forms.ModelForm):

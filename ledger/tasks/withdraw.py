@@ -7,11 +7,10 @@ from django.utils import timezone
 
 from ledger.fields import WithdrawSources
 from ledger.models import Transfer, ManualWithdraw
-from ledger.requester.withdraw_requester import RequestWithdraw
-from ledger.utils.fields import PROCESS, PENDING, DONE
+from ledger.utils.blocklink import get_blocklink_requester
+from ledger.utils.fields import PROCESS, PENDING
 from ledger.utils.fraud import verify_crypto_withdraw
-from ledger.utils.provider import get_provider_requester
-from ledger.withdraw.exchange import handle_provider_withdraw, change_to_manual
+from ledger.withdraw.exchange import change_to_manual
 
 logger = logging.getLogger(__name__)
 
@@ -76,23 +75,21 @@ def create_withdraw(transfer_id: int):
             logger.info('ignored due to invalid status')
             return
 
-        from ledger.requester.withdraw_requester import RequestWithdraw
-
         asset = transfer.wallet.asset
         coin_mult = asset.get_coin_multiplier()
 
         assert coin_mult == 1 or (asset.symbol != asset.original_symbol and asset.original_symbol)
 
-        response = RequestWithdraw().withdraw_from_hot_wallet(
+        response = get_blocklink_requester().withdraw(
             receiver_address=transfer.out_address,
             amount=transfer.amount * coin_mult,
             network=transfer.network.symbol,
-            asset=asset.get_original_symbol(),
+            coin=asset.get_original_symbol(),
             transfer_id=transfer.id,
             memo=transfer.memo
         )
 
-        resp_data = response.json()
+        resp_data = response.data
 
         if response.ok:
             transfer.status = PENDING
@@ -155,10 +152,17 @@ def update_withdraws():
     for transfer in re_handle_transfers:
         create_withdraw.delay(transfer.id)
 
-    requester = RequestWithdraw()
     with transaction.atomic():
         for withdraw in ManualWithdraw.objects.filter(status=PROCESS).select_for_update():
-            resp = requester.manual_withdraw_transfer(withdraw)
+            resp = get_blocklink_requester().withdraw(
+                receiver_address=withdraw.out_address,
+                amount=withdraw.amount,
+                network=withdraw.network.symbol,
+                coin=withdraw.asset.get_original_symbol(),
+                transfer_id=withdraw.id,
+                memo=withdraw.memo,
+                manual=True
+            )
             if resp.ok:
                 withdraw.status = PENDING
                 withdraw.save(update_fields=['status'])

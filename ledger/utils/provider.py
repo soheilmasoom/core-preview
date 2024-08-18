@@ -3,20 +3,17 @@ import math
 import time
 from datetime import datetime
 from decimal import Decimal
-from json import JSONDecodeError
 from math import log10
 from typing import List, Union
 
 import requests
 from decouple import config
 from django.conf import settings
-from django.core.cache import cache
-from urllib3.exceptions import ReadTimeoutError
 
 from accounts.verifiers.jibit import Response
 from ledger.exceptions import HedgeError
 from ledger.models import Asset, Transfer
-from ledger.utils.cache import get_cache_func_key
+from ledger.utils.base_requester import BaseRequester
 from ledger.utils.dto import MarketInfo, NetworkInfo, WithdrawStatus, CoinInfo
 from ledger.utils.external_price import SELL, BUY
 from ledger.utils.fields import DONE
@@ -32,58 +29,15 @@ SPOT, FUTURES = 'spot', 'futures'
 BINANCE, KUCOIN, MEXC = 'binance', 'kucoin', 'mexc'
 
 
-class ProviderRequester:
-    def collect_api(self, path: str, method: str = 'GET', data: dict = None, cache_timeout: int = None,
-                    timeout: float = 10) -> Response:
-        cache_key = None
-        if cache_timeout:
-            cache_key = 'provider:' + get_cache_func_key(self.__class__, path, method, data)
-            cached_result = cache.get(cache_key)
-            if cached_result is not None:
-                return Response(data=cached_result)
+class ProviderRequester(BaseRequester):
 
-        result = self._collect_api(path, method, data, timeout=timeout)
+    CACHE_PREFIX = 'provider'
 
-        if cache_timeout and result.success:
-            cache.set(cache_key, result.data, cache_timeout)
+    def get_base_url(self):
+        return config('PROVIDER_BASE_URL', default='https://provider.raastinwallet.com')
 
-        return result
-
-    def _collect_api(self, path: str, method: str = 'GET', data: dict = None, timeout: float = 10) -> Response:
-        if data is None:
-            data = {}
-
-        url = config('PROVIDER_BASE_URL', default='https://provider.raastin.com') + path
-
-        request_kwargs = {
-            'url': url,
-            'timeout': timeout,
-            'headers': {'Authorization': config('PROVIDER_TOKEN')},
-        }
-
-        ovh_proxy = config('OVH_PROXY', default='')
-
-        if ovh_proxy:
-            request_kwargs['proxies'] = {
-                'http': 'http://%s:3128' % ovh_proxy,
-                'https': 'http://%s:3128' % ovh_proxy,
-            }
-
-        try:
-            if method == 'GET':
-                resp = requests.get(params=data, **request_kwargs)
-            else:
-                method_prop = getattr(requests, method.lower())
-                resp = method_prop(json=data, **request_kwargs)
-        except (requests.exceptions.ConnectionError, ReadTimeoutError, requests.exceptions.Timeout):
-            raise TimeoutError
-
-        try:
-            resp_json = resp.json()
-        except JSONDecodeError:
-            resp_json = None
-
-        return Response(data=resp_json, success=resp.ok, status_code=resp.status_code)
+    def get_auth_token(self):
+        return config('PROVIDER_TOKEN')
 
     def get_market_info(self, asset: Asset, side: str) -> MarketInfo:
         data = self.collect_api('/api/v1/market/', data={'coin': asset.symbol, 'side': side}, cache_timeout=300).data
