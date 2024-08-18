@@ -136,7 +136,7 @@ class MockBlocklinkRequester(BlocklinkRequester):
 
 
 def get_blocklink_requester() -> BlocklinkRequester:
-    if settings.DEBUG_OR_TESTING_OR_STAGING:
+    if settings.DEBUG_OR_TESTING:
         return MockBlocklinkRequester()
     else:
         return BlocklinkRequester()
