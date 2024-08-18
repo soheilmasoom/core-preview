@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class FastBuyToken(models.Model):
     PROCESS, DEPOSIT, DONE = 'process', 'deposit', 'done'
-    MIN_ADMISSIBLE_VALUE = 300_000
+    MIN_ADMISSIBLE_VALUE = 50_000
 
     CHOICE_STATUS = ((PROCESS, PROCESS), (DEPOSIT, DEPOSIT), (DONE, DONE))
 

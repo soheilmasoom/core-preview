@@ -821,14 +821,14 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         link = url_to_admin_list(StakeRequest) + '?account={}'.format(user.account.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
-    @admin.action(description='Update Deposits', permissions=['view'])
+    @admin.action(description='به روز رسانی واریزی‌های رمزارزی', permissions=['view'])
     def update_deposits(self, request, queryset):
         requester = get_blocklink_requester()
 
-        for q in AddressKey.objects.filter(architecture='SOL', account__user__in=queryset):
+        for q in AddressKey.objects.filter(architecture='SOL', account__user__in=queryset, deleted=False):
             requester.refresh_deposits(address=q.address, arch=q.architecture)
 
-    @admin.action(description='Ban Credit Card Deposit', permissions=['change'])
+    @admin.action(description='غیر فعال کردن واریز با کارت‌های هدیه', permissions=['change'])
     def ban_credit_deposit(self, request, queryset):
         for user in queryset:
             user.ban_deposit_by_credit_cards()
