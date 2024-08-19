@@ -84,6 +84,7 @@ class SignupSerializer(serializers.Serializer):
 
         company_national_id = validated_data.get('company_national_id') or None
 
+        password = None
         if validated_data.get('source') == 'widget':
             if User.objects.filter(phone=otp_code.phone).exists():
                 return User.objects.get(phone=otp_code.phone)
@@ -111,14 +112,14 @@ class SignupSerializer(serializers.Serializer):
                 user.show_community = True
 
             if validated_data.get('source') == 'widget':
+                process_id = validated_data.get('process_id')
                 if process_id:
                     fast_buy_token = FastBuyToken.objects.filter(process_id=process_id).last()
                     if fast_buy_token:
                         fast_buy_token.status = FastBuyToken.PROCESS
                         fast_buy_token.save(update_fields=['status'])
                         print("signup#update", fast_buy_token, process_id)
-            else:
-                user.set_password(password)
+            user.set_password(password)
             user.save()
 
             if validated_data.get('referral_code'):

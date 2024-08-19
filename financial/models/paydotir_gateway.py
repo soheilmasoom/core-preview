@@ -23,7 +23,6 @@ class PaydotirGateway(Gateway):
                 'amount': amount * 10,
                 'description': 'افزایش اعتبار',
                 'redirect': base_url + reverse('finance:paydotir-callback'),
-                'validCardNumber': bank_card.card_pan
         },
 
         if bank_card:

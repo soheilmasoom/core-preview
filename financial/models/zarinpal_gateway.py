@@ -21,7 +21,6 @@ class ZarinpalGateway(Gateway):
             'currency': 'IRT',
             'description': 'افزایش اعتبار',
             'callback_url': settings.HOST_URL + reverse('finance:zarinpal-callback'),
-            'metadata': {"card_pan":  bank_card.card_pan}
         },
 
         if bank_card:
