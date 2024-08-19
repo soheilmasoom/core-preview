@@ -93,7 +93,7 @@ class BlocklinkRequester(BaseRequester):
         }
 
     def withdraw(self, receiver_address: str, amount: Decimal, network: str, coin: str, transfer_id: int,
-                 memo: str = '', manual: bool = False) -> Response:
+                 memo: str = None, manual: bool = False) -> Response:
 
         data = {
             'receiver_address': receiver_address,
@@ -101,8 +101,10 @@ class BlocklinkRequester(BaseRequester):
             'network': network,
             'coin': coin,
             'requester_id': transfer_id,
-            'memo': memo
         }
+
+        if memo:
+            data['memo'] = memo
 
         if manual:
             path = '/api/v1/withdraw/manual/'
