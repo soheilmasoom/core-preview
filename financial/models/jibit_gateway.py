@@ -2,11 +2,14 @@ import requests
 from decouple import config
 from django.conf import settings
 from rest_framework.reverse import reverse
+from typing import Union
+from accounts.models.user import User
 
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
 from financial.models.gateway import GatewayFailed, logger
 from ledger.utils.fields import DONE, CANCELED
 from ledger.utils.wallet_pipeline import WalletPipeline
+from rest_framework.exceptions import NotFound
 
 
 class JibitGateway(Gateway):
@@ -33,30 +36,41 @@ class JibitGateway(Gateway):
 
             return self._token
 
-    def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
+    def create_payment_request(self, bank_card: Union['BankCard', None], amount: int, source: str, user: User = None) -> PaymentRequest:
         token = self._get_token()
         base_url = config('PAYMENT_PROXY_HOST_URL', default='') or settings.HOST_URL
 
         fee = self.get_ipg_fee(amount)
 
+        if bank_card:
+            user = bank_card.user
+        elif not user:
+            raise NotFound
+
         payment_request = PaymentRequest.objects.create(
+            user=user,
             bank_card=bank_card,
             amount=amount - fee,
             fee=fee,
             gateway=self,
             source=source,
         )
+
+        payload = {
+            'amount': amount * 10,
+            'callbackUrl': base_url + reverse('finance:jibit-callback'),
+            'clientReferenceNumber': str(payment_request.id),
+            'currency': 'IRR',
+            'description': 'افزایش اعتبار',
+        }
+
+        if bank_card:
+            payload['payerCardNumber'] = bank_card.card_pan
+
         resp = requests.post(
             self.BASE_URL + '/v3/purchases',
             headers={'Authorization': 'Bearer ' + token},
-            json={
-                'amount': amount * 10,
-                'callbackUrl': base_url + reverse('finance:jibit-callback'),
-                'clientReferenceNumber': str(payment_request.id),
-                'currency': 'IRR',
-                'description': 'افزایش اعتبار',
-                'payerCardNumber': bank_card.card_pan
-            },
+            json=payload,
             timeout=30,
         )
 

@@ -20,6 +20,7 @@ from accounts.utils.login import set_login_activity
 from accounts.validators import mobile_number_validator, password_validator, company_national_id_validator
 from analytics.utils.yandex import send_yandex_event
 from gamify.models import MissionJourney
+from ledger.models.fast_buy_token import FastBuyToken
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class InitiateSignupView(APIView):
             if req_origin in config('SIGNUP_CLOSED_DOMAINS', cast=Csv(), default=''):
                 raise ValidationError('امکان ثبت‌نام وجود ندارد.')
 
-        if request.user.is_authenticated:
+        if request.user.is_authenticated and not (request.data.get('source') == 'widget'):
             return Response({'msg': 'already logged in', 'code': 1})
 
         serializer = InitiateSignupSerializer(data=request.data)
@@ -55,11 +56,12 @@ class InitiateSignupView(APIView):
 class SignupSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     token = serializers.UUIDField(write_only=True, required=True)
-    password = serializers.CharField(required=True, write_only=True, validators=[password_validator])
+    password = serializers.CharField(required=False, write_only=True, validators=[password_validator])
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
     referral_code = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     promotion = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     source = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
+    process_id = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     company_national_id = serializers.CharField(allow_null=True, allow_blank=True, write_only=True,
                                                 required=False, validators=[company_national_id_validator])
 
@@ -72,22 +74,27 @@ class SignupSerializer(serializers.Serializer):
     def create(self, validated_data):
         token = validated_data.pop('token')
         otp_code = VerificationCode.get_by_token(token, VerificationCode.SCOPE_VERIFY_PHONE)
-        password = validated_data.pop('password')
-        company_national_id = validated_data.get('company_national_id') or None
-
         if not otp_code:
             raise ValidationError({'token': 'توکن نامعتبر است.'})
-
-        if (User.objects.filter(phone=otp_code.phone).exists() or
-                (company_national_id and Company.objects.filter(national_id=company_national_id).exists())):
-            raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید. لطفا از قسمت ورود، وارد شوید.'})
-
-        validate_password(password=password)
-
         phone = otp_code.phone
+
         promotion = validated_data.get('promotion')
         if promotion not in User.PROMOTIONS:
             promotion = MissionJourney.get_default_promotion() or ''
+
+        company_national_id = validated_data.get('company_national_id') or None
+
+        if validated_data.get('source') == 'widget':
+            if User.objects.filter(phone=otp_code.phone).exists():
+                return User.objects.get(phone=otp_code.phone)
+        else:
+            password = validated_data.pop('password')
+            validate_password(password=password)
+            if (User.objects.filter(phone=otp_code.phone).exists() or
+                    (company_national_id and Company.objects.filter(national_id=company_national_id).exists())):
+                raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید. لطفا از قسمت ورود، وارد شوید.'})
+
+
 
         with transaction.atomic():
 
@@ -103,7 +110,15 @@ class SignupSerializer(serializers.Serializer):
             if config('SHOW_NINJA_TO_ALL', cast=bool, default=False):
                 user.show_community = True
 
-            user.set_password(password)
+            if validated_data.get('source') == 'widget':
+                if process_id:
+                    fast_buy_token = FastBuyToken.objects.filter(process_id=process_id).last()
+                    if fast_buy_token:
+                        fast_buy_token.status = FastBuyToken.PROCESS
+                        fast_buy_token.save(update_fields=['status'])
+                        print("signup#update", fast_buy_token, process_id)
+            else:
+                user.set_password(password)
             user.save()
 
             if validated_data.get('referral_code'):

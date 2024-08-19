@@ -1,23 +1,32 @@
 import hashlib
 import hmac
+from typing import Union
 
 import requests
 from django.conf import settings
 from django.urls import reverse
+from accounts.models.user import User
 
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
 from financial.models.gateway import GatewayFailed
 from ledger.utils.fields import CANCELED
 from ledger.utils.wallet_pipeline import WalletPipeline
+from rest_framework.exceptions import NotFound
 
 
 class PaystarGateway(Gateway):
     BASE_URL = 'https://core.paystar.ir/api/pardakht'
 
-    def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
+    def create_payment_request(self, bank_card: Union['BankCard', None], amount: int, source: str, user: User = None) -> PaymentRequest:
         fee = self.get_ipg_fee(amount)
 
+        if bank_card:
+            user = bank_card.user
+        elif not user:
+            raise NotFound
+
         payment_request = PaymentRequest.objects.create(
+            user=user,
             bank_card=bank_card,
             amount=amount - fee,
             fee=fee,
@@ -33,19 +42,23 @@ class PaystarGateway(Gateway):
         sign_message = f'{rial_amount}#{order_id}#{callback_url}'
         sign = hmac.new(self.deposit_api_secret.encode(), sign_message.encode(), hashlib.sha512).hexdigest()
 
+        payload = {
+                'amount': rial_amount,
+                'callback': callback_url,
+                'order_id': order_id,
+                'sign': sign,
+                'callback_method': 1
+        },
+
+        if bank_card:
+            payload['card_number'] = bank_card.card_pan
+
         resp = requests.post(
             self.BASE_URL + '/create',
             headers={
                 'Authorization': 'Bearer ' + self.merchant_id
             },
-            data={
-                'amount': rial_amount,
-                'callback': callback_url,
-                'order_id': order_id,
-                'card_number': bank_card.card_pan,
-                'sign': sign,
-                'callback_method': 1
-            },
+            data=payload,
             timeout=30,
         )
 

@@ -1,13 +1,17 @@
 import logging
+from typing import Union
 
 import requests
 from django.conf import settings
 from django.urls import reverse
+from accounts.models.user import User
 
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
 from financial.models.gateway import GatewayFailed
 from ledger.utils.fields import DONE, CANCELED
 from ledger.utils.wallet_pipeline import WalletPipeline
+from rest_framework.exceptions import NotFound
+
 
 logger = logging.getLogger(__name__)
 
@@ -15,18 +19,22 @@ logger = logging.getLogger(__name__)
 class ZibalGateway(Gateway):
     BASE_URL = 'https://gateway.zibal.ir'
 
-    def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
+    def create_payment_request(self, bank_card: Union['BankCard', None], amount: int, source: str, user: User = None) -> PaymentRequest:
         callback_host = self.ipg_callback_host or settings.HOST_URL
+
+        payload = {
+            'merchant': self.merchant_id,
+            'amount': amount * 10,
+            'callbackUrl': callback_host + reverse('finance:zibal-callback'),
+            'description': 'افزایش اعتبار'
+        },
+
+        if bank_card:
+            payload['allowedCards'] = bank_card.card_pan
 
         resp = requests.post(
             self.BASE_URL + '/v1/request',
-            json={
-                'merchant': self.merchant_id,
-                'amount': amount * 10,
-                'callbackUrl': callback_host + reverse('finance:zibal-callback'),
-                'description': 'افزایش اعتبار',
-                'allowedCards': bank_card.card_pan
-            },
+            json=payload,
             timeout=30,
         )
 
@@ -37,7 +45,13 @@ class ZibalGateway(Gateway):
         authority = resp.json()['trackId']
         fee = self.get_ipg_fee(amount)
 
+        if bank_card:
+            user = bank_card.user
+        elif not user:
+            raise NotFound
+
         return PaymentRequest.objects.create(
+            user=user,
             bank_card=bank_card,
             amount=amount - fee,
             fee=fee,

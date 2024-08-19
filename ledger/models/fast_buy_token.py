@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 
 from django.db import models
+from uuid import uuid4
 
 from accounts.models import Notification
 from ledger.models import OTCRequest, Asset, Wallet, OTCTrade
@@ -13,10 +14,10 @@ logger = logging.getLogger(__name__)
 
 
 class FastBuyToken(models.Model):
-    PROCESS, DEPOSIT, DONE = 'process', 'deposit', 'done'
-    MIN_ADMISSIBLE_VALUE = 50_000
+    INIT, PROCESS, DEPOSIT, DONE = 'init', 'process', 'deposit', 'done'
+    MIN_ADMISSIBLE_VALUE = 300_000
 
-    CHOICE_STATUS = ((PROCESS, PROCESS), (DEPOSIT, DEPOSIT), (DONE, DONE))
+    CHOICE_STATUS = ((INIT, INIT), (PROCESS, PROCESS), (DEPOSIT, DEPOSIT), (DONE, DONE))
 
     created = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
 
@@ -25,8 +26,10 @@ class FastBuyToken(models.Model):
     amount = models.PositiveIntegerField()
     price = get_amount_field()
 
-    payment_request = models.OneToOneField('financial.PaymentRequest', on_delete=models.CASCADE)
-    otc_request = models.OneToOneField('OTCRequest', on_delete=models.CASCADE, null=True)
+    payment_request = models.OneToOneField('financial.PaymentRequest', on_delete=models.CASCADE, null=True, blank=True)
+    otc_request = models.OneToOneField('OTCRequest', on_delete=models.CASCADE, null=True, blank=True)
+
+    process_id = models.UUIDField(default=uuid4, db_index=True, null=True, blank=True)
 
     class Meta:
         verbose_name = verbose_name_plural = 'خرید آنی'
@@ -34,12 +37,17 @@ class FastBuyToken(models.Model):
     def __str__(self):
         return '%s IRT (%s)' % (humanize_number(self.amount), self.asset)
 
+    #TODO:
     @property
     def user(self):
-        return self.payment_request.bank_card.user
+        return self.payment_request.user
 
     def create_otc_for_fast_buy_token(self, payment):
-
+        if self.status != FastBuyToken.PROCESS:
+            logger.error('Error in create otc_trade for fast_buy should never reach this', extra={
+                'fast_buy_token': self
+            })
+            return
         self.status = FastBuyToken.DEPOSIT
         self.save(update_fields=['status'])
         if payment.status == DONE:

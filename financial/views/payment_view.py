@@ -21,15 +21,18 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
         return payment_request.get_gateway().get_initial_redirect_url(payment_request)
 
     def create(self, validated_data):
+        has_card_pan = validated_data.get('has_card_pan', True)
         amount = validated_data['amount']
-        card_pan = validated_data['card_pan']
         source = validated_data.get('source', PaymentRequest.DESKTOP)
-
         user = self.context['request'].user
-        bank_card = get_object_or_404(BankCard, card_pan=card_pan, user=user, verified=True, deleted=False)
 
-        if not bank_card.verified:
-            raise ValidationError({'card_pan': 'شماره کارت تایید نشده است.'})
+        bank_card = None
+        if has_card_pan:
+            card_pan = validated_data['card_pan']
+            bank_card = get_object_or_404(BankCard, card_pan=card_pan, user=user, verified=True, deleted=False)
+
+            if not bank_card.verified:
+                raise ValidationError({'card_pan': 'شماره کارت تایید نشده است.'})
 
         from financial.models import Gateway
         gateway = Gateway.get_active_deposit(user, amount=amount)
@@ -51,7 +54,7 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
         login_activity = LoginActivity.from_request(self.context['request'])
 
         try:
-            payment_request = gateway.create_payment_request(bank_card=bank_card, amount=amount, source=source)
+            payment_request = gateway.create_payment_request(bank_card=bank_card, amount=amount, source=source, user=user)
             payment_request.login_activity = login_activity
             payment_request.save(update_fields=['login_activity'])
 

@@ -32,7 +32,7 @@ class PaymentRequest(models.Model):
     modified = models.DateTimeField(auto_now=True)
 
     gateway = models.ForeignKey('financial.Gateway', on_delete=models.PROTECT)
-    bank_card = models.ForeignKey('financial.BankCard', on_delete=models.PROTECT)
+    bank_card = models.ForeignKey('financial.BankCard', on_delete=models.PROTECT, null=True, blank=True)
     amount = models.PositiveIntegerField()
     fee = models.PositiveIntegerField()
 
@@ -48,6 +48,8 @@ class PaymentRequest(models.Model):
 
     details = models.TextField(blank=True)
 
+    user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
+
     def get_gateway(self):
         return self.gateway.get_concrete_gateway()
 
@@ -60,7 +62,7 @@ class PaymentRequest(models.Model):
             payment, created = Payment.objects.get_or_create(
                 group_id=self.group_id,
                 defaults={
-                    'user': self.bank_card.user,
+                    'user': self.user,
                     'amount': self.amount,
                     'fee': self.fee,
                     'source': Payment.IPG,
@@ -78,9 +80,9 @@ class PaymentRequest(models.Model):
         permissions = [
             ("list_paymentrequest", "Can list payment request"),
         ]
-
+    #TODO:
     def __str__(self):
-        return '%s %s' % (self.gateway, self.bank_card)
+        return '%s %s' % (self.gateway, self.bank_card, self.user)
 
 
 class Payment(models.Model):
