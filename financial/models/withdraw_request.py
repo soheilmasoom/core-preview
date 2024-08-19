@@ -13,7 +13,7 @@ from simple_history.models import HistoricalRecords
 from accounts.models import Account, EmailNotification, SmsNotification
 from accounts.models import Notification
 from accounts.tasks.send_sms import send_message_by_kavenegar
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_system_message
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from analytics.event.producer import get_kafka_producer

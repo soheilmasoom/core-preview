@@ -3,7 +3,7 @@ import logging
 from django.conf import settings
 from django.db import transaction
 
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_system_message
 from ledger.fields import WithdrawSources
 from ledger.models import Transfer

@@ -26,7 +26,7 @@ from accounts.admin_guard.html_tags import anchor_tag
 from accounts.admin_guard.utils.html import get_table_html
 from accounts.models import Account
 from accounts.models.user_feature_perm import UserFeaturePerm
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from financial.models import Payment
 from gamify.utils import clone_model

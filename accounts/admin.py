@@ -19,7 +19,7 @@ from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationC
     UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
     AttributionTracker
 from accounts.models import UserComment, TrafficSource, Referral
-from accounts.utils.admin import url_to_admin_list, url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object
 from financial.models.bank_card import BankCard, BankAccount
 from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest

@@ -19,9 +19,9 @@ from django.utils.translation import gettext_lazy as _
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from simple_history.models import HistoricalRecords
 
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import Notification, Account, SystemConfig
 from accounts.models.user_feature_perm import UserFeaturePerm
-from accounts.utils.admin import url_to_edit_object
 from accounts.utils.mask import get_masked_phone
 from accounts.utils.telegram import send_support_message
 from accounts.utils.validation import PHONE_MAX_LENGTH

@@ -17,7 +17,7 @@ from ledger.utils.external_price import BUY, SELL, get_other_side
 from _base.settings import OTC_ACCOUNT_ID
 from accounting.models import TradeRevenue
 from accounts.models import Account, SystemConfig
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_system_message
 from ledger.exceptions import HedgeError, SmallDepthError
 from ledger.models import OTCRequest, Trx, Wallet, Asset

@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import CreateAPIView, get_object_or_404
 
 from accounts.authentication import CustomTokenAuthentication
-from accounts.utils.admin import url_to_admin_list
+from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.utils.telegram import send_system_message
 from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset, DepositRecoveryRequest
 from ledger.models.transfer import Transfer

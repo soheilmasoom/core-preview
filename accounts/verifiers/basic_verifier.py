@@ -4,7 +4,7 @@ from django.conf import settings
 from django.template import loader
 
 from accounts.models import User, Notification
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.similarity import name_similarity
 from accounts.utils.similarity import split_names
 from accounts.utils.telegram import send_support_message
