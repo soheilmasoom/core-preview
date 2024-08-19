@@ -7,7 +7,7 @@ from accounts.models import SystemConfig
 class SystemConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemConfig
-        fields = ('id', 'dust_convert_threshold')
+        fields = ('id', 'dust_convert_threshold', 'strategy_enable')
 
 
 class SystemConfigView(RetrieveAPIView):
