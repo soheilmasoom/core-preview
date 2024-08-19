@@ -97,7 +97,7 @@ class BlocklinkRequester(BaseRequester):
 
         data = {
             'receiver_address': receiver_address,
-            'amount': amount,
+            'amount': str(amount),
             'network': network,
             'coin': coin,
             'requester_id': transfer_id,
