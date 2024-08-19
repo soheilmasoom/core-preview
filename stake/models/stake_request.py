@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from accounts.models import Account, User, EmailNotification
 from accounts.tasks import send_message_by_kavenegar
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_support_message
 from ledger.models import Wallet, Trx
 from ledger.utils.fields import get_group_id_field, get_amount_field

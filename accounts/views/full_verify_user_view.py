@@ -4,7 +4,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import User
 from accounts.tasks.verify_user import alert_user_verify_status, verify_user_national_code
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_support_message
 from multimedia.fields import ImageField
 

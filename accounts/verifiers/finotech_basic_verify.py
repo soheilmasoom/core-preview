@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 
 from accounts.models import User
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.similarity import str_similar_rate, clean_persian_name, rotate_words
 from accounts.utils.telegram import send_support_message
 from accounts.verifiers.finotech import FinotechRequester, ServerError

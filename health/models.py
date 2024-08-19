@@ -4,7 +4,7 @@ from django.db import models
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
-from accounts.utils.admin import url_to_admin_list
+from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.utils.telegram import send_system_message
 from accounts.utils.validation import timedelta_message
 from health.alert import ALERTS

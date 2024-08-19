@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from accounting.models import Vault, Account
 from accounting.models.vault import VaultData, AssetPrice, VaultItem, ReservedAsset
+from accounts.tasks.send_sms import get_kavenegar_client
 from accounts.verifiers.utils import ServerError
 from financial.models import Gateway
 from financial.utils.withdraw import FiatWithdraw
@@ -226,3 +227,31 @@ def update_asset_prices(now: datetime, prices: dict):
         asset.updated = now
 
     AssetPrice.objects.bulk_update(existing_assets, ['price', 'updated'])
+
+
+def update_service_vaults(now: datetime, prices: dict):
+    providers = {
+        'kavenegar.com': get_kavenegar_vault_updates
+    }
+
+    for vault in Vault.objects.filter(type=Vault.APP).exclude(key=''):
+        provider = providers.get(vault.key)
+        if not provider:
+            continue
+
+        vault.update_vault_all_items(now, provider(prices))
+
+
+def get_kavenegar_vault_updates(prices: dict):
+    client = get_kavenegar_client()
+    balance = client.account_info()['remaincredit'] // 10
+
+    return [
+        VaultData(
+            coin=Asset.IRT,
+            balance=balance,
+            free=balance,
+            value_usdt=balance / prices[USDT_IRT],
+            value_irt=balance
+        )
+    ]
