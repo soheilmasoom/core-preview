@@ -17,10 +17,11 @@ from accounts.models.phone_verification import VerificationCode
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.utils.ip import get_client_ip
 from accounts.utils.login import set_login_activity
-from accounts.validators import mobile_number_validator, password_validator, company_national_id_validator
+from accounts.validators import mobile_number_validator, national_card_code_validator, password_validator, company_national_id_validator
 from analytics.utils.yandex import send_yandex_event
 from gamify.models import MissionJourney
-from ledger.models.fast_buy_token import FastBuyToken
+from rest_framework_simplejwt.tokens import AccessToken
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class InitiateSignupView(APIView):
             if req_origin in config('SIGNUP_CLOSED_DOMAINS', cast=Csv(), default=''):
                 raise ValidationError('امکان ثبت‌نام وجود ندارد.')
 
-        if request.user.is_authenticated and not (request.data.get('source') == 'widget'):
+        if request.user.is_authenticated:
             return Response({'msg': 'already logged in', 'code': 1})
 
         serializer = InitiateSignupSerializer(data=request.data)
@@ -61,6 +62,8 @@ class SignupSerializer(serializers.Serializer):
     referral_code = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     promotion = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     source = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
+    national_code = serializers.CharField(allow_null=True, allow_blank=True, write_only=True, required=False,
+                                                validators=[national_card_code_validator])
     process_id = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     company_national_id = serializers.CharField(allow_null=True, allow_blank=True, write_only=True,
                                                 required=False, validators=[company_national_id_validator])
@@ -95,8 +98,6 @@ class SignupSerializer(serializers.Serializer):
                     (company_national_id and Company.objects.filter(national_id=company_national_id).exists())):
                 raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید. لطفا از قسمت ورود، وارد شوید.'})
 
-
-
         with transaction.atomic():
 
             user = User.objects.create_user(
@@ -108,17 +109,12 @@ class SignupSerializer(serializers.Serializer):
             if company_national_id:
                 Company.objects.create(national_id=company_national_id, user=user)
 
+            if validated_data.get('national_code'):
+                user.national_code = validated_data.get('national_code')
+
             if config('SHOW_NINJA_TO_ALL', cast=bool, default=False):
                 user.show_community = True
 
-            if validated_data.get('source') == 'widget':
-                process_id = validated_data.get('process_id')
-                if process_id:
-                    fast_buy_token = FastBuyToken.objects.filter(process_id=process_id).last()
-                    if fast_buy_token:
-                        fast_buy_token.status = FastBuyToken.PROCESS
-                        fast_buy_token.save(update_fields=['status'])
-                        print("signup#update", fast_buy_token, process_id)
             user.set_password(password)
             user.save()
 
@@ -222,12 +218,25 @@ class SignupView(CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        login(self.request, user)
-        try:
-            set_login_activity(
-                request=self.request,
-                user=user,
-                is_sign_up=True,
-            )
-        except ValueError:
-            logger.exception('Error in setting login activity for signup')
+        if self.request.data.get('source') != 'widget':
+            login(self.request, user)
+            try:
+                set_login_activity(
+                    request=self.request,
+                    user=user,
+                    is_sign_up=True,
+                )
+            except ValueError:
+                logger.exception('Error in setting login activity for signup')
+        else:
+            access_token = AccessToken.for_user(user)
+            access_token.set_exp(lifetime=timedelta(minutes=30))
+            self.token = {
+                'access': str(access_token),
+            }
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if hasattr(self, 'token'):
+            return Response(self.token, status=201)
+        return response

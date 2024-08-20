@@ -40,6 +40,7 @@ class Gateway(models.Model):
 
     ipg_deposit_enable = models.BooleanField(default=True)
     pay_id_deposit_enable = models.BooleanField(default=False)
+    widget_enable = models.BooleanField(default=False)
     withdraw_enable = models.BooleanField(default=False)
 
     min_deposit_amount = models.PositiveIntegerField(default=10000)
@@ -130,20 +131,22 @@ class Gateway(models.Model):
         return fee
 
     @classmethod
-    def _find_best_deposit_gateway(cls, user: User, amount: Decimal = 0) -> 'Gateway':
+    def _find_best_deposit_gateway(cls, user: User, amount: Decimal = 0, widget_enable = False) -> 'Gateway':
         if user.is_staff:
             gateway = Gateway.objects.filter(active_for_staff=True, ipg_deposit_enable=True).order_by('id').first()
 
             if gateway:
                 return gateway
-
-        gateways = Gateway.objects.filter(active=True, ipg_deposit_enable=True).order_by('-deposit_priority')
+        if widget_enable:
+            gateways = Gateway.objects.filter(active=True, ipg_deposit_enable=True, widget_enable=True).order_by('-deposit_priority')
+        else:
+            gateways = Gateway.objects.filter(active=True, ipg_deposit_enable=True).order_by('-deposit_priority')
 
         return gateways.first()
 
     @classmethod
-    def get_active_deposit(cls, user: User, amount: Decimal = 0) -> 'Gateway':
-        gateway = cls._find_best_deposit_gateway(user, amount)
+    def get_active_deposit(cls, user: User, amount: Decimal = 0, widget_enable = False) -> 'Gateway':
+        gateway = cls._find_best_deposit_gateway(user, amount, widget_enable)
 
         if gateway:
             return gateway.get_concrete_gateway()
@@ -206,7 +209,7 @@ class Gateway(models.Model):
     def get_payment_url(cls, payment_request: PaymentRequest):
         raise NotImplementedError
 
-    def create_payment_request(self, bank_card: Union['BankCard', None], amount: int, source: str, user: User = None) -> PaymentRequest:
+    def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         raise NotImplementedError
 
     def verify(self, payment: Payment):

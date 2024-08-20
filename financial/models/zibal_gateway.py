@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class ZibalGateway(Gateway):
     BASE_URL = 'https://gateway.zibal.ir'
 
-    def create_payment_request(self, bank_card: Union['BankCard', None], amount: int, source: str, user: User = None) -> PaymentRequest:
+    def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         callback_host = self.ipg_callback_host or settings.HOST_URL
 
         payload = {
@@ -31,6 +31,8 @@ class ZibalGateway(Gateway):
 
         if bank_card:
             payload['allowedCards'] = bank_card.card_pan
+        else:
+            payload['nationalCode'] = user.national_code
 
         resp = requests.post(
             self.BASE_URL + '/v1/request',
@@ -44,11 +46,6 @@ class ZibalGateway(Gateway):
 
         authority = resp.json()['trackId']
         fee = self.get_ipg_fee(amount)
-
-        if bank_card:
-            user = bank_card.user
-        elif not user:
-            raise NotFound
 
         return PaymentRequest.objects.create(
             user=user,

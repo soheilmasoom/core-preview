@@ -15,7 +15,7 @@ from rest_framework.exceptions import NotFound
 class PaydotirGateway(Gateway):
     BASE_URL = 'https://pay.ir'
 
-    def create_payment_request(self, bank_card: Union['BankCard', None], amount: int, source: str, user: User = None) -> PaymentRequest:
+    def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         base_url = config('PAYMENT_PROXY_HOST_URL', default='') or settings.HOST_URL
 
         payload = {
@@ -43,11 +43,6 @@ class PaydotirGateway(Gateway):
             raise GatewayFailed
 
         authority = resp.json()['token']
-
-        if bank_card:
-            user = bank_card.user
-        elif not user:
-            raise NotFound
 
         return PaymentRequest.objects.create(
             user=user,

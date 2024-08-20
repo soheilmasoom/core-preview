@@ -14,7 +14,7 @@ from rest_framework.exceptions import NotFound
 class ZarinpalGateway(Gateway):
     BASE_URL = 'https://api.zarinpal.com'
 
-    def create_payment_request(self, bank_card: Union['BankCard', None], amount: int, source: str, user: User = None) -> PaymentRequest:
+    def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         payload = {
             'merchant_id': self.merchant_id,
             'amount': amount,
@@ -37,11 +37,6 @@ class ZarinpalGateway(Gateway):
 
         authority = resp.json()['data']['authority']
         fee = self.get_ipg_fee(amount)
-
-        if bank_card:
-            user = bank_card.user
-        elif not user:
-            raise NotFound
 
         return PaymentRequest.objects.create(
             user=user,

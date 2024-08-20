@@ -35,7 +35,8 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
                 raise ValidationError({'card_pan': 'شماره کارت تایید نشده است.'})
 
         from financial.models import Gateway
-        gateway = Gateway.get_active_deposit(user, amount=amount)
+        widget_enable = not has_card_pan
+        gateway = Gateway.get_active_deposit(user, amount=amount, widget_enable=widget_enable)
 
         suspended = gateway.suspended
 
@@ -54,7 +55,7 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
         login_activity = LoginActivity.from_request(self.context['request'])
 
         try:
-            payment_request = gateway.create_payment_request(bank_card=bank_card, amount=amount, source=source, user=user)
+            payment_request = gateway.create_payment_request(user=user, amount=amount, source=source, bank_card=bank_card)
             payment_request.login_activity = login_activity
             payment_request.save(update_fields=['login_activity'])
 

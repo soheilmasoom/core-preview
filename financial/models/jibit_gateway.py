@@ -36,16 +36,11 @@ class JibitGateway(Gateway):
 
             return self._token
 
-    def create_payment_request(self, bank_card: Union['BankCard', None], amount: int, source: str, user: User = None) -> PaymentRequest:
+    def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         token = self._get_token()
         base_url = config('PAYMENT_PROXY_HOST_URL', default='') or settings.HOST_URL
 
         fee = self.get_ipg_fee(amount)
-
-        if bank_card:
-            user = bank_card.user
-        elif not user:
-            raise NotFound
 
         payment_request = PaymentRequest.objects.create(
             user=user,
