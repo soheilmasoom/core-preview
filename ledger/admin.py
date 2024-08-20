@@ -1156,7 +1156,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     readonly_fields = ('created', 'verifier', 'get_images', 'images')
     actions = ('verify_requests', 'reject_requests', 'accept_requests',)
     raw_id_fields = ('user',)
-    search_fields = ('asset__symbol', 'network__symbol', 'user__phone', 'receiver_address', 'trx_hash')
+    search_fields = ('asset__symbol', 'network__symbol', 'user__phone', 'receiver_address', 'trx_hash', 'blocklink_id')
 
     default_edit_condition = M.has_perm('ledger.manage_deposit_recovery')
 
