@@ -142,3 +142,23 @@ tgju_deploy_production:
   stage: deploy
   tags:
     - hamravesh
+
+
+deploy_gold:
+  image: hamravesh.hamdocker.ir/public/darkube-cli:v1.1
+  only:
+    refs:
+    - develop
+  script:
+    - 'darkube deploy --token ${GOLD_API_DEPLOY_TOKEN}
+      --app-id ${GOLD_API_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+#    - 'darkube deploy --token ${GOLD_CELERY_BEAT_DEPLOY_TOKEN}
+#      --app-id ${GOLD_CELERY_BEAT_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+#      --job-id "${CI_JOB_ID}"'
+#    - 'darkube deploy --token ${GOLD_CELERY_WORKERS_DEPLOY_TOKEN}
+#      --app-id ${GOLD_CELERY_WORKERS_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+#      --job-id "${CI_JOB_ID}"'
+  stage: deploy
+  tags:
+    - hamravesh

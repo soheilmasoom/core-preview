@@ -2,6 +2,7 @@ import logging
 
 from celery import shared_task
 from decouple import config
+from django.conf import settings
 
 from accounts.models import Notification
 from accounts.models import User
@@ -34,7 +35,7 @@ def alert_user_verify_status(user: User):
             if user.reject_reason == User.NATIONAL_CODE_DUPLICATED:
                 notif_message = 'شما قبلا در {} با شماره موبایل دیگری ثبت‌نام کرده‌اید و احراز هویت‌تان انجام شده ' \
                                 'است. لطفا از آن حساب استفاده کنید.'.format(
-                    config('BRAND'))
+                    settings.BRAND)
             else:
                 notif_message = 'اطلاعات وارد شده نیاز به بازنگری دارد.'
             level = Notification.ERROR

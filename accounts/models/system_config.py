@@ -65,6 +65,8 @@ class SystemConfig(models.Model):
 
     enable_otc_limit = models.BooleanField(default=True)
 
+    strategy_enable = models.BooleanField(default=True)
+
     def __str__(self):
         return self.name
 

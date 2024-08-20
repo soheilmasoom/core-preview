@@ -20,9 +20,6 @@ TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
 BACKOFFICE_TOKEN = config('BACKOFFICE_TOKEN', default="")
 BACKOFFICE_BASE_URL = config('BACKOFFICE_BASE_URL', default="")
 
-BLOCKLINK_TOKEN = config('BLOCKLINK_TOKEN')
-BLOCKLINK_BASE_URL = config('BLOCKLINK_BASE_URL', default='https://blocklink.raastin.com')
-
 DEBUG_OR_TESTING = DEBUG or TESTING
 DEBUG_OR_TESTING_OR_STAGING = DEBUG or TESTING or STAGING
 
@@ -373,10 +370,10 @@ JALALI_DATE_DEFAULTS = {
 }
 
 SYSTEM_ACCOUNT_ID = config('SYSTEM_ACCOUNT_ID', default=1, cast=int)
-OTC_ACCOUNT_ID = config('OTC_ACCOUNT', cast=int)
+OTC_ACCOUNT_ID = config('OTC_ACCOUNT', cast=int, default=1)
 MARKET_MAKER_ACCOUNT_ID = config('MARKET_MAKER_ACCOUNT_ID', cast=int, default=0)
 TRADER_ACCOUNT_ID = config('TRADER_ACCOUNT_ID', cast=int, default=0)
-MARGIN_INSURANCE_ACCOUNT = config('MARGIN_INSURANCE_ACCOUNT', cast=int, default=None)
+MARGIN_INSURANCE_ACCOUNT = config('MARGIN_INSURANCE_ACCOUNT', cast=int, default=0)
 MARGIN_POOL_ACCOUNT = config('MARGIN_POOL_ACCOUNT', cast=int, default=0)
 REVERT_HELPER_ACCOUNT = config('REVERT_HELPER_ACCOUNT', cast=int, default=0)
 

@@ -10,9 +10,9 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 
+from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.models import Account, EmailNotification
 from accounts.models import Notification
-from accounts.utils.admin import url_to_admin_list
 from accounts.utils.telegram import send_system_message
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent

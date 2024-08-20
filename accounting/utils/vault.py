@@ -5,13 +5,14 @@ from decimal import Decimal
 from django.utils import timezone
 
 from accounting.models import Vault, Account
-from accounting.models.periodic_fetcher import FetchError
 from accounting.models.vault import VaultData, AssetPrice, VaultItem, ReservedAsset
+from accounts.tasks.send_sms import get_kavenegar_client
 from accounts.verifiers.utils import ServerError
 from financial.models import Gateway
 from financial.utils.withdraw import FiatWithdraw
+from ledger.exceptions import FetchError
 from ledger.models import Asset
-from ledger.requester.internal_assets_requester import get_internal_asset_deposits
+from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.price import USDT_IRT, get_symbol_parts
 from ledger.utils.provider import get_provider_requester
 
@@ -87,7 +88,7 @@ def update_provider_vaults(now: datetime, prices: dict):
 
 def update_hot_wallet_vault(now: datetime, prices: dict):
     try:
-        data = get_internal_asset_deposits()
+        data = get_blocklink_requester().get_assets()
     except FetchError:
         logger.info('updating hot wallet vaults ignored due to fetch error')
         return
@@ -226,3 +227,31 @@ def update_asset_prices(now: datetime, prices: dict):
         asset.updated = now
 
     AssetPrice.objects.bulk_update(existing_assets, ['price', 'updated'])
+
+
+def update_service_vaults(now: datetime, prices: dict):
+    providers = {
+        'kavenegar.com': get_kavenegar_vault_updates
+    }
+
+    for vault in Vault.objects.filter(type=Vault.APP).exclude(key=''):
+        provider = providers.get(vault.key)
+        if not provider:
+            continue
+
+        vault.update_vault_all_items(now, provider(prices))
+
+
+def get_kavenegar_vault_updates(prices: dict):
+    client = get_kavenegar_client()
+    balance = client.account_info()['remaincredit'] // 10
+
+    return [
+        VaultData(
+            coin=Asset.IRT,
+            balance=balance,
+            free=balance,
+            value_usdt=balance / prices[USDT_IRT],
+            value_irt=balance
+        )
+    ]

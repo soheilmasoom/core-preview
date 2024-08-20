@@ -2,7 +2,6 @@
 
 import django.db.models.deletion
 from django.db import migrations, models
-from decouple import config
 
 from accounts.models import Notification
 
@@ -22,7 +21,7 @@ def populate_missions(apps, schema_editor):
         type='bool',
         title='احراز هویت',
         link='/account/verification/basic',
-        description='احراز هویت کنید و شیبا جایزه بگیرید.'.format(config('BRAND')),
+        description='احراز هویت کنید و شیبا جایزه بگیرید.',
         level=Notification.ERROR,
     )
     Achievement.objects.create(

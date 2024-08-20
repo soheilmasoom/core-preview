@@ -6,8 +6,9 @@ from django.utils.safestring import mark_safe
 from typing import List
 from simple_history.admin import SimpleHistoryAdmin
 
+from accounts.admin_guard.html_tags import admin_page_anchor
 from multimedia.utils.backoffice_content import BackofficeContent
-from multimedia.models import Image, Banner, CoinPriceContent, Article, Section, File
+from multimedia.models import Image, Banner, CoinPriceContent, Article, Section, File, Guide, GuideGroup
 from markdown import markdown
 
 
@@ -122,3 +123,30 @@ class SectionAdmin(SimpleHistoryAdmin):
     formfield_overrides = {
         models.TextField: {'widget': forms.Textarea(attrs={'rows': 1})},
     }
+
+
+class GuidTabularInline(admin.TabularInline):
+    fields = ('get_id', 'title', 'image', 'description', 'link', 'video')
+    readonly_fields = ('get_id', )
+    model = Guide
+    extra = 1
+
+    @admin.display(description="id")
+    def get_id(self, guide: Guide):
+        return admin_page_anchor(guide.id or '', guide)
+
+
+@admin.register(GuideGroup)
+class GuideGroupAdmin(SimpleHistoryAdmin):
+    list_display = ('slug', 'title',)
+    search_fields = ('slug', 'title',)
+
+    inlines = (GuidTabularInline, )
+
+
+@admin.register(Guide)
+class GuidAdmin(SimpleHistoryAdmin):
+    list_display = ('title', 'group', 'order')
+    list_filter = ('group', )
+    search_fields = ('title', )
+    list_editable = ('order', )
