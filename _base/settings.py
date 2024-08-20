@@ -370,10 +370,10 @@ JALALI_DATE_DEFAULTS = {
 }
 
 SYSTEM_ACCOUNT_ID = config('SYSTEM_ACCOUNT_ID', default=1, cast=int)
-OTC_ACCOUNT_ID = config('OTC_ACCOUNT', cast=int)
+OTC_ACCOUNT_ID = config('OTC_ACCOUNT', cast=int, default=1)
 MARKET_MAKER_ACCOUNT_ID = config('MARKET_MAKER_ACCOUNT_ID', cast=int, default=0)
 TRADER_ACCOUNT_ID = config('TRADER_ACCOUNT_ID', cast=int, default=0)
-MARGIN_INSURANCE_ACCOUNT = config('MARGIN_INSURANCE_ACCOUNT', cast=int, default=None)
+MARGIN_INSURANCE_ACCOUNT = config('MARGIN_INSURANCE_ACCOUNT', cast=int, default=0)
 MARGIN_POOL_ACCOUNT = config('MARGIN_POOL_ACCOUNT', cast=int, default=0)
 REVERT_HELPER_ACCOUNT = config('REVERT_HELPER_ACCOUNT', cast=int, default=0)
 
