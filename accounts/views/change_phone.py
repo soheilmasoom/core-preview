@@ -89,6 +89,9 @@ class NewPhoneVerifySerializer(serializers.Serializer):
         if not token_verification:
             raise ValidationError('توکن نامعتبر است.')
 
+        if ChangePhone.any_active_for(user):
+            raise ValidationError({'user': 'شما در حال حاضر درخواست فعالی دارید.'})
+
         new_phone = token_verification.phone
         if User.objects.filter(phone=new_phone):
             raise ValidationError(

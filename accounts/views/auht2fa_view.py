@@ -157,8 +157,13 @@ class Forget2FASerializer(ModelSerializer):
     def validate(self, attrs):
         token = attrs.pop('token')
         verification_code = VerificationCode.get_by_token(token=token, scope=VerificationCode.SCOPE_FORGET_2FA)
+
         if not verification_code:
             raise ValidationError({'token': 'توکن نامعتبر است.'})
+
+        if Forget2FA.any_active_for(verification_code.user):
+            raise ValidationError({'user': 'شما در حال حاضر درخواست فعالی دارید.'})
+
         attrs['user'] = verification_code.user
         return attrs
 
