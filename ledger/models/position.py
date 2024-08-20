@@ -14,17 +14,14 @@ from simple_history.models import HistoricalRecords
 from _base.settings import SYSTEM_ACCOUNT_ID
 from accounts.models import Account, SystemConfig
 from ledger.models import Trx, Wallet
-from ledger.utils.external_price import SHORT, LONG, BUY, SELL, get_other_side, IRT, USDT
+from ledger.utils.external_price import SHORT, LONG, BUY, SELL, IRT, USDT
 from ledger.utils.fields import get_amount_field
 from ledger.utils.margin import alert_system_insurance_trx
 from ledger.utils.precision import floor_precision, ceil_precision
-from ledger.utils.price import get_depth_price, get_base_depth_price, get_price
+from ledger.utils.price import get_price
 from market.models import PairSymbol
 
 logger = logging.getLogger(__name__)
-
-MARGIN_INSURANCE_ACCOUNT = config('MARGIN_INSURANCE_ACCOUNT', cast=int)
-MARGIN_POOL_ACCOUNT = config('MARGIN_POOL_ACCOUNT', cast=int)
 
 
 class MarginPosition(models.Model):
@@ -255,10 +252,10 @@ class MarginPosition(models.Model):
             )
 
     def get_insurance_wallet(self):
-        return self.symbol.base_asset.get_wallet(account=MARGIN_INSURANCE_ACCOUNT)
+        return self.symbol.base_asset.get_wallet(account=settings.MARGIN_INSURANCE_ACCOUNT)
 
     def get_margin_pool_wallet(self):
-        return self.loan_wallet.asset.get_wallet(account=Account.objects.get(id=MARGIN_POOL_ACCOUNT))
+        return self.loan_wallet.asset.get_wallet(account=settings.MARGIN_POOL_ACCOUNT)
 
     def get_interest_rate(self):
         return self.loan_wallet.asset.margin_interest_fee
