@@ -64,7 +64,6 @@ class SignupSerializer(serializers.Serializer):
     source = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     national_code = serializers.CharField(allow_null=True, allow_blank=True, write_only=True, required=False,
                                                 validators=[national_card_code_validator])
-    process_id = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     company_national_id = serializers.CharField(allow_null=True, allow_blank=True, write_only=True,
                                                 required=False, validators=[company_national_id_validator])
 
@@ -89,6 +88,8 @@ class SignupSerializer(serializers.Serializer):
 
         password = None
         if validated_data.get('source') == 'widget':
+            if not validated_data.get('national_code'):
+                raise ValidationError({'national_code': 'وارد کردن کد ملی الزامی است.'})
             if User.objects.filter(phone=otp_code.phone).exists():
                 return User.objects.get(phone=otp_code.phone)
         else:
