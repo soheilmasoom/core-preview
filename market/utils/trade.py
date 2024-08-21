@@ -114,9 +114,11 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
                 (position.side == SHORT and trade_info.trade_price < position.liquidation_price) or
                 (position.side == LONG and trade_info.trade_price > position.liquidation_price))
 
-        if (trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and
+        if ((trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and
                 trade_info.loan_type != Order.LIQUIDATION and
-                (total_match_amount < abs(position_asset_wallet.balance))) and is_position_live:
+                (total_match_amount < floor_precision(abs(position_asset_wallet.balance), position.symbol.step_size)))
+                and is_position_live):
+
             position.rebalance(pipeline, price=trade_info.trade_price)
 
         asset_balance = (position.asset_wallet.balance +
