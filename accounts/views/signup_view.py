@@ -94,10 +94,10 @@ class SignupSerializer(serializers.Serializer):
                 return User.objects.get(phone=otp_code.phone)
         else:
             password = validated_data.pop('password')
-            validate_password(password=password)
             if (User.objects.filter(phone=otp_code.phone).exists() or
                     (company_national_id and Company.objects.filter(national_id=company_national_id).exists())):
                 raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید. لطفا از قسمت ورود، وارد شوید.'})
+            validate_password(password=password)
 
         with transaction.atomic():
 
