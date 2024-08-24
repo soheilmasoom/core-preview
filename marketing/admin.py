@@ -1,4 +1,5 @@
-from django.conf import settings
+from datetime import timedelta
+
 from django.contrib import admin
 
 from marketing.models import AdsReport, CampaignPublisherReport, CampaignInfo, CampaignCost
@@ -27,7 +28,16 @@ class CampaignInfoAdmin(admin.ModelAdmin):
 
 @admin.register(CampaignCost)
 class CampaignCostAdmin(admin.ModelAdmin):
-    list_display = ('created', 'campaign', 'cost')
+    list_display = ('created', 'campaign', 'cost_irt', 'cost_usdt')
     search_fields = ('campaign__utm_source', 'campaign__utm_medium', 'campaign__utm_campaign')
     list_filter = ('campaign', )
     ordering = ('-created', )
+    actions = ('clone_for_next_day', )
+
+    @admin.action(description='Clone for Next Day', permissions=['view'])
+    def clone_for_next_day(self, request, queryset):
+        for campaign_cost in queryset:  # type: CampaignCost
+            CampaignCost.objects.get_or_create(
+                created=campaign_cost.created + timedelta(days=1),
+                campaign=campaign_cost.campaign
+            )

@@ -5,7 +5,7 @@ from django.db import migrations
 
 def fix_traffic_source(apps, schema_editor):
     TrafficSource = apps.get_model('accounts', 'TrafficSource')
-    TrafficSource.objects.filter(yandex_profile_id='', utm_source='yandex').exclude(utm_medium='organic').update(
+    TrafficSource.objects.filter(yandex_profile_id='', utm_source='pwa_app', utm_medium='yandex').update(
         utm_medium='organic',
         utm_campaign='',
         utm_content='',

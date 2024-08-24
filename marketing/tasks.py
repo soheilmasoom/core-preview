@@ -8,6 +8,7 @@ from decouple import config
 
 from accounting.models import PeriodicFetcher
 from ledger.exceptions import FetchError
+from ledger.utils.price import get_last_price, USDT_IRT
 from marketing.models import AdsReport, CampaignPublisherReport, CampaignCost, CampaignInfo
 
 
@@ -45,6 +46,8 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
 
         per_campaign_cost = defaultdict(int)
 
+        usdt_price = get_last_price(USDT_IRT) or 60_000
+
         for data in resp:
             AdsReport.objects.update_or_create(
                 created=start,
@@ -76,7 +79,8 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
                 campaign_id=campaign,
                 created=start_date,
                 defaults={
-                    'cost': cost
+                    'cost_irt': cost,
+                    'cost_usdt': cost / usdt_price,
                 }
             )
 
