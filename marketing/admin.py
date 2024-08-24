@@ -32,12 +32,13 @@ class CampaignCostAdmin(admin.ModelAdmin):
     search_fields = ('campaign__utm_source', 'campaign__utm_medium', 'campaign__utm_campaign')
     list_filter = ('campaign', )
     ordering = ('-created', )
-    actions = ('clone_for_next_day', )
+    actions = ('clone_for_next_days', )
 
-    @admin.action(description='Clone for Next Day', permissions=['view'])
-    def clone_for_next_day(self, request, queryset):
+    @admin.action(description='Clone for Next 3 Days', permissions=['view'])
+    def clone_for_next_days(self, request, queryset):
         for campaign_cost in queryset:  # type: CampaignCost
-            CampaignCost.objects.get_or_create(
-                created=campaign_cost.created + timedelta(days=1),
-                campaign=campaign_cost.campaign
-            )
+            for i in range(3):
+                CampaignCost.objects.get_or_create(
+                    created=campaign_cost.created + timedelta(days=1 + i),
+                    campaign=campaign_cost.campaign
+                )
