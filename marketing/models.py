@@ -57,7 +57,7 @@ class CampaignCost(models.Model):
     created = models.DateField()
     campaign = models.ForeignKey(CampaignInfo, on_delete=models.CASCADE)
     cost_irt = models.PositiveIntegerField(default=0)
-    cost_usdt = models.PositiveIntegerField(default=0)
+    cost_usdt = models.DecimalField(default=0, max_digits=12, decimal_places=2)
 
     class Meta:
         unique_together = ('created', 'campaign')
