@@ -31,8 +31,8 @@ CELERY_TASK_ALWAYS_EAGER = config('CELERY_ALWAYS_EAGER', default=False)
 
 KAFKA_HOST_URL = config('KAFKA_HOST_URL', default='')
 
-
-# Application definition
+BRAND_EN = config('BRAND_EN', default='')
+BRAND = config('BRAND', default='')
 
 INSTALLED_APPS = [
     'admin_interface',
@@ -67,12 +67,16 @@ INSTALLED_APPS = [
     'stake',
     'gamify',
     'health',
-    'marketing',
 
     'tinymce',
     'import_export',
     'django_quill',
 ]
+
+if BRAND_EN.lower() == 'raastin':
+    INSTALLED_APPS.extend([
+        'marketing',
+    ])
 
 
 MIDDLEWARE = [
@@ -376,9 +380,6 @@ TRADER_ACCOUNT_ID = config('TRADER_ACCOUNT_ID', cast=int, default=0)
 MARGIN_INSURANCE_ACCOUNT = config('MARGIN_INSURANCE_ACCOUNT', cast=int, default=0)
 MARGIN_POOL_ACCOUNT = config('MARGIN_POOL_ACCOUNT', cast=int, default=0)
 REVERT_HELPER_ACCOUNT = config('REVERT_HELPER_ACCOUNT', cast=int, default=0)
-
-BRAND_EN = config('BRAND_EN', default='')
-BRAND = config('BRAND', default='')
 
 OTP_TOTP_ISSUER = BRAND_EN
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000

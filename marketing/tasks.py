@@ -1,4 +1,5 @@
 import time
+from collections import defaultdict
 from datetime import timedelta, datetime
 
 import requests
@@ -42,6 +43,8 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
             'end_date': end_date,
         })
 
+        per_campaign_cost = defaultdict(int)
+
         for data in resp:
             AdsReport.objects.update_or_create(
                 created=start,
@@ -56,6 +59,10 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
                     'cost': data['cost'],
                 }
             )
+
+            per_campaign_cost[data['campaign_id']] += data['cost']
+
+
 
         resp = yektanet_requester('/campaigns-publisher-report/', params={
             'type': ad_type,
@@ -77,6 +84,8 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
                     'cost': data['cost'],
                 }
             )
+
+
 
         time.sleep(2)
 

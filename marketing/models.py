@@ -32,3 +32,25 @@ class CampaignPublisherReport(BaseReport):
 
     class Meta:
         unique_together = ('created', 'type', 'utm_campaign', 'utm_content', 'campaign_id', 'publisher_id')
+
+
+class CampaignInfo(models.Model):
+    title = models.CharField(max_length=256)
+
+    utm_source = models.CharField(max_length=256)
+    utm_medium = models.CharField(max_length=256)
+    utm_campaign = models.CharField(max_length=256)
+
+    campaign_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
+
+    def __str__(self):
+        return self.title
+
+
+class CampaignCost(models.Model):
+    created = models.DateField()
+    campaign = models.ForeignKey(CampaignInfo, on_delete=models.CASCADE)
+    cost = models.PositiveIntegerField()
+
+    class Meta:
+        unique_together = ('created', 'campaign')
