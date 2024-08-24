@@ -60,13 +60,15 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
                 }
             )
 
-            per_campaign_cost[data['campaign_id']] += data['cost']
+            per_campaign_cost[(data['campaign_id'], data['utm_campaign'])] += data['cost']
 
-        for campaign_id, cost in per_campaign_cost.items():
+        for (campaign_id, utm_campaign), cost in per_campaign_cost.items():
             campaign, _ = CampaignInfo.objects.get_or_create(
                 campaign_id=campaign_id,
                 defaults={
-                    'title': 'Yekanet Auto Generated'
+                    'title': f'Yekanet {utm_campaign} (auto)',
+                    'utm_source': 'yektanet',
+                    'utm_campaign': utm_campaign
                 }
             )
 
