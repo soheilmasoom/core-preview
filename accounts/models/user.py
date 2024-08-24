@@ -140,7 +140,7 @@ class User(AbstractUser):
     telephone_verified = models.BooleanField(null=True, blank=True, verbose_name='تاییدیه شماره تلفن')
 
     selfie_image_verified = models.BooleanField(null=True, blank=True, verbose_name='تاییدیه عکس سلفی')
-    selfie_image_verifier = models.ForeignKey(
+    verifier = models.ForeignKey(
         to='accounts.User',
         on_delete=models.SET_NULL,
         null=True,
