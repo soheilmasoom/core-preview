@@ -37,9 +37,9 @@ class CampaignPublisherReport(BaseReport):
 class CampaignInfo(models.Model):
     title = models.CharField(max_length=256)
 
-    utm_source = models.CharField(max_length=256)
-    utm_medium = models.CharField(max_length=256)
-    utm_campaign = models.CharField(max_length=256)
+    utm_source = models.CharField(max_length=256, blank=True)
+    utm_medium = models.CharField(max_length=256, blank=True)
+    utm_campaign = models.CharField(max_length=256, blank=True)
 
     campaign_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
 
@@ -54,3 +54,6 @@ class CampaignCost(models.Model):
 
     class Meta:
         unique_together = ('created', 'campaign')
+
+    def __str__(self):
+        return f'Cost {self.campaign} @ {self.created}'

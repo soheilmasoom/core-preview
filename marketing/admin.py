@@ -26,5 +26,7 @@ class CampaignInfoAdmin(admin.ModelAdmin):
 
 @admin.register(CampaignCost)
 class CampaignCostAdmin(admin.ModelAdmin):
-    list_display = ('date', 'utm_source', 'utm_medium')
-    search_fields = ('campaign_id', 'utm_source', 'utm_medium', 'utm_campaign')
+    list_display = ('created', 'campaign', 'cost')
+    search_fields = ('campaign__utm_source', 'campaign__utm_medium', 'campaign__utm_campaign')
+    list_filter = ('campaign', )
+    ordering = ('-created', )

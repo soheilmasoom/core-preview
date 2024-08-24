@@ -8,7 +8,7 @@ from decouple import config
 
 from accounting.models import PeriodicFetcher
 from ledger.exceptions import FetchError
-from marketing.models import AdsReport, CampaignPublisherReport
+from marketing.models import AdsReport, CampaignPublisherReport, CampaignCost, CampaignInfo
 
 
 def yektanet_requester(path: str, params: dict):
@@ -62,7 +62,21 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
 
             per_campaign_cost[data['campaign_id']] += data['cost']
 
+        for campaign_id, cost in per_campaign_cost.items():
+            campaign, _ = CampaignInfo.objects.get_or_create(
+                campaign_id=campaign_id,
+                defaults={
+                    'title': 'Yekanet Auto Generated'
+                }
+            )
 
+            CampaignCost.objects.update_or_create(
+                campaign_id=campaign,
+                created=start_date,
+                defaults={
+                    'cost': cost
+                }
+            )
 
         resp = yektanet_requester('/campaigns-publisher-report/', params={
             'type': ad_type,
