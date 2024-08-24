@@ -20,8 +20,9 @@ class CampaignPublisherReportAdmin(admin.ModelAdmin):
 
 @admin.register(CampaignInfo)
 class CampaignInfoAdmin(admin.ModelAdmin):
-    list_display = ('campaign_id', 'utm_source', 'utm_medium')
-    search_fields = ('campaign_id', 'utm_source', 'utm_medium')
+    list_display = ('title', 'utm_source', 'utm_medium', 'utm_campaign', 'campaign_id')
+    search_fields = ('title', 'campaign_id', 'utm_source', 'utm_medium', 'utm_campaign')
+    list_filter = ('utm_source', 'utm_medium', 'utm_campaign')
 
 
 @admin.register(CampaignCost)
