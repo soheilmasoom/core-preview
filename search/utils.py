@@ -1,6 +1,7 @@
 from django.contrib.postgres.search import SearchVector
 from django.db.models import Q
 
+from accounts.models import SystemConfig
 from ledger.models import Asset
 from ledger.models.asset import AssetSerializerMini
 from market.models import PairSymbol
@@ -40,7 +41,9 @@ def search_market(queries):
         else:
             break
 
-    serialized_data = SymbolBriefStatsSerializer(queryset[:3], many=True).data
+    serialized_data = SymbolBriefStatsSerializer(queryset[:3], many=True, context={
+        'system_config': SystemConfig.get_system_config()
+    }).data
     return serialized_data
 
 
