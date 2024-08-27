@@ -5,6 +5,7 @@ from celery import shared_task
 from django.db.models import Sum, F
 
 from accounting.models import PeriodicFetcher, BlocklinkIncome, BlocklinkDustCost
+from ledger.exceptions import FetchError
 from ledger.models import Transfer, Asset
 from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.precision import is_zero_by_precision
@@ -30,6 +31,8 @@ def blocklink_income_fetcher(start: datetime, end: datetime):
     requester = get_blocklink_requester()
 
     resp = requester.get_income(start=start, end=end)
+    if not resp.ok:
+        raise FetchError
 
     for key, value in resp.data.items():
         total = 0
