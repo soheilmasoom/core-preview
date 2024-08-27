@@ -46,7 +46,8 @@ class MissionTemplateAdmin(admin.ModelAdmin):
 
     @admin.action(description='Clone', permissions=['change'])
     def clone_mission(self, request, queryset):
-        for mission in queryset:
+        for mission in queryset:  # type: models.MissionTemplate
+            mission.active = False
             clone_mission_template(mission)
 
 
