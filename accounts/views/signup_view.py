@@ -11,6 +11,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from accounts.authentication import CustomJWTAuthentication, WidgetAccessToken, WidgetJWTAuthentication
 
 from accounts.models import User, Company, TrafficSource, Referral
 from accounts.models.phone_verification import VerificationCode
@@ -21,12 +22,14 @@ from accounts.validators import mobile_number_validator, national_card_code_vali
 from analytics.utils.yandex import send_yandex_event
 from gamify.models import MissionJourney
 from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
 
 class InitiateSignupSerializer(serializers.Serializer):
+    source = serializers.CharField(required=False, write_only=True)
     phone = serializers.CharField(required=True, validators=[mobile_number_validator], trim_whitespace=True)
 
 
@@ -48,10 +51,58 @@ class InitiateSignupView(APIView):
         serializer.is_valid(raise_exception=True)
 
         phone = serializer.validated_data['phone']
-
-        VerificationCode.send_otp_code(phone, VerificationCode.SCOPE_VERIFY_PHONE)
+        scope = VerificationCode.SCOPE_VERIFY_PHONE_WIDGET if serializer.validated_data.get('source') == 'widget' else VerificationCode.SCOPE_VERIFY_PHONE
+        VerificationCode.send_otp_code(phone, scope)
 
         return Response({'msg': 'otp sent', 'code': 0})
+
+
+class WidgetSignupSerializer(serializers.Serializer):
+    token = serializers.UUIDField(write_only=True, required=True)
+    utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
+    national_code = serializers.CharField(allow_null=True, allow_blank=True, write_only=True, required=False,
+                                                validators=[national_card_code_validator])
+
+    def create(self, validated_data):
+        token = validated_data.pop('token')
+        otp_code = VerificationCode.get_by_token(token, VerificationCode.SCOPE_VERIFY_PHONE_WIDGET)
+        if not otp_code:
+            raise ValidationError({'token': 'توکن نامعتبر است.'})
+        phone = otp_code.phone
+        user_status = User.get_user_verification_status(phone)
+        if not validated_data.get('national_code') and user_status == User.NEW_USER:
+            raise ValidationError({'national_code': 'وارد کردن کد ملی الزامی است.'})
+
+        if user_status in (User.UNVERIFIED_USER, User.VERIFIED_USER):
+            if User.objects.filter(phone=phone).exists():
+                return User.objects.get(phone=phone)
+
+        elif user_status == User.NEW_USER:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=phone,
+                    phone=phone,
+                )
+
+                if validated_data.get('national_code'):
+                    user.national_code = validated_data.get('national_code')
+
+                if config('SHOW_NINJA_TO_ALL', cast=bool, default=False):
+                    user.show_community = True
+
+                user.set_password(None)
+                user.save()
+
+                # otp_code.set_token_used()
+
+            utm = validated_data.get('utm') or {}
+
+            self.create_traffic_source(user, utm)
+            self.set_missions_to_user(user)
+
+            send_yandex_event(user, 'sign_up', {'id': user.id})
+
+            return user
 
 
 class SignupSerializer(serializers.Serializer):
@@ -241,3 +292,42 @@ class SignupView(CreateAPIView):
         if hasattr(self, 'token'):
             return Response(self.token, status=201)
         return response
+
+class WidgetSignupView(CreateAPIView):
+    authentication_classes = ()
+    permission_classes = ()
+    throttle_classes = [BurstRateThrottle, ]
+    serializer_class = WidgetSignupSerializer
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        # access_token = AccessToken.for_user(user)
+        access_token = WidgetAccessToken.for_user(user)
+        access_token.set_exp(lifetime=timedelta(minutes=30))
+        self.token = {
+            'access': str(access_token),
+        }
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if hasattr(self, 'token'):
+            return Response(self.token, status=201)
+        return response
+
+
+class WidgetSignupView2(APIView):
+    # authentication_classes = ()
+    authentication_classes = (CustomJWTAuthentication,)
+    permission_classes = ()
+
+    # throttle_classes = [BurstRateThrottle, ]
+
+    def get(self, request):
+        user = User.objects.get(id=1)
+        access_token = WidgetAccessToken.for_user(user)
+        access_token.set_exp(lifetime=timedelta(minutes=30))
+        self.token = {
+            'access': str(access_token),
+        }
+        # print("doti", self.token)
+        return Response(self.token)

@@ -3,6 +3,7 @@ import logging
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404, CreateAPIView
+from accounts.authentication import WidgetJWTAuthentication
 from ledger.models.fast_buy_token import FastBuyToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -79,6 +80,6 @@ class FastBuyWidgetSerializer(serializers.ModelSerializer):
         read_only_fields = ('callback', )
 
 class FastBuyWidgetView(CreateAPIView):
-    authentication_classes = (JWTAuthentication,)
+    authentication_classes = (WidgetJWTAuthentication,)
     serializer_class = FastBuyWidgetSerializer
     queryset = FastBuyToken.objects.all()

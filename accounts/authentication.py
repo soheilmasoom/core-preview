@@ -10,6 +10,11 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from accounts.models import CustomToken, SystemConfig
 from accounts.utils.ip import get_client_ip
 
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.tokens import AccessToken
+
 logger = logging.getLogger(__name__)
 
 
@@ -95,6 +100,64 @@ class TradeTokenAuthentication(CustomTokenAuthentication):
 
         return user, token
 
+
+class CustomJWTAuthentication(JWTAuthentication):
+    def get_validated_token(self, raw_token):
+        validated_token = super().get_validated_token(raw_token)
+
+        # if 'type' not in validated_token:
+        #     raise InvalidToken("Token missing 'type' field")
+        print("myraw-token", raw_token)
+        if validated_token.get('type') == 'widget':
+            raise InvalidToken("Token does not have the privilege for this request.")
+
+        return validated_token
+
+    def authenticate(self, request):
+        """
+        Override the `authenticate` method if you need additional custom behavior.
+        """
+
+        try:
+            raw_token = self.get_raw_token(self.get_header(request))
+        except:
+            raise InvalidToken("Token missed.")
+
+        if raw_token is None:
+            return None
+
+        validated_token = self.get_validated_token(raw_token)
+
+        # You can modify the payload or add extra checks here if necessary
+        return self.get_user(validated_token), validated_token
+
+class WidgetJWTAuthentication(CustomJWTAuthentication):
+    def get_validated_token(self, raw_token):
+        validated_token = JWTAuthentication().get_validated_token(raw_token)
+
+        return validated_token
+
+    def authenticate(self, request):
+        raw_token = self.get_raw_token(self.get_header(request))
+        if raw_token is None:
+            return None
+
+        validated_token = self.get_validated_token(raw_token)
+
+        if 'type' not in validated_token:
+            raise InvalidToken("Token missing 'type' field")
+
+        if validated_token.get('type') != 'widget':
+            msg = _('Token type must be "widget"')
+            raise exceptions.AuthenticationFailed(msg)
+
+        return self.get_user(validated_token), validated_token
+
+
+class WidgetAccessToken(AccessToken):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self['type'] = 'widget'
 
 def is_app(request):
     return isinstance(request.successful_authenticator, JWTAuthentication)

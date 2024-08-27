@@ -24,6 +24,7 @@ urlpatterns = [
     path('company/docs/', views.RegisterDocuments.as_view()),
 
     path('signup/init/', views.InitiateSignupView.as_view()),
+    path('signup/widget/', views.WidgetSignupView.as_view()),
     path('signup/', views.SignupView.as_view()),
 
     path('otp/verify/', views.VerifyOTPView.as_view()),
@@ -31,6 +32,7 @@ urlpatterns = [
 
     path('stats/', views.UserStatisticsView.as_view()),
     path('user/', views.UserDetailView.as_view()),
+    path('widget/user/', views.UserWidgetView.as_view()),
 
     path('forget/init/', views.InitiateForgetPasswordView.as_view()),
     path('forget/', views.ForgetPasswordView.as_view()),
