@@ -732,7 +732,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='رد واریز', permissions=['change'])
     def reject_deposit(self, request, queryset):
-        for transfer in queryset.filter(deposit=False, status=INIT):
+        for transfer in queryset.filter(deposit=False, status__in=[INIT, PENDING]):
             transfer.reject()
 
     @admin.action(description='Revert Deposit', permissions=['change'])
