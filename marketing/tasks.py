@@ -105,8 +105,6 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
                 }
             )
 
-
-
         time.sleep(2)
 
 
