@@ -103,6 +103,7 @@ class SignupWidgetView(CreateAPIView):
     serializer_class = WidgetSignupSerializer
 
     def create(self, request, *args, **kwargs):
+        print("SignupWidgetView")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
