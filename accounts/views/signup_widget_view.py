@@ -40,14 +40,17 @@ class InitiateSignupWidgetView(InitiateSignupView):
 
 
 class WidgetSignupSerializer(serializers.Serializer):
-    token = serializers.UUIDField(write_only=True, required=True)
+    token = serializers.CharField(write_only=True, required=True)
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
     national_code = serializers.CharField(allow_null=True, allow_blank=True, write_only=True, required=False,
                                                 validators=[national_card_code_validator])
 
     def create(self, validated_data):
         token = validated_data.pop('token')
+        print("what-token", token)
         otp_code = VerificationCode.get_by_token(token, VerificationCode.SCOPE_VERIFY_PHONE_WIDGET)
+        print("what-token", otp_code)
+
         if not otp_code:
             raise ValidationError({'token': 'توکن نامعتبر است.'})
         phone = otp_code.phone
