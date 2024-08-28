@@ -76,7 +76,7 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
             )
 
             CampaignCost.objects.update_or_create(
-                campaign_id=campaign,
+                campaign=campaign,
                 created=start_date,
                 defaults={
                     'cost_irt': cost,
