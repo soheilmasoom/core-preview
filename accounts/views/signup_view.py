@@ -58,7 +58,6 @@ class InitiateSignupView(APIView):
 
 
 class SignupSerializer(serializers.Serializer):
-    id = serializers.CharField(read_only=True)
     token = serializers.UUIDField(write_only=True, required=True)
     password = serializers.CharField(required=True, write_only=True, validators=[password_validator])
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)

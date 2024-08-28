@@ -36,7 +36,7 @@ class NovinpalGateway(Gateway):
                 'amount': rial_amount,
                 'return_url': callback_url,
                 'order_id': order_id,
-        },
+        }
 
         if bank_card:
             payload['card_number'] = bank_card.card_pan
