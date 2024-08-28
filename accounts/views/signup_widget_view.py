@@ -24,7 +24,7 @@ from gamify.models import MissionJourney
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from datetime import timedelta
-from signup_view import SignupSerializer, InitiateSignupView
+from .signup_view import SignupSerializer, InitiateSignupView
 from ledger.widget.widget import Widget
 
 logger = logging.getLogger(__name__)
