@@ -633,7 +633,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     exclude = ('risks',)
 
     actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit', 'refund_deposit',
-               'terminate_withdraw')
+               'terminate_withdraw', 'accept_canceled_deposits')
 
     list_permission_exclude_filters = ('id', 'user')
 
@@ -725,7 +725,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         )
 
         with transaction.atomic():
-            queryset.update(accepted_datetime=timezone.now())
+            queryset.update(accepted_datetime=timezone.now(), accepted_by=request.user)
 
             for transfer in queryset:
                 transfer.accept()
@@ -739,6 +739,21 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     def refund_deposit(self, request, queryset):
         for transfer in queryset.filter(deposit=True, status=DONE):
             transfer.revert()
+
+    @admin.action(description='Accept Canceled Deposits', permissions=['change'])
+    def accept_canceled_deposits(self, request, queryset):
+        queryset = queryset.filter(
+            status=CANCELED,
+            deposit=True,
+        )
+
+        with transaction.atomic():
+            for transfer in queryset:
+                transfer.status = INIT
+                transfer.accepted_datetime = timezone.now()
+                transfer.accepted_by = request.user
+                transfer.save(update_fields=['status', 'accepted_datetime', 'accepted_by'])
+                transfer.accept()
 
     @admin.action(description='Terminate Withdraw', permissions=['change'])
     def terminate_withdraw(self, request, queryset):

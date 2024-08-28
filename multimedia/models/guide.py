@@ -11,6 +11,10 @@ class GuideGroup(models.Model):
     def __str__(self):
         return self.slug
 
+    class Meta:
+        verbose_name = 'دسته راهنما'
+        verbose_name_plural = 'دسته راهنما‌ها'
+
 
 class Guide(models.Model):
     history = HistoricalRecords()
@@ -26,6 +30,8 @@ class Guide(models.Model):
 
     class Meta:
         ordering = ('order', 'id')
+        verbose_name = 'راهنما'
+        verbose_name_plural = 'راهنما‌ها'
 
     def __str__(self):
         return self.title
