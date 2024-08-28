@@ -8,6 +8,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from accounts.authentication import CustomJWTAuthentication
 
 from ledger.models import Wallet, MarginPosition
 from ledger.models.asset import Asset
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class WalletsOverviewAPIView(APIView):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     permission_classes = (IsAuthenticated,)
 
     @staticmethod

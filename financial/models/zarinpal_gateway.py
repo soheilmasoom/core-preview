@@ -25,6 +25,8 @@ class ZarinpalGateway(Gateway):
 
         if bank_card:
             payload['metadata'] = {"card_pan":  bank_card.card_pan}
+        else:
+            raise NotImplementedError
 
         resp = requests.post(
             self.BASE_URL + '/pg/v4/payment/request.json',

@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.authentication import CustomTokenAuthentication
+from accounts.authentication import CustomJWTAuthentication, CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from ledger.models.wallet import ReserveWallet
 from market.models import Trade, PairSymbol, Order
@@ -27,7 +27,7 @@ class AccountTradeFilter(django_filters.FilterSet):
 
 
 class AccountTradeHistoryView(ListAPIView):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     pagination_class = LimitOffsetPagination
     serializer_class = AccountTradeSerializer
 

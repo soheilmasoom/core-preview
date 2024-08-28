@@ -1,12 +1,11 @@
-from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 
-from accounts.models import User
 from accounts.throttle import SustainedRateThrottle, BurstRateThrottle
 from accounts.models.phone_verification import VerificationCode
-from django.conf import settings
 from rest_framework.response import Response
+
+from ledger.widget.widget import Widget
 
 
 class UserWidgetView(APIView):
@@ -21,6 +20,6 @@ class UserWidgetView(APIView):
         if not otp_code:
             raise ValidationError({'token': 'توکن نامعتبر است.'})
 
-        status = User.get_user_verification_status(otp_code.phone)
+        status = Widget.get_user_verification_status(otp_code.phone)
         return Response({"status": status})
 

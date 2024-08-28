@@ -32,7 +32,7 @@ class FastBuyWidgetSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs['amount'] < FastBuyToken.MIN_ADMISSIBLE_VALUE:
-            raise ValidationError('حداقل مقدار سفارش 300 هزار تومان است.')
+            raise ValidationError('حداقل مقدار سفارش 50 هزار تومان است.')
         return attrs
 
     def create(self, validated_data):
@@ -64,9 +64,9 @@ class FastBuyWidgetSerializer(serializers.ModelSerializer):
                     'حداکثر مقدار قابل خرید این رمزارز {} {} است.'.format(max_amount, asset.symbol)
                 )
 
-        validated_data['has_card_pan'] = False
+        validated_data['is_bank_card_required'] = False
         validated_data['payment_request'] = payment_request_serializer.create(validated_data)
-        validated_data.pop('has_card_pan')
+        validated_data.pop('is_bank_card_required')
         validated_data['price'] = get_price(
             asset.symbol + Asset.USDT,
             side=SELL

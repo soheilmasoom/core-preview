@@ -61,6 +61,8 @@ class JibitGateway(Gateway):
 
         if bank_card:
             payload['payerCardNumber'] = bank_card.card_pan
+        else:
+            raise NotImplementedError
 
         resp = requests.post(
             self.BASE_URL + '/v3/purchases',

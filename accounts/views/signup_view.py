@@ -11,7 +11,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from accounts.authentication import CustomJWTAuthentication, WidgetAccessToken, WidgetJWTAuthentication
+from accounts.authentication import CustomJWTAuthentication, WidgetAccessToken
 
 from accounts.models import User, Company, TrafficSource, Referral
 from accounts.models.phone_verification import VerificationCode
@@ -25,17 +25,24 @@ from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from datetime import timedelta
 
+from ledger.widget.widget import Widget
+
 logger = logging.getLogger(__name__)
 
 
-class InitiateSignupSerializer(serializers.Serializer):
+class InitiateSignupWidgetSerializer(serializers.Serializer):
     source = serializers.CharField(required=False, write_only=True)
+    phone = serializers.CharField(required=True, validators=[mobile_number_validator], trim_whitespace=True)
+
+
+class InitiateSignupSerializer(serializers.Serializer):
     phone = serializers.CharField(required=True, validators=[mobile_number_validator], trim_whitespace=True)
 
 
 class InitiateSignupView(APIView):
     permission_classes = []
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
+    scope = VerificationCode.SCOPE_VERIFY_PHONE
 
     def post(self, request):
         if settings.DEBUG_OR_TESTING_OR_STAGING:
@@ -51,10 +58,13 @@ class InitiateSignupView(APIView):
         serializer.is_valid(raise_exception=True)
 
         phone = serializer.validated_data['phone']
-        scope = VerificationCode.SCOPE_VERIFY_PHONE_WIDGET if serializer.validated_data.get('source') == 'widget' else VerificationCode.SCOPE_VERIFY_PHONE
-        VerificationCode.send_otp_code(phone, scope)
-
+        VerificationCode.send_otp_code(phone, self.scope)
+        print("what", self.scope)
         return Response({'msg': 'otp sent', 'code': 0})
+
+
+class InitiateSignupWidgetView(InitiateSignupView):
+    scope = VerificationCode.SCOPE_VERIFY_PHONE_WIDGET
 
 
 class WidgetSignupSerializer(serializers.Serializer):
@@ -69,38 +79,45 @@ class WidgetSignupSerializer(serializers.Serializer):
         if not otp_code:
             raise ValidationError({'token': 'توکن نامعتبر است.'})
         phone = otp_code.phone
-        user_status = User.get_user_verification_status(phone)
-        if not validated_data.get('national_code') and user_status == User.NEW_USER:
+        user_status = Widget.get_user_verification_status(phone)
+        if not validated_data.get('national_code') and user_status == Widget.NEW_USER:
             raise ValidationError({'national_code': 'وارد کردن کد ملی الزامی است.'})
 
-        if user_status in (User.UNVERIFIED_USER, User.VERIFIED_USER):
+        if user_status == Widget.VERIFIED_USER:
             if User.objects.filter(phone=phone).exists():
                 return User.objects.get(phone=phone)
+            else:
+                raise ValidationError({'user': 'کاربر پیدا نشد.'})
 
-        elif user_status == User.NEW_USER:
+        elif user_status == Widget.UNVERIFIED_USER:
+            if validated_data.get('national_code'):
+                if User.objects.filter(phone=phone).exists():
+                    user = User.objects.get(phone=phone)
+                    user.national_code = validated_data.get('national_code')
+                    user.save(update_fields=['national_code'])
+                    return user
+                else:
+                    raise ValidationError({'user': 'کاربر پیدا نشد.'})
+            else:
+                raise ValidationError({'national_code': 'وارد کردن کد ملی الزامی است.'})
+
+        elif user_status == Widget.NEW_USER:
             with transaction.atomic():
                 user = User.objects.create_user(
                     username=phone,
                     phone=phone,
                 )
-
                 if validated_data.get('national_code'):
                     user.national_code = validated_data.get('national_code')
-
                 if config('SHOW_NINJA_TO_ALL', cast=bool, default=False):
                     user.show_community = True
 
                 user.set_password(None)
                 user.save()
 
-                # otp_code.set_token_used()
-
-            utm = validated_data.get('utm') or {}
-
-            self.create_traffic_source(user, utm)
-            self.set_missions_to_user(user)
-
-            send_yandex_event(user, 'sign_up', {'id': user.id})
+            signup_serializer = SignupSerializer()
+            signup_serializer.create_traffic_source(user, validated_data.get('utm') or {})
+            signup_serializer.set_missions_to_user(user)
 
             return user
 
@@ -108,13 +125,11 @@ class WidgetSignupSerializer(serializers.Serializer):
 class SignupSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     token = serializers.UUIDField(write_only=True, required=True)
-    password = serializers.CharField(required=False, write_only=True, validators=[password_validator])
+    password = serializers.CharField(required=True, write_only=True, validators=[password_validator])
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
     referral_code = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     promotion = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     source = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
-    national_code = serializers.CharField(allow_null=True, allow_blank=True, write_only=True, required=False,
-                                                validators=[national_card_code_validator])
     company_national_id = serializers.CharField(allow_null=True, allow_blank=True, write_only=True,
                                                 required=False, validators=[company_national_id_validator])
 
@@ -127,28 +142,22 @@ class SignupSerializer(serializers.Serializer):
     def create(self, validated_data):
         token = validated_data.pop('token')
         otp_code = VerificationCode.get_by_token(token, VerificationCode.SCOPE_VERIFY_PHONE)
+        password = validated_data.pop('password')
+        company_national_id = validated_data.get('company_national_id') or None
+
         if not otp_code:
             raise ValidationError({'token': 'توکن نامعتبر است.'})
-        phone = otp_code.phone
 
+        if (User.objects.filter(phone=otp_code.phone).exists() or
+                (company_national_id and Company.objects.filter(national_id=company_national_id).exists())):
+            raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید. لطفا از قسمت ورود، وارد شوید.'})
+
+        validate_password(password=password)
+
+        phone = otp_code.phone
         promotion = validated_data.get('promotion')
         if promotion not in User.PROMOTIONS:
             promotion = MissionJourney.get_default_promotion() or ''
-
-        company_national_id = validated_data.get('company_national_id') or None
-
-        password = None
-        if validated_data.get('source') == 'widget':
-            if not validated_data.get('national_code'):
-                raise ValidationError({'national_code': 'وارد کردن کد ملی الزامی است.'})
-            if User.objects.filter(phone=otp_code.phone).exists():
-                return User.objects.get(phone=otp_code.phone)
-        else:
-            password = validated_data.pop('password')
-            if (User.objects.filter(phone=otp_code.phone).exists() or
-                    (company_national_id and Company.objects.filter(national_id=company_national_id).exists())):
-                raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید. لطفا از قسمت ورود، وارد شوید.'})
-            validate_password(password=password)
 
         with transaction.atomic():
 
@@ -160,9 +169,6 @@ class SignupSerializer(serializers.Serializer):
 
             if company_national_id:
                 Company.objects.create(national_id=company_national_id, user=user)
-
-            if validated_data.get('national_code'):
-                user.national_code = validated_data.get('national_code')
 
             if config('SHOW_NINJA_TO_ALL', cast=bool, default=False):
                 user.show_community = True
@@ -190,79 +196,6 @@ class SignupSerializer(serializers.Serializer):
 
         return user
 
-    def create_traffic_source(self, user, utm: dict):
-        def clean_data(d) -> str:
-            if not d:
-                d = ''
-
-            if isinstance(d, list):
-                d = d[0]
-
-            return d[:256]
-
-        utm_source = clean_data(utm.get('utm_source'))
-
-        if not utm_source:
-            return
-
-        utm_medium = clean_data(utm.get('utm_medium'))
-        utm_campaign = clean_data(utm.get('utm_campaign'))
-        utm_content = clean_data(utm.get('utm_content'))
-        utm_term = clean_data(utm.get('utm_term'))
-        gps_adid = clean_data(utm.get('gps_adid'))
-        profile_id = clean_data(utm.get('profile_id'))
-
-        if utm_source == 'pwa_app':
-            if utm_term.startswith('gclid'):
-                utm_medium = 'google_ads'
-            elif 'google-play' in utm_term and 'organic' in utm_term:
-                utm_medium = 'organic'
-                utm_content = 'google_play'
-            elif not profile_id:
-                utm_medium = 'organic'
-            else:
-                from accounts.models import Attribution
-
-                attribution = Attribution.objects.filter(profile_id=profile_id).order_by('created').last()
-
-                if not attribution:
-                    utm_medium = 'organic'
-                else:
-                    utm_medium = attribution.utm_medium
-                    utm_campaign = attribution.utm_campaign
-                    utm_content = attribution.utm_content
-
-        TrafficSource.objects.create(
-            user=user,
-            utm_source=utm_source,
-            utm_medium=utm_medium,
-            utm_campaign=utm_campaign,
-            utm_content=utm_content,
-            utm_term=utm_term,
-            gps_adid=gps_adid,
-            yandex_profile_id=profile_id,
-            ip=get_client_ip(self.context['request']),
-            user_agent=self.context['request'].META.get('HTTP_USER_AGENT', '')[:256],
-        )
-
-    def set_missions_to_user(self, user):
-        from gamify.models import MissionJourney, MissionTemplate, UserMission
-
-        try:
-            account = user.get_account()
-            journey = MissionJourney.get_journey(account)
-
-            missions = []
-            for mission_template in MissionTemplate.objects.filter(journey=journey, active=True):
-                missions.append(UserMission(user=user, mission=mission_template))
-
-            if missions:
-                UserMission.objects.bulk_create(missions)
-
-        except Exception as e:
-            logger.warning(f'Failed to set missions to user={user.id} due to={str(e)}')
-
-
 class SignupView(CreateAPIView):
     permission_classes = []
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
@@ -270,64 +203,30 @@ class SignupView(CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        if self.request.data.get('source') != 'widget':
-            login(self.request, user)
-            try:
-                set_login_activity(
-                    request=self.request,
-                    user=user,
-                    is_sign_up=True,
-                )
-            except ValueError:
-                logger.exception('Error in setting login activity for signup')
-        else:
-            access_token = AccessToken.for_user(user)
-            access_token.set_exp(lifetime=timedelta(minutes=30))
-            self.token = {
-                'access': str(access_token),
-            }
+        login(self.request, user)
+        try:
+            set_login_activity(
+                request=self.request,
+                user=user,
+                is_sign_up=True,
+            )
+        except ValueError:
+            logger.exception('Error in setting login activity for signup')
 
-    def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
-        if hasattr(self, 'token'):
-            return Response(self.token, status=201)
-        return response
 
-class WidgetSignupView(CreateAPIView):
+class SignupWidgetView(CreateAPIView):
     authentication_classes = ()
     permission_classes = ()
     throttle_classes = [BurstRateThrottle, ]
     serializer_class = WidgetSignupSerializer
 
-    def perform_create(self, serializer):
-        user = serializer.save()
-        # access_token = AccessToken.for_user(user)
-        access_token = WidgetAccessToken.for_user(user)
-        access_token.set_exp(lifetime=timedelta(minutes=30))
-        self.token = {
-            'access': str(access_token),
-        }
-
     def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
-        if hasattr(self, 'token'):
-            return Response(self.token, status=201)
-        return response
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
 
-
-class WidgetSignupView2(APIView):
-    # authentication_classes = ()
-    authentication_classes = (CustomJWTAuthentication,)
-    permission_classes = ()
-
-    # throttle_classes = [BurstRateThrottle, ]
-
-    def get(self, request):
-        user = User.objects.get(id=1)
         access_token = WidgetAccessToken.for_user(user)
         access_token.set_exp(lifetime=timedelta(minutes=30))
-        self.token = {
-            'access': str(access_token),
-        }
-        # print("doti", self.token)
-        return Response(self.token)
+        token = {'access': str(access_token)}
+
+        return Response(token, status=201)

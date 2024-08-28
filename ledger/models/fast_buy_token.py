@@ -68,7 +68,11 @@ class FastBuyToken(models.Model):
                     message='خرید {} {} با موفقیت انجام شد.'.format(humanize_number(otc_request.amount), self.asset.name_fa),
                     level=Notification.SUCCESS
                 )
+                user = self.payment_request.user
+                user.national_code_verified = True
+                user.save(update_fields=['national_code_verified'])
                 return otc_trade
+
             except Exception as exp:
                 logger.exception('Error in create otc_trade for fast_buy', extra={
                     'exp': exp

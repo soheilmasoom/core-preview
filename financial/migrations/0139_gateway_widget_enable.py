@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name='gateway',
-            name='widget_enable',
+            name='is_for_widget',
             field=models.BooleanField(default=False),
         ),
     ]

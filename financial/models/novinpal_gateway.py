@@ -40,6 +40,8 @@ class NovinpalGateway(Gateway):
 
         if bank_card:
             payload['card_number'] = bank_card.card_pan
+        else:
+            raise NotImplementedError
 
         resp = requests.post(
             self.BASE_URL + '/invoice/request',

@@ -105,19 +105,12 @@ class CustomJWTAuthentication(JWTAuthentication):
     def get_validated_token(self, raw_token):
         validated_token = super().get_validated_token(raw_token)
 
-        # if 'type' not in validated_token:
-        #     raise InvalidToken("Token missing 'type' field")
-        print("myraw-token", raw_token)
         if validated_token.get('type') == 'widget':
             raise InvalidToken("Token does not have the privilege for this request.")
 
         return validated_token
 
     def authenticate(self, request):
-        """
-        Override the `authenticate` method if you need additional custom behavior.
-        """
-
         try:
             raw_token = self.get_raw_token(self.get_header(request))
         except:
@@ -128,8 +121,8 @@ class CustomJWTAuthentication(JWTAuthentication):
 
         validated_token = self.get_validated_token(raw_token)
 
-        # You can modify the payload or add extra checks here if necessary
         return self.get_user(validated_token), validated_token
+
 
 class WidgetJWTAuthentication(CustomJWTAuthentication):
     def get_validated_token(self, raw_token):
@@ -159,5 +152,6 @@ class WidgetAccessToken(AccessToken):
         super().__init__(*args, **kwargs)
         self['type'] = 'widget'
 
+
 def is_app(request):
-    return isinstance(request.successful_authenticator, JWTAuthentication)
+    return isinstance(request.successful_authenticator, CustomJWTAuthentication)

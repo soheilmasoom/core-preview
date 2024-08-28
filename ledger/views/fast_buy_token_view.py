@@ -5,6 +5,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from accounts.authentication import CustomJWTAuthentication
 
 from financial.models import BankCard
 from financial.views.payment_view import PaymentRequestSerializer
@@ -77,6 +78,6 @@ class FastBuyTokenSerializer(serializers.ModelSerializer):
 
 
 class FastBuyTokenAPI(CreateAPIView):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     serializer_class = FastBuyTokenSerializer
     queryset = FastBuyToken.objects.all()

@@ -40,7 +40,7 @@ class Gateway(models.Model):
 
     ipg_deposit_enable = models.BooleanField(default=True)
     pay_id_deposit_enable = models.BooleanField(default=False)
-    widget_enable = models.BooleanField(default=False)
+    is_for_widget = models.BooleanField(default=False)
     withdraw_enable = models.BooleanField(default=False)
 
     min_deposit_amount = models.PositiveIntegerField(default=10000)
@@ -131,22 +131,22 @@ class Gateway(models.Model):
         return fee
 
     @classmethod
-    def _find_best_deposit_gateway(cls, user: User, amount: Decimal = 0, widget_enable = False) -> 'Gateway':
+    def _find_best_deposit_gateway(cls, user: User, amount: Decimal = 0, is_for_widget = False) -> 'Gateway':
         if user.is_staff:
             gateway = Gateway.objects.filter(active_for_staff=True, ipg_deposit_enable=True).order_by('id').first()
 
             if gateway:
                 return gateway
-        if widget_enable:
-            gateways = Gateway.objects.filter(active=True, ipg_deposit_enable=True, widget_enable=True).order_by('-deposit_priority')
+        if is_for_widget:
+            gateways = Gateway.objects.filter(active=True, ipg_deposit_enable=True, is_for_widget=True).order_by('-deposit_priority')
         else:
             gateways = Gateway.objects.filter(active=True, ipg_deposit_enable=True).order_by('-deposit_priority')
 
         return gateways.first()
 
     @classmethod
-    def get_active_deposit(cls, user: User, amount: Decimal = 0, widget_enable = False) -> 'Gateway':
-        gateway = cls._find_best_deposit_gateway(user, amount, widget_enable)
+    def get_active_deposit(cls, user: User, amount: Decimal = 0, is_for_widget = False) -> 'Gateway':
+        gateway = cls._find_best_deposit_gateway(user, amount, is_for_widget)
 
         if gateway:
             return gateway.get_concrete_gateway()

@@ -47,8 +47,6 @@ class User(AbstractUser):
     LEVEL3 = 3
     LEVEL4 = 4
 
-    NEW_USER, VERIFIED_USER, UNVERIFIED_USER = 'n', 'v', 'u'
-
     INIT, PENDING, REJECTED, VERIFIED = 'init', 'pending', 'rejected', 'verified'
 
     PROMOTIONS = SHIB, VOUCHER, PEPE, NOT = 'true', 'voucher', 'pepe', 'notcoin'
@@ -484,15 +482,7 @@ class User(AbstractUser):
                 card.verified = None
                 card.save(update_fields=['verified'])
 
-    @classmethod
-    def get_user_verification_status(cls, phone):
-        user = User.objects.filter(phone=phone).first()
-        if user.national_code and user.national_code_verified and user.birth_date_verified:
-            return User.VERIFIED_USER
-        elif user.national_code and not user.national_code_verified:
-            return User.UNVERIFIED_USER
-        elif not user.national_code:
-            return User.NEW_USER
+
 
 
 @receiver(post_save, sender=User)
