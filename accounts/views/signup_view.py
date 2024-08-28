@@ -30,11 +30,6 @@ from ledger.widget.widget import Widget
 logger = logging.getLogger(__name__)
 
 
-class InitiateSignupWidgetSerializer(serializers.Serializer):
-    source = serializers.CharField(required=False, write_only=True)
-    phone = serializers.CharField(required=True, validators=[mobile_number_validator], trim_whitespace=True)
-
-
 class InitiateSignupSerializer(serializers.Serializer):
     phone = serializers.CharField(required=True, validators=[mobile_number_validator], trim_whitespace=True)
 
@@ -61,65 +56,6 @@ class InitiateSignupView(APIView):
         VerificationCode.send_otp_code(phone, self.scope)
         print("what", self.scope)
         return Response({'msg': 'otp sent', 'code': 0})
-
-
-class InitiateSignupWidgetView(InitiateSignupView):
-    scope = VerificationCode.SCOPE_VERIFY_PHONE_WIDGET
-
-
-class WidgetSignupSerializer(serializers.Serializer):
-    token = serializers.UUIDField(write_only=True, required=True)
-    utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
-    national_code = serializers.CharField(allow_null=True, allow_blank=True, write_only=True, required=False,
-                                                validators=[national_card_code_validator])
-
-    def create(self, validated_data):
-        token = validated_data.pop('token')
-        otp_code = VerificationCode.get_by_token(token, VerificationCode.SCOPE_VERIFY_PHONE_WIDGET)
-        if not otp_code:
-            raise ValidationError({'token': 'توکن نامعتبر است.'})
-        phone = otp_code.phone
-        user_status = Widget.get_user_verification_status(phone)
-        if not validated_data.get('national_code') and user_status == Widget.NEW_USER:
-            raise ValidationError({'national_code': 'وارد کردن کد ملی الزامی است.'})
-
-        if user_status == Widget.VERIFIED_USER:
-            if User.objects.filter(phone=phone).exists():
-                return User.objects.get(phone=phone)
-            else:
-                raise ValidationError({'user': 'کاربر پیدا نشد.'})
-
-        elif user_status == Widget.UNVERIFIED_USER:
-            if validated_data.get('national_code'):
-                if User.objects.filter(phone=phone).exists():
-                    user = User.objects.get(phone=phone)
-                    user.national_code = validated_data.get('national_code')
-                    user.save(update_fields=['national_code'])
-                    return user
-                else:
-                    raise ValidationError({'user': 'کاربر پیدا نشد.'})
-            else:
-                raise ValidationError({'national_code': 'وارد کردن کد ملی الزامی است.'})
-
-        elif user_status == Widget.NEW_USER:
-            with transaction.atomic():
-                user = User.objects.create_user(
-                    username=phone,
-                    phone=phone,
-                )
-                if validated_data.get('national_code'):
-                    user.national_code = validated_data.get('national_code')
-                if config('SHOW_NINJA_TO_ALL', cast=bool, default=False):
-                    user.show_community = True
-
-                user.set_password(None)
-                user.save()
-
-            signup_serializer = SignupSerializer()
-            signup_serializer.create_traffic_source(user, validated_data.get('utm') or {})
-            signup_serializer.set_missions_to_user(user)
-
-            return user
 
 
 class SignupSerializer(serializers.Serializer):
@@ -195,6 +131,78 @@ class SignupSerializer(serializers.Serializer):
         send_yandex_event(user, 'sign_up', {'id': user.id})
 
         return user
+
+    def create_traffic_source(self, user, utm: dict):
+        def clean_data(d) -> str:
+            if not d:
+                d = ''
+
+            if isinstance(d, list):
+                d = d[0]
+
+            return d[:256]
+
+        utm_source = clean_data(utm.get('utm_source'))
+
+        if not utm_source:
+            return
+
+        utm_medium = clean_data(utm.get('utm_medium'))
+        utm_campaign = clean_data(utm.get('utm_campaign'))
+        utm_content = clean_data(utm.get('utm_content'))
+        utm_term = clean_data(utm.get('utm_term'))
+        gps_adid = clean_data(utm.get('gps_adid'))
+        profile_id = clean_data(utm.get('profile_id'))
+
+        if utm_source == 'pwa_app':
+            if utm_term.startswith('gclid'):
+                utm_medium = 'google_ads'
+            elif 'google-play' in utm_term and 'organic' in utm_term:
+                utm_medium = 'organic'
+                utm_content = 'google_play'
+            elif not profile_id:
+                utm_medium = 'organic'
+            else:
+                from accounts.models import Attribution
+
+                attribution = Attribution.objects.filter(profile_id=profile_id).order_by('created').last()
+
+                if not attribution:
+                    utm_medium = 'organic'
+                else:
+                    utm_medium = attribution.utm_medium
+                    utm_campaign = attribution.utm_campaign
+                    utm_content = attribution.utm_content
+
+        TrafficSource.objects.create(
+            user=user,
+            utm_source=utm_source,
+            utm_medium=utm_medium,
+            utm_campaign=utm_campaign,
+            utm_content=utm_content,
+            utm_term=utm_term,
+            gps_adid=gps_adid,
+            yandex_profile_id=profile_id,
+            ip=get_client_ip(self.context['request']),
+            user_agent=self.context['request'].META.get('HTTP_USER_AGENT', '')[:256],
+        )
+
+    def set_missions_to_user(self, user):
+        from gamify.models import MissionJourney, MissionTemplate, UserMission
+
+        try:
+            account = user.get_account()
+            journey = MissionJourney.get_journey(account)
+
+            missions = []
+            for mission_template in MissionTemplate.objects.filter(journey=journey, active=True):
+                missions.append(UserMission(user=user, mission=mission_template))
+
+            if missions:
+                UserMission.objects.bulk_create(missions)
+
+        except Exception as e:
+            logger.warning(f'Failed to set missions to user={user.id} due to={str(e)}')
 
 class SignupView(CreateAPIView):
     permission_classes = []
