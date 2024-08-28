@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 
 from django.db import models
+from uuid import uuid4
 
 from accounts.models import Notification
 from ledger.models import OTCRequest, Asset, Wallet, OTCTrade
@@ -36,10 +37,9 @@ class FastBuyToken(models.Model):
 
     @property
     def user(self):
-        return self.payment_request.bank_card.user
+        return self.payment_request.user
 
     def create_otc_for_fast_buy_token(self, payment):
-
         self.status = FastBuyToken.DEPOSIT
         self.save(update_fields=['status'])
         if payment.status == DONE:
@@ -68,7 +68,11 @@ class FastBuyToken(models.Model):
                     message='خرید {} {} با موفقیت انجام شد.'.format(humanize_number(otc_request.amount), self.asset.name_fa),
                     level=Notification.SUCCESS
                 )
+                user = self.payment_request.user
+                user.national_code_verified = True
+                user.save(update_fields=['national_code_verified'])
                 return otc_trade
+
             except Exception as exp:
                 logger.exception('Error in create otc_trade for fast_buy', extra={
                     'exp': exp

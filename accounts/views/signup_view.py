@@ -11,15 +11,21 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from accounts.authentication import CustomJWTAuthentication, WidgetAccessToken
 
 from accounts.models import User, Company, TrafficSource, Referral
 from accounts.models.phone_verification import VerificationCode
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.utils.ip import get_client_ip
 from accounts.utils.login import set_login_activity
-from accounts.validators import mobile_number_validator, password_validator, company_national_id_validator
+from accounts.validators import mobile_number_validator, national_card_code_validator, password_validator, company_national_id_validator
 from analytics.utils.yandex import send_yandex_event
 from gamify.models import MissionJourney
+from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from datetime import timedelta
+
+from ledger.widget.widget import Widget
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +37,7 @@ class InitiateSignupSerializer(serializers.Serializer):
 class InitiateSignupView(APIView):
     permission_classes = []
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
+    scope = VerificationCode.SCOPE_VERIFY_PHONE
 
     def post(self, request):
         if settings.DEBUG_OR_TESTING_OR_STAGING:
@@ -46,9 +53,7 @@ class InitiateSignupView(APIView):
         serializer.is_valid(raise_exception=True)
 
         phone = serializer.validated_data['phone']
-
-        VerificationCode.send_otp_code(phone, VerificationCode.SCOPE_VERIFY_PHONE)
-
+        VerificationCode.send_otp_code(phone, self.scope)
         return Response({'msg': 'otp sent', 'code': 0})
 
 
@@ -197,7 +202,6 @@ class SignupSerializer(serializers.Serializer):
         except Exception as e:
             logger.warning(f'Failed to set missions to user={user.id} due to={str(e)}')
 
-
 class SignupView(CreateAPIView):
     permission_classes = []
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
@@ -214,3 +218,5 @@ class SignupView(CreateAPIView):
             )
         except ValueError:
             logger.exception('Error in setting login activity for signup')
+
+

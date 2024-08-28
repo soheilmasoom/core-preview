@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime
 from decimal import Decimal
 from typing import Dict, Tuple
 
@@ -126,6 +127,15 @@ class BlocklinkRequester(BaseRequester):
             path='/api/v1/withdraw/terminate/',
             method='POST',
             data=data
+        )
+
+    def get_income(self, start: datetime, end: datetime):
+        return self.collect_api(
+            path='/api/v1/tracker/revenue/',
+            data={
+                'start': start,
+                'end': end
+            }
         )
 
 

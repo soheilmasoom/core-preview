@@ -5,8 +5,8 @@ from celery import shared_task
 from django.db.models import Sum, F
 
 from accounting.models import PeriodicFetcher, BlocklinkIncome, BlocklinkDustCost
-from accounting.requester.blocklink_income import blocklink_income_request
 from ledger.models import Transfer, Asset
+from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.precision import is_zero_by_precision
 from ledger.utils.price import get_last_price
 
@@ -27,9 +27,11 @@ def blocklink_income_fetcher(start: datetime, end: datetime):
         total = item['total']
         data_dict[network_symbol + '/' + coin] = {'total': total}
 
-    resp = blocklink_income_request(start=start, end=end)
+    requester = get_blocklink_requester()
 
-    for key, value in resp.items():
+    resp = requester.get_income(start=start, end=end)
+
+    for key, value in resp.data.items():
         total = 0
 
         if key in data_dict.keys():

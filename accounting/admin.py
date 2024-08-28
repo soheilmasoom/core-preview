@@ -82,7 +82,8 @@ class VaultItemAdmin(SimpleHistoryAdmin):
     readonly_fields = ('value_usdt', 'value_irt')
     list_editable = ('expected_min_balance', )
 
-    def save_model(self, request, obj, form, change):
+    def save_model(self, request, obj: VaultItem, form, change):
+        obj.updated = timezone.now()
         super(VaultItemAdmin, self).save_model(request, obj, form, change)
         obj.vault.update_real_value(timezone.now())
 

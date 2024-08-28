@@ -311,7 +311,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         (_('Authentication'), {'fields': ('level', 'verify_status', 'first_name_verified',
                                           'last_name_verified', 'national_code_verified', 'national_code_phone_verified',
                                           'birth_date_verified', 'reject_reason',
-                                          'selfie_image_verified', 'selfie_image_verifier',
+                                          'selfie_image_verified', 'verifier',
                                           'selfie_image_discard_text',
                                           )}),
         (_('Permissions'), {
@@ -378,7 +378,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'get_remaining_fiat_withdraw_limit', 'get_remaining_crypto_withdraw_limit', 'get_deposit_address',
         'get_bank_card_link', 'get_bank_account_link', 'get_transfer_link', 'get_finotech_request_link',
         'get_user_reject_reason', 'get_user_prizes', 'get_source_medium',
-        'get_fill_order_address', 'selfie_image_verifier', 'get_revenue_of_referral', 'get_referred_count',
+        'get_fill_order_address', 'verifier', 'get_revenue_of_referral', 'get_referred_count',
         'get_revenue_of_referred', 'get_open_order_address', 'get_selfie_image_uploaded', 'get_referred_user',
         'get_login_activity_link', 'get_last_trade', 'get_total_balance_irt_admin', 'get_order_link',
         'get_notifications_link', 'get_staking_link', 'get_prizes_link', 'get_suspended',
@@ -493,7 +493,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 raise Exception('Dangerous action happened!')
 
         if old_user and not old_user.selfie_image_verified and user.selfie_image_verified:
-            user.selfie_image_verifier = request.user
+            user.verifier = request.user
 
         return super(CustomUserAdmin, self).save_model(request, user, form, change)
 
@@ -1072,7 +1072,7 @@ class UserFeaturePermAdmin(admin.ModelAdmin):
 
 
 @admin.register(Company)
-class CompanyAdmin(admin.ModelAdmin):
+class CompanyAdmin(SimpleHistoryAdmin):
     list_display = ('national_id', 'name', 'status',)
     readonly_fields = ('status', 'company_documents',)
     actions = ('accept_requests', 'reject_requests', 'fetch_company_info',)

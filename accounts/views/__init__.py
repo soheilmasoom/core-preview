@@ -37,3 +37,4 @@ from .consultation_view import ConsultationView
 
 from .company_verify_view import RegisterDocuments
 from .system_config_view import SystemConfigView
+from .signup_widget_view import SignupWidgetView, InitiateSignupWidgetView

@@ -17,7 +17,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, Toke
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenViewBase
 
-from accounts.authentication import CustomTokenAuthentication
+from accounts.authentication import CustomJWTAuthentication, CustomTokenAuthentication
 from accounts.models import Account, LoginActivity, RefreshToken as RefreshTokenModel
 from accounts.models import User
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
@@ -222,7 +222,7 @@ class SessionTokenObtainPairView(TokenObtainPairView):
 
 
 class TokenLogoutView(APIView):
-    authentication_classes = (JWTAuthentication,)
+    authentication_classes = (CustomJWTAuthentication,)
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
