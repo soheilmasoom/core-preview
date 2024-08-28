@@ -111,11 +111,11 @@ class CustomJWTAuthentication(JWTAuthentication):
         return validated_token
 
     def authenticate(self, request):
-        try:
-            raw_token = self.get_raw_token(self.get_header(request))
-        except:
-            raise InvalidToken("Token missed.")
+        header = self.get_header(request)
+        if header is None:
+            return None
 
+        raw_token = self.get_raw_token(self.get_header(request))
         if raw_token is None:
             return None
 
