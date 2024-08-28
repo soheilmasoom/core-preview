@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 class WalletsOverviewAPIView(APIView):
-    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     permission_classes = (IsAuthenticated,)
 
     @staticmethod

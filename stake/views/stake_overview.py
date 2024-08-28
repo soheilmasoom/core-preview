@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 class StakeOverviewAPIView(APIView):
-    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     permission_classes = (IsAuthenticated,)
 
     @staticmethod

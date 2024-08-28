@@ -78,6 +78,5 @@ class FastBuyTokenSerializer(serializers.ModelSerializer):
 
 
 class FastBuyTokenAPI(CreateAPIView):
-    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     serializer_class = FastBuyTokenSerializer
     queryset = FastBuyToken.objects.all()

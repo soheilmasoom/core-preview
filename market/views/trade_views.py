@@ -27,7 +27,6 @@ class AccountTradeFilter(django_filters.FilterSet):
 
 
 class AccountTradeHistoryView(ListAPIView):
-    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     pagination_class = LimitOffsetPagination
     serializer_class = AccountTradeSerializer
 

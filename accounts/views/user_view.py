@@ -163,7 +163,6 @@ class AuthTokenDestroySerializer(serializers.Serializer):
 
 
 class CreateAuthToken(APIView):
-    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     serializer_class = AuthTokenSerializer
 
     def get(self, request):

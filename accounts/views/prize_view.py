@@ -54,7 +54,6 @@ class PrizeSerializer(serializers.ModelSerializer):
 
 
 class PrizeView(ModelViewSet):
-    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     serializer_class = PrizeSerializer
     pagination_class = LimitOffsetPagination
 

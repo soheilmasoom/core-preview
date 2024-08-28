@@ -17,7 +17,6 @@ from ledger.utils.precision import floor_precision
 
 
 class PNLOverview(APIView):
-    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     permission_classes = (IsAuthenticated,)
 
     def get(self, request: Request):

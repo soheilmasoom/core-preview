@@ -206,7 +206,6 @@ class BulkCancelOrderAPIView(APIView):
 
 
 class StopLossViewSet(ModelViewSet, DelegatedAccountMixin):
-    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     permission_classes = (IsAuthenticated,)
     pagination_class = LimitOffsetPagination
 
@@ -228,7 +227,6 @@ class StopLossViewSet(ModelViewSet, DelegatedAccountMixin):
 
 
 class OCOViewSet(ModelViewSet, DelegatedAccountMixin):
-    authentication_classes = (SessionAuthentication, CustomJWTAuthentication)
     permission_classes = (IsAuthenticated,)
     pagination_class = LimitOffsetPagination
 
