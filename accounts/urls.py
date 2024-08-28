@@ -28,6 +28,7 @@ urlpatterns = [
 
     path('widget/signup/init/', views.InitiateSignupWidgetView.as_view()),
     path('widget/signup/', views.SignupWidgetView.as_view()),
+    path('v1/widget/user/', views.UserWidgetView.as_view()),
 
     path('otp/verify/', views.VerifyOTPView.as_view()),
     path('otp/send/', views.SendOTPView.as_view()),
