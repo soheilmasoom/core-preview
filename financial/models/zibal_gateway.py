@@ -27,7 +27,7 @@ class ZibalGateway(Gateway):
             'amount': amount * 10,
             'callbackUrl': callback_host + reverse('finance:zibal-callback'),
             'description': 'افزایش اعتبار'
-        },
+        }
 
         if bank_card:
             payload['allowedCards'] = bank_card.card_pan

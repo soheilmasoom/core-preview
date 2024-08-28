@@ -20,7 +20,6 @@ class PaystarGateway(Gateway):
     def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         fee = self.get_ipg_fee(amount)
 
-
         payment_request = PaymentRequest.objects.create(
             user=user,
             bank_card=bank_card,
@@ -44,7 +43,7 @@ class PaystarGateway(Gateway):
                 'order_id': order_id,
                 'sign': sign,
                 'callback_method': 1
-        },
+        }
 
         if bank_card:
             payload['card_number'] = bank_card.card_pan
