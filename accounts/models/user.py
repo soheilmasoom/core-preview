@@ -483,8 +483,6 @@ class User(AbstractUser):
                 card.save(update_fields=['verified'])
 
 
-
-
 @receiver(post_save, sender=User)
 def handle_user_save(sender, instance, created, **kwargs):
     if settings.DEBUG_OR_TESTING_OR_STAGING:
