@@ -222,19 +222,3 @@ class SignupView(CreateAPIView):
             logger.exception('Error in setting login activity for signup')
 
 
-class SignupWidgetView(CreateAPIView):
-    authentication_classes = ()
-    permission_classes = ()
-    throttle_classes = [BurstRateThrottle, ]
-    serializer_class = WidgetSignupSerializer
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-
-        access_token = WidgetAccessToken.for_user(user)
-        access_token.set_exp(lifetime=timedelta(minutes=30))
-        token = {'access': str(access_token)}
-
-        return Response(token, status=201)
