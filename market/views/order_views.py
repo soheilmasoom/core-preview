@@ -15,7 +15,7 @@ from rest_framework.viewsets import GenericViewSet, ModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
-from accounts.authentication import TradeTokenAuthentication, CustomTokenAuthentication
+from accounts.authentication import CustomJWTAuthentication, TradeTokenAuthentication, CustomTokenAuthentication
 from accounts.views.jwt_views import DelegatedAccountMixin, user_has_delegate_permission
 from ledger.models.wallet import ReserveWallet
 from market.models import Order, CancelRequest, PairSymbol, OCO
@@ -53,7 +53,7 @@ class OrderViewSet(mixins.CreateModelMixin,
                    mixins.ListModelMixin,
                    GenericViewSet,
                    DelegatedAccountMixin):
-    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, CustomJWTAuthentication)
     pagination_class = LimitOffsetPagination
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
@@ -106,7 +106,7 @@ class OrderViewSet(mixins.CreateModelMixin,
 
 
 class OpenOrderListAPIView(APIView):
-    authentication_classes = (SessionAuthentication, CustomTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, CustomTokenAuthentication, CustomJWTAuthentication)
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
     def get(self, request, *args, **kwargs):
@@ -161,7 +161,7 @@ class OpenOrderListAPIView(APIView):
 
 
 class CancelOrderAPIView(CreateAPIView, DelegatedAccountMixin):
-    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, CustomJWTAuthentication)
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
     serializer_class = CancelRequestSerializer
@@ -176,7 +176,7 @@ class CancelOrderAPIView(CreateAPIView, DelegatedAccountMixin):
 
 
 class BulkCancelOrderAPIView(APIView):
-    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, CustomJWTAuthentication)
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
     def post(self, request):
@@ -206,7 +206,6 @@ class BulkCancelOrderAPIView(APIView):
 
 
 class StopLossViewSet(ModelViewSet, DelegatedAccountMixin):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
     permission_classes = (IsAuthenticated,)
     pagination_class = LimitOffsetPagination
 
@@ -228,7 +227,6 @@ class StopLossViewSet(ModelViewSet, DelegatedAccountMixin):
 
 
 class OCOViewSet(ModelViewSet, DelegatedAccountMixin):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
     permission_classes = (IsAuthenticated,)
     pagination_class = LimitOffsetPagination
 

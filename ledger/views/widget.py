@@ -1,26 +1,29 @@
-from decimal import Decimal
+import logging
 
 from rest_framework import serializers
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import CreateAPIView
+from rest_framework.generics import get_object_or_404, CreateAPIView
+from accounts.authentication import WidgetJWTAuthentication
+from ledger.models.fast_buy_token import FastBuyToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from accounts.authentication import CustomJWTAuthentication
 
-from financial.models import BankCard
+from ledger.utils.fields import PENDING, DONE, PROCESS, CANCELED
+from ledger.models.asset import CoinField, Asset
 from financial.views.payment_view import PaymentRequestSerializer
+from ledger.utils.external_price import SELL, BUY
 from ledger.exceptions import SmallDepthError
 from ledger.models import OTCRequest, Wallet
-from ledger.models.asset import CoinField, Asset
-from ledger.models.fast_buy_token import FastBuyToken
-from ledger.utils.external_price import SELL, BUY
+from decimal import Decimal
 from ledger.utils.precision import get_presentation_amount, get_symbol_presentation_amount
 from ledger.utils.price import get_price
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 
-class FastBuyTokenSerializer(serializers.ModelSerializer):
+logger = logging.getLogger(__name__)
+
+class FastBuyWidgetSerializer(serializers.ModelSerializer):
     coin = CoinField(source='asset')
-    bank_card_id = serializers.IntegerField(source='payment_request.bank_card_id')
     callback = serializers.SerializerMethodField(read_only=True)
 
     def get_callback(self, fast_buy_token: FastBuyToken):
@@ -38,7 +41,6 @@ class FastBuyTokenSerializer(serializers.ModelSerializer):
 
         payment_request_serializer = PaymentRequestSerializer()
         payment_request_serializer.context['request'] = request
-        card_pan = BankCard.objects.get(id=validated_data['payment_request']['bank_card_id']).card_pan
 
         asset = validated_data['asset']
         if asset.otc_status not in (BUY, Asset.ACTIVE):
@@ -62,9 +64,9 @@ class FastBuyTokenSerializer(serializers.ModelSerializer):
                     'حداکثر مقدار قابل خرید این رمزارز {} {} است.'.format(max_amount, asset.symbol)
                 )
 
-        validated_data['card_pan'] = card_pan
+        validated_data['is_bank_card_required'] = False
         validated_data['payment_request'] = payment_request_serializer.create(validated_data)
-        validated_data.pop('card_pan')
+        validated_data.pop('is_bank_card_required')
         validated_data['price'] = get_price(
             asset.symbol + Asset.USDT,
             side=SELL
@@ -74,9 +76,10 @@ class FastBuyTokenSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FastBuyToken
-        fields = ('coin', 'amount', 'bank_card_id', 'callback')
+        fields = ('coin', 'amount', 'callback')
+        read_only_fields = ('callback', )
 
-
-class FastBuyTokenAPI(CreateAPIView):
-    serializer_class = FastBuyTokenSerializer
+class FastBuyWidgetView(CreateAPIView):
+    authentication_classes = (WidgetJWTAuthentication,)
+    serializer_class = FastBuyWidgetSerializer
     queryset = FastBuyToken.objects.all()

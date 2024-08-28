@@ -19,6 +19,7 @@ class VerificationCode(models.Model):
 
     SCOPE_FORGET_PASSWORD = 'forget'
     SCOPE_VERIFY_PHONE = 'verify'
+    SCOPE_VERIFY_PHONE_WIDGET = 'verify_widget'
     SCOPE_VERIFY_EMAIL = 'email_verify'
     SCOPE_CRYPTO_WITHDRAW = 'withdraw'
     SCOPE_FIAT_WITHDRAW = 'fiat_withdraw'
@@ -33,7 +34,7 @@ class VerificationCode(models.Model):
     SCOPE_ADDRESS_BOOK = 'address_book'
 
     SCOPE_CHOICES = [
-        (SCOPE_FORGET_PASSWORD, SCOPE_FORGET_PASSWORD), (SCOPE_VERIFY_PHONE, SCOPE_VERIFY_PHONE),
+        (SCOPE_FORGET_PASSWORD, SCOPE_FORGET_PASSWORD), (SCOPE_VERIFY_PHONE, SCOPE_VERIFY_PHONE), (SCOPE_VERIFY_PHONE_WIDGET, SCOPE_VERIFY_PHONE_WIDGET),
         (SCOPE_CRYPTO_WITHDRAW, SCOPE_CRYPTO_WITHDRAW), (SCOPE_TELEPHONE, SCOPE_TELEPHONE),
         (SCOPE_CHANGE_PASSWORD, SCOPE_CHANGE_PASSWORD), (SCOPE_CHANGE_PHONE, SCOPE_CHANGE_PHONE),
         (SCOPE_CHANGE_PHONE_INIT, SCOPE_CHANGE_PHONE_INIT), (SCOPE_VERIFY_EMAIL, SCOPE_VERIFY_EMAIL),
@@ -140,7 +141,7 @@ class VerificationCode(models.Model):
                 logger.info('[OTP] Ignored sending otp to kavenegar because of multiple prev')
                 return
 
-        if scope in (cls.SCOPE_TELEPHONE, cls.SCOPE_VERIFY_PHONE):
+        if scope in (cls.SCOPE_TELEPHONE, cls.SCOPE_VERIFY_PHONE, cls.SCOPE_VERIFY_PHONE_WIDGET):
             code_length = 4
         else:
             code_length = 6

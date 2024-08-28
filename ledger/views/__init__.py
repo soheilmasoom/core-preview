@@ -27,3 +27,5 @@ from .withdraw_transfer_request_view import WithdrawTransferUpdateView
 from .withdraw_view import WithdrawView, FeedbackCategories, WithdrawFeedbackViewSet
 from .withdraw_viewset import WithdrawViewSet
 from .manaul_withdraw_request_view import ManualWithdrawUpdateView
+from .widget import FastBuyWidgetView
+from .user_widget_view import UserWidgetView

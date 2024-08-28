@@ -14,12 +14,12 @@ from rest_framework import serializers
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
-from accounts.authentication import TradeTokenAuthentication
+from accounts.authentication import CustomJWTAuthentication, TradeTokenAuthentication
 
 logger = logging.getLogger(__name__)
 
 class CancelLimitOTCView(APIView):
-    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, CustomJWTAuthentication)
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
     def post(self, request):
