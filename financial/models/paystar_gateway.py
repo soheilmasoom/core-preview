@@ -95,7 +95,7 @@ class PaystarGateway(Gateway):
 
         data = resp.json()
 
-        if data['status'] == 1:
+        if data['status'] in (1, -6):
             with WalletPipeline() as pipeline:
                 payment.accept(pipeline, payment.ref_id)
 
