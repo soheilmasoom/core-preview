@@ -104,5 +104,9 @@ class PaystarGateway(Gateway):
             payment.ref_status = data['status']
             payment.save()
 
+            payment_request.details += f'verify status code: {resp.status_code}\n'
+            payment_request.details += f'verify body: {data}'
+            payment_request.save(update_fields=['details'])
+
     class Meta:
         proxy = True
