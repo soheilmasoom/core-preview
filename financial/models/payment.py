@@ -80,9 +80,8 @@ class PaymentRequest(models.Model):
         permissions = [
             ("list_paymentrequest", "Can list payment request"),
         ]
-    #TODO:
     def __str__(self):
-        return '%s %s' % (self.gateway, self.bank_card, self.user)
+        return '%s %s %s' % (self.gateway, self.bank_card, self.user)
 
 
 class Payment(models.Model):

@@ -31,8 +31,8 @@ class ZibalGateway(Gateway):
 
         if bank_card:
             payload['allowedCards'] = bank_card.card_pan
-        else:
-            payload['nationalCode'] = user.national_code
+        # else:
+        #     payload['nationalCode'] = user.national_code
 
         resp = requests.post(
             self.BASE_URL + '/v1/request',
