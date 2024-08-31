@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 
 from django.contrib.auth.mixins import UserPassesTestMixin
+from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import CreateAPIView, get_object_or_404
@@ -56,11 +57,15 @@ class DepositSerializer(serializers.ModelSerializer):
 
         need_memo = network.deposit_need_memo
 
+        q = Q()
+        if need_memo:
+            q = Q(memo=memo)
+
         address_key = AddressKey.objects.filter(
+            q,
             address=receiver_address,
             architecture=get_blocklink_requester().get_network_arch(network),
-            deleted=False,
-            memo=memo
+            deleted=False
         ).first()
 
         requester_id = validated_data.get('id')
