@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from accounts.authentication import CustomJWTAuthentication
+from accounts.models.system_config import SystemConfig
 
 from financial.models import BankCard
 from financial.views.payment_view import PaymentRequestSerializer
@@ -28,8 +29,9 @@ class FastBuyTokenSerializer(serializers.ModelSerializer):
         return payment_request.get_gateway().get_initial_redirect_url(payment_request)
 
     def validate(self, attrs):
-        if attrs['amount'] < FastBuyToken.MIN_ADMISSIBLE_VALUE:
-            raise ValidationError('حداقل مقدار سفارش 50 هزار تومان است.')
+        min_fast_buy_irt = SystemConfig.get_system_config().min_fast_buy_irt
+        if attrs['amount'] < min_fast_buy_irt:
+            raise ValidationError(f'حداقل مقدار سفارش {min_fast_buy_irt} هزار تومان است.')
         return attrs
 
     def create(self, validated_data):

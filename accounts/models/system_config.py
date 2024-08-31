@@ -67,6 +67,8 @@ class SystemConfig(models.Model):
 
     strategy_enable = models.BooleanField(default=True)
 
+    min_fast_buy_irt = models.PositiveIntegerField(default=50_000)
+
     def __str__(self):
         return self.name
 
