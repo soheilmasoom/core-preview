@@ -52,7 +52,7 @@ class WidgetSignupSerializer(serializers.Serializer):
         print("what-token", otp_code)
 
         if not otp_code:
-            raise ValidationError({'token': 'توکن نامعتبر است.'})
+            raise ValidationError({'token': 'توکن معتبر نیست.'})
         phone = otp_code.phone
         user_status = Widget.get_user_verification_status(phone)
         if not validated_data.get('national_code') and user_status == Widget.NEW_USER:
