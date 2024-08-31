@@ -46,7 +46,7 @@ class InitiateSignupView(APIView):
             if req_origin in config('SIGNUP_CLOSED_DOMAINS', cast=Csv(), default=''):
                 raise ValidationError('امکان ثبت‌نام وجود ندارد.')
 
-        if request.user.is_authenticated:
+        if request.user.is_authenticated and self.scope == VerificationCode.SCOPE_VERIFY_PHONE:
             return Response({'msg': 'already logged in', 'code': 1})
 
         serializer = InitiateSignupSerializer(data=request.data)
