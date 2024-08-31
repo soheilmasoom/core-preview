@@ -2,10 +2,10 @@ import logging
 
 from django.db import transaction
 from django.http import HttpResponseBadRequest
-from django.shortcuts import get_object_or_404
 from django.views.generic import TemplateView
 
-from financial.models import PaymentRequest
+from financial.models import Gateway
+from financial.utils.ipg import get_active_payment_request_by_authority
 from ledger.utils.fields import CANCELED, PENDING
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class JibimoCallbackView(TemplateView):
         if status not in ['1', '0']:
             return HttpResponseBadRequest('Invalid data')
 
-        payment_request = get_object_or_404(PaymentRequest, authority=authority)
+        payment_request = get_active_payment_request_by_authority(authority, Gateway.JIBIMO)
         payment = getattr(payment_request, 'payment', None)
 
         if not payment:
