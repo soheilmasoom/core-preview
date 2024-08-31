@@ -46,6 +46,8 @@ class CampaignInfo(models.Model):
 
     campaign_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
 
+    fee_percent = models.PositiveSmallIntegerField(default=0)
+
     def __str__(self):
         return self.title
 
