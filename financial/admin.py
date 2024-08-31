@@ -289,7 +289,7 @@ class PaymentAdmin(AdvancedAdmin):
 
     @admin.display(description='شماره کارت')
     def get_card_pan(self, payment: Payment):
-        if payment.paymentrequest:
+        if payment.paymentrequest and payment.paymentrequest.bank_card:
             link = url_to_edit_object(payment.paymentrequest.bank_card)
             return mark_safe("<a href='%s'>%s</a>" % (link, payment.paymentrequest.bank_card.card_pan))
 
