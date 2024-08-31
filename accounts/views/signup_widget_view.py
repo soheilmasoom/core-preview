@@ -47,9 +47,7 @@ class WidgetSignupSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         token = validated_data.pop('token')
-        print("what-token", token)
         otp_code = VerificationCode.get_by_token(token, VerificationCode.SCOPE_VERIFY_PHONE_WIDGET)
-        print("what-token", otp_code)
 
         if not otp_code:
             raise ValidationError({'token': 'توکن معتبر نیست.'})
