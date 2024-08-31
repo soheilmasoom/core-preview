@@ -60,6 +60,8 @@ class DepositSerializer(serializers.ModelSerializer):
         q = Q()
         if need_memo:
             q = Q(memo=memo)
+        else:
+            memo = ''
 
         address_key = AddressKey.objects.filter(
             q,
