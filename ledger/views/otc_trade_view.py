@@ -102,7 +102,7 @@ class OTCInfoView(APIView):
 
         default_amount = 1
         if symbol.base_asset.symbol == Asset.IRT:
-            default_amount = 10 ** math.floor(math.log10(15e6 / otc.price))
+            default_amount = 10 ** math.floor(math.log10(Decimal(15e6) / otc.price))
 
         return Response({
             'base_asset': symbol.base_asset.symbol,
