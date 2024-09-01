@@ -9,6 +9,7 @@ from django.dispatch import receiver
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.utils import timezone
+from simple_history.models import HistoricalRecords
 
 from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.models import Account, EmailNotification
@@ -26,6 +27,8 @@ from ledger.utils.wallet_pipeline import WalletPipeline
 
 
 class PaymentRequest(models.Model):
+
+    history = HistoricalRecords()
 
     APP, DESKTOP = 'app', 'desktop'
     created = models.DateTimeField(auto_now_add=True)
@@ -85,6 +88,8 @@ class PaymentRequest(models.Model):
 
 
 class Payment(models.Model):
+    history = HistoricalRecords()
+
     SUCCESS_URL = '/checkout/success'
     FAIL_URL = '/checkout/fail'
     SUCCESS_PAYMENT_FAIL_FAST_BUY = '/checkout/fail_trade'

@@ -9,7 +9,7 @@ from accounts.models.user import User
 
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
 from financial.models.gateway import GatewayFailed
-from ledger.utils.fields import CANCELED
+from ledger.utils.fields import CANCELED, DONE, PENDING
 from ledger.utils.wallet_pipeline import WalletPipeline
 from rest_framework.exceptions import NotFound
 
@@ -104,15 +104,54 @@ class PaystarGateway(Gateway):
         )
 
         data = resp.json()
-
         if data['status'] == 1:
+            status = DONE
+        elif data['status'] == -6:
+            status = self._get_payment_status(payment_request)
+        else:
+            status = CANCELED
+
+        if status == DONE:
             with WalletPipeline() as pipeline:
                 payment.accept(pipeline, payment.ref_id)
-
-        else:
+        elif status == CANCELED:
             payment.status = CANCELED
             payment.ref_status = data['status']
             payment.save()
+
+            payment_request.details += f'verify status code: {resp.status_code}\n'
+            payment_request.details += f'verify body: {data}'
+            payment_request.save(update_fields=['details'])
+
+    def _get_payment_status(self, payment_request: PaymentRequest):
+        resp = requests.post(
+            self.BASE_URL + '/inquiry',
+            headers={
+                'Authorization': 'Bearer ' + self.merchant_id
+            },
+            data={
+                'ref_num': payment_request.authority,
+            },
+            timeout=30,
+        )
+
+        data = resp.json()
+
+        if data['status'] != 1:
+            return CANCELED
+
+        data = data['data']
+        status = data['status']
+
+        if status == 'SUCCEED':
+            if data['payment_amount'] == payment_request.rial_amount:
+                return DONE
+            else:
+                return CANCELED
+        elif status == 'INIT':
+            return PENDING
+        else:
+            return CANCELED
 
     class Meta:
         proxy = True

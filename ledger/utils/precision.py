@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal, ROUND_DOWN, ROUND_UP
 from math import ceil
 
@@ -137,3 +138,12 @@ def get_margin_coin_presentation_balance(coin: str, balance: Decimal):
         precision = None
 
     return get_presentation_amount(balance, precision=precision)
+
+
+def log10_round(num: Decimal, floor: bool = True):
+    if floor:
+        func = math.floor
+    else:
+        func = math.ceil
+
+    return Decimal(10) ** func(math.log10(num))

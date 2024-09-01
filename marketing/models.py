@@ -1,4 +1,7 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+
+from ledger.utils.price import USDT_IRT, get_last_price
 
 
 class BaseReport(models.Model):
@@ -32,3 +35,49 @@ class CampaignPublisherReport(BaseReport):
 
     class Meta:
         unique_together = ('created', 'type', 'utm_campaign', 'utm_content', 'campaign_id', 'publisher_id')
+
+
+class CampaignInfo(models.Model):
+    title = models.CharField(max_length=256)
+
+    utm_source = models.CharField(max_length=256, blank=True)
+    utm_medium = models.CharField(max_length=256, blank=True)
+    utm_campaign = models.CharField(max_length=256, blank=True)
+
+    campaign_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
+
+    fee_percent = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        ordering = ('-id', )
+
+
+class CampaignCost(models.Model):
+    created = models.DateField()
+    campaign = models.ForeignKey(CampaignInfo, on_delete=models.CASCADE)
+    cost_irt = models.PositiveIntegerField(default=0)
+    cost_usdt = models.DecimalField(default=0, max_digits=12, decimal_places=2)
+
+    class Meta:
+        unique_together = ('created', 'campaign')
+
+    def clean(self):
+        if not self.cost_irt and not self.cost_usdt:
+            raise ValidationError('No cost provided')
+
+    def save(self, *args, **kwargs):
+        if self.cost_irt and not self.cost_usdt:
+            price = get_last_price(USDT_IRT) or 60_000
+            self.cost_usdt = self.cost_irt / price
+
+        elif not self.cost_irt and self.cost_usdt:
+            price = get_last_price(USDT_IRT) or 60_000
+            self.cost_irt = self.cost_usdt * price
+
+        super(CampaignCost, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return f'Cost {self.campaign} @ {self.created}'

@@ -1,4 +1,5 @@
 import time
+from collections import defaultdict
 from datetime import timedelta, datetime
 
 import requests
@@ -7,7 +8,8 @@ from decouple import config
 
 from accounting.models import PeriodicFetcher
 from ledger.exceptions import FetchError
-from marketing.models import AdsReport, CampaignPublisherReport
+from ledger.utils.price import get_last_price, USDT_IRT
+from marketing.models import AdsReport, CampaignPublisherReport, CampaignCost, CampaignInfo
 
 
 def yektanet_requester(path: str, params: dict):
@@ -42,6 +44,10 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
             'end_date': end_date,
         })
 
+        per_campaign_cost = defaultdict(int)
+
+        usdt_price = get_last_price(USDT_IRT) or 60_000
+
         for data in resp:
             AdsReport.objects.update_or_create(
                 created=start,
@@ -54,6 +60,27 @@ def yektanet_ads_fetcher(start: datetime, end: datetime):
                     'views': data['views'],
                     'clicks': data['clicks'],
                     'cost': data['cost'],
+                }
+            )
+
+            per_campaign_cost[(data['campaign_id'], data['utm_campaign'])] += data['cost']
+
+        for (campaign_id, utm_campaign), cost in per_campaign_cost.items():
+            campaign, _ = CampaignInfo.objects.get_or_create(
+                campaign_id=campaign_id,
+                defaults={
+                    'title': f'Yekanet {utm_campaign} (auto)',
+                    'utm_source': 'yektanet',
+                    'utm_campaign': utm_campaign
+                }
+            )
+
+            CampaignCost.objects.update_or_create(
+                campaign=campaign,
+                created=start_date,
+                defaults={
+                    'cost_irt': cost,
+                    'cost_usdt': cost / usdt_price,
                 }
             )
 

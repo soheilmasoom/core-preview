@@ -13,7 +13,7 @@ from financial.utils.admin import MultiSelectArrayField
 from financial.utils.bank import BANK_INFO, get_bank_from_iban
 from financial.utils.encryption import decrypt
 from ledger.models import FastBuyToken
-from ledger.utils.fields import DONE, get_amount_field
+from ledger.utils.fields import DONE, get_amount_field, CANCELED
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +213,13 @@ class Gateway(models.Model):
         raise NotImplementedError
 
     def verify(self, payment: Payment):
+        if not hasattr(payment, 'paymentrequest'):
+            payment.status = CANCELED
+            payment.description = 'No payment request'
+            payment.save(update_fields=['status', 'description'])
+
+            return
+
         self._verify(payment=payment)
 
         fast_buy_token = FastBuyToken.objects.filter(payment_request=payment.paymentrequest).last()

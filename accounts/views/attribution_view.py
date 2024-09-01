@@ -58,13 +58,14 @@ class AttributionAPIView(APIView):
             **to_update
         )
 
-        TrafficSource.objects.filter(
-            utm_source='pwa_app',
-            utm_medium='organic',
-            yandex_profile_id=attribution.profile_id,
-            created__gte=timezone.now() - timedelta(days=1)
-        ).update(
-            utm_medium=attribution.utm_medium,
-            utm_campaign=attribution.utm_campaign,
-            utm_content=attribution.utm_content,
-        )
+        if attribution.profile_id:
+            TrafficSource.objects.filter(
+                utm_source='pwa_app',
+                utm_medium='organic',
+                yandex_profile_id=attribution.profile_id,
+                created__gte=timezone.now() - timedelta(days=1)
+            ).update(
+                utm_medium=attribution.utm_medium,
+                utm_campaign=attribution.utm_campaign,
+                utm_content=attribution.utm_content,
+            )

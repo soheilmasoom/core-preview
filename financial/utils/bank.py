@@ -26,7 +26,7 @@ BANK_INFO = [
     Bank('RESALAT', 'بانک رسالت', ['504172'], '0700', 'RESBIR'),
     Bank('KESHAVARZI', 'بانک کشاورزی', ['603770'], '0160', 'KESHIR'),
     Bank('TOSEAH_TAAVON', 'بانک توسعه تعاون', ['502908'], '0220', 'TTBIIR'),
-    Bank('TOSEAH_SADERAT', 'بانک توسعه صادرات', [''], '', 'EDBIIR'),
+    Bank('TOSEAH_SADERAT', 'بانک توسعه صادرات', ['627648'], '0200', 'EDBIIR'),
     Bank('SADERAT', 'بانک صادرات', ['603769'], '0190', 'BSIRIR'),
     Bank('KARAFARIN', 'بانک کارآفرین', ['627488'], '0530', 'KBIDIR'),
     Bank('EGHTESAD_NOVIN', 'بانک اقتصاد نوین', ['627412'], '0550', 'BEGNIR'),

@@ -228,7 +228,7 @@ class PaymentRequestUserFilter(SimpleListFilter):
 
 
 @admin.register(PaymentRequest)
-class PaymentRequestAdmin(admin.ModelAdmin):
+class PaymentRequestAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'gateway', 'bank_card', 'amount', 'authority', 'payment')
     search_fields = ('bank_card__card_pan', 'amount', 'authority', 'group_id')
     readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity')
@@ -262,7 +262,7 @@ class PaymentUserFilter(SimpleListFilter):
 
 
 @admin.register(Payment)
-class PaymentAdmin(AdvancedAdmin):
+class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
     list_display = ('created', 'get_amount', 'get_fee', 'status', 'ref_id', 'ref_status',
                     'source', 'get_card_pan', 'get_user',)
     list_filter = (PaymentUserFilter, 'status', 'source')

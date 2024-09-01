@@ -153,9 +153,9 @@ def update_withdraws():
         create_withdraw.delay(transfer.id)
 
     with transaction.atomic():
-        for withdraw in ManualWithdraw.objects.filter(status=PROCESS).select_for_update():
+        for withdraw in ManualWithdraw.objects.filter(status=PROCESS).select_for_update():  # type: ManualWithdraw
             resp = get_blocklink_requester().withdraw(
-                receiver_address=withdraw.out_address,
+                receiver_address=withdraw.receiver_address,
                 amount=withdraw.amount,
                 network=withdraw.network.symbol,
                 coin=withdraw.asset.get_original_symbol(),

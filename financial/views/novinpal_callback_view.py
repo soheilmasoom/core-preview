@@ -1,13 +1,11 @@
 import logging
 
-from django.db import transaction
 from django.http import HttpResponseBadRequest
-from django.shortcuts import get_object_or_404, redirect
 from django.views.generic import TemplateView
 
-from financial.models import PaymentRequest, Gateway
-from financial.models.payment import Payment
-from ledger.utils.fields import DONE, CANCELED, PENDING
+from financial.models import Gateway
+from financial.utils.ipg import get_active_payment_request_by_authority
+from ledger.utils.fields import CANCELED, PENDING
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +23,7 @@ class NovinpalCallbackView(TemplateView):
 
         status = int(status)
 
-        payment_request = get_object_or_404(PaymentRequest, authority=authority, gateway__type=Gateway.NOVINPAL)
+        payment_request = get_active_payment_request_by_authority(authority, Gateway.NOVINPAL)
         payment = payment_request.payment
 
         if not payment:
