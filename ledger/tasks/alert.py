@@ -202,7 +202,7 @@ def get_asset_alert_list(altered_coins: dict) -> set:
     for asset_alert in AssetAlert.objects.filter(
         asset__symbol__in=altered_coins.keys(),
         user__is_price_notif_on=True,
-    ):
+    ).exclude(asset__otc_status=Asset.COMING_SOON):
         asset_alerts.add(
             AlertData(
                 user=asset_alert.user,

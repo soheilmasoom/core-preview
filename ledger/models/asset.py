@@ -10,7 +10,6 @@ from rest_framework.generics import get_object_or_404
 from simple_history.models import HistoricalRecords
 
 from ledger.models import Wallet
-from ledger.utils.external_price import BUY, SELL
 from ledger.utils.fields import get_amount_field
 
 
@@ -28,7 +27,8 @@ class Asset(models.Model):
     USDT = 'USDT'
     SHIB = 'SHIB'
 
-    ACTIVE, DISABLED = 'active', 'disabled'
+    OTC_STATUSES = ACTIVE, DISABLED, BUY, SELL, COMING_SOON = 'active', 'disabled', 'buy', 'sell', 'soon'
+    OTC_TRADE_ACTIVE_STATUSES = ACTIVE, BUY, SELL
 
     PRECISION = 8
 
@@ -54,7 +54,6 @@ class Asset(models.Model):
     trend = models.BooleanField(default=False)
     pin_to_top = models.BooleanField(default=False)
 
-    trade_enable = models.BooleanField(default=True)
     hedge = models.BooleanField(default=True)
 
     spread_category = models.ForeignKey('ledger.AssetSpreadCategory', on_delete=models.SET_NULL, null=True, blank=True)
@@ -64,7 +63,7 @@ class Asset(models.Model):
     otc_status = models.CharField(
         max_length=8,
         default=ACTIVE,
-        choices=((ACTIVE, ACTIVE), (BUY, BUY), (SELL, SELL), (DISABLED, DISABLED)),
+        choices=[(s, s) for s in OTC_STATUSES],
     )
 
     price_page = models.BooleanField(default=True)
@@ -125,6 +124,10 @@ class Asset(models.Model):
         )
 
         return wallet
+
+    @property
+    def otc_trade_active(self) -> bool:
+        return self.otc_status in self.OTC_TRADE_ACTIVE_STATUSES
 
     @classmethod
     def get(cls, symbol: str):
@@ -189,7 +192,7 @@ class AssetSerializerMini(serializers.ModelSerializer):
     class Meta:
         model = Asset
         fields = ('id', 'symbol', 'precision', 'step_size', 'name', 'name_fa', 'logo', 'original_symbol',
-                  'original_name_fa', 'trading_view_symbol')
+                  'original_name_fa', 'trading_view_symbol', 'otc_status')
 
 
 class CoinField(serializers.CharField):

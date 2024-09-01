@@ -231,7 +231,10 @@ class AssetsViewSet(ModelViewSet):
             category_name = self.get_options('category')
 
             if category_name == 'new-coins':
-                queryset = queryset.order_by(F('publish_date').desc(nulls_last=True))[:100]
+                queryset = queryset.exclude(otc_status=Asset.COMING_SOON).order_by(F('publish_date').desc(nulls_last=True))[:100]
+
+            elif category_name == 'coming-soon':
+                queryset = queryset.filter(otc_status=Asset.COMING_SOON).order_by('publish_date')
 
             else:
                 category = get_object_or_404(CoinCategory, name=category_name)

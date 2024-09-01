@@ -168,9 +168,6 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         except:
             raise ValidationError('دارایی نامعتبر است.')
 
-        if not from_asset.trade_enable or not to_asset.trade_enable:
-            raise ValidationError('در حال حاضر امکان معامله این رمزارز وجود ندارد.')
-
         from_amount = attrs.get('from_amount')
         to_amount = attrs.get('to_amount')
 
