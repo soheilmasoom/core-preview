@@ -12,11 +12,11 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.authentication import WithdrawTokenAuthentication
-from accounts.models import VerificationCode, LoginActivity, User, SmsNotification
+from accounts.models import VerificationCode, LoginActivity, User, SmsNotification, LevelGrants
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from accounts.utils.validation import persian_timedelta
-from financial.utils.withdraw_limit import user_reached_crypto_withdraw_limit
+from financial.utils.withdraw_limit import get_crypto_withdraw_irt_value
 from ledger.exceptions import InsufficientBalance
 from ledger.models import Asset, Transfer, NetworkAsset, AddressBook, DepositAddress
 from ledger.models import WithdrawFeedback, FeedbackCategory
@@ -73,7 +73,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
         else:
             if not asset:
-                raise ValidationError('رمزارزی انتخاب نشده است.')
+                raise ValidationError('ارز دیجیتالی انتخاب نشده است.')
             if not network:
                 raise ValidationError('شبکه‌ای انتخاب نشده است.')
             if not address:
@@ -159,16 +159,21 @@ class WithdrawSerializer(serializers.ModelSerializer):
         #     raise ValidationError(
         #         'در این سطح کاربری نمی‌توانید ریال واریزی را به صورت رمزارز برداشت کنید. لطفا احراز هویت سطح ۳ را انجام دهید.')
 
-        if asset.enable and user.level < User.LEVEL3:
-            raise ValidationError('برای برداشت رمزارزی لازم است به سطح ۳ احراز هویت کنید.')
+        if asset.enable and user.level < User.LEVEL2:
+            raise ValidationError('برای برداشت ارز دیجیتال لازم است به سطح 2 احراز هویت کنید.')
 
         irt_price = get_last_price(asset.symbol + Asset.IRT)
 
-        if irt_price:
+        if asset.enable or irt_price:
             irt_value = irt_price * amount
+            ceil = LevelGrants.get_max_daily_crypto_withdraw(user)
+            today_withdraw_value = get_crypto_withdraw_irt_value(user)
 
-            if user_reached_crypto_withdraw_limit(user, irt_value):
-                raise ValidationError({'amount': 'شما به سقف برداشت رمزارزی خود رسیده اید.'})
+            if irt_value > ceil:
+                raise ValidationError({'amount': 'مبلغ برداشتی بیش از میزان مجاز سطح کاربری شماست.'})
+
+            if today_withdraw_value + irt_value > ceil:
+                raise ValidationError({'amount': 'شما به سقف برداشت روزانه ارز دیجیتال خود رسیده اید.'})
 
         if sms_verification_code:
             sms_verification_code.set_code_used()

@@ -58,11 +58,6 @@ def user_reached_fiat_withdraw_limit(user: User, irt_value) -> bool:
     return today_user_fiat_withdraw + irt_value > max_daily_fiat_withdraw
 
 
-def user_reached_crypto_withdraw_limit(user: User, irt_value) -> bool:
-    ceil = LevelGrants.get_max_daily_crypto_withdraw(user)
-    return get_crypto_withdraw_irt_value(user) + irt_value > ceil
-
-
 def time_in_range(start, end, time):
     start = datetime.strptime(start, '%H:%M').time()
     end = datetime.strptime(end, '%H:%M').time()
