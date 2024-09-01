@@ -114,7 +114,7 @@ class OTCInfoView(APIView):
             'from_precision': from_precision,
             'to_precision': to_precision,
             'price_precision': symbol.tick_size,
-            'default_amount': default_amount
+            'default_amount': str(default_amount)
         })
 
 
