@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal, InvalidOperation
 
 from rest_framework import serializers
@@ -19,6 +20,7 @@ from ledger.utils.external_price import BUY, SIDE_VERBOSE
 from ledger.utils.fields import get_serializer_amount_field
 from ledger.utils.otc import get_trading_pair
 from ledger.utils.precision import get_symbol_presentation_amount, get_symbol_presentation_price
+from ledger.utils.price import get_last_price, USDT_IRT
 
 
 class OTCInfoView(APIView):
@@ -98,6 +100,10 @@ class OTCInfoView(APIView):
         else:
             from_precision, to_precision = symbol.step_size, Asset.PRECISION
 
+        default_amount = 1
+        if symbol.base_asset.symbol == Asset.IRT:
+            default_amount = 10 ** math.floor(math.log10(15e6 / otc.price))
+
         return Response({
             'base_asset': symbol.base_asset.symbol,
             'asset': symbol.asset.symbol,
@@ -107,7 +113,8 @@ class OTCInfoView(APIView):
             'risky': risky,
             'from_precision': from_precision,
             'to_precision': to_precision,
-            'price_precision': symbol.tick_size
+            'price_precision': symbol.tick_size,
+            'default_amount': default_amount
         })
 
 
