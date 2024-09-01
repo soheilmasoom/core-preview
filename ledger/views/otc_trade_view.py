@@ -20,7 +20,8 @@ from ledger.utils.external_price import BUY, SIDE_VERBOSE
 from ledger.utils.fields import get_serializer_amount_field
 from ledger.utils.otc import get_trading_pair
 from ledger.utils.precision import get_symbol_presentation_amount, get_symbol_presentation_price
-from ledger.utils.price import get_last_price, USDT_IRT
+
+TARGETED_TRADE_VALUE = Decimal(15e6)  # IRT
 
 
 class OTCInfoView(APIView):
@@ -102,7 +103,10 @@ class OTCInfoView(APIView):
 
         default_amount = 1
         if symbol.base_asset.symbol == Asset.IRT:
-            default_amount = 10 ** math.floor(math.log10(Decimal(15e6) / otc.price))
+            exponent = math.log10(
+                min(TARGETED_TRADE_VALUE / otc.price, symbol.max_trade_quantity)
+            )
+            default_amount = 10 ** math.floor(exponent)
 
         return Response({
             'base_asset': symbol.base_asset.symbol,
