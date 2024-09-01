@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0223_merge_20240901_1503'),
+        ('accounts', '0224_historicalsystemconfig_check_national_code_for_widget_and_more'),
     ]
 
     operations = [
