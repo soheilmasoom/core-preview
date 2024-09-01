@@ -4,6 +4,7 @@ from typing import Union
 import requests
 from django.conf import settings
 from django.urls import reverse
+from accounts.models.system_config import SystemConfig
 from accounts.models.user import User
 
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
@@ -31,8 +32,8 @@ class ZibalGateway(Gateway):
 
         if bank_card:
             payload['allowedCards'] = bank_card.card_pan
-        # else:
-        #     payload['nationalCode'] = user.national_code
+        elif SystemConfig.get_system_config().check_national_code_for_widget:
+            payload['nationalCode'] = user.national_code
 
         resp = requests.post(
             self.BASE_URL + '/v1/request',
