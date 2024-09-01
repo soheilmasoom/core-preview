@@ -19,7 +19,7 @@ class UserAuthRequest(models.Model):
         default=uuid.uuid4,
     )
 
-    search_key = models.CharField(max_length=128, db_index=True, null=True, blank=True)
+    search_key = models.CharField(max_length=128, blank=True)
 
     service = models.CharField(max_length=8, choices=((FINOTECH, FINOTECH), (JIBIT, JIBIT), (ZIBAL, ZIBAL)))
 
@@ -38,3 +38,4 @@ class UserAuthRequest(models.Model):
         permissions = [
             ("list_userauthrequest", "Can list user auth request"),
         ]
+        unique_together = [('search_key', 'service')]

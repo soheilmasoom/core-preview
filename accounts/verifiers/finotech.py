@@ -56,7 +56,7 @@ class FinotechRequester:
             return token
 
     def collect_api(self, path: str, method: str = 'GET', data: dict = None, force_renew_token: bool = False,
-                    search_key: str = None) -> dict:
+                    search_key: str = '') -> dict:
 
         if search_key:
             request = UserAuthRequest.objects.filter(
