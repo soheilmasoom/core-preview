@@ -5,6 +5,8 @@ from typing import Union
 import requests
 from django.conf import settings
 from django.urls import reverse
+
+from accounts.models import SystemConfig
 from accounts.models.user import User
 
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
@@ -47,8 +49,9 @@ class PaystarGateway(Gateway):
 
         if bank_card:
             payload['card_number'] = bank_card.card_pan
-        else:
-            raise NotImplementedError
+
+        elif SystemConfig.get_system_config().check_national_code_for_widget:
+            payload['national_code'] = user.national_code
 
         resp = requests.post(
             self.BASE_URL + '/create',
