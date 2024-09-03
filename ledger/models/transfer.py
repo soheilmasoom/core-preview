@@ -353,7 +353,7 @@ class Transfer(models.Model):
             transfer.status = REFUND
             transfer.save(update_fields=['status'])
 
-            revert_trx_group(pipeline, self.group_id)
+            revert_trx_group(pipeline, self.group_id, allow_debt=True)
 
     def change_status(self, status: str):
         if status == DONE:
