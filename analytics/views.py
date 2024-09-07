@@ -13,9 +13,8 @@ from analytics.models import ReportPermission
 
 @login_required
 def request_source_analytics(request):
-    user = request.user
-    if not user.has_perm('analytics.view_reportpermission') \
-            or not ReportPermission.objects.filter(user=user, enable=True):
+    report_permissions = ReportPermission.objects.filter(user=request.user)
+    if not report_permissions:
         return HttpResponseForbidden('No permission!')
 
     correct_url = settings.HOST_URL + '/analytics/marketing/reports/download/'
