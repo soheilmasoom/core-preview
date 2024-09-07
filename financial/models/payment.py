@@ -208,7 +208,7 @@ class Payment(models.Model):
         if source == desktop:
             if is_from_widget:
                 if self.status == DONE:
-                    token = Widget.get_set_password_token(self.paymentrequest.user)
+                    token = Widget.generate_set_password_token(self.paymentrequest.user)
                     status = 'fail' if fast_by_token and fast_by_token.status != FastBuyToken.DONE else 'done'
                     url = settings.PANEL_URL + self.WIDGET_SUCCESS_URL + "?status=" + status
                     if self.user.check_password(None):

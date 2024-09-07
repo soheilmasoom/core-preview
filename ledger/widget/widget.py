@@ -14,9 +14,8 @@ class Widget:
             return self.UNVERIFIED_USER
         return self.VERIFIED_USER
 
-
     @classmethod
-    def get_set_password_token(self, user):
+    def generate_set_password_token(self, user):
         access_token = SetPasswordAccessToken.for_user(user)
         access_token.set_exp(lifetime=timedelta(minutes=60))
         return str(access_token)
