@@ -111,7 +111,7 @@ class CustomJWTAuthentication(JWTAuthentication):
         return validated_token
 
     def authenticate(self, request):
-        validated_token = self.get_valid_token(self, request)
+        validated_token = self.get_valid_token(request)
         if not validated_token:
             return None
 
