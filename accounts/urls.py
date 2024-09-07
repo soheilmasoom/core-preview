@@ -38,6 +38,7 @@ urlpatterns = [
 
     path('forget/init/', views.InitiateForgetPasswordView.as_view()),
     path('forget/', views.ForgetPasswordView.as_view()),
+    path('password/set/', views.SetPasswordView.as_view()),
 
     path('verify/basic/', views.BasicInfoVerificationViewSet.as_view({
         'get': 'retrieve',

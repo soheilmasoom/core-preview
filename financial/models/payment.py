@@ -10,6 +10,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
+from django.contrib.auth import authenticate
 
 from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.models import Account, EmailNotification
@@ -24,6 +25,7 @@ from ledger.utils.fraud import verify_fiat_deposit
 from ledger.utils.precision import humanize_number, get_presentation_amount
 from ledger.utils.price import get_last_price, USDT_IRT
 from ledger.utils.wallet_pipeline import WalletPipeline
+from ledger.widget.widget import Widget
 
 
 class PaymentRequest(models.Model):
@@ -206,20 +208,24 @@ class Payment(models.Model):
         if source == desktop:
             if is_from_widget:
                 if self.status == DONE:
+                    token = Widget.generate_set_password_token(self.paymentrequest.user)
+                    status = 'fail' if fast_by_token and fast_by_token.status != FastBuyToken.DONE else 'done'
+                    url = settings.PANEL_URL + self.WIDGET_SUCCESS_URL + "?status=" + status
+                    if self.user.check_password(None):
+                        self.user.national_code_verified = True
+                        self.user.save(update_fields=['national_code_verified'])
+                        url = url + "&token=" + token
+                    return url
+                else:
+                    return settings.PANEL_URL + self.FAIL_URL
+            else:
+                if self.status == DONE:
                     if fast_by_token and fast_by_token.status != FastBuyToken.DONE:
                         return settings.PANEL_URL + self.SUCCESS_PAYMENT_FAIL_FAST_BUY
                     else:
                         return settings.PANEL_URL + self.SUCCESS_URL
                 else:
                     return settings.PANEL_URL + self.FAIL_URL
-            else:
-                if self.status == DONE:
-                    if fast_by_token and fast_by_token.status != FastBuyToken.DONE:
-                        return settings.PANEL_URL + self.WIDGET_SUCCESS_PAYMENT_FAIL_FAST_BUY
-                    else:
-                        return settings.PANEL_URL + self.WIDGET_SUCCESS_URL
-                else:
-                    return settings.PANEL_URL + self.WIDGET_FAIL_URL
 
         else:
             if self.status == DONE:
