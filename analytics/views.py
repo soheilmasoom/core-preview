@@ -13,8 +13,9 @@ from analytics.models import ReportPermission
 
 @login_required
 def request_source_analytics(request):
-    report_permissions = ReportPermission.objects.filter(user=request.user)
-    if not report_permissions:
+    user = request.user
+    if not user.has_perm('analytics.view_reportpermission') \
+            or not ReportPermission.objects.filter(user=user, enable=True):
         return HttpResponseForbidden('No permission!')
 
     correct_url = settings.HOST_URL + '/analytics/marketing/reports/download/'
@@ -38,7 +39,7 @@ def get_source_analytics(request):
             return HttpResponseBadRequest('Report time filter threshold must be less than 30 days')
 
         q = Q()
-        report_permissions = ReportPermission.objects.filter(user=request.user)
+        report_permissions = ReportPermission.objects.filter(user=request.user, enable=True)
         if not report_permissions:
             return HttpResponseForbidden('No permission!')
 
