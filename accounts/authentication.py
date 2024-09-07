@@ -111,6 +111,13 @@ class CustomJWTAuthentication(JWTAuthentication):
         return validated_token
 
     def authenticate(self, request):
+        validated_token = self.get_valid_token(self, request)
+        if not validated_token:
+            return None
+
+        return self.get_user(validated_token), validated_token
+
+    def get_valid_token(self, request):
         header = self.get_header(request)
         if header is None:
             return None
@@ -119,9 +126,7 @@ class CustomJWTAuthentication(JWTAuthentication):
         if raw_token is None:
             return None
 
-        validated_token = self.get_validated_token(raw_token)
-
-        return self.get_user(validated_token), validated_token
+        return self.get_validated_token(raw_token)
 
 
 class WidgetJWTAuthentication(CustomJWTAuthentication):
@@ -131,11 +136,9 @@ class WidgetJWTAuthentication(CustomJWTAuthentication):
         return validated_token
 
     def authenticate(self, request):
-        raw_token = self.get_raw_token(self.get_header(request))
-        if raw_token is None:
+        validated_token = super().get_valid_token(request)
+        if not validated_token:
             return None
-
-        validated_token = self.get_validated_token(raw_token)
 
         if 'type' not in validated_token:
             raise InvalidToken("Token missing 'type' field")
@@ -151,6 +154,33 @@ class WidgetAccessToken(AccessToken):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self['type'] = 'widget'
+
+
+class SetPasswordJWTAuthentication(CustomJWTAuthentication):
+    def get_validated_token(self, raw_token):
+        validated_token = JWTAuthentication().get_validated_token(raw_token)
+
+        return validated_token
+
+    def authenticate(self, request):
+        validated_token = super().get_valid_token(request)
+        if not validated_token:
+            return None
+
+        if 'type' not in validated_token:
+            raise InvalidToken("Token missing 'type' field")
+
+        if validated_token.get('type') != 'setpass':
+            msg = _('Token type must be "setpass"')
+            raise exceptions.AuthenticationFailed(msg)
+
+        return self.get_user(validated_token), validated_token
+
+
+class SetPasswordAccessToken(AccessToken):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self['type'] = 'setpass'
 
 
 def is_app(request):
