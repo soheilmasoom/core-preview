@@ -33,7 +33,10 @@ class ZibalGateway(Gateway):
         if bank_card:
             payload['allowedCards'] = bank_card.card_pan
         elif SystemConfig.get_system_config().check_national_code_for_widget:
-            payload['nationalCode'] = user.national_code
+            if user.national_code:
+                payload['nationalCode'] = user.national_code
+            else:
+                raise GatewayFailed('No national code')
 
         resp = requests.post(
             self.BASE_URL + '/v1/request',

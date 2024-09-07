@@ -49,9 +49,11 @@ class PaystarGateway(Gateway):
 
         if bank_card:
             payload['card_number'] = bank_card.card_pan
-
         elif SystemConfig.get_system_config().check_national_code_for_widget:
-            payload['national_code'] = user.national_code
+            if user.national_code:
+                payload['national_code'] = user.national_code
+            else:
+                raise GatewayFailed('No national code')
 
         resp = requests.post(
             self.BASE_URL + '/create',

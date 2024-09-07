@@ -3,13 +3,15 @@ from decouple import config
 from django.conf import settings
 from rest_framework.reverse import reverse
 from typing import Union
+
+from accounts.models import SystemConfig
 from accounts.models.user import User
 
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
 from financial.models.gateway import GatewayFailed, logger
 from ledger.utils.fields import DONE, CANCELED
 from ledger.utils.wallet_pipeline import WalletPipeline
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 
 
 class JibitGateway(Gateway):
@@ -61,8 +63,11 @@ class JibitGateway(Gateway):
 
         if bank_card:
             payload['payerCardNumber'] = bank_card.card_pan
-        else:
-            raise NotImplementedError
+        elif SystemConfig.get_system_config().check_national_code_for_widget:
+            if user.national_code:
+                payload['payerNationalCode'] = user.national_code
+            else:
+                raise GatewayFailed('No national code')
 
         resp = requests.post(
             self.BASE_URL + '/v3/purchases',
