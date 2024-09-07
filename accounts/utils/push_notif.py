@@ -82,7 +82,7 @@ def send_push_notif(token: str, title: str, body: str, image: str = None, link: 
         json={
             'message': body
         },
-        timeout=10,
+        timeout=30,
     )
 
     if not resp.ok:
