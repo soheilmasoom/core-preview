@@ -211,11 +211,9 @@ class Payment(models.Model):
                     token = Widget.get_set_password_token(self.paymentrequest.user)
                     status = 'fail' if fast_by_token and fast_by_token.status != FastBuyToken.DONE else 'done'
                     url = settings.PANEL_URL + self.WIDGET_SUCCESS_URL + "?status=" + status
-                    user = authenticate(login=user.phone, password=None)
-                    if not user:
-                        user = self.user
-                        user.national_code_verified = True
-                        user.save(update_fields=['national_code_verified'])
+                    if self.user.check_password(None):
+                        self.user.national_code_verified = True
+                        self.user.save(update_fields=['national_code_verified'])
                         url = url + "&token=" + token
                     return url
                 else:
