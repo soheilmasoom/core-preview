@@ -35,7 +35,7 @@ class JibitGateway(Gateway):
 
     def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
         token = self._get_token()
-        base_url = config('PAYMENT_PROXY_HOST_URL', default='') or settings.HOST_URL
+        callback_host = self.ipg_callback_host or settings.HOST_URL
 
         fee = self.get_ipg_fee(amount)
 
@@ -51,7 +51,7 @@ class JibitGateway(Gateway):
             headers={'Authorization': 'Bearer ' + token},
             json={
                 'amount': amount * 10,
-                'callbackUrl': base_url + reverse('finance:jibit-callback'),
+                'callbackUrl': callback_host + reverse('finance:jibit-callback'),
                 'clientReferenceNumber': str(payment_request.id),
                 'currency': 'IRR',
                 'description': 'افزایش اعتبار',
@@ -70,16 +70,16 @@ class JibitGateway(Gateway):
 
         return payment_request
 
-    def get_initial_redirect_url(self, payment_request: PaymentRequest) -> str:
-        payment_proxy = config('PAYMENT_PROXY_HOST_URL', default='')
-
-        if not payment_proxy:
-            return super().get_initial_redirect_url(payment_request)
-        else:
-            return payment_proxy + '/api/v1/finance/payment/go/?gateway={gateway}&authority={authority}'.format(
-                gateway=self.JIBIT,
-                authority=payment_request.authority
-            )
+    # def get_initial_redirect_url(self, payment_request: PaymentRequest) -> str:
+    #     payment_proxy = config('PAYMENT_PROXY_HOST_URL', default='')
+    #
+    #     if not payment_proxy:
+    #         return super().get_initial_redirect_url(payment_request)
+    #     else:
+    #         return payment_proxy + '/api/v1/finance/payment/go/?gateway={gateway}&authority={authority}'.format(
+    #             gateway=self.JIBIT,
+    #             authority=payment_request.authority
+    #         )
 
     @classmethod
     def get_payment_url(cls, payment_request: PaymentRequest):
