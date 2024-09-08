@@ -96,9 +96,8 @@ class Payment(models.Model):
     FAIL_URL = '/checkout/fail'
     SUCCESS_PAYMENT_FAIL_FAST_BUY = '/checkout/fail_trade'
 
-    WIDGET_SUCCESS_URL = 'checkout/widget/success'
-    WIDGET_FAIL_URL = 'checkout/widget/fail'
-    WIDGET_SUCCESS_PAYMENT_FAIL_FAST_BUY = '/checkout/widget/fail_trade'
+    WIDGET_SUCCESS_SET_PASSWORD_URL = 'passwrod/set'
+    WIDGET_SUCCESS_LOGIN_URL = 'auth/login'
 
     DESCRIPTION_SIZE = 256
 
@@ -210,11 +209,11 @@ class Payment(models.Model):
                 if self.status == DONE:
                     token = Widget.generate_set_password_token(self.paymentrequest.user)
                     status = 'fail' if fast_by_token and fast_by_token.status != FastBuyToken.DONE else 'done'
-                    url = settings.PANEL_URL + self.WIDGET_SUCCESS_URL + "?status=" + status
+                    url = settings.PANEL_URL + self.WIDGET_SUCCESS_LOGIN_URL + "?buy=" + status
                     if self.user.check_password(None):
                         self.user.national_code_verified = True
                         self.user.save(update_fields=['national_code_verified'])
-                        url = url + "&token=" + token
+                        url = settings.PANEL_URL + self.WIDGET_SUCCESS_SET_PASSWORD_URL + "?buy=" + status + "&token=" + token
                     return url
                 else:
                     return settings.PANEL_URL + self.FAIL_URL
