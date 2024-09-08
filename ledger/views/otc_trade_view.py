@@ -101,6 +101,11 @@ class OTCInfoView(APIView):
         else:
             from_precision, to_precision = symbol.step_size, Asset.PRECISION
 
+        if from_asset.symbol == Asset.IRT:
+            from_precision = 0
+        if to_asset.symbol == Asset.IRT:
+            to_precision = 0
+
         default_amount = 1
         if symbol.base_asset.symbol == Asset.IRT:
             exponent = math.log10(
