@@ -27,6 +27,10 @@ from ledger.utils.price import get_last_price, USDT_IRT
 from ledger.utils.wallet_pipeline import WalletPipeline
 from ledger.widget.widget import Widget
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class PaymentRequest(models.Model):
 
@@ -209,11 +213,16 @@ class Payment(models.Model):
                 if self.status == DONE:
                     status = 'fail' if fast_by_token and fast_by_token.status != FastBuyToken.DONE else 'done'
                     url = settings.PANEL_URL + self.WIDGET_SUCCESS_LOGIN_URL + "?buy=" + status
+                    print("PAYMENT:USER#", self.user)
+                    logger.error(f'PAYMENT:USER#", {self.user}')
                     if self.user.check_password(None):
+
                         token = Widget.generate_set_password_token(self.paymentrequest.user)
                         self.user.national_code_verified = True
                         self.user.save(update_fields=['national_code_verified'])
                         url = settings.PANEL_URL + self.WIDGET_SUCCESS_SET_PASSWORD_URL + "?buy=" + status + "&token=" + token
+                        print("PAYMENT:USER:URL#", url, self.user.national_code_verified)
+                        logger.error(f'PAYMENT:USER:URL#", {url}')
                     return url
                 else:
                     return settings.PANEL_URL + self.FAIL_URL
