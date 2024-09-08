@@ -22,6 +22,8 @@ class SetPasswordSerializer(serializers.Serializer):
         user = request.user
 
         password = validated_data.pop('password')
+        if not user.check_password(None):
+            raise ValidationError('رمز پیش از این ایجاد شده است.')
 
         validate_password(password=password, user=user)
 
