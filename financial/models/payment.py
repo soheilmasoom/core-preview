@@ -97,7 +97,7 @@ class Payment(models.Model):
     SUCCESS_PAYMENT_FAIL_FAST_BUY = '/checkout/fail_trade'
 
     WIDGET_SUCCESS_SET_PASSWORD_URL = '/auth/set-password'
-    WIDGET_SUCCESS_LOGIN_URL = 'auth/login'
+    WIDGET_SUCCESS_LOGIN_URL = '/auth/login'
 
     DESCRIPTION_SIZE = 256
 
