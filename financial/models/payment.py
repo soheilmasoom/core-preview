@@ -207,10 +207,10 @@ class Payment(models.Model):
         if source == desktop:
             if is_from_widget:
                 if self.status == DONE:
-                    token = Widget.generate_set_password_token(self.paymentrequest.user)
                     status = 'fail' if fast_by_token and fast_by_token.status != FastBuyToken.DONE else 'done'
                     url = settings.PANEL_URL + self.WIDGET_SUCCESS_LOGIN_URL + "?buy=" + status
                     if self.user.check_password(None):
+                        token = Widget.generate_set_password_token(self.paymentrequest.user)
                         self.user.national_code_verified = True
                         self.user.save(update_fields=['national_code_verified'])
                         url = settings.PANEL_URL + self.WIDGET_SUCCESS_SET_PASSWORD_URL + "?buy=" + status + "&token=" + token

@@ -3,6 +3,7 @@ import logging
 from rest_framework import serializers
 from rest_framework.generics import CreateAPIView
 from django.contrib.auth import login
+from django.core.exceptions import ValidationError
 
 from accounts.throttle import SustainedRateThrottle, BurstRateThrottle
 from accounts.validators import password_validator
@@ -21,12 +22,14 @@ class SetPasswordSerializer(serializers.Serializer):
         user = request.user
 
         password = validated_data.pop('password')
+        if not user.check_password(None):
+            raise ValidationError('رمز پیش از این ایجاد شده است.')
 
         validate_password(password=password, user=user)
 
-        login(request, user)
         user.set_password(password)
         user.save(update_fields=['password'])
+        login(request, user)
         try:
             set_login_activity(
                 request=request,
