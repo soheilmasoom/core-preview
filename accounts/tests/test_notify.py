@@ -29,9 +29,7 @@ class TestNotify(APITestCase):
             'content': 'Hello there',
             'group_id': str(group_id)
 
-        }, HTTP_AUTHORIZATION=f'Token {self.token}')
-
-        data = resp.data
+        })
 
         self.assertEqual(resp.status_code, 201)
         self.assertTrue(SmsNotification.objects.filter(group_id=group_id, recipient_id=self.user.id))
@@ -53,8 +51,6 @@ class TestNotify(APITestCase):
             'group_id': str(group_id)
 
         }], format='json')
-
-        data = resp.data
 
         self.assertEqual(resp.status_code, 201)
         self.assertTrue(SmsNotification.objects.filter(group_id=group_id, recipient_id=self.user.id))
