@@ -27,6 +27,10 @@ from ledger.utils.price import get_last_price, USDT_IRT
 from ledger.utils.wallet_pipeline import WalletPipeline
 from ledger.widget.widget import Widget
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class PaymentRequest(models.Model):
 
@@ -96,9 +100,8 @@ class Payment(models.Model):
     FAIL_URL = '/checkout/fail'
     SUCCESS_PAYMENT_FAIL_FAST_BUY = '/checkout/fail_trade'
 
-    WIDGET_SUCCESS_URL = 'checkout/widget/success'
-    WIDGET_FAIL_URL = 'checkout/widget/fail'
-    WIDGET_SUCCESS_PAYMENT_FAIL_FAST_BUY = '/checkout/widget/fail_trade'
+    WIDGET_SUCCESS_SET_PASSWORD_URL = '/auth/set-password'
+    WIDGET_SUCCESS_LOGIN_URL = '/auth/login'
 
     DESCRIPTION_SIZE = 256
 
@@ -208,13 +211,15 @@ class Payment(models.Model):
         if source == desktop:
             if is_from_widget:
                 if self.status == DONE:
-                    token = Widget.generate_set_password_token(self.paymentrequest.user)
                     status = 'fail' if fast_by_token and fast_by_token.status != FastBuyToken.DONE else 'done'
-                    url = settings.PANEL_URL + self.WIDGET_SUCCESS_URL + "?status=" + status
-                    if self.user.check_password(None):
+                    url = settings.PANEL_URL + self.WIDGET_SUCCESS_LOGIN_URL + "?buy=" + status
+                    logger.warning(f'PAYMENT:USER#", {self.user}')
+                    if not self.user.has_usable_password():
+                        token = Widget.generate_set_password_token(self.paymentrequest.user)
                         self.user.national_code_verified = True
                         self.user.save(update_fields=['national_code_verified'])
-                        url = url + "&token=" + token
+                        url = settings.PANEL_URL + self.WIDGET_SUCCESS_SET_PASSWORD_URL + "?buy=" + status + "&token=" + token
+                        logger.warning(f'PAYMENT:USER:URL#", {url}')
                     return url
                 else:
                     return settings.PANEL_URL + self.FAIL_URL
