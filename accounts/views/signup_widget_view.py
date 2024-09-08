@@ -85,7 +85,7 @@ class WidgetSignupSerializer(serializers.Serializer):
                 if config('SHOW_NINJA_TO_ALL', cast=bool, default=False):
                     user.show_community = True
 
-                user.set_password(None)
+                user.set_unusable_password()
                 user.save()
 
             signup_serializer = SignupSerializer()
