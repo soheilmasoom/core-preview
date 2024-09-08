@@ -3,7 +3,7 @@ from django.conf import settings
 from financial.models import BankCard, Gateway, FiatWithdrawRequest, BankAccount
 
 if settings.DEBUG_OR_TESTING:
-    from accounts.models import User
+    from accounts.models import User, CustomToken
 
     def new_user(name='test_user', phone='09121111111', level=User.LEVEL2) -> User:
         name = name,
@@ -14,6 +14,10 @@ if settings.DEBUG_OR_TESTING:
     def new_bank_card(user: User) -> BankCard:
         bank_card = BankCard.live_objects.create(user=user, card_pan='6104337574599260', verified=True)
         return bank_card
+
+    def new_custom_token(user: User) -> str:
+        token, _ = CustomToken.objects.get_or_create(user=user)
+        return token.key
 
     def new_bank_account(user: User) -> BankAccount:
         bank_account = BankAccount.objects.create(user=user, iban='IR231245664676589495374398')
