@@ -92,7 +92,7 @@ class WidgetConfigView(APIView):
     def get(self, request):
         return Response(
             {
-                'is_fast_buy_enable': Gateway.get_active_deposit(widget_deposit_enable=True).exists(),
+                'is_fast_buy_enable': Gateway.objects.filter(active=True, widget_deposit_enable=True).exists(),
                 'min_irt_value': SystemConfig.get_system_config().min_fast_buy_irt
             }
         )
