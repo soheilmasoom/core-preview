@@ -10,6 +10,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
+from django.contrib.auth import authenticate
 
 from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.models import Account, EmailNotification
@@ -24,6 +25,11 @@ from ledger.utils.fraud import verify_fiat_deposit
 from ledger.utils.precision import humanize_number, get_presentation_amount
 from ledger.utils.price import get_last_price, USDT_IRT
 from ledger.utils.wallet_pipeline import WalletPipeline
+from ledger.widget.widget import Widget
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PaymentRequest(models.Model):
@@ -35,7 +41,7 @@ class PaymentRequest(models.Model):
     modified = models.DateTimeField(auto_now=True)
 
     gateway = models.ForeignKey('financial.Gateway', on_delete=models.PROTECT)
-    bank_card = models.ForeignKey('financial.BankCard', on_delete=models.PROTECT)
+    bank_card = models.ForeignKey('financial.BankCard', on_delete=models.PROTECT, null=True, blank=True)
     amount = models.PositiveIntegerField()
     fee = models.PositiveIntegerField()
 
@@ -51,6 +57,8 @@ class PaymentRequest(models.Model):
 
     details = models.TextField(blank=True)
 
+    user = models.ForeignKey('accounts.User', on_delete=models.CASCADE, blank=True, null=True)
+
     def get_gateway(self):
         return self.gateway.get_concrete_gateway()
 
@@ -63,7 +71,7 @@ class PaymentRequest(models.Model):
             payment, created = Payment.objects.get_or_create(
                 group_id=self.group_id,
                 defaults={
-                    'user': self.bank_card.user,
+                    'user': self.user,
                     'amount': self.amount,
                     'fee': self.fee,
                     'source': Payment.IPG,
@@ -81,9 +89,8 @@ class PaymentRequest(models.Model):
         permissions = [
             ("list_paymentrequest", "Can list payment request"),
         ]
-
     def __str__(self):
-        return '%s %s' % (self.gateway, self.bank_card)
+        return '%s %s %s' % (self.gateway, self.bank_card, self.user)
 
 
 class Payment(models.Model):
@@ -92,6 +99,9 @@ class Payment(models.Model):
     SUCCESS_URL = '/checkout/success'
     FAIL_URL = '/checkout/fail'
     SUCCESS_PAYMENT_FAIL_FAST_BUY = '/checkout/fail_trade'
+
+    WIDGET_SUCCESS_SET_PASSWORD_URL = '/auth/set-password'
+    WIDGET_SUCCESS_LOGIN_URL = '/auth/login'
 
     DESCRIPTION_SIZE = 256
 
@@ -196,15 +206,32 @@ class Payment(models.Model):
         source = self.paymentrequest.source
         desktop = PaymentRequest.DESKTOP
         fast_by_token = FastBuyToken.objects.filter(payment_request=self.paymentrequest).last()
+        is_from_widget = False if self.paymentrequest.bank_card else True
 
         if source == desktop:
-            if self.status == DONE:
-                if fast_by_token and fast_by_token.status != FastBuyToken.DONE:
-                    return settings.PANEL_URL + self.SUCCESS_PAYMENT_FAIL_FAST_BUY
+            if is_from_widget:
+                if self.status == DONE:
+                    status = 'fail' if fast_by_token and fast_by_token.status != FastBuyToken.DONE else 'done'
+                    url = settings.PANEL_URL + self.WIDGET_SUCCESS_LOGIN_URL + "?buy=" + status
+                    logger.warning(f'PAYMENT:USER#", {self.user}')
+                    if not self.user.has_usable_password():
+                        token = Widget.generate_set_password_token(self.paymentrequest.user)
+                        self.user.national_code_verified = True
+                        self.user.save(update_fields=['national_code_verified'])
+                        url = settings.PANEL_URL + self.WIDGET_SUCCESS_SET_PASSWORD_URL + "?buy=" + status + "&token=" + token
+                        logger.warning(f'PAYMENT:USER:URL#", {url}')
+                    return url
                 else:
-                    return settings.PANEL_URL + self.SUCCESS_URL
+                    return settings.PANEL_URL + self.FAIL_URL
             else:
-                return settings.PANEL_URL + self.FAIL_URL
+                if self.status == DONE:
+                    if fast_by_token and fast_by_token.status != FastBuyToken.DONE:
+                        return settings.PANEL_URL + self.SUCCESS_PAYMENT_FAIL_FAST_BUY
+                    else:
+                        return settings.PANEL_URL + self.SUCCESS_URL
+                else:
+                    return settings.PANEL_URL + self.FAIL_URL
+
         else:
             if self.status == DONE:
                 if fast_by_token and fast_by_token.status != FastBuyToken.DONE:

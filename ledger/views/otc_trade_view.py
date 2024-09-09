@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal, InvalidOperation
 
 from rest_framework import serializers
@@ -19,6 +20,8 @@ from ledger.utils.external_price import BUY, SIDE_VERBOSE
 from ledger.utils.fields import get_serializer_amount_field
 from ledger.utils.otc import get_trading_pair
 from ledger.utils.precision import get_symbol_presentation_amount, get_symbol_presentation_price
+
+TARGETED_TRADE_VALUE = Decimal(15e6)  # IRT
 
 
 class OTCInfoView(APIView):
@@ -98,6 +101,18 @@ class OTCInfoView(APIView):
         else:
             from_precision, to_precision = symbol.step_size, Asset.PRECISION
 
+        if from_asset.symbol == Asset.IRT:
+            from_precision = 0
+        if to_asset.symbol == Asset.IRT:
+            to_precision = 0
+
+        default_amount = 1
+        if symbol.base_asset.symbol == Asset.IRT:
+            exponent = math.log10(
+                min(TARGETED_TRADE_VALUE / otc.price, symbol.max_trade_quantity)
+            )
+            default_amount = 10 ** math.floor(exponent)
+
         return Response({
             'base_asset': symbol.base_asset.symbol,
             'asset': symbol.asset.symbol,
@@ -107,7 +122,8 @@ class OTCInfoView(APIView):
             'risky': risky,
             'from_precision': from_precision,
             'to_precision': to_precision,
-            'price_precision': symbol.tick_size
+            'price_precision': symbol.tick_size,
+            'default_amount': str(default_amount)
         })
 
 
@@ -156,9 +172,6 @@ class OTCRequestSerializer(serializers.ModelSerializer):
             to_asset = attrs['to_asset'] = Asset.get(to_symbol)
         except:
             raise ValidationError('دارایی نامعتبر است.')
-
-        if not from_asset.trade_enable or not to_asset.trade_enable:
-            raise ValidationError('در حال حاضر امکان معامله این رمزارز وجود ندارد.')
 
         from_amount = attrs.get('from_amount')
         to_amount = attrs.get('to_amount')

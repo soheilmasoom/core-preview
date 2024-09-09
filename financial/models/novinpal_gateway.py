@@ -1,20 +1,24 @@
+from typing import Union
 import requests
 from django.urls import reverse
+from accounts.models.user import User
 
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
 from financial.models.gateway import GatewayFailed
 from ledger.utils.fields import CANCELED
 from ledger.utils.wallet_pipeline import WalletPipeline
+from rest_framework.exceptions import NotFound
 
 
 class NovinpalGateway(Gateway):
     BASE_URL = 'https://gw.novinpal.ir'
     REDIRECT_BASE_URL = 'https://api.raastin.website'
 
-    def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
+    def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         fee = self.get_ipg_fee(amount)
 
         payment_request = PaymentRequest.objects.create(
+            user=user,
             bank_card=bank_card,
             amount=amount - fee,
             fee=fee,
@@ -27,15 +31,21 @@ class NovinpalGateway(Gateway):
         order_id = str(payment_request.id)
         callback_url = self.REDIRECT_BASE_URL + reverse('finance:novinpal-callback') + f'?id={payment_request.id}'
 
-        resp = requests.post(
-            self.BASE_URL + '/invoice/request',
-            data={
+        payload = {
                 'api_key': self.deposit_api_key,
                 'amount': rial_amount,
                 'return_url': callback_url,
                 'order_id': order_id,
-                'card_number': bank_card.card_pan,
-            },
+        }
+
+        if bank_card:
+            payload['card_number'] = bank_card.card_pan
+        else:
+            raise NotImplementedError
+
+        resp = requests.post(
+            self.BASE_URL + '/invoice/request',
+            data=payload,
             timeout=30,
         )
 

@@ -1,6 +1,6 @@
 from .address_book_view import AddressBookView, AddressBookViewV2
 from .asset_alert_view import AssetAlertViewSet, BulkAssetAlertViewSet, PriceNotifSwitchView
-from .asset_info_view import AssetsViewSet, AssetOverviewAPIView, MarginAssetInterestView
+from .asset_info_view import AssetsViewSet, AssetOverviewAPIView, AssetOverviewAPIV2View, MarginAssetInterestView
 from .balance_information import BalanceInfoView
 from .bookmark_asset import BookmarkAssetsViewSet
 from .coin_category_list_view import CoinCategoryListView
@@ -27,3 +27,4 @@ from .withdraw_transfer_request_view import WithdrawTransferUpdateView
 from .withdraw_view import WithdrawView, FeedbackCategories, WithdrawFeedbackViewSet
 from .withdraw_viewset import WithdrawViewSet
 from .manaul_withdraw_request_view import ManualWithdrawUpdateView
+from .widget import FastBuyWidgetView, WidgetConfigView

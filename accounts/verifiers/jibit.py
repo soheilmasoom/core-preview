@@ -64,14 +64,13 @@ class JibitRequester:
             return token
 
     def collect_api(self, path: str, method: str = 'GET', data: dict = None, force_renew_token: bool = False,
-                    search_key: str = None, weight: int = 0) -> Response:
+                    search_key: str = '', weight: int = 0) -> Response:
 
         if search_key:
             request = UserAuthRequest.objects.filter(
                 created__gt=timezone.now() - datetime.timedelta(days=30),
                 search_key=search_key,
                 service=UserAuthRequest.JIBIT,
-                weight=weight,
             ).order_by('-created').first()
 
             if request:
@@ -134,8 +133,9 @@ class JibitRequester:
         req_object.response = resp_data
         req_object.status_code = resp.status_code
 
-        if resp.status_code not in (403, 401) and resp.status_code < 500 and \
+        if search_key and resp.status_code not in (403, 401) and resp.status_code < 500 and \
                 resp_data.get('code') not in ['card.provider_is_not_active', 'card.source_bank_is_not_active']:
+
             req_object.search_key = search_key
 
         req_object.save()

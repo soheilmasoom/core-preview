@@ -38,7 +38,7 @@ def get_symbol_parts(symbol: str):
 def get_all_otc_spreads(side):
     from ledger.models import Asset
 
-    queryset = Asset.live_objects.filter(trade_enable=True)
+    queryset = Asset.live_objects.filter(otc_status__in=Asset.OTC_TRADE_ACTIVE_STATUSES)
 
     spreads = {}
 

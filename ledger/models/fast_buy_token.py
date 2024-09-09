@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 
 from django.db import models
+from uuid import uuid4
 
 from accounts.models import Notification
 from ledger.models import OTCRequest, Asset, Wallet, OTCTrade
@@ -14,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 class FastBuyToken(models.Model):
     PROCESS, DEPOSIT, DONE = 'process', 'deposit', 'done'
-    MIN_ADMISSIBLE_VALUE = 50_000
 
     CHOICE_STATUS = ((PROCESS, PROCESS), (DEPOSIT, DEPOSIT), (DONE, DONE))
 
@@ -36,10 +36,9 @@ class FastBuyToken(models.Model):
 
     @property
     def user(self):
-        return self.payment_request.bank_card.user
+        return self.payment_request.user
 
     def create_otc_for_fast_buy_token(self, payment):
-
         self.status = FastBuyToken.DEPOSIT
         self.save(update_fields=['status'])
         if payment.status == DONE:
@@ -69,6 +68,7 @@ class FastBuyToken(models.Model):
                     level=Notification.SUCCESS
                 )
                 return otc_trade
+
             except Exception as exp:
                 logger.exception('Error in create otc_trade for fast_buy', extra={
                     'exp': exp

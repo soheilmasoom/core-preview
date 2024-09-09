@@ -31,6 +31,7 @@ class InitiateSignupSerializer(serializers.Serializer):
 class InitiateSignupView(APIView):
     permission_classes = []
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
+    scope = VerificationCode.SCOPE_VERIFY_PHONE
 
     def post(self, request):
         if settings.DEBUG_OR_TESTING_OR_STAGING:
@@ -39,21 +40,18 @@ class InitiateSignupView(APIView):
             if req_origin in config('SIGNUP_CLOSED_DOMAINS', cast=Csv(), default=''):
                 raise ValidationError('امکان ثبت‌نام وجود ندارد.')
 
-        if request.user.is_authenticated:
+        if request.user.is_authenticated and self.scope == VerificationCode.SCOPE_VERIFY_PHONE:
             return Response({'msg': 'already logged in', 'code': 1})
 
         serializer = InitiateSignupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         phone = serializer.validated_data['phone']
-
-        VerificationCode.send_otp_code(phone, VerificationCode.SCOPE_VERIFY_PHONE)
-
+        VerificationCode.send_otp_code(phone, self.scope)
         return Response({'msg': 'otp sent', 'code': 0})
 
 
 class SignupSerializer(serializers.Serializer):
-    id = serializers.CharField(read_only=True)
     token = serializers.UUIDField(write_only=True, required=True)
     password = serializers.CharField(required=True, write_only=True, validators=[password_validator])
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
@@ -200,7 +198,6 @@ class SignupSerializer(serializers.Serializer):
         except Exception as e:
             logger.warning(f'Failed to set missions to user={user.id} due to={str(e)}')
 
-
 class SignupView(CreateAPIView):
     permission_classes = []
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
@@ -217,3 +214,5 @@ class SignupView(CreateAPIView):
             )
         except ValueError:
             logger.exception('Error in setting login activity for signup')
+
+

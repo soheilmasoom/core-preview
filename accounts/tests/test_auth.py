@@ -3,6 +3,7 @@ import json
 from django.test import TestCase
 
 from accounts.models import VerificationCode
+from ledger.models import AssetAlert
 
 
 class AuthTests(TestCase):
@@ -21,7 +22,6 @@ class AuthTests(TestCase):
             'phone': phone,
             'scope': VerificationCode.SCOPE_VERIFY_PHONE,
             'code': '1111'
-
         })
         self.assertEqual(resp.status_code, 201)
 

@@ -1,11 +1,14 @@
+from typing import Union
+
 import requests
-from decouple import config
 from django.conf import settings
 from rest_framework.reverse import reverse
 
+from accounts.models import SystemConfig
+from accounts.models.user import User
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
 from financial.models.gateway import GatewayFailed, logger
-from ledger.utils.fields import DONE, CANCELED
+from ledger.utils.fields import CANCELED
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 
@@ -33,30 +36,41 @@ class JibitGateway(Gateway):
 
             return self._token
 
-    def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
+    def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         token = self._get_token()
         callback_host = self.ipg_callback_host or settings.HOST_URL
 
         fee = self.get_ipg_fee(amount)
 
         payment_request = PaymentRequest.objects.create(
+            user=user,
             bank_card=bank_card,
             amount=amount - fee,
             fee=fee,
             gateway=self,
             source=source,
         )
+
+        payload = {
+            'amount': amount * 10,
+            'callbackUrl': callback_host + reverse('finance:jibit-callback'),
+            'clientReferenceNumber': str(payment_request.id),
+            'currency': 'IRR',
+            'description': 'افزایش اعتبار',
+        }
+
+        if bank_card:
+            payload['payerCardNumber'] = bank_card.card_pan
+        elif SystemConfig.get_system_config().check_national_code_for_widget:
+            if user.national_code:
+                payload['payerNationalCode'] = user.national_code
+            else:
+                raise GatewayFailed('No national code')
+
         resp = requests.post(
             self.BASE_URL + '/v3/purchases',
             headers={'Authorization': 'Bearer ' + token},
-            json={
-                'amount': amount * 10,
-                'callbackUrl': callback_host + reverse('finance:jibit-callback'),
-                'clientReferenceNumber': str(payment_request.id),
-                'currency': 'IRR',
-                'description': 'افزایش اعتبار',
-                'payerCardNumber': bank_card.card_pan
-            },
+            json=payload,
             timeout=30,
         )
 

@@ -231,7 +231,10 @@ class AssetsViewSet(ModelViewSet):
             category_name = self.get_options('category')
 
             if category_name == 'new-coins':
-                queryset = queryset.order_by(F('publish_date').desc(nulls_last=True))[:100]
+                queryset = queryset.exclude(otc_status=Asset.COMING_SOON).order_by(F('publish_date').desc(nulls_last=True))[:100]
+
+            elif category_name == 'coming-soon':
+                queryset = queryset.filter(otc_status=Asset.COMING_SOON).order_by('publish_date')
 
             else:
                 category = get_object_or_404(CoinCategory, name=category_name)
@@ -303,7 +306,7 @@ class AssetOverviewAPIView(APIView):
             asset_info['market_irt_enable'] = coin in get_irt_market_asset_symbols()
             asset_info.update(AssetSerializerMini(Asset.get(symbol=coin)).data)
 
-    def get(self, request):
+    def get_coins(self):
         limit = int(self.request.query_params.get('limit', default=3))
 
         coins = set(Asset.live_objects.filter(
@@ -334,11 +337,36 @@ class AssetOverviewAPIView(APIView):
         newest = list(map(coin_info_to_dict, map(lambda coin: caps_dict[coin], newest_coin_symbols)))
         AssetOverviewAPIView.set_price(newest)
 
-        return Response({
+        return {
             'high_volume': high_volume,
             'high_24h_change': high_24h_change,
             'newest': newest
-        })
+        }
+
+    def get(self, request):
+        return Response(self.get_coins())
+
+
+class AssetOverviewAPIV2View(AssetOverviewAPIView):
+    def get(self, request):
+        coins = self.get_coins()
+
+        data = []
+
+        headers = {
+            'high_volume': 'بیشترین سود',
+            'high_24h_change': 'بیشترین حجم',
+            'newest': 'جدیدترین'
+        }
+
+        for category, coin_list in coins.items():
+            data.append({
+                'category': category,
+                'coins': coin_list,
+                'title': headers.get(category, '')
+            })
+
+        return Response(data)
 
 
 class MarginAssetInterestSerializer(AssetSerializerMini):

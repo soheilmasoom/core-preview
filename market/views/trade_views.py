@@ -3,12 +3,10 @@ from decimal import Decimal
 import django_filters
 from django.db.models import Min, Max, F, Q
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import ListAPIView, get_object_or_404
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.authentication import CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
@@ -27,7 +25,6 @@ class AccountTradeFilter(django_filters.FilterSet):
 
 
 class AccountTradeHistoryView(ListAPIView):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
     pagination_class = LimitOffsetPagination
     serializer_class = AccountTradeSerializer
 

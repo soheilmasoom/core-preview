@@ -32,7 +32,7 @@ class AssetListSerializer(serializers.ModelSerializer):
 
 
 class MarketIRTInfoView(ListAPIView):
-    queryset = Asset.live_objects.filter(trade_enable=True).exclude(symbol=Asset.IRT)
+    queryset = Asset.live_objects.filter(otc_status__in=Asset.OTC_TRADE_ACTIVE_STATUSES).exclude(symbol=Asset.IRT)
     serializer_class = AssetListSerializer
     authentication_classes = []
     permission_classes = []

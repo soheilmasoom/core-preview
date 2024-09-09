@@ -74,11 +74,11 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = (
         'symbol', 'enable', 'get_hedge_value', 'get_hedge_value_abs', 'get_hedge_amount', 'get_calc_hedge_amount',
         'get_total_asset', 'get_users_balance', 'get_reserved_amount',
-        'order', 'trend', 'trade_enable', 'hedge',
+        'order', 'trend', 'hedge',
         'publish_date', 'spread_category', 'otc_status', 'price_page', 'get_distribution_factor', 'margin_interest_fee'
     )
     list_filter = ('enable', 'trend', 'spread_category', 'coincategory', 'otc_status')
-    list_editable = ('enable', 'order', 'trend', 'trade_enable', 'hedge', 'price_page')
+    list_editable = ('enable', 'order', 'trend', 'otc_status', 'hedge', 'price_page')
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'order')
     actions = ('setup_asset', 'update_rank_by_cmc')

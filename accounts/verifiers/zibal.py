@@ -3,6 +3,7 @@ import logging
 
 import requests
 from decouple import config
+from django.utils import timezone
 from urllib3.exceptions import ReadTimeoutError
 
 from accounts.utils.similarity import split_names
@@ -34,7 +35,20 @@ class ZibalRequester:
     def __init__(self, user: User):
         self._user = user
 
-    def collect_api(self, path: str, method: str = 'GET', data=None, weight: int = 0) -> Response:
+    def collect_api(self, path: str, method: str = 'GET', data=None, weight: int = 0, search_key: str = '') -> Response:
+        if search_key:
+            request = UserAuthRequest.objects.filter(
+                created__gt=timezone.now() - datetime.timedelta(days=30),
+                search_key=search_key,
+                service=UserAuthRequest.ZIBAL,
+            ).order_by('-created').first()
+
+            if request:
+                if request.status_code >= 500:
+                    raise ServerError('Zibal verifier request error')
+
+                return Response(data=request.response, success=request.status_code in (200, 201))
+
         if data is None:
             data = {}
         url = self.BASE_URL + path
@@ -76,6 +90,10 @@ class ZibalRequester:
         resp_data = resp.json()
         req_object.response = resp_data
         req_object.status_code = resp.status_code
+
+        if search_key and resp.status_code not in (403, 401) and resp.status_code < 500:
+            req_object.search_key = search_key
+
         req_object.save()
 
         if resp.status_code >= 500:
@@ -102,7 +120,8 @@ class ZibalRequester:
             data=params,
             path='/v1/facility/shahkarInquiry',
             method='POST',
-            weight=UserAuthRequest.JIBIT_ADVANCED_MATCHING if national_code else UserAuthRequest.JIBIT_SIMPLE_MATCHING
+            weight=UserAuthRequest.JIBIT_ADVANCED_MATCHING if national_code else UserAuthRequest.JIBIT_SIMPLE_MATCHING,
+            search_key=f'shahkar-{phone_number}-{national_code}'
         )
         data = resp.data.get('data', {})
         resp.data = MatchingData(
@@ -120,6 +139,7 @@ class ZibalRequester:
             path='/v1/facility/ibanInquiry',
             method='POST',
             weight=UserAuthRequest.JIBIT_IBAN_INFO_WEIGHT,
+            search_key=f'iban-{iban}'
         )
         data = resp.data.get('data', {})
         resp.data = IBANInfoData(
@@ -140,7 +160,8 @@ class ZibalRequester:
             path='/v1/facility/cardInquiry',
             method='POST',
             data=params,
-            weight=UserAuthRequest.JIBIT_CARD_INFO_WEIGHT
+            weight=UserAuthRequest.JIBIT_CARD_INFO_WEIGHT,
+            search_key=f'card-{card_pan}'
         )
         data = resp.data.get('data', {})
         resp.data = CardInfoData(
@@ -157,7 +178,8 @@ class ZibalRequester:
         resp = self.collect_api(
             path="/v1/facility/nationalIdentityInquiry",
             method="POST",
-            data=params
+            data=params,
+            search_key=f'nationalCode-{national_code}-{birth_date}'
         )
         data = resp.data.get('data', {})
         resp.data = NationalIdentityData(
@@ -177,7 +199,8 @@ class ZibalRequester:
         resp = self.collect_api(
             path="/v1/facility/cardToIban",
             method='POST',
-            data=params
+            data=params,
+            search_key=f'cardToIban-{card_pan}'
         )
         data = resp.data.get('data', {})
         resp.data = CardToIBANData(
@@ -195,7 +218,8 @@ class ZibalRequester:
         resp = self.collect_api(
             path="/v1/facility/postalCodeInquiry",
             method="POST",
-            data=params
+            data=params,
+            search_key=f'postalCode-{postal_code}'
         )
         data = resp.data.get('data', {})
         resp.data = PostalToAddressData(
@@ -223,7 +247,8 @@ class ZibalRequester:
         resp = self.collect_api(
             path="/v1/facility/checkIBANWithName",
             method="POST",
-            data=params
+            data=params,
+            search_key=f'ibanName-{iban}-{name}'
         )
         data = resp.data.get('data', {})
         resp.data = MatchingData(
@@ -240,7 +265,8 @@ class ZibalRequester:
         resp = self.collect_api(
             path="/v1/facility/checkCardWithName",
             method="POST",
-            data=params
+            data=params,
+            search_key=f'cardName-{card_pan}-{name}'
         )
         data = resp.data.get('data', {})
         resp.data = MatchingData(
@@ -257,7 +283,8 @@ class ZibalRequester:
         resp = self.collect_api(
             path="/v1/facility/cardToAccount",
             method="POST",
-            data=params
+            data=params,
+            search_key=f'cardAccount-{card_number}'
         )
         data = resp.data.get('data', {})
         resp.data = CardToAccountData(
@@ -281,7 +308,8 @@ class ZibalRequester:
         resp = self.collect_api(
             path="/v1/facility/checkCardWithNationalCode",
             method="POST",
-            data=params
+            data=params,
+            search_key=f'cardNationalCode-{national_code}-{birth_date}-{card_pan}'
         )
         data = resp.data.get('data', {})
         resp.data = MatchingData(
@@ -299,7 +327,8 @@ class ZibalRequester:
         resp = self.collect_api(
             path="/v1/facility/checkIbanWithNationalCode",
             method="POST",
-            data=params
+            data=params,
+            search_key=f'ibanNationalCode-{national_code}-{birth_date}-{iban}'
         )
         data = resp.data.get('data', {})
         resp.data = MatchingData(
@@ -315,7 +344,8 @@ class ZibalRequester:
         resp = self.collect_api(
             path="/v1/facility/companyInquiry",
             method="POST",
-            data=params
+            data=params,
+            search_key=f'company-{national_id}'
         )
         data = resp.data.get('data', {})
         resp.data = CompanyInformation(
@@ -350,7 +380,8 @@ class ZibalRequester:
         resp = self.collect_api(
             path="/v1/facility/persianToFinglish",
             method="POST",
-            data=params
+            data=params,
+            search_key=f'persianToEn-{name}'
         )
         data = resp.data.get('data', {})
         resp.data = PersianNameToEnglishData(

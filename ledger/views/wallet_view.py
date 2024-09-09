@@ -54,6 +54,7 @@ class AssetListSerializer(serializers.ModelSerializer):
     original_symbol = serializers.SerializerMethodField()
 
     step_size = serializers.SerializerMethodField()
+    trade_enable = serializers.SerializerMethodField()
 
     def get_market_irt_enable(self, asset: Asset):
         return asset.symbol in self.context['enable_irt_market_list']
@@ -156,6 +157,9 @@ class AssetListSerializer(serializers.ModelSerializer):
 
     def get_step_size(self, asset: Asset):
         return Asset.PRECISION
+
+    def get_trade_enable(self, asset: Asset):
+        return asset.otc_trade_active
 
     class Meta:
         model = Asset

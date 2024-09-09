@@ -3,9 +3,8 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import RetrieveAPIView, get_object_or_404
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.authentication import CustomTokenAuthentication
+from accounts.authentication import CustomJWTAuthentication, CustomTokenAuthentication
 from accounts.models import User
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from ledger.models import Network, DepositAddress
@@ -17,7 +16,7 @@ class InputAddressSerializer(serializers.Serializer):
 
 
 class DepositAddressView(RetrieveAPIView):
-    authentication_classes = (SessionAuthentication, CustomTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, CustomTokenAuthentication, CustomJWTAuthentication)
     serializer_class = InputAddressSerializer
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
