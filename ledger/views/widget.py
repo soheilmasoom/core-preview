@@ -7,6 +7,7 @@ from accounts.authentication import WidgetJWTAuthentication
 from accounts.models.system_config import SystemConfig
 from ledger.models.fast_buy_token import FastBuyToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from accounts.models import SystemConfig
 
 from ledger.utils.fields import PENDING, DONE, PROCESS, CANCELED
 from ledger.models.asset import CoinField, Asset
@@ -85,3 +86,15 @@ class FastBuyWidgetView(CreateAPIView):
     authentication_classes = (WidgetJWTAuthentication,)
     serializer_class = FastBuyWidgetSerializer
     queryset = FastBuyToken.objects.all()
+
+
+class WidgetConfigView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def get(self, request):
+        return Response(
+            {
+                'min_irt_value': SystemConfig.get_system_config().min_fast_buy_irt
+            }
+        )
