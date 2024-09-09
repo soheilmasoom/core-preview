@@ -38,6 +38,9 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
         is_for_widget = not is_bank_card_required
         gateway = Gateway.get_active_deposit(user, amount=amount, is_for_widget=is_for_widget)
 
+        if not gateway:
+            raise ValidationError('در حال حاضر امکان واریز وجود ندارد.')
+
         suspended = gateway.suspended
 
         if not suspended and SystemConfig.get_system_config().limit_ipg_to_users_without_payment:
