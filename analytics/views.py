@@ -38,7 +38,7 @@ def get_source_analytics(request):
             return HttpResponseBadRequest('Report time filter threshold must be less than 30 days')
 
         q = Q()
-        report_permissions = ReportPermission.objects.filter(user=request.user)
+        report_permissions = ReportPermission.objects.filter(user=request.user, enable=True)
         if not report_permissions:
             return HttpResponseForbidden('No permission!')
 

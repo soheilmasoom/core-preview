@@ -8,6 +8,7 @@ class ReportPermission(models.Model):
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
     utm_source = models.CharField(max_length=256, blank=True)
     utm_medium = models.CharField(max_length=256, blank=True)
+    enable = models.BooleanField(default=True)
 
     @property
     def q(self):
