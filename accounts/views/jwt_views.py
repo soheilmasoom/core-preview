@@ -1,8 +1,7 @@
 import logging
+from datetime import timedelta
 
 from decouple import config
-from django.utils.translation import activate
-from datetime import timedelta
 from rest_framework import serializers
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
@@ -10,7 +9,6 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenObtainSerializer, \
     TokenRefreshSerializer

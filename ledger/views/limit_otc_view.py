@@ -1,22 +1,17 @@
 import logging
-import django_filters
-from django.db.models import Q
 
-from ledger.models import OTCRequest, OTCTrade
-from market.serializers.trade_serializer import AccountTradeSerializer
-from market.views import AccountTradeHistoryView
-
+from rest_framework import serializers
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.authentication import SessionAuthentication
-from rest_framework import serializers
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from accounts.authentication import CustomJWTAuthentication, TradeTokenAuthentication
+from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
+from ledger.models import OTCTrade
 
 logger = logging.getLogger(__name__)
+
 
 class CancelLimitOTCView(APIView):
     authentication_classes = (SessionAuthentication, TradeTokenAuthentication, CustomJWTAuthentication)
@@ -40,6 +35,7 @@ class CancelLimitOTCView(APIView):
             return Response({"message": 'failed'}, status.HTTP_400_BAD_REQUEST)
 
         return Response({'message': 'done'}, status=status.HTTP_200_OK)
+
 
 class CancelLimitOTCSerializer(serializers.Serializer):
     id = serializers.IntegerField()

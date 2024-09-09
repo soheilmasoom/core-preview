@@ -1,13 +1,10 @@
 from decimal import Decimal
 
 from rest_framework import serializers
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from accounts.authentication import CustomJWTAuthentication
-from accounts.models.system_config import SystemConfig
 
+from accounts.models.system_config import SystemConfig
 from financial.models import BankCard
 from financial.views.payment_view import PaymentRequestSerializer
 from ledger.exceptions import SmallDepthError
@@ -15,7 +12,7 @@ from ledger.models import OTCRequest, Wallet
 from ledger.models.asset import CoinField, Asset
 from ledger.models.fast_buy_token import FastBuyToken
 from ledger.utils.external_price import SELL, BUY
-from ledger.utils.precision import get_presentation_amount, get_symbol_presentation_amount
+from ledger.utils.precision import get_symbol_presentation_amount
 from ledger.utils.price import get_price
 
 

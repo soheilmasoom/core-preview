@@ -1,26 +1,22 @@
 import logging
+from decimal import Decimal
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import get_object_or_404, CreateAPIView
-from accounts.authentication import WidgetJWTAuthentication
-from accounts.models.system_config import SystemConfig
-from ledger.models.fast_buy_token import FastBuyToken
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from accounts.models import SystemConfig
-
-from ledger.utils.fields import PENDING, DONE, PROCESS, CANCELED
-from ledger.models.asset import CoinField, Asset
-from financial.views.payment_view import PaymentRequestSerializer
-from ledger.utils.external_price import SELL, BUY
-from ledger.exceptions import SmallDepthError
-from ledger.models import OTCRequest, Wallet
-from decimal import Decimal
-from ledger.utils.precision import get_presentation_amount, get_symbol_presentation_amount
-from ledger.utils.price import get_price
+from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.authentication import WidgetJWTAuthentication
+from accounts.models import SystemConfig
+from financial.views.payment_view import PaymentRequestSerializer
+from ledger.exceptions import SmallDepthError
+from ledger.models import OTCRequest, Wallet
+from ledger.models.asset import CoinField, Asset
+from ledger.models.fast_buy_token import FastBuyToken
+from ledger.utils.external_price import SELL, BUY
+from ledger.utils.precision import get_symbol_presentation_amount
+from ledger.utils.price import get_price
 
 logger = logging.getLogger(__name__)
 

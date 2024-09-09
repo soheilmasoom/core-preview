@@ -3,7 +3,6 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.viewsets import ModelViewSet
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.authentication import CustomJWTAuthentication, CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle

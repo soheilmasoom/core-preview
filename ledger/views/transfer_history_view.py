@@ -3,7 +3,6 @@ from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import LimitOffsetPagination
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.authentication import CustomJWTAuthentication, CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle

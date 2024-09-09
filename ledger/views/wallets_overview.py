@@ -2,18 +2,15 @@ import logging
 from decimal import Decimal
 
 from django.db.models import Q
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from accounts.authentication import CustomJWTAuthentication
 
 from ledger.models import Wallet, MarginPosition
 from ledger.models.asset import Asset
 from ledger.models.wallet import ReserveWallet
-from ledger.utils.precision import get_presentation_amount, floor_precision, get_margin_coin_presentation_balance
+from ledger.utils.precision import get_margin_coin_presentation_balance
 from ledger.utils.price import get_coins_symbols, get_last_prices
 
 logger = logging.getLogger(__name__)

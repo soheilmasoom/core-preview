@@ -11,23 +11,15 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from accounts.authentication import CustomJWTAuthentication, WidgetAccessToken
 
 from accounts.models import User, Company, TrafficSource, Referral
 from accounts.models.phone_verification import VerificationCode
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.utils.ip import get_client_ip
 from accounts.utils.login import set_login_activity
-from accounts.validators import mobile_number_validator, national_card_code_validator, password_validator, company_national_id_validator
+from accounts.validators import mobile_number_validator, password_validator, company_national_id_validator
 from analytics.utils.yandex import send_yandex_event
 from gamify.models import MissionJourney
-from rest_framework_simplejwt.tokens import AccessToken
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from datetime import timedelta
-
-from ledger.models import AssetAlert
-from ledger.models.asset import CoinField
-from ledger.widget.widget import Widget
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +60,6 @@ class SignupSerializer(serializers.Serializer):
     source = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     company_national_id = serializers.CharField(allow_null=True, allow_blank=True, write_only=True,
                                                 required=False, validators=[company_national_id_validator])
-
-    alert_coin = CoinField(write_only=True, required=False)
 
     @staticmethod
     def validate_referral_code(code):
@@ -129,13 +119,6 @@ class SignupSerializer(serializers.Serializer):
         self.create_traffic_source(user, utm)
 
         self.set_missions_to_user(user)
-
-        alert_asset = validated_data.get('alert_coin')
-        if alert_asset:
-            AssetAlert.objects.create(
-                user=user,
-                asset=alert_asset
-            )
 
         send_yandex_event(user, 'sign_up', {'id': user.id})
 

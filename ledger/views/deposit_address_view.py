@@ -3,7 +3,6 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import RetrieveAPIView, get_object_or_404
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.authentication import CustomJWTAuthentication, CustomTokenAuthentication
 from accounts.models import User

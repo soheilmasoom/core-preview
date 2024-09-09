@@ -3,14 +3,11 @@ from datetime import timedelta
 from django.db.models import Sum, Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from accounts.authentication import CustomJWTAuthentication
 
 from ledger.models import PNLHistory, Wallet
 from ledger.utils.precision import floor_precision
