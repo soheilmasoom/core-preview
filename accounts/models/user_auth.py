@@ -38,4 +38,11 @@ class UserAuthRequest(models.Model):
         permissions = [
             ("list_userauthrequest", "Can list user auth request"),
         ]
-        unique_together = [('search_key', 'service')]
+
+        indexes = [
+            models.Index(
+                fields=['search_key', 'service'],
+                name='accounts_userauth_search_key',
+                condition=~models.Q(search_key=''),
+            )
+        ]
