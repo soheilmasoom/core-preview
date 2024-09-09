@@ -19,11 +19,6 @@ from .signup_view import SignupSerializer, InitiateSignupView
 logger = logging.getLogger(__name__)
 
 
-class InitiateSignupWidgetSerializer(serializers.Serializer):
-    source = serializers.CharField(required=False, write_only=True)
-    phone = serializers.CharField(required=True, validators=[mobile_number_validator], trim_whitespace=True)
-
-
 class InitiateSignupWidgetView(InitiateSignupView):
     scope = VerificationCode.SCOPE_VERIFY_PHONE_WIDGET
 
@@ -82,6 +77,7 @@ class WidgetSignupSerializer(serializers.Serializer):
             signup_serializer.set_missions_to_user(user)
 
             return user
+
 
 class SignupWidgetView(CreateAPIView):
     authentication_classes = ()
