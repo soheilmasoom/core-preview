@@ -17,6 +17,7 @@ from ledger.models.fast_buy_token import FastBuyToken
 from ledger.utils.external_price import SELL, BUY
 from ledger.utils.precision import get_symbol_presentation_amount
 from ledger.utils.price import get_price
+from financial.models import Gateway
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,7 @@ class WidgetConfigView(APIView):
     def get(self, request):
         return Response(
             {
+                'is_fast_buy_enable': Gateway.get_active_deposit(widget_deposit_enable=True).exists(),
                 'min_irt_value': SystemConfig.get_system_config().min_fast_buy_irt
             }
         )

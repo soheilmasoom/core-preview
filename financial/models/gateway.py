@@ -131,13 +131,13 @@ class Gateway(models.Model):
         return fee
 
     @classmethod
-    def _find_best_deposit_gateway(cls, user: User, amount: Decimal = 0, for_widget: bool = False) -> 'Gateway':
+    def _find_best_deposit_gateway(cls, user: User, amount: Decimal = 0, is_for_widget: bool = False) -> 'Gateway':
         if user.is_staff:
             gateway = Gateway.objects.filter(active_for_staff=True, ipg_deposit_enable=True).order_by('id').first()
 
             if gateway:
                 return gateway
-        if for_widget:
+        if is_for_widget:
             gateways = Gateway.objects.filter(active=True, widget_deposit_enable=True).order_by('-deposit_priority')
         else:
             gateways = Gateway.objects.filter(active=True, ipg_deposit_enable=True).order_by('-deposit_priority')
@@ -145,8 +145,8 @@ class Gateway(models.Model):
         return gateways.first()
 
     @classmethod
-    def get_active_deposit(cls, user: User, amount: Decimal = 0, for_widget: bool = False) -> 'Gateway':
-        gateway = cls._find_best_deposit_gateway(user, amount, for_widget)
+    def get_active_deposit(cls, user: User, amount: Decimal = 0, is_for_widget: bool = False) -> 'Gateway':
+        gateway = cls._find_best_deposit_gateway(user, amount, is_for_widget)
 
         if gateway:
             return gateway.get_concrete_gateway()
