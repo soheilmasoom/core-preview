@@ -147,6 +147,7 @@ class SignupSerializer(serializers.Serializer):
         utm_term = clean_data(utm.get('utm_term'))
         gps_adid = clean_data(utm.get('gps_adid'))
         profile_id = clean_data(utm.get('profile_id'))
+        package_name = clean_data(utm.get('package_name'))
 
         if utm_source == 'pwa_app':
             if utm_term.startswith('gclid'):
@@ -177,6 +178,7 @@ class SignupSerializer(serializers.Serializer):
             utm_term=utm_term,
             gps_adid=gps_adid,
             yandex_profile_id=profile_id,
+            package_name=package_name,
             ip=get_client_ip(self.context['request']),
             user_agent=self.context['request'].META.get('HTTP_USER_AGENT', '')[:256],
         )
