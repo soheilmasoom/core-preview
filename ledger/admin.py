@@ -70,6 +70,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     fields_edit_conditions = {
         'order': True,
         'trend': True,
+        'name_fa': True,
     }
     list_display = (
         'symbol', 'enable', 'get_hedge_value', 'get_hedge_value_abs', 'get_hedge_amount', 'get_calc_hedge_amount',
