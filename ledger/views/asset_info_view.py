@@ -235,6 +235,7 @@ class AssetsViewSet(ModelViewSet):
 
             if category_name == 'new-coins':
                 queryset = queryset.exclude(otc_status=Asset.COMING_SOON).order_by(F('publish_date').desc(nulls_last=True))[:100]
+                hide_coming_soon = False
 
             elif category_name == 'coming-soon':
                 queryset = queryset.filter(otc_status=Asset.COMING_SOON).order_by('publish_date')
