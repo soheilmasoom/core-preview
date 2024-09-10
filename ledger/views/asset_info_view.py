@@ -222,12 +222,13 @@ class AssetsViewSet(ModelViewSet):
         )
 
     def get_queryset(self):
+        hide_coming_soon = True
+
         if (self.get_options('all') or self.get_options('extra_info')) and not self.get_options('active'):
             queryset = Asset.objects.filter(Q(enable=True) | Q(price_page=True))
+            hide_coming_soon = False
         else:
             queryset = Asset.live_objects.all()
-
-        hide_coming_soon = True
 
         if self.get_options('category'):
             category_name = self.get_options('category')
