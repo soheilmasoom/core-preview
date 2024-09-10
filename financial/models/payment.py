@@ -57,7 +57,7 @@ class PaymentRequest(models.Model):
 
     details = models.TextField(blank=True)
 
-    user = models.ForeignKey('accounts.User', on_delete=models.CASCADE, blank=True, null=True)
+    user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
 
     def get_gateway(self):
         return self.gateway.get_concrete_gateway()
