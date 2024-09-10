@@ -231,12 +231,13 @@ if not DEBUG_OR_TESTING:
     MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = True
     MINIO_USE_HTTPS = False
 
-    MINIO_PRIVATE_BUCKETS = [
-        'core-media',
-    ]
-    MINIO_PUBLIC_BUCKETS = [
-        'core-static',
-    ]
+MINIO_PRIVATE_BUCKETS = [
+    'core-media',
+]
+MINIO_PUBLIC_BUCKETS = [
+    'core-static',
+    'core-media-public'
+]
 
 MINIO_EXTERNAL_ENDPOINT = config('MINIO_CDN_ENDPOINT')
 MINIO_MEDIA_FILES_BUCKET = 'core-media'
