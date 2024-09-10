@@ -16,6 +16,7 @@ from ledger.utils.external_price import SELL
 from ledger.utils.precision import get_symbol_presentation_price
 from ledger.utils.price import get_prices, get_coins_symbols
 from ledger.views.coin_category_list_view import CoinCategorySerializer
+from accounts.utils.push_notif import manage_user_topic_subscription
 
 
 class AssetAlertCreateSerializer(serializers.ModelSerializer):
@@ -29,6 +30,10 @@ class AssetAlertCreateSerializer(serializers.ModelSerializer):
         if asset.is_cash():
             raise ValidationError({'asset': 'ارزدیجیتال انتخاب شده نباید تومان باشد.'})
         return data
+
+    def get_topic(self):
+        asset = self.validated_data.get('asset')
+        return f"price_alerts_{asset.symbol.lower()}"
 
     class Meta:
         model = AssetAlert
@@ -116,6 +121,9 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        user = request.user
+        topic = serializer.get_topic()
+        manage_user_topic_subscription(user, topic, 'subscribe')
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def list(self, request, *args, **kwargs):
@@ -143,6 +151,11 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
             if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
                 user.is_price_notif_on = False
                 user.save(update_fields=['is_price_notif_on'])
+                serializer = self.get_serializer(data=self.request.data, context={'request': self.request})
+                serializer.is_valid(raise_exception=True)
+                user = self.request.user
+                topic = serializer.get_topic()
+                manage_user_topic_subscription(user, topic, 'unsubscribe')
 
     def perform_create(self, serializer):
         serializer.save(
