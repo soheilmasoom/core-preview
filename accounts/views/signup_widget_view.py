@@ -52,7 +52,7 @@ class WidgetSignupSerializer(serializers.Serializer):
                 if User.objects.filter(phone=phone).exists():
                     user = User.objects.get(phone=phone)
                     national_code = validated_data.get('national_code')
-                    if User.objects.filter(national_code=national_code).exists():
+                    if User.objects.filter(national_code=national_code, national_code_verified=True).exists():
                         raise ValidationError({"national_code": f'شما قبلا با موبایل دیگری در {settings.BRAND} ثبت نام کرده اید، لطفا از آن شماره استفاده کنید.'})
                     user.national_code = national_code
                     user.save(update_fields=['national_code'])
@@ -64,7 +64,7 @@ class WidgetSignupSerializer(serializers.Serializer):
 
         elif user_status == Widget.NEW_USER:
             national_code = validated_data.get('national_code')
-            if User.objects.filter(national_code=national_code).exists():
+            if User.objects.filter(national_code=national_code, national_code_verified=True).exists():
                 raise ValidationError({"national_code": f'شما قبلا با موبایل دیگری در {settings.BRAND} ثبت نام کرده اید، لطفا از آن شماره استفاده کنید.'})
 
             with transaction.atomic():
