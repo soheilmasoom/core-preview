@@ -1300,6 +1300,7 @@ class TokenDelistAdmin(admin.ModelAdmin):
     list_display = ('created', 'delist_at', 'asset', 'status')
     readonly_fields = ('status', 'group_id', 'get_delist_info')
     actions = ('accept_for_testers', 'accept', 'reject')
+    autocomplete_fields = ('asset',)
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
