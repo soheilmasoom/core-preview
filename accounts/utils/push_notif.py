@@ -42,15 +42,42 @@ def _get_access_token() -> AccessToken:
 
     return _access_token
 
+def manage_user_topic_subscription(user: User, topic: str, action: str) -> bool:
+    from accounts.models import FirebaseToken
+
+    tokens = FirebaseToken.objects.filter(user=user).values_list('token', flat=True)
+    if not tokens:
+        logger.info(f'No tokens found for user ID: {user}')
+        return False
+
+    access_token = _get_access_token()
+    url = 'https://iid.googleapis.com/iid/v1:batchAdd' if action == 'subscribe' else 'https://iid.googleapis.com/iid/v1:batchRemove'
+    resp = requests.post(
+        url=url,
+        headers={
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json',
+        },
+        json={
+            'to': f'/topics/{topic}',
+            'registration_tokens': list(tokens)
+        }
+    )
+    if resp.ok:
+        logger.info(f'{action} user ID {user} to topic: {topic}')
+    else:
+        logger.warning(f'Failed to {action} user ID {user} to topic: {topic} Response: {resp.text}')
+    return resp.ok
+
 
 def send_push_notif_to_user(user: User, title: str, body: str, image: str = None, link: str = None):
     from accounts.models import FirebaseToken
 
     for firebase_token in FirebaseToken.objects.filter(user=user):
-        send_push_notif(firebase_token.token, title, body, image, link)
+        send_push_notif(title, body, firebase_token.token, image, link)
 
 
-def send_push_notif(token: str, title: str, body: str, image: str = None, link: str = None):
+def send_push_notif(title: str, body: str, token: str = None, image: str = None, link: str = None, topic: str = None):
     notification = {
         "body": body,
         "title": title
@@ -60,9 +87,14 @@ def send_push_notif(token: str, title: str, body: str, image: str = None, link: 
         notification['image'] = image
 
     body = {
-        "token": token,
         "notification": notification
     }
+
+    if token:
+        body['token'] = token
+
+    if topic:
+        body['topic'] = topic
 
     if link:
         body['webpush'] = {

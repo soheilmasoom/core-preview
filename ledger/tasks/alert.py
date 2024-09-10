@@ -12,6 +12,7 @@ from ledger.models import CoinCategory, AssetAlert, BulkAssetAlert, AlertTrigger
 from ledger.utils.external_price import BUY
 from ledger.utils.precision import get_symbol_presentation_price
 from ledger.utils.price import USDT_IRT, get_prices, get_symbol_parts, get_coins_symbols
+from accounts.utils.push_notif import send_push_notif
 
 CACHE_PREFIX = 'asset_alert'
 
@@ -55,7 +56,7 @@ def get_current_prices() -> dict:
     return get_prices(symbols, side=BUY)
 
 
-def send_notifications(asset_alerts, altered_coins):
+def send_notifications(asset_alerts, altered_coins, is_push_notif_only=False):
     for alert in asset_alerts:
         is_usdt_based = alert.asset.symbol != Asset.USDT
         base_coin = 'تتر' if is_usdt_based else 'تومان'
@@ -80,12 +81,22 @@ def send_notifications(asset_alerts, altered_coins):
                        f' درصد {change_status} پیدا کرد و به {new_price} {base_coin} رسید.')
         else:
             message = f'قیمت {alert.asset.name_fa} به {new_price} {base_coin} رسید.'
-        Notification.send(
-            recipient=alert.user,
-            title=title,
-            message=message,
-            link=f'/price/{alert.asset.name}'
-        )
+
+        #TODO: chekc that tokens do not needed
+        if is_push_notif_only:
+            send_push_notif(
+                title=title,
+                body=message,
+                link=f'/price/{alert.asset.name}',
+                topic=f"price_alerts_{alert.asset.symbol.lower()}"
+            )
+        else:
+            Notification.send(
+                recipient=alert.user,
+                title=title,
+                message=message,
+                link=f'/price/{alert.asset.name}'
+            )
 
 
 def process_chanel_change(asset: Asset, current_chanel: int) -> bool:
@@ -268,7 +279,7 @@ def send_price_notifications():
 
     asset_alert_list = get_asset_alert_list(altered_coins)
 
-    send_notifications(asset_alert_list, altered_coins)
+    send_notifications(asset_alert_list, altered_coins, is_push_notif_only=True)
 
     if randint(1, 100) < 10:
         AlertTrigger.objects.filter(created__lte=timezone.now() - timedelta(days=10)).exclude(
