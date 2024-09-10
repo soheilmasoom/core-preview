@@ -7,6 +7,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
+from django.conf import settings
 
 from accounts.authentication import WidgetAccessToken
 from accounts.models import User
@@ -50,7 +51,10 @@ class WidgetSignupSerializer(serializers.Serializer):
             if validated_data.get('national_code'):
                 if User.objects.filter(phone=phone).exists():
                     user = User.objects.get(phone=phone)
-                    user.national_code = validated_data.get('national_code')
+                    national_code = validated_data.get('national_code')
+                    if User.objects.filter(national_code=national_code).exists():
+                        raise ValidationError({"national_code": f'شما قبلا با موبایل دیگری در {settings.BRAND} ثبت نام کرده اید، لطفا از آن شماره استفاده کنید.'})
+                    user.national_code = national_code
                     user.save(update_fields=['national_code'])
                     return user
                 else:
@@ -59,13 +63,17 @@ class WidgetSignupSerializer(serializers.Serializer):
                 raise ValidationError({'national_code': 'وارد کردن کد ملی الزامی است.'})
 
         elif user_status == Widget.NEW_USER:
+            national_code = validated_data.get('national_code')
+            if User.objects.filter(national_code=national_code).exists():
+                raise ValidationError({"national_code": f'شما قبلا با موبایل دیگری در {settings.BRAND} ثبت نام کرده اید، لطفا از آن شماره استفاده کنید.'})
+
             with transaction.atomic():
                 user = User.objects.create_user(
                     username=phone,
                     phone=phone,
                 )
-                if validated_data.get('national_code'):
-                    user.national_code = validated_data.get('national_code')
+                if national_code:
+                    user.national_code = national_code
                 if config('SHOW_NINJA_TO_ALL', cast=bool, default=False):
                     user.show_community = True
 
