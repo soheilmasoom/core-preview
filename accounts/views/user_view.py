@@ -1,14 +1,10 @@
 from decouple import config
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from rest_framework import serializers
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import RetrieveAPIView, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from accounts.authentication import CustomJWTAuthentication
 
 from accounts.models import User, CustomToken, SystemConfig
 from accounts.models import VerificationCode, Company

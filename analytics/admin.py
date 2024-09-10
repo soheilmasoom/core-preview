@@ -15,5 +15,7 @@ class DailyAnalyticsAdmin(admin.ModelAdmin):
 
 @admin.register(ReportPermission)
 class ReportPermissionAdmin(admin.ModelAdmin):
-    list_display = ('created', 'user', 'utm_source', 'utm_medium')
+    list_display = ('created', 'user', 'utm_source', 'utm_medium', 'enable')
     raw_id_fields = ('user',)
+    list_filter = ('enable', )
+    list_editable = ('enable', )

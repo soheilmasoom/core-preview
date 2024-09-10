@@ -14,6 +14,7 @@ class TrafficSource(models.Model):
     utm_term = models.CharField(max_length=256, blank=True)
     gps_adid = models.CharField(max_length=256, blank=True)
     yandex_profile_id = models.CharField(max_length=256, blank=True)
+    package_name = models.CharField(max_length=256, blank=True)
 
     ip = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=256, blank=True)

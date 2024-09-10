@@ -57,7 +57,7 @@ class PaymentRequest(models.Model):
 
     details = models.TextField(blank=True)
 
-    user = models.ForeignKey('accounts.User', on_delete=models.CASCADE, blank=True, null=True)
+    user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
 
     def get_gateway(self):
         return self.gateway.get_concrete_gateway()
@@ -213,13 +213,13 @@ class Payment(models.Model):
                 if self.status == DONE:
                     status = 'fail' if fast_by_token and fast_by_token.status != FastBuyToken.DONE else 'done'
                     url = settings.PANEL_URL + self.WIDGET_SUCCESS_LOGIN_URL + "?buy=" + status
-                    logger.warning(f'PAYMENT:USER#", {self.user}')
+
                     if not self.user.has_usable_password():
                         token = Widget.generate_set_password_token(self.paymentrequest.user)
                         self.user.national_code_verified = True
                         self.user.save(update_fields=['national_code_verified'])
                         url = settings.PANEL_URL + self.WIDGET_SUCCESS_SET_PASSWORD_URL + "?buy=" + status + "&token=" + token
-                        logger.warning(f'PAYMENT:USER:URL#", {url}')
+
                     return url
                 else:
                     return settings.PANEL_URL + self.FAIL_URL

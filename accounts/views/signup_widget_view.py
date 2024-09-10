@@ -1,38 +1,22 @@
 import logging
+from datetime import timedelta
 
-from decouple import config, Csv
-from django.conf import settings
-from django.contrib.auth import login
-from django.contrib.auth.password_validation import validate_password
+from decouple import config
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from accounts.authentication import CustomJWTAuthentication, WidgetAccessToken
 
-from accounts.models import User, Company, TrafficSource, Referral
+from accounts.authentication import WidgetAccessToken
+from accounts.models import User
 from accounts.models.phone_verification import VerificationCode
-from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
-from accounts.utils.ip import get_client_ip
-from accounts.utils.login import set_login_activity
-from accounts.validators import mobile_number_validator, national_card_code_validator, password_validator, company_national_id_validator
-from analytics.utils.yandex import send_yandex_event
-from gamify.models import MissionJourney
-from rest_framework_simplejwt.tokens import AccessToken
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from datetime import timedelta
-from .signup_view import SignupSerializer, InitiateSignupView
+from accounts.throttle import BurstRateThrottle
+from accounts.validators import mobile_number_validator, national_card_code_validator
 from ledger.widget.widget import Widget
+from .signup_view import SignupSerializer, InitiateSignupView
 
 logger = logging.getLogger(__name__)
-
-
-class InitiateSignupWidgetSerializer(serializers.Serializer):
-    source = serializers.CharField(required=False, write_only=True)
-    phone = serializers.CharField(required=True, validators=[mobile_number_validator], trim_whitespace=True)
 
 
 class InitiateSignupWidgetView(InitiateSignupView):
@@ -93,6 +77,7 @@ class WidgetSignupSerializer(serializers.Serializer):
             signup_serializer.set_missions_to_user(user)
 
             return user
+
 
 class SignupWidgetView(CreateAPIView):
     authentication_classes = ()

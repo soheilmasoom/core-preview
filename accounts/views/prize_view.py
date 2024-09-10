@@ -1,9 +1,6 @@
 from rest_framework import serializers
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.viewsets import ModelViewSet
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from accounts.authentication import CustomJWTAuthentication
 
 from ledger.models import Prize
 from ledger.models.asset import AssetSerializerMini

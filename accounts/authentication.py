@@ -1,19 +1,15 @@
 import logging
 
-from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from rest_framework import exceptions, status
 from rest_framework.authentication import TokenAuthentication, get_authorization_header
 from rest_framework.exceptions import APIException
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.models import CustomToken, SystemConfig
 from accounts.utils.ip import get_client_ip
-
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.settings import api_settings
-from rest_framework_simplejwt.exceptions import InvalidToken
-from rest_framework_simplejwt.tokens import AccessToken
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +101,7 @@ class CustomJWTAuthentication(JWTAuthentication):
     def get_validated_token(self, raw_token):
         validated_token = super().get_validated_token(raw_token)
 
-        if validated_token.get('type') == 'widget':
+        if validated_token.get('type'):
             raise InvalidToken("Token does not have the privilege for this request.")
 
         return validated_token
@@ -130,6 +126,8 @@ class CustomJWTAuthentication(JWTAuthentication):
 
 
 class WidgetJWTAuthentication(CustomJWTAuthentication):
+    token_type = 'widget'
+
     def get_validated_token(self, raw_token):
         validated_token = JWTAuthentication().get_validated_token(raw_token)
 
@@ -143,8 +141,8 @@ class WidgetJWTAuthentication(CustomJWTAuthentication):
         if 'type' not in validated_token:
             raise InvalidToken("Token missing 'type' field")
 
-        if validated_token.get('type') != 'widget':
-            msg = _('Token type must be "widget"')
+        if validated_token.get('type') != self.token_type:
+            msg = _(f'Token type must be "{self.token_type}"')
             raise exceptions.AuthenticationFailed(msg)
 
         return self.get_user(validated_token), validated_token
@@ -156,25 +154,8 @@ class WidgetAccessToken(AccessToken):
         self['type'] = 'widget'
 
 
-class SetPasswordJWTAuthentication(CustomJWTAuthentication):
-    def get_validated_token(self, raw_token):
-        validated_token = JWTAuthentication().get_validated_token(raw_token)
-
-        return validated_token
-
-    def authenticate(self, request):
-        validated_token = super().get_valid_token(request)
-        if not validated_token:
-            return None
-
-        if 'type' not in validated_token:
-            raise InvalidToken("Token missing 'type' field")
-
-        if validated_token.get('type') != 'setpass':
-            msg = _('Token type must be "setpass"')
-            raise exceptions.AuthenticationFailed(msg)
-
-        return self.get_user(validated_token), validated_token
+class SetPasswordJWTAuthentication(WidgetJWTAuthentication):
+    token_type = 'setpass'
 
 
 class SetPasswordAccessToken(AccessToken):

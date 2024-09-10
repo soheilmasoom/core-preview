@@ -6,16 +6,15 @@ from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.generics import CreateAPIView, get_object_or_404, RetrieveAPIView
+from rest_framework.generics import CreateAPIView, get_object_or_404
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from accounts.authentication import CustomJWTAuthentication, TradeTokenAuthentication, CustomTokenAuthentication
+from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from accounts.views.jwt_views import DelegatedAccountMixin, user_has_delegate_permission
 from ledger.models.wallet import ReserveWallet
 from market.models import Order, CancelRequest, PairSymbol, OCO

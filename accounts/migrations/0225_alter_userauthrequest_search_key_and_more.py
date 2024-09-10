@@ -16,8 +16,4 @@ class Migration(migrations.Migration):
             field=models.CharField(blank=True, default='', max_length=128),
             preserve_default=False,
         ),
-        migrations.AlterUniqueTogether(
-            name='userauthrequest',
-            unique_together={('search_key', 'service')},
-        ),
     ]

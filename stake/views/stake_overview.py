@@ -3,13 +3,10 @@ from decimal import Decimal
 
 from django.db.models import F, Sum
 from django.utils import timezone
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from accounts.authentication import CustomJWTAuthentication
 
 from ledger.models import Wallet
 from ledger.models.asset import Asset
