@@ -1235,6 +1235,7 @@ class TokenRebrandAdmin(admin.ModelAdmin):
     list_display = ('created', 'old_asset', 'new_asset', 'new_asset_multiplier', 'status')
     readonly_fields = ('status', 'group_id', 'get_rebrand_info')
     actions = ('accept_for_testers', 'accept', 'reject')
+    autocomplete_fields = ('old_asset', 'new_asset')
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
