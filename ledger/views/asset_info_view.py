@@ -227,6 +227,8 @@ class AssetsViewSet(ModelViewSet):
         else:
             queryset = Asset.live_objects.all()
 
+        hide_coming_soon = True
+
         if self.get_options('category'):
             category_name = self.get_options('category')
 
@@ -235,10 +237,14 @@ class AssetsViewSet(ModelViewSet):
 
             elif category_name == 'coming-soon':
                 queryset = queryset.filter(otc_status=Asset.COMING_SOON).order_by('publish_date')
+                hide_coming_soon = False
 
             else:
                 category = get_object_or_404(CoinCategory, name=category_name)
                 queryset = queryset.filter(coincategory=category)
+
+        if hide_coming_soon:
+            queryset = queryset.exclude(otc_status=Asset.COMING_SOON)
 
         if self.get_options('is_base'):
             queryset = queryset.filter(symbol__in=(Asset.IRT, Asset.USDT))
