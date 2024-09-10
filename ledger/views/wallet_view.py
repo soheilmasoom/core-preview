@@ -319,7 +319,7 @@ class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
             asset__enable=False
         ).exclude(balance=0).values_list('asset_id', flat=True)
 
-        assets = Asset.objects.filter(Q(enable=True) | Q(id__in=disabled_assets))
+        assets = Asset.objects.filter(Q(enable=True) | Q(id__in=disabled_assets)).exclude(otc_status=Asset.COMING_SOON)
 
         only_coin = self.request.query_params.get('coin') == '1'
         if only_coin:
