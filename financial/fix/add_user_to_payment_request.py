@@ -1,28 +1,10 @@
-from financial.models import PaymentRequest, Payment as PaymentModel
+from financial.models import PaymentRequest
 
 def add_user_to_payment_request():
-    batch_size = 1000
-    offset = 0
-
-    while True:
-        payments = list(
-            PaymentModel.objects.select_related('paymentrequest')
-            .filter()
-            .order_by('id')[offset:offset + batch_size]
-        )
-
-        if not payments:
-            break
-
-        payment_requests_to_update = []
-
-        for payment in payments:
-            payment.paymentrequest.user = payment.user
-            payment_requests_to_update.append(payment.paymentrequest)
-
-        PaymentRequest.objects.bulk_update(payment_requests_to_update, ['user'])
-
-        offset += batch_size
-        print(f"Processed {offset} payments")
-
-    print("Migration completed.")
+    payment_requests = PaymentRequest.objects.select_related('bank_card', 'bank_card__user')
+    updated_requests = []
+    for payment_request in payment_requests:
+        if payment_request.bank_card and payment_request.bank_card.user:
+            payment_request.user = payment_request.bank_card.user
+            updated_requests.append(payment_request)
+    PaymentRequest.objects.bulk_update(updated_requests, ['user'])
