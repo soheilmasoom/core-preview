@@ -29,6 +29,7 @@ def _get_access_token() -> AccessToken:
 
     if now - _access_token.time >= 3600:
         scopes = ['https://www.googleapis.com/auth/firebase.messaging']
+        logger.warning(f"firebase_dict {config('FIREBASE_SECRET_JSON')}")
         firebase_dict = json.loads(config('FIREBASE_SECRET_JSON', ''))
 
         credentials = ServiceAccountCredentials._from_parsed_json_keyfile(firebase_dict, scopes)
