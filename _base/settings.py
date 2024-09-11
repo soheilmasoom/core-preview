@@ -219,13 +219,14 @@ STATICFILES_DIRS = [
 MEDIA_URL = config('MEDIA_URL', default='/media/')
 MEDIA_ROOT = config('MEDIA_ROOT', default=os.path.join(BASE_DIR, 'media/'))
 
-if not DEBUG_OR_TESTING:
+MINIO_ENDPOINT = config('MINIO_STORAGE_ENDPOINT', default='')
+
+if MINIO_ENDPOINT:
     INSTALLED_APPS.append('django_minio_backend')
 
     DEFAULT_FILE_STORAGE = "django_minio_backend.models.MinioBackend"
     STATICFILES_STORAGE = "django_minio_backend.models.MinioBackendStatic"
 
-    MINIO_ENDPOINT = config('MINIO_STORAGE_ENDPOINT')
     MINIO_ACCESS_KEY = config('MINIO_STORAGE_ACCESS_KEY')
     MINIO_SECRET_KEY = config('MINIO_STORAGE_SECRET_KEY')
     MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = True
@@ -245,9 +246,6 @@ MINIO_STATIC_FILES_BUCKET = 'core-static'
 
 MINIO_STORAGE_STATIC_URL = f'https://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_STATIC_FILES_BUCKET}'
 MINIO_STORAGE_MEDIA_URL = f'https://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_MEDIA_FILES_BUCKET}'
-
-if config('INITIALIZE_SERVICES', default=False, cast=bool):
-    MINIO_AUTO_CREATE_BUCKET = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
