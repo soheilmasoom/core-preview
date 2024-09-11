@@ -158,16 +158,15 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             instance.delete()
             user = self.request.user
-            logger.warning(f"deestroy  {user} -- {AssetAlert.objects.filter(user=user).exists()}or {BulkAssetAlert.objects.filter(user=user).exists()}")
+            serializer = self.get_serializer(data=self.request.data, context={'request': self.request})
+            serializer.is_valid(raise_exception=True)
+            user = self.request.user
+            topic = serializer.get_topic()
+            manage_user_topic_subscription(user, topic, 'unsubscribe')
+            logger.warning(f"destroy {topic}, {user}")
             if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
                 user.is_price_notif_on = False
                 user.save(update_fields=['is_price_notif_on'])
-                serializer = self.get_serializer(data=self.request.data, context={'request': self.request})
-                serializer.is_valid(raise_exception=True)
-                user = self.request.user
-                topic = serializer.get_topic()
-                manage_user_topic_subscription(user, topic, 'unsubscribe')
-                logger.warning(f"destroy {topic}, {user}")
 
     def perform_create(self, serializer):
         serializer.save(
