@@ -37,12 +37,12 @@ class Asset(models.Model):
     objects = models.Manager()
     live_objects = LiveAssetManager()
 
+    created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True)
+
     name = models.CharField(max_length=32, unique=True)
     name_fa = models.CharField(max_length=32, blank=True)
     original_name_fa = models.CharField(max_length=32, blank=True)
-
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
 
     symbol = models.CharField(max_length=16, unique=True, db_index=True)
     original_symbol = models.CharField(max_length=16, blank=True)
