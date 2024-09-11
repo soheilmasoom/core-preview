@@ -53,26 +53,28 @@ def manage_user_topic_subscription(user: User, topic: str, action: str) -> bool:
 
     access_token = _get_access_token()
     url = 'https://iid.googleapis.com/iid/v1:batchAdd' if action == 'subscribe' else 'https://iid.googleapis.com/iid/v1:batchRemove'
-    url=url,
-    headers_resp={
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json',
-    },
-    json_resp={
-        'to': f'/topics/{topic}',
-        'registration_tokens': list(tokens)
-    }
+
     resp = requests.post(
         url=url,
         headers={
-            'Authorization': f'Bearer {access_token}',
+            'Authorization': f'Bearer {access_token.token}',
             'Content-Type': 'application/json',
+            'access_token_auth': 'true'
         },
         json={
             'to': f'/topics/{topic}',
             'registration_tokens': list(tokens)
         }
     )
+    url=url,
+    headers_resp={
+        'Authorization': f'Bearer {access_token.token}',
+        'Content-Type': 'application/json',
+    },
+    json_resp={
+        'to': f'/topics/{topic}',
+        'registration_tokens': list(tokens)
+    }
     logger.warning(f'json {json_resp} --- {headers_resp} {action} user ID {user} to topic: {topic}')
     if resp.ok:
         logger.warning(f'{action} user ID {user} to topic: {topic}')
