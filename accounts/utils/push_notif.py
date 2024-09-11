@@ -63,8 +63,9 @@ def manage_user_topic_subscription(user: User, topic: str, action: str) -> bool:
             'registration_tokens': list(tokens)
         }
     )
+    logger.warning(f'json {json} {action} user ID {user} to topic: {topic}')
     if resp.ok:
-        logger.info(f'{action} user ID {user} to topic: {topic}')
+        logger.warning(f'{action} user ID {user} to topic: {topic}')
     else:
         logger.warning(f'Failed to {action} user ID {user} to topic: {topic} Response: {resp.text}')
     return resp.ok
