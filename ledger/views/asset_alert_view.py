@@ -148,9 +148,11 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         return self.get_queryset().get(user=user, asset=asset)
 
     def perform_destroy(self, instance):
+        logger.warning(f"deestroy {topic}, {user}")
         with transaction.atomic():
             instance.delete()
             user = self.request.user
+            logger.warning(f"deestroy {topic}, {user} -- {AssetAlert.objects.filter(user=user).exists()}or {BulkAssetAlert.objects.filter(user=user).exists()}")
             if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
                 user.is_price_notif_on = False
                 user.save(update_fields=['is_price_notif_on'])
