@@ -57,7 +57,7 @@ def manage_user_topic_subscription(user: User, topic: str, action: str) -> bool:
     resp = requests.post(
         url=url,
         headers={
-            'Authorization': f'Bearer {access_token}',
+            'Authorization': f'Bearer {access_token.token}',
             'Content-Type': 'application/json',
             'access_token_auth': 'true'
         },
@@ -68,7 +68,7 @@ def manage_user_topic_subscription(user: User, topic: str, action: str) -> bool:
     )
     url=url,
     headers_resp={
-        'Authorization': f'Bearer {access_token}',
+        'Authorization': f'Bearer {access_token.token}',
         'Content-Type': 'application/json',
     },
     json_resp={
