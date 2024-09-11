@@ -7,8 +7,9 @@ from django.db.models import Sum
 
 from accounts.models import User, Account, Notification
 from ledger.models import Asset, Wallet, Trx
-from ledger.utils.fields import get_status_field, get_amount_field, CANCELED, DONE, PENDING, get_group_id_field
+from ledger.utils.fields import get_status_field, get_amount_field, CANCELED, DONE, PENDING, get_group_id_field, REFUND
 from ledger.utils.precision import get_presentation_amount, humanize_number
+from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 
@@ -67,6 +68,20 @@ class TokenRebrand(models.Model):
             self.old_asset.save(update_fields=['enable', 'rebranded_to'])
 
             rebrand.status = DONE
+            rebrand.save(update_fields=['status'])
+
+    def revert(self):
+        with WalletPipeline() as pipeline:
+            rebrand = TokenRebrand.objects.filter(id=self.id, status=DONE).select_for_update().first()
+
+            if not rebrand:
+                return
+
+            revert_trx_group(pipeline, self.group_id)
+
+            Notification.objects.filter(group_id=self.group_id).delete()
+
+            rebrand.status = REFUND
             rebrand.save(update_fields=['status'])
 
     def get_candidate_wallets(self, only_testers: bool = False):
@@ -157,4 +172,5 @@ class TokenRebrand(models.Model):
                 title='تبدیل توکن {} به {}'.format(self.old_asset, self.new_asset),
                 message=message,
                 level=Notification.INFO,
+                group_id=self.group_id
             )

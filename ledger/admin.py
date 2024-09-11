@@ -70,6 +70,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     fields_edit_conditions = {
         'order': True,
         'trend': True,
+        'name_fa': True,
     }
     list_display = (
         'symbol', 'enable', 'get_hedge_value', 'get_hedge_value_abs', 'get_hedge_amount', 'get_calc_hedge_amount',
@@ -1233,7 +1234,8 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 class TokenRebrandAdmin(admin.ModelAdmin):
     list_display = ('created', 'old_asset', 'new_asset', 'new_asset_multiplier', 'status')
     readonly_fields = ('status', 'group_id', 'get_rebrand_info')
-    actions = ('accept_for_testers', 'accept', 'reject')
+    actions = ('accept_for_testers', 'accept', 'reject', 'revert')
+    autocomplete_fields = ('old_asset', 'new_asset')
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -1250,6 +1252,11 @@ class TokenRebrandAdmin(admin.ModelAdmin):
     def reject(self, request, queryset):
         for rebrand in queryset.filter(status=PENDING):
             rebrand.reject()
+
+    @admin.action(description='Revert', permissions=['change'])
+    def revert(self, request, queryset):
+        for rebrand in queryset.filter(status=DONE):
+            rebrand.revert()
 
     @admin.display(description='Rebrand Info')
     def get_rebrand_info(self, token_rebrand: TokenRebrand):
@@ -1297,7 +1304,8 @@ class TokenTransferAdmin(admin.ModelAdmin):
 class TokenDelistAdmin(admin.ModelAdmin):
     list_display = ('created', 'delist_at', 'asset', 'status')
     readonly_fields = ('status', 'group_id', 'get_delist_info')
-    actions = ('accept_for_testers', 'accept', 'reject')
+    actions = ('accept_for_testers', 'accept', 'reject', 'revert')
+    autocomplete_fields = ('asset',)
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -1314,6 +1322,11 @@ class TokenDelistAdmin(admin.ModelAdmin):
     def reject(self, request, queryset):
         for delist in queryset.filter(status=PENDING):
             delist.reject()
+
+    @admin.action(description='Revert', permissions=['change'])
+    def revert(self, request, queryset):
+        for delist in queryset.filter(status=DONE):
+            delist.revert()
 
     @admin.display(description='Delist Info')
     def get_delist_info(self, token_delist: TokenDelist):

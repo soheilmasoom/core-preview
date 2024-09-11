@@ -222,8 +222,11 @@ class AssetsViewSet(ModelViewSet):
         )
 
     def get_queryset(self):
+        hide_coming_soon = True
+
         if (self.get_options('all') or self.get_options('extra_info')) and not self.get_options('active'):
             queryset = Asset.objects.filter(Q(enable=True) | Q(price_page=True))
+            hide_coming_soon = False
         else:
             queryset = Asset.live_objects.all()
 
@@ -232,13 +235,18 @@ class AssetsViewSet(ModelViewSet):
 
             if category_name == 'new-coins':
                 queryset = queryset.exclude(otc_status=Asset.COMING_SOON).order_by(F('publish_date').desc(nulls_last=True))[:100]
+                hide_coming_soon = False
 
             elif category_name == 'coming-soon':
                 queryset = queryset.filter(otc_status=Asset.COMING_SOON).order_by('publish_date')
+                hide_coming_soon = False
 
             else:
                 category = get_object_or_404(CoinCategory, name=category_name)
                 queryset = queryset.filter(coincategory=category)
+
+        if hide_coming_soon:
+            queryset = queryset.exclude(otc_status=Asset.COMING_SOON)
 
         if self.get_options('is_base'):
             queryset = queryset.filter(symbol__in=(Asset.IRT, Asset.USDT))
