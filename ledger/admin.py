@@ -1234,7 +1234,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 class TokenRebrandAdmin(admin.ModelAdmin):
     list_display = ('created', 'old_asset', 'new_asset', 'new_asset_multiplier', 'status')
     readonly_fields = ('status', 'group_id', 'get_rebrand_info')
-    actions = ('accept_for_testers', 'accept', 'reject')
+    actions = ('accept_for_testers', 'accept', 'reject', 'revert')
     autocomplete_fields = ('old_asset', 'new_asset')
 
     @admin.action(description='Accept', permissions=['change'])
@@ -1252,6 +1252,11 @@ class TokenRebrandAdmin(admin.ModelAdmin):
     def reject(self, request, queryset):
         for rebrand in queryset.filter(status=PENDING):
             rebrand.reject()
+
+    @admin.action(description='Revert', permissions=['change'])
+    def revert(self, request, queryset):
+        for rebrand in queryset.filter(status=DONE):
+            rebrand.revert()
 
     @admin.display(description='Rebrand Info')
     def get_rebrand_info(self, token_rebrand: TokenRebrand):
