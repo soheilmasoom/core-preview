@@ -11,6 +11,7 @@ from simple_history.models import HistoricalRecords
 
 from ledger.models import Wallet
 from ledger.utils.fields import get_amount_field
+from multimedia.storage import PublicMediaStorage
 
 
 class InvalidAmount(Exception):
@@ -47,6 +48,8 @@ class Asset(models.Model):
     symbol = models.CharField(max_length=16, unique=True, db_index=True)
     original_symbol = models.CharField(max_length=16, blank=True)
     trading_view_symbol = models.CharField(max_length=32, blank=True)
+
+    logo = models.ImageField(blank=True, null=True, storage=PublicMediaStorage(), upload_to='coins/logo/')
 
     enable = models.BooleanField(default=False)
     order = models.SmallIntegerField(default=0, db_index=True)
