@@ -306,7 +306,7 @@ if config('JWT_PRIVATE_KEY', None):
         'ALGORITHM': 'RS256',
         'SIGNING_KEY': config('JWT_PRIVATE_KEY', default=''),
         'VERIFYING_KEY': config('JWT_PUBLIC_KEY', default=''),
-        'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+        'REFRESH_TOKEN_LIFETIME': timedelta(days=3),
     }
 
 AUTH_USER_MODEL = 'accounts.User'
