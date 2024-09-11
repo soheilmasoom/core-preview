@@ -17,7 +17,7 @@ from ledger.utils.external_price import SELL
 from ledger.utils.precision import get_symbol_presentation_price
 from ledger.utils.price import get_prices, get_coins_symbols
 from ledger.views.coin_category_list_view import CoinCategorySerializer
-from accounts.utils.push_notif import manage_user_topic_subscription
+from accounts.utils.push_notif import manage_user_topic_subscription, send_push_notif
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +127,12 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         user = request.user
         topic = serializer.get_topic()
         manage_user_topic_subscription(user, topic, 'subscribe')
+        send_push_notif(
+            title="title",
+            body="message",
+            link=f'/price/btc',
+            topic=topic
+        )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def list(self, request, *args, **kwargs):
@@ -148,11 +154,11 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         return self.get_queryset().get(user=user, asset=asset)
 
     def perform_destroy(self, instance):
-        logger.warning(f"deestroy {topic}, {user}")
+        logger.warning(f"deestroy {instance}")
         with transaction.atomic():
             instance.delete()
             user = self.request.user
-            logger.warning(f"deestroy {topic}, {user} -- {AssetAlert.objects.filter(user=user).exists()}or {BulkAssetAlert.objects.filter(user=user).exists()}")
+            logger.warning(f"deestroy  {user} -- {AssetAlert.objects.filter(user=user).exists()}or {BulkAssetAlert.objects.filter(user=user).exists()}")
             if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
                 user.is_price_notif_on = False
                 user.save(update_fields=['is_price_notif_on'])
