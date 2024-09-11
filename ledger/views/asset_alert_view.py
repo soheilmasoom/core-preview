@@ -1,3 +1,4 @@
+import logging
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework import status
@@ -17,6 +18,8 @@ from ledger.utils.precision import get_symbol_presentation_price
 from ledger.utils.price import get_prices, get_coins_symbols
 from ledger.views.coin_category_list_view import CoinCategorySerializer
 from accounts.utils.push_notif import manage_user_topic_subscription
+
+logger = logging.getLogger(__name__)
 
 
 class AssetAlertCreateSerializer(serializers.ModelSerializer):
@@ -156,6 +159,7 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
                 user = self.request.user
                 topic = serializer.get_topic()
                 manage_user_topic_subscription(user, topic, 'unsubscribe')
+                logger.warning(f"destroy {topic}, {user}")
 
     def perform_create(self, serializer):
         serializer.save(
