@@ -1183,7 +1183,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description="Images")
     def get_images(self, deposit_recovery: DepositRecoveryRequest):
-        htmls = map(lambda image: anchor_tag(str(image), image.get_absolute_image_url()), deposit_recovery.images.all())
+        htmls = map(lambda image: anchor_tag(str(image), image.get_url()), deposit_recovery.images.all())
         return mark_safe(', '.join(htmls))
 
     def has_manage_permission(self, request, obj=None):
