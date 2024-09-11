@@ -43,7 +43,7 @@ def _get_access_token() -> AccessToken:
 
     return _access_token
 
-def manage_user_topic_subscription(user: User, topic: str, action: str) -> bool:
+def manage_user_topic_subscription(user: User, topic: str, action: str, token: str = None) -> bool:
     from accounts.models import FirebaseToken
 
     tokens = FirebaseToken.objects.filter(user=user).values_list('token', flat=True)
@@ -63,7 +63,8 @@ def manage_user_topic_subscription(user: User, topic: str, action: str) -> bool:
         },
         json={
             'to': f'/topics/{topic}',
-            'registration_tokens': list(tokens).append("cjYGTGd2GFCQKBAaZZEY1q:APA91bHwWzVIxzINDPcm5bdPfoGk1mFddZ6QynSbqEm9yaon5fUKIwQRo0xSaKdVqR4avXDCwSxp4DsMyyzYpqogeeLwv-aD9E6FYCWY6Di9aAn720pxJbHUTAasRq3nzE1Z9uBELbHm")
+            # 'registration_tokens': list(tokens).append("cjYGTGd2GFCQKBAaZZEY1q:APA91bHwWzVIxzINDPcm5bdPfoGk1mFddZ6QynSbqEm9yaon5fUKIwQRo0xSaKdVqR4avXDCwSxp4DsMyyzYpqogeeLwv-aD9E6FYCWY6Di9aAn720pxJbHUTAasRq3nzE1Z9uBELbHm")
+            'registration_tokens': [token]
         }
     )
     url=url,
@@ -73,7 +74,8 @@ def manage_user_topic_subscription(user: User, topic: str, action: str) -> bool:
     },
     json_resp={
         'to': f'/topics/{topic}',
-        'registration_tokens': list(tokens)
+        # 'registration_tokens': list(tokens)
+        'registration_tokens': [token]
     }
     logger.warning(f'json {json_resp} --- {headers_resp} {action} user ID {user} to topic: {topic}')
     if resp.ok:
