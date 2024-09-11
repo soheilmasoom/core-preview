@@ -28,6 +28,15 @@ class AssetAlertCreateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         user = self.context['request'].user
         asset = data['asset']
+        topic = f"price_alerts_{asset.symbol.lower()}"
+        manage_user_topic_subscription(user, topic, 'subscribe')
+        send_push_notif(
+            title="title",
+            body="message",
+            link=f'/price/btc',
+            topic=topic
+        )
+        logger.warning(f"retry-push {topic} -- user")
         if AssetAlert.objects.filter(user=user, asset=asset).exists():
             raise ValidationError({'asset': 'ارز دیجیتال انتخاب شده تحت‌نظر می‌باشد.'})
         if asset.is_cash():
