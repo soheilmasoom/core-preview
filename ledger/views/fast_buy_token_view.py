@@ -12,7 +12,7 @@ from ledger.models import OTCRequest, Wallet
 from ledger.models.asset import CoinField, Asset
 from ledger.models.fast_buy_token import FastBuyToken
 from ledger.utils.external_price import SELL, BUY
-from ledger.utils.precision import get_symbol_presentation_amount
+from ledger.utils.precision import get_symbol_presentation_amount, humanize_number
 from ledger.utils.price import get_price
 
 
@@ -27,8 +27,14 @@ class FastBuyTokenSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         min_fast_buy_irt = SystemConfig.get_system_config().min_fast_buy_irt
+        max_fast_buy_irt = SystemConfig.get_system_config().max_fast_buy_irt
+
         if attrs['amount'] < min_fast_buy_irt:
-            raise ValidationError(f'حداقل مقدار سفارش {min_fast_buy_irt} هزار تومان است.')
+            raise ValidationError(f'حداقل مقدار سفارش {humanize_number(min_fast_buy_irt)} تومان است.')
+
+        if attrs['amount'] > max_fast_buy_irt:
+            raise ValidationError(f'حداکثر مقدار سفارش {humanize_number(max_fast_buy_irt)} تومان است.')
+
         return attrs
 
     def create(self, validated_data):
