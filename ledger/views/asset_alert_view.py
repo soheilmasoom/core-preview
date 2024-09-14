@@ -127,6 +127,7 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         user = request.user
         topic = serializer.get_topic()
+        #TODO: to be removed
         # manage_user_topic_subscription(user, topic, 'subscribe')
         manage_user_topic_subscription_task.delay(user.id, topic, 'subscribe')
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -157,6 +158,7 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             user = self.request.user
             topic = serializer.get_topic()
+            #TODO: to be removed
             # manage_user_topic_subscription(user, topic, 'unsubscribe')
             manage_user_topic_subscription_task.delay(user.id, topic, 'unsubscribe')
             logger.warning(f"destroy {topic}, {user}")
