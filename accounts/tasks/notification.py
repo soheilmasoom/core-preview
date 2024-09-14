@@ -98,3 +98,12 @@ def send_email_notifications():
         if send_email(email_notif.recipient.email, email_info):
             email_notif.sent = True
             email_notif.save(update_fields=['sent'])
+
+
+@shared_task(queue='notif-manager')
+def manage_user_topic_subscription_task(user_id, topic, action):
+    from accounts.utils.push_notif import manage_user_topic_subscription
+    from accounts.models import User
+
+    user = User.objects.get(id=user_id)
+    manage_user_topic_subscription(user, topic, action)

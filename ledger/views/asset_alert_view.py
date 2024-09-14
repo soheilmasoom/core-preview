@@ -8,6 +8,7 @@ from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.response import Response
 
 from accounts.models import User
+from accounts.tasks.notification import manage_user_topic_subscription_task
 from ledger.models import AssetAlert, BulkAssetAlert, Asset
 from ledger.models.asset import AssetSerializerMini, CoinField
 from ledger.models.asset_alert import BASE_ALERT_PACKAGE
@@ -126,7 +127,8 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         user = request.user
         topic = serializer.get_topic()
-        manage_user_topic_subscription(user, topic, 'subscribe')
+        # manage_user_topic_subscription(user, topic, 'subscribe')
+        manage_user_topic_subscription_task.delay(user.id, topic, 'subscribe')
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def list(self, request, *args, **kwargs):
@@ -155,7 +157,8 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             user = self.request.user
             topic = serializer.get_topic()
-            manage_user_topic_subscription(user, topic, 'unsubscribe')
+            # manage_user_topic_subscription(user, topic, 'unsubscribe')
+            manage_user_topic_subscription_task.delay(user.id, topic, 'unsubscribe')
             logger.warning(f"destroy {topic}, {user}")
             if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
                 user.is_price_notif_on = False
