@@ -127,12 +127,6 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         user = request.user
         topic = serializer.get_topic()
         manage_user_topic_subscription(user, topic, 'subscribe')
-        send_push_notif(
-            title="title",
-            body="message",
-            link=f'/price/btc',
-            topic=topic
-        )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def list(self, request, *args, **kwargs):
