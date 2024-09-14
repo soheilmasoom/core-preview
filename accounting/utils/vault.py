@@ -106,7 +106,8 @@ def update_hot_wallet_vault(now: datetime, prices: dict):
 
         vault_data = []
 
-        for coin, amount in asset.items():
+        for coin, amount_info in asset.items():
+            amount, free = amount_info['amount'], amount_info['free']
             vault_data.append(
                 VaultData(
                     coin=coin,
