@@ -61,7 +61,9 @@ def get_current_prices() -> dict:
 
 
 def send_notifications(asset_alerts, altered_coins):
-    for alert in asset_alerts:
+    assets = {alert_data.asset for alert_data in asset_alerts}
+
+    for alert in assets:
         is_usdt_based = alert.asset.symbol != Asset.USDT
         base_coin = 'تتر' if is_usdt_based else 'تومان'
         new_price, old_price, interval, is_chanel_changed = altered_coins[alert.asset.symbol]
@@ -85,15 +87,6 @@ def send_notifications(asset_alerts, altered_coins):
                        f' درصد {change_status} پیدا کرد و به {new_price} {base_coin} رسید.')
         else:
             message = f'قیمت {alert.asset.name_fa} به {new_price} {base_coin} رسید.'
-
-        #TODO: chekc that tokens do not needed
-        logger.warning(f"{title} Tlower: {alert.asset.symbol.lower()}# {altered_coins}-{asset_alerts}")
-        send_push_notif(
-            title=title,
-            body=message,
-            link=f'/price/{alert.asset.name}',
-            topic=f"price_alerts_{alert.asset.symbol.lower()}"
-        )
         # Notification.send(
         #     recipient=alert.user,
         #     title=title,
@@ -101,6 +94,17 @@ def send_notifications(asset_alerts, altered_coins):
         #     link=f'/price/{alert.asset.name}'
         # )
 
+        #TODO: chekc that tokens do not needed
+        assets = {alert_data.asset for alert_data in asset_alerts}
+        logger.warning(f"sendpush#{title} #unique:{assets} -- {altered_coins}-{asset_alerts}")
+        for asset in assets:
+            logger.warning(f"sendpush#{title} #one-unique:{asset.name}-{asset.symbol} -- {altered_coins}-{asset_alerts}")
+            send_push_notif(
+                title=title,
+                body=message,
+                link=f'/price/{asset.name}',
+                topic=f"price_alerts_{asset.symbol.lower()}"
+            )
 
 def process_chanel_change(asset: Asset, current_chanel: int) -> bool:
     last_chanel_triggered_alerts = AlertTrigger.objects.filter(
