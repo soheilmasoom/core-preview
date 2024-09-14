@@ -59,7 +59,7 @@ def manage_user_topic_subscription(user: User, topic: str, action: str, token: s
         headers={
             'Authorization': f'Bearer {access_token.token}',
             'Content-Type': 'application/json',
-            'access_token_auth': 'true'
+            "access_token_auth": "true"
         },
         json={
             'to': f'/topics/{topic}',
@@ -75,6 +75,7 @@ def manage_user_topic_subscription(user: User, topic: str, action: str, token: s
         'to': f'/topics/{topic}',
         'registration_tokens': list(tokens)
     }
+    #TODO: to be removed
     logger.warning(f'json {json_resp} --- {headers_resp} {action} user ID {user} to topic: {topic}- token {token}')
     if resp.ok:
         logger.warning(f'{action} user ID {user} to topic: {topic}')
@@ -107,7 +108,7 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         body['token'] = token
 
     if topic:
-        body['topic'] = topic
+        body['topic'] = f"/topics/{topic}"
 
     if link:
         body['webpush'] = {
