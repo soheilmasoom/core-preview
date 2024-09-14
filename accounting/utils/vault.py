@@ -112,7 +112,7 @@ def update_hot_wallet_vault(now: datetime, prices: dict):
                 VaultData(
                     coin=coin,
                     balance=amount,
-                    free=amount,
+                    free=free,
                     value_usdt=amount * prices.get(coin + Asset.USDT, 0),
                     value_irt=amount * prices.get(coin + Asset.IRT, 0),
                 )
