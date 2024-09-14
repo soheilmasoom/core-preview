@@ -138,7 +138,8 @@ class BlocklinkRequester(BaseRequester):
             data={
                 'start': start,
                 'end': end
-            }
+            },
+            method='POST'
         )
 
 
