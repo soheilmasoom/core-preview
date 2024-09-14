@@ -63,8 +63,7 @@ def manage_user_topic_subscription(user: User, topic: str, action: str, token: s
         },
         json={
             'to': f'/topics/{topic}',
-            # 'registration_tokens': list(tokens).append("cjYGTGd2GFCQKBAaZZEY1q:APA91bHwWzVIxzINDPcm5bdPfoGk1mFddZ6QynSbqEm9yaon5fUKIwQRo0xSaKdVqR4avXDCwSxp4DsMyyzYpqogeeLwv-aD9E6FYCWY6Di9aAn720pxJbHUTAasRq3nzE1Z9uBELbHm")
-            'registration_tokens': [token]
+            'registration_tokens': list(tokens)
         }
     )
     url=url,
@@ -74,10 +73,9 @@ def manage_user_topic_subscription(user: User, topic: str, action: str, token: s
     },
     json_resp={
         'to': f'/topics/{topic}',
-        # 'registration_tokens': list(tokens)
-        'registration_tokens': [token]
+        'registration_tokens': list(tokens)
     }
-    logger.warning(f'json {json_resp} --- {headers_resp} {action} user ID {user} to topic: {topic}')
+    logger.warning(f'json {json_resp} --- {headers_resp} {action} user ID {user} to topic: {topic}- token {token}')
     if resp.ok:
         logger.warning(f'{action} user ID {user} to topic: {topic}')
     else:
