@@ -17,7 +17,7 @@ from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationCode, \
     UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
-    AttributionTracker
+    AttributionTracker, AppConfig
 from accounts.models import UserComment, TrafficSource, Referral
 from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object
 from financial.models.bank_card import BankCard, BankAccount
@@ -1033,6 +1033,11 @@ class AttributionAdmin(admin.ModelAdmin):
     @admin.display(description="Device")
     def get_device(self, attribution: Attribution):
         return f'{attribution.device_model} ({attribution.os_name} {attribution.os_version})'
+
+
+@admin.register(AppConfig)
+class AppConfigAdmin(admin.ModelAdmin):
+    list_display = ('package_name', 'default')
 
 
 @admin.register(AppStatus)
