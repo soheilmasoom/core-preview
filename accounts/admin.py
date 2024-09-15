@@ -1038,6 +1038,7 @@ class AttributionAdmin(admin.ModelAdmin):
 @admin.register(AppConfig)
 class AppConfigAdmin(admin.ModelAdmin):
     list_display = ('package_name', 'default')
+    list_editable = ('default',)
 
 
 @admin.register(AppStatus)

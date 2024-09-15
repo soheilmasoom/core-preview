@@ -41,7 +41,7 @@ class AttributionTracker(models.Model):
 
 class AppConfig(models.Model):
     package_name = models.CharField(max_length=256, unique=True)
-    default = models.BooleanField(default=True)
+    default = models.BooleanField(default=False)
 
     yandex_api_key = models.CharField(max_length=64, unique=True)
     yandex_app_id = models.CharField(max_length=64, unique=True)
@@ -53,6 +53,9 @@ class AppConfig(models.Model):
             return app
 
         return AppConfig.objects.filter(default=True).order_by('id').first()
+
+    def __str__(self):
+        return self.package_name
 
 
 class Attribution(models.Model):
