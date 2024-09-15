@@ -23,6 +23,7 @@ class CampaignCostInline(admin.TabularInline):
     fields = ('created', 'cost_irt', 'cost_usdt')
     model = CampaignCost
     extra = 3
+    ordering = ('created', )
 
 
 @admin.register(CampaignInfo)
