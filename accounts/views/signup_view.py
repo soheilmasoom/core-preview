@@ -198,6 +198,7 @@ class SignupSerializer(serializers.Serializer):
         except Exception as e:
             logger.warning(f'Failed to set missions to user={user.id} due to={str(e)}')
 
+
 class SignupView(CreateAPIView):
     permission_classes = []
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
