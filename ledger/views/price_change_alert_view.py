@@ -41,7 +41,7 @@ class PriceChangeAlertView(APIView):
 
         if active_alerts_count >= 10:
             remaining_alerts = max(0, 10 - active_alerts_count)
-            return Response({'detail': 'Maximum of 10 active alerts per asset is allowed.', 'remaining_alerts': remaining_alerts}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'حداکثر ۱۰ هشدار برای هر ارز دیجیتال مجاز است.', 'remaining_alerts': remaining_alerts}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = PriceChangeAlertSerializer(data=request.data)
         if serializer.is_valid():
