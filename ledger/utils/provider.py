@@ -40,7 +40,7 @@ class ProviderRequester(BaseRequester):
         return config('PROVIDER_TOKEN')
 
     def get_market_info(self, asset: Asset, side: str) -> MarketInfo:
-        data = self.collect_api('/api/v1/market/', data={'coin': asset.symbol, 'side': side}, cache_timeout=300).data
+        data = self.collect_api('/api/v1/market/', data={'coin': asset.symbol, 'side': side}, cache_timeout=60).data
         return MarketInfo(
             id=data['id'],
             coin=asset.symbol,
@@ -235,7 +235,7 @@ class ProviderRequester(BaseRequester):
         if coins:
             data['coins'] = ','.join(coins)
 
-        resp = self.collect_api('/api/v1/coins/info/', data=data, timeout=30, cache_timeout=300)
+        resp = self.collect_api('/api/v1/coins/info/', data=data, timeout=30, cache_timeout=60)
 
         if not resp.success:
             return []
