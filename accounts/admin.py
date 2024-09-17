@@ -716,7 +716,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin.display(description='عکس سلفی')
     def get_selfie_image(self, user: User):
-        return mark_safe("<img src='%s' width='200' height='200' />" % user.selfie_image.get_absolute_image_url())
+        return mark_safe("<img src='%s' width='200' height='200' />" % user.selfie_image.get_url())
 
     def get_user_prizes(self, user: User):
         prizes = user.get_account().prize_set.all()

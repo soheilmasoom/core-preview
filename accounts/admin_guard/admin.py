@@ -24,6 +24,7 @@ class AdvancedAdmin(ModelAdmin):
     default_edit_condition = None
     fields_view_conditions = {}
     fields_edit_conditions = {}
+    fields_edit_on_add_conditions = {}
 
     __fieldsets__ = None
 
@@ -134,10 +135,15 @@ class AdvancedAdmin(ModelAdmin):
 
         return set(fields)
 
-    def get_should_be_readonly_fields(self, request, obj):
+    def get_should_be_readonly_fields(self, request, obj=None):
         should_be_readonly_fields = []
 
-        for (field, edit_condition) in self.fields_edit_conditions.items():
+        if obj is None and self.fields_edit_on_add_conditions:
+            fields_edit_condition = {**self.fields_edit_conditions, **self.fields_edit_on_add_conditions}
+        else:
+            fields_edit_condition = self.fields_edit_conditions
+
+        for (field, edit_condition) in fields_edit_condition.items():
             if edit_condition is None:
                 continue
 
@@ -147,7 +153,7 @@ class AdvancedAdmin(ModelAdmin):
         if self.default_edit_condition is not None:
             default_condition = self.default_edit_condition
             self.default_edit_condition = None
-            remaining_fields = set(self._get_fields(request, obj)) - set(self.fields_edit_conditions)
+            remaining_fields = set(self._get_fields(request, obj)) - set(fields_edit_condition)
             self.default_edit_condition = default_condition
 
             for field in remaining_fields:

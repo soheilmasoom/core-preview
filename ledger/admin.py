@@ -71,7 +71,10 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'order': True,
         'trend': True,
         'name_fa': True,
+        'name': M.is_value('otc_status', Asset.COMING_SOON),
+        'symbol': M.is_value('otc_status', Asset.COMING_SOON),
     }
+
     list_display = (
         'symbol', 'enable', 'get_hedge_value', 'get_hedge_value_abs', 'get_hedge_amount', 'get_calc_hedge_amount',
         'get_total_asset', 'get_users_balance', 'get_reserved_amount',
@@ -1199,7 +1202,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description="Images")
     def get_images(self, deposit_recovery: DepositRecoveryRequest):
-        htmls = map(lambda image: anchor_tag(str(image), image.get_absolute_image_url()), deposit_recovery.images.all())
+        htmls = map(lambda image: anchor_tag(str(image), image.get_url()), deposit_recovery.images.all())
         return mark_safe(', '.join(htmls))
 
     def has_manage_permission(self, request, obj=None):
