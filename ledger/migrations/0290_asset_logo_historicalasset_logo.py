@@ -4,6 +4,13 @@ from django.db import migrations, models
 import multimedia.storage
 
 
+def populate_asset_logos(apps, schema_editor):
+    Asset = apps.get_model('ledger', 'Asset')
+    for a in Asset.objects.all():
+        a.logo = f'coins/logo/{a.symbol}.png'
+        a.save(update_fields=['logo'])
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -20,5 +27,9 @@ class Migration(migrations.Migration):
             model_name='historicalasset',
             name='logo',
             field=models.TextField(blank=True, max_length=100, null=True),
+        ),
+        migrations.RunPython(
+            code=populate_asset_logos,
+            reverse_code=migrations.RunPython.noop
         ),
     ]
