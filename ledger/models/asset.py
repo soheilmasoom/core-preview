@@ -65,7 +65,7 @@ class Asset(models.Model):
 
     otc_status = models.CharField(
         max_length=8,
-        default=ACTIVE,
+        default=COMING_SOON,
         choices=[(s, s) for s in OTC_STATUSES],
     )
 

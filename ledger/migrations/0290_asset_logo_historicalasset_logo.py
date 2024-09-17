@@ -32,4 +32,18 @@ class Migration(migrations.Migration):
             code=populate_asset_logos,
             reverse_code=migrations.RunPython.noop
         ),
+        migrations.AlterField(
+            model_name='asset',
+            name='otc_status',
+            field=models.CharField(
+                choices=[('active', 'active'), ('disabled', 'disabled'), ('buy', 'buy'), ('sell', 'sell'),
+                         ('soon', 'soon')], default='soon', max_length=8),
+        ),
+        migrations.AlterField(
+            model_name='historicalasset',
+            name='otc_status',
+            field=models.CharField(
+                choices=[('active', 'active'), ('disabled', 'disabled'), ('buy', 'buy'), ('sell', 'sell'),
+                         ('soon', 'soon')], default='soon', max_length=8),
+        ),
     ]
