@@ -19,11 +19,19 @@ class CampaignPublisherReportAdmin(admin.ModelAdmin):
     search_fields = ('utm_content', )
 
 
+class CampaignCostInline(admin.TabularInline):
+    fields = ('created', 'cost_irt', 'cost_usdt')
+    model = CampaignCost
+    extra = 3
+    ordering = ('created', )
+
+
 @admin.register(CampaignInfo)
 class CampaignInfoAdmin(admin.ModelAdmin):
     list_display = ('title', 'utm_source', 'utm_medium', 'utm_campaign', 'campaign_id')
     search_fields = ('title', 'campaign_id', 'utm_source', 'utm_medium', 'utm_campaign')
     list_filter = ('utm_source', 'utm_medium', 'utm_campaign')
+    inlines = [CampaignCostInline]
 
 
 @admin.register(CampaignCost)
