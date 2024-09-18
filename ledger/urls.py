@@ -8,8 +8,7 @@ urlpatterns = [
     path('v1/networkassets/', views.NetworkAssetView.as_view()),
     path('v1/asset/overview/', views.AssetOverviewAPIView.as_view()),
     path('v2/asset/overview/', views.AssetOverviewAPIV2View.as_view()),
-    path('v1/price-change/alert/', views.PriceChangeAlertView.as_view()),
-    path('v1/price-change/alert/<int:pk>/', views.PriceChangeAlertView.as_view()),
+
     path('v1/price/alert/single/', views.AssetAlertViewSet.as_view({
         'post': 'create',
         'get': 'list',

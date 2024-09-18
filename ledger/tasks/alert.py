@@ -14,7 +14,6 @@ from ledger.utils.external_price import BUY
 from ledger.utils.precision import get_symbol_presentation_price
 from ledger.utils.price import USDT_IRT, get_prices, get_symbol_parts, get_coins_symbols
 from accounts.utils.push_notif import send_push_notif
-from ledger.models.price_change_alert import PriceChangeAlert
 from accounts.utils.push_notif import send_push_notif_to_user
 
 logger = logging.getLogger(__name__)
@@ -300,15 +299,15 @@ def send_price_notifications():
 @shared_task(queue="notif-manager")
 def check_price_alerts():
     current_prices = get_current_prices()
-    active_alerts = PriceChangeAlert.objects.filter(active=True, is_triggered=False)
+    active_alerts = AssetAlert.objects.filter(active=True, is_triggered=False)
 
     for alert in active_alerts:
         asset_price = current_prices.get(alert.asset.symbol)
+        trigger_price = alert.trigger_price
 
-        if not asset_price:
+        if not asset_price or not trigger_price:
             continue
 
-        trigger_price = alert.trigger_price
         if alert.type == 'gt' and asset_price > trigger_price:
             alert.is_triggered = True
         elif alert.type == 'gte' and asset_price >= trigger_price:

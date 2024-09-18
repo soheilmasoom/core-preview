@@ -11,7 +11,7 @@ from accounts.models import User
 from accounts.tasks.notification import manage_user_topic_subscription_task
 from ledger.models import AssetAlert, BulkAssetAlert, Asset
 from ledger.models.asset import AssetSerializerMini, CoinField
-from ledger.models.asset_alert import BASE_ALERT_PACKAGE
+from ledger.models.asset_alert import BASE_ALERT_PACKAGE, PRICE_CHANGE_ALERT_TYPES
 from ledger.utils.coins_info import get_coins_info
 from ledger.utils.dto import CoinInfo
 from ledger.utils.external_price import SELL
@@ -19,12 +19,19 @@ from ledger.utils.precision import get_symbol_presentation_price
 from ledger.utils.price import get_prices, get_coins_symbols
 from ledger.views.coin_category_list_view import CoinCategorySerializer
 from accounts.utils.push_notif import manage_user_topic_subscription, send_push_notif
+from rest_framework.decorators import action
+from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)
 
 
 class AssetAlertCreateSerializer(serializers.ModelSerializer):
     coin = CoinField(source='asset', required=False)
+    base_asset = CoinField(source='asset', required=False)
+    trigger_price = serializers.DecimalField(max_digits=18, decimal_places=8)
+    type = serializers.ChoiceField(choices=PRICE_CHANGE_ALERT_TYPES)
+    description = serializers.CharField(required=False, allow_blank=True)
+    remaining_alerts = serializers.SerializerMethodField()
 
     def validate(self, data):
         user = self.context['request'].user
@@ -39,9 +46,15 @@ class AssetAlertCreateSerializer(serializers.ModelSerializer):
         asset = self.validated_data.get('asset')
         return f"price_alerts_{asset.symbol.lower()}"
 
+    def get_remaining_alerts(self, obj):
+        user = self.context['request'].user
+        asset = obj.asset
+        active_alerts_count = AssetAlert.objects.filter(user=user, asset=asset).count()
+        return max(0, 100 - active_alerts_count)
+
     class Meta:
         model = AssetAlert
-        fields = ('coin',)
+        fields = ('coin', 'base_asset', 'trigger_price', 'type', 'description', 'remaining_alerts')
 
 
 class AssetAlertDeleteSerializer(serializers.ModelSerializer):
@@ -61,9 +74,17 @@ class AssetAlertDeleteSerializer(serializers.ModelSerializer):
 
 class AssetAlertObjectSerializer(serializers.ModelSerializer):
     asset = AssetSerializerMini()
-    price_usdt = serializers.SerializerMethodField()
-    price_irt = serializers.SerializerMethodField()
-    change_24h = serializers.SerializerMethodField()
+    base_asset = CoinField(source='asset', required=False)
+    trigger_price = serializers.DecimalField(max_digits=18, decimal_places=8)
+    type = serializers.ChoiceField(choices=PRICE_CHANGE_ALERT_TYPES)
+    description = serializers.CharField(required=False, allow_blank=True)
+    remaining_alerts = serializers.SerializerMethodField()
+
+    def get_remaining_alerts(self, obj):
+        user = self.context['request'].user
+        asset = obj.asset
+        active_alerts_count = AssetAlert.objects.filter(user=user, asset=asset).count()
+        return max(0, 100 - active_alerts_count)
 
     def get_change_24h(self, asset_alert: AssetAlert):
         return self.context['cap_info'].get(asset_alert.asset.symbol, CoinInfo()).change_24h
@@ -78,7 +99,7 @@ class AssetAlertObjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AssetAlert
-        fields = ('asset', 'price_usdt', 'price_irt', 'change_24h')
+        fields = ('asset', 'price_usdt', 'price_irt', 'change_24h', 'base_asset', 'trigger_price', 'type', 'description', 'remaining_alerts')
 
 
 class BulkAssetAlertViewSerializer(serializers.ModelSerializer):
@@ -124,21 +145,54 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+
         user = request.user
+        asset_id = request.data.get('asset')
+        active_alerts_count = AssetAlert.objects.filter(user=user, asset_id=asset_id).count()
+
+        if active_alerts_count >= 100:
+            remaining_alerts = max(0, 100 - active_alerts_count)
+            return Response({'detail': 'حداکثر ۱۰ هشدار برای هر ارز دیجیتال مجاز است.', 'remaining_alerts': remaining_alerts}, status=status.HTTP_400_BAD_REQUEST)
+
+        self.perform_create(serializer)
         topic = serializer.get_topic()
-        #TODO: to be removed
-        # manage_user_topic_subscription(user, topic, 'subscribe')
         manage_user_topic_subscription_task.delay(user.id, topic, 'subscribe')
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        remaining_alerts = max(0, 100 - AssetAlert.objects.filter(user=user, asset_id=asset_id).count())
+        response_data = serializer.data
+        response_data['remaining_alerts'] = remaining_alerts
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         serializer = AssetAlertObjectSerializer(queryset, many=True, context={
+            'request': request,
             'cap_info': get_coins_info(),
             'prices': get_prices(get_coins_symbols(queryset.values_list('asset__symbol', flat=True)), side=SELL, allow_stale=True)
         })
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        active_alerts_count = AssetAlert.objects.filter(user=request.user, asset=instance.asset).count()
+        remaining_alerts = max(0, 100 - active_alerts_count)
+        return Response({'detail': 'هشدار قمیت حذف شد.', 'remaining_alerts': remaining_alerts}, status=status.HTTP_204_NO_CONTENT)
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            user = self.request.user
+            serializer = AssetAlertDeleteSerializer(data={'asset': instance.asset}, context={'request': self.request})
+            serializer.is_valid(raise_exception=True)
+            instance.delete()
+            topic = serializer.get_topic()
+            manage_user_topic_subscription_task.delay(user.id, topic, 'unsubscribe')
+
+            logger.warning(f"destroy {topic}, {user}")
+
+            if not (AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
+                user.is_price_notif_on = False
+                user.save(update_fields=['is_price_notif_on'])
 
     def get_object(self):
         serializer = AssetAlertDeleteSerializer(
@@ -149,22 +203,6 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         asset = serializer.validated_data.get('asset', None)
         user = self.request.user
         return self.get_queryset().get(user=user, asset=asset)
-
-    def perform_destroy(self, instance):
-        with transaction.atomic():
-            instance.delete()
-            user = self.request.user
-            serializer = self.get_serializer(data=self.request.data, context={'request': self.request})
-            serializer.is_valid(raise_exception=True)
-            user = self.request.user
-            topic = serializer.get_topic()
-            #TODO: to be removed
-            # manage_user_topic_subscription(user, topic, 'unsubscribe')
-            manage_user_topic_subscription_task.delay(user.id, topic, 'unsubscribe')
-            logger.warning(f"destroy {topic}, {user}")
-            if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
-                user.is_price_notif_on = False
-                user.save(update_fields=['is_price_notif_on'])
 
     def perform_create(self, serializer):
         serializer.save(
