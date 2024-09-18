@@ -92,9 +92,12 @@ class BlocklinkRequester(BaseRequester):
         if not resp.ok:
             raise FetchError
 
-        return {
-            (hw['coin'], hw['network']): Decimal(hw['balance']) for hw in resp.data
-        }
+        balances = defaultdict(Decimal)
+
+        for hw in resp.data:
+            balances[(hw['coin'], hw['network'])] += Decimal(hw['balance'])
+
+        return dict(balances)
 
     def withdraw(self, receiver_address: str, amount: Decimal, network: str, coin: str, transfer_id: int,
                  memo: str = None, manual: bool = False) -> Response:
