@@ -73,6 +73,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'name_fa': True,
         'name': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
         'symbol': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'enable': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
     }
 
     list_display = (
