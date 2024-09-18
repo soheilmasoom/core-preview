@@ -69,9 +69,17 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
     fields_edit_conditions = {
         'name_fa': True,
+        'order': True,
         'name': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
         'symbol': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'logo': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
         'enable': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+    }
+    fields_edit_on_add_conditions = {
+        'name': True,
+        'symbol': True,
+        'logo': True,
+        'enable': True
     }
 
     list_display = (
