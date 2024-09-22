@@ -67,9 +67,11 @@ def _get_external_coin(coin: str) -> str:
     return _get_external_symbol_mapping().get(coin, coin)
 
 
-def _get_external_symbol(symbol: str) -> str:
-    coin, base = split_symbol(symbol)
-    return _get_external_coin(coin) + base
+def _get_external_price_multiplier(coin: str) -> Decimal:
+    if coin == 'GOLD':
+        return 1 / Decimal('41.4713')
+
+    return Decimal(1)
 
 
 def _get_price_redis(allow_stale: bool):
@@ -106,7 +108,11 @@ def _check_price_dict_time_frame(data: dict, allow_stale: bool = False):
 
 def fetch_external_price_by_symbol(symbol: str, side: str, allow_stale: bool = False) -> Decimal:
     side = SIDE_MAP[side]
-    name = f'price:{_get_external_symbol(symbol).lower()}'
+
+    coin, base = split_symbol(symbol)
+    symbol = _get_external_coin(coin) + base
+
+    name = f'price:{symbol.lower()}'
     price = _get_price_redis(allow_stale).hget(name=name, key=side)
 
     if not price and allow_stale:
@@ -114,7 +120,7 @@ def fetch_external_price_by_symbol(symbol: str, side: str, allow_stale: bool = F
         price = _get_price_redis(allow_stale).hget(name=name, key=side)
 
     if price:
-        return Decimal(price)
+        return Decimal(price) * _get_external_price_multiplier(coin)
 
 
 @cache_for(60)
@@ -177,8 +183,10 @@ def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow
 
             func = min if s == BUY else max
 
+            price = func(_prices) * _get_external_price_multiplier(c)
+
             results.append(
-                Price(coin=c, price=func(_prices), side=s)
+                Price(coin=c, price=price, side=s)
             )
 
     return results
