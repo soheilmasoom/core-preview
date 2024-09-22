@@ -67,6 +67,11 @@ def _get_external_coin(coin: str) -> str:
     return _get_external_symbol_mapping().get(coin, coin)
 
 
+def _get_external_symbol(symbol: str) -> str:
+    coin, base = split_symbol(symbol)
+    return _get_external_coin(coin) + base
+
+
 def _get_external_price_multiplier(coin: str) -> Decimal:
     if coin == 'GOLD':
         return 1 / Decimal('41.4713')
