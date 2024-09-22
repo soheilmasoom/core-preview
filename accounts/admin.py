@@ -250,6 +250,8 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     default_edit_condition = M.superuser
 
+    exclude = ('platform_type', )
+
     fields_edit_conditions = {
         'withdraw_status': True,
         'deposit_status': True,

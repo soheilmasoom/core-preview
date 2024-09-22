@@ -43,7 +43,7 @@ def get_all_otc_spreads(side):
     spreads = {}
 
     for asset in queryset:
-        for base in (IRT, USDT):
+        for base in get_base_coins():
             spreads[asset.symbol + base] = spread_to_multiplier(
                 get_otc_spread(asset.symbol, side, base_coin=base), side
             )
@@ -149,13 +149,21 @@ def get_last_prices(symbols: List[str]):
     return last_prices
 
 
+@cache_for()
+def get_base_coins():
+    if SystemConfig.get_system_config().platform_type == SystemConfig.CRYPTO:
+        return IRT, USDT
+    else:
+        return IRT
+
+
 def get_coins_symbols(coins: List[str], only_base: str = None) -> List[str]:
     symbols = []
 
     if only_base:
         bases = (only_base, )
     else:
-        bases = (IRT, USDT)
+        bases = get_base_coins()
 
     for base in bases:
         symbols.extend([c + base for c in coins])

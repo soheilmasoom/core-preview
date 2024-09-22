@@ -17,6 +17,10 @@ class SystemConfig(models.Model):
 
     TRANSFER_STATUS = ALLOW, BAN, BAN_CRYPTO, BAN_FIAT = 'allow', 'ban', 'ban_crypto', 'ban_fiat'
 
+    PLATFORM_TYPES = CRYPTO, GOLD = 'crypto', 'gold'
+
+    platform_type = models.CharField(max_length=16, choices=[(p, p) for p in PLATFORM_TYPES], default=CRYPTO)
+
     name = models.CharField(max_length=32)
     active = models.BooleanField()
     is_consultation_available = models.BooleanField(default=False)
