@@ -68,11 +68,18 @@ class AssetVariantInline(admin.TabularInline):
 class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
     fields_edit_conditions = {
-        'order': True,
-        'trend': True,
         'name_fa': True,
-        'name': M.is_value('otc_status', Asset.COMING_SOON),
-        'symbol': M.is_value('otc_status', Asset.COMING_SOON),
+        'order': True,
+        'name': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'symbol': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'logo': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'enable': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+    }
+    fields_edit_on_add_conditions = {
+        'name': True,
+        'symbol': True,
+        'logo': True,
+        'enable': True
     }
 
     list_display = (
@@ -82,7 +89,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'publish_date', 'spread_category', 'otc_status', 'price_page', 'get_distribution_factor', 'margin_interest_fee'
     )
     list_filter = ('enable', 'trend', 'spread_category', 'coincategory', 'otc_status')
-    list_editable = ('enable', 'order', 'trend', 'otc_status', 'hedge', 'price_page')
+    list_editable = ('order', )
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'order')
     actions = ('setup_asset', 'update_rank_by_cmc')
