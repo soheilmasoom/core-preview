@@ -150,7 +150,7 @@ def get_base_coins():
     if SystemConfig.get_system_config().platform_type == SystemConfig.CRYPTO:
         return IRT, USDT
     else:
-        return IRT
+        return IRT,
 
 
 def get_coins_symbols(coins: List[str], only_base: str = None) -> List[str]:
