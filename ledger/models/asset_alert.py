@@ -44,6 +44,15 @@ class AlertTrigger(models.Model):
     active = models.BooleanField(default=True, null=True, blank=True)
     type = models.CharField(max_length=8, choices=PRICE_CHANGE_ALERT_TYPES, null=True, blank=True)
     trigger_price = get_amount_field(null=True)
+    base_asset = models.ForeignKey(
+        to='ledger.Asset',
+        on_delete=models.CASCADE,
+        related_name="asset_alert_base_asset",
+        default=Asset.get(symbol=Asset.IRT).id,
+        null=True,
+        blank=True
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         indexes = [
@@ -60,12 +69,6 @@ class AssetAlert(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
-    base_asset = models.ForeignKey(
-        to='ledger.Asset',
-        on_delete=models.CASCADE,
-        related_name="asset_alert_base_asset",
-        default=Asset.get(symbol=Asset.IRT).id
-    )
 
 
 class BulkAssetAlert(models.Model):
