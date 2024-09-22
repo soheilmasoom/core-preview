@@ -6,7 +6,8 @@ from django.db.models import Q
 
 from _base.settings import TRADER_ACCOUNT_ID, MARKET_MAKER_ACCOUNT_ID
 from accounts.models import SystemConfig
-from ledger.utils.external_price import fetch_external_price, USDT, BUY, SELL
+from ledger.utils.external_price import USDT, BUY, SELL, fetch_external_price_by_symbol
+from ledger.utils.price import USDT_IRT
 from market.models import PairSymbol, Order
 
 
@@ -29,11 +30,11 @@ def check_maker_order_price(dry_run=True):
         sides = [BUY, SELL]
 
     for side in sides:
-        usdt_irt_price = fetch_external_price(symbol='USDTIRT', side=side)
+        usdt_irt_price = fetch_external_price_by_symbol(symbol=USDT_IRT, side=side)
 
         for symbol in symbols:
             if symbol.name != 'USDTIRT':
-                price = fetch_external_price(symbol=symbol.asset.symbol + USDT, side=side)
+                price = fetch_external_price_by_symbol(symbol=symbol.asset.symbol + USDT, side=side)
                 price = price if symbol.base_asset.symbol == USDT else (price and usdt_irt_price and price * usdt_irt_price)
             else:
                 price = usdt_irt_price

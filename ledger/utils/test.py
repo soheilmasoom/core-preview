@@ -7,7 +7,7 @@ if settings.DEBUG_OR_TESTING:
     import time
 
     from accounts.models import Account, User, VerificationCode
-    from ledger.utils.external_price import get_price_redis
+    from ledger.utils.external_price import _get_price_redis
     from ledger.models import Asset, AddressBook, Network, NetworkAsset
     from financial.models import BankCard, Gateway
     from market.models import PairSymbol
@@ -38,7 +38,7 @@ if settings.DEBUG_OR_TESTING:
         else:
             key = 'price:' + asset.symbol.lower() + 'usdt'
 
-        get_price_redis(allow_stale=True).hset(name=key, mapping=mapping)
+        _get_price_redis(allow_stale=True).hset(name=key, mapping=mapping)
 
         time.sleep(1)
 

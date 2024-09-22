@@ -8,7 +8,7 @@ from ledger.exceptions import SmallDepthError
 from ledger.utils.cache import cache_for
 from ledger.utils.depth import get_base_price_and_spread, NoDepthError
 from ledger.utils.external_price import fetch_external_redis_prices, BUY, SELL, get_other_side, fetch_external_depth, \
-    IRT, USDT, fetch_external_price
+    IRT, USDT, fetch_external_price_by_symbol, split_symbol
 from ledger.utils.otc import spread_to_multiplier, get_otc_spread
 from ledger.utils.precision import floor_precision, ceil_precision
 
@@ -28,10 +28,6 @@ def _get_external_last_prices(coins: Union[list, set], allow_stale: bool = False
             last_prices[prices[2 * i].coin] = last_price
 
     return last_prices
-
-
-def get_symbol_parts(symbol: str):
-    return (symbol[:-4], symbol[-4:]) if symbol.endswith('USDT') else (symbol[:-3], symbol[-3:])
 
 
 @cache_for(300)
@@ -78,19 +74,19 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
     ).values('symbol__name').annotate(p=annotate_func('price')).values_list('symbol__name', 'p'))
 
     if USDT_IRT not in prices:
-        prices[USDT_IRT] = fetch_external_price(USDT_IRT, side=side)
+        prices[USDT_IRT] = fetch_external_price_by_symbol(USDT_IRT, side=side)
 
     if len(symbols) != len(prices):
         otc_spreads = get_all_otc_spreads(side)
         remaining_symbols = set(symbols) - set(prices)
 
-        remaining_coins = set([get_symbol_parts(symbol)[0] for symbol in remaining_symbols])
+        remaining_coins = set([split_symbol(symbol)[0] for symbol in remaining_symbols])
         external_prices = {
             r.coin: r.price for r in fetch_external_redis_prices(remaining_coins, side, allow_stale=allow_stale) if r.price
         }
 
         for symbol in remaining_symbols:
-            coin, base = get_symbol_parts(symbol)
+            coin, base = split_symbol(symbol)
 
             if symbol == 'IRTUSDT':
                 usdt_price_other_side = get_prices([USDT_IRT], side=get_other_side(side), allow_stale=allow_stale)[USDT_IRT]
@@ -122,16 +118,16 @@ def get_last_prices(symbols: List[str]):
     ).values_list('name', 'last_trade_price'))
 
     if USDT_IRT not in last_prices:
-        last_prices[USDT_IRT] = fetch_external_price(USDT_IRT, side=SELL)
+        last_prices[USDT_IRT] = fetch_external_price_by_symbol(USDT_IRT, side=SELL)
 
     remaining_symbols = set(symbols) - set(last_prices)
 
     if remaining_symbols:
-        remaining_coins = set([get_symbol_parts(symbol)[0] for symbol in remaining_symbols])
+        remaining_coins = set([split_symbol(symbol)[0] for symbol in remaining_symbols])
         external_prices = _get_external_last_prices(remaining_coins, allow_stale=True)
 
         for symbol in remaining_symbols:
-            coin, base = get_symbol_parts(symbol)
+            coin, base = split_symbol(symbol)
 
             if symbol == 'IRTUSDT':
                 last_price = Decimal(1) / last_prices[USDT_IRT]
@@ -208,7 +204,7 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
                 return open_orders[-1].price
 
     else:
-        coin, base = get_symbol_parts(symbol)
+        coin, base = split_symbol(symbol)
         base_price = 1
 
         if base == IRT:

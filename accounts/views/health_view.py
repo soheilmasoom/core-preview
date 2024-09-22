@@ -9,7 +9,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ledger.models import NetworkAsset, MarginPosition, MarginHistoryModel, Wallet
-from ledger.utils.external_price import fetch_external_price, SIDES
+from ledger.utils.external_price import fetch_external_price_by_symbol, SIDES
+from market.models import PairSymbol
+
+
+logger = logging.getLogger(__name__)
 
 
 class HealthView(APIView):
@@ -25,7 +29,7 @@ class PriceHealthView(APIView):
     permission_classes = ()
 
     def get(self, request):
-        symbols = ['BTCUSDT', 'ETHUSDT', 'DOGEUSDT', 'GORILLAUSDT']
+        symbols = PairSymbol.objects.filter(enable=True).order_by('?')[:4].values_list('name', flat=True)
 
         missing_prices = []
 
@@ -33,7 +37,7 @@ class PriceHealthView(APIView):
 
         for s in symbols:
             for side in SIDES:
-                if fetch_external_price(symbol=s, side=side, allow_stale=False) is None:
+                if fetch_external_price_by_symbol(symbol=s, side=side, allow_stale=False) is None:
                     missing_prices.append(s)
 
         if missing_prices:
@@ -52,9 +56,6 @@ class PriceHealthView(APIView):
             return Response({'status': 'dead', 'errors': errors})
         else:
             return Response({'status': 'healthy!'})
-
-
-logger = logging.getLogger(__name__)
 
 
 class HealthCheckView(APIView):

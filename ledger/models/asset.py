@@ -46,6 +46,8 @@ class Asset(models.Model):
     original_name_fa = models.CharField(max_length=32, blank=True)
 
     symbol = models.CharField(max_length=16, unique=True, db_index=True)
+    external_price_symbol = models.CharField(max_length=16, blank=True, db_index=True)
+
     original_symbol = models.CharField(max_length=16, blank=True)
     trading_view_symbol = models.CharField(max_length=32, blank=True)
 

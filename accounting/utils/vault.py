@@ -13,7 +13,7 @@ from financial.utils.withdraw import FiatWithdraw
 from ledger.exceptions import FetchError
 from ledger.models import Asset
 from ledger.utils.blocklink import get_blocklink_requester
-from ledger.utils.price import USDT_IRT, get_symbol_parts
+from ledger.utils.price import USDT_IRT, split_symbol
 from ledger.utils.provider import get_provider_requester
 
 logger = logging.getLogger(__name__)
@@ -202,7 +202,7 @@ def update_asset_prices(now: datetime, prices: dict):
     logger.info('updating asset prices')
     _prices = {}
     for symbol, price in prices.items():
-        coin, base = get_symbol_parts(symbol)
+        coin, base = split_symbol(symbol)
         if base == Asset.USDT:
             _prices[coin] = price
 

@@ -12,7 +12,7 @@ from accounts.models import Notification, User
 from ledger.models import CoinCategory, AssetAlert, BulkAssetAlert, AlertTrigger, Asset
 from ledger.utils.external_price import BUY
 from ledger.utils.precision import get_symbol_presentation_price
-from ledger.utils.price import USDT_IRT, get_prices, get_symbol_parts, get_coins_symbols
+from ledger.utils.price import USDT_IRT, get_prices, split_symbol, get_coins_symbols
 from accounts.utils.push_notif import send_push_notif
 
 logger = logging.getLogger(__name__)
@@ -106,6 +106,7 @@ def send_notifications(asset_alerts, altered_coins):
                 topic=f"price_alerts_{asset.symbol.lower()}"
             )
 
+
 def process_chanel_change(asset: Asset, current_chanel: int) -> bool:
     last_chanel_triggered_alerts = AlertTrigger.objects.filter(
         asset=asset,
@@ -194,7 +195,7 @@ def get_altered_coins(past_cycle_prices: dict, current_cycle: dict, current_cycl
                 is_ratio_change_alerted = process_ratio_change(asset=asset, interval=interval)
 
             if is_chanel_new or is_ratio_change_alerted:
-                coin, base_coin = get_symbol_parts(coin)
+                coin, base_coin = split_symbol(coin)
                 changed_coins[coin] = [current_price, past_price, interval, is_chanel_new]
                 alert_trigger.is_triggered = True
                 alert_trigger.save(update_fields=['is_triggered'])
