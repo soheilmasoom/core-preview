@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework import serializers
 from rest_framework.generics import ListAPIView
 
@@ -31,6 +33,7 @@ class AssetListSerializer(serializers.ModelSerializer):
         ref_name = 'market asset'
 
 
+@method_decorator(cache_page(60), name='dispatch')
 class MarketIRTInfoView(ListAPIView):
     queryset = Asset.live_objects.filter(otc_status__in=Asset.OTC_TRADE_ACTIVE_STATUSES).exclude(symbol=Asset.IRT)
     serializer_class = AssetListSerializer
@@ -57,5 +60,6 @@ class MarketIRTInfoView(ListAPIView):
         }
 
 
+@method_decorator(cache_page(60), name='dispatch')
 class MarketUSDTInfoView(MarketIRTInfoView):
     BASE = Asset.USDT
