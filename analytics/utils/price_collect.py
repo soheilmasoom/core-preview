@@ -84,8 +84,11 @@ def collect_tgju_prices(symbol: Symbol, frame: int):
 
 
 def _collect_nobitex_prices(symbol: Symbol, start: datetime, end: datetime, frame: int):
+    delta = end - start
+    minutes = delta.days * 24 * 60 + delta.seconds / 60
+
     url = f'https://api.nobitex.ir/market/udf/history?' \
-          f'symbol={symbol.market_id}&resolution={frame}&from={int(start.timestamp())}&to={int(end.timestamp())}&countback=1000'
+          f'symbol={symbol.market_id}&resolution={frame}&from={int(start.timestamp())}&to={int(end.timestamp())}&countback={minutes // frame + 1}'
 
     resp = requests.get(url).json()
 
