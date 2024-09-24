@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import requests
+from django.db.models import Max
 from django.utils import timezone
 
 from analytics.models import Symbol, SymbolPrice
@@ -33,6 +34,11 @@ def collect_mexc_prices(symbol: Symbol):
     end = timezone.now().replace(second=0, microsecond=0) + timedelta(hours=1)
     start = end - timedelta(days=180)
 
+    last_date = SymbolPrice.objects.filter(symbol=symbol).aggregate(last=Max('created'))['last']
+
+    if last_date:
+        start = max(start, last_date)
+
     step = timedelta(days=5)
 
     while start < end:
@@ -46,6 +52,11 @@ def collect_tgju_prices(symbol: Symbol):
 
     end = timezone.now().replace(second=0, microsecond=0) + timedelta(hours=1)
     start = end - timedelta(days=180)
+
+    last_date = SymbolPrice.objects.filter(symbol=symbol).aggregate(last=Max('created'))['last']
+
+    if last_date:
+        start = max(start, last_date)
 
     url = f'https://dashboard-api.tgju.org/v1/tv2/history?' \
           f'symbol={symbol.exchange_id}&resolution=5&from={int(start.timestamp())}&to={int(end.timestamp())}'
@@ -90,6 +101,11 @@ def collect_nobitex_prices(symbol: Symbol):
 
     end = timezone.now().replace(second=0, microsecond=0) + timedelta(hours=1)
     start = end - timedelta(days=180)
+
+    last_date = SymbolPrice.objects.filter(symbol=symbol).aggregate(last=Max('created'))['last']
+
+    if last_date:
+        start = max(start, last_date)
 
     step = timedelta(days=1)
 
