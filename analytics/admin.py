@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from analytics.models import ActiveTrader, EventTracker, ReportPermission
+from analytics.models import ActiveTrader, EventTracker, ReportPermission, Symbol, SymbolPrice
 
 
 @admin.register(ActiveTrader)
@@ -19,3 +19,15 @@ class ReportPermissionAdmin(admin.ModelAdmin):
     raw_id_fields = ('user',)
     list_filter = ('enable', )
     list_editable = ('enable', )
+
+
+@admin.register(Symbol)
+class SymbolAdmin(admin.ModelAdmin):
+    list_display = ('name', 'source', 'exchange_id')
+
+
+@admin.register(SymbolPrice)
+class SymbolPriceAdmin(admin.ModelAdmin):
+    list_display = ('symbol', 'created', 'open', 'close', 'high', 'low')
+    list_filter = ('symbol', )
+    ordering = ('symbol', 'created')
