@@ -7,8 +7,11 @@ from django.utils import timezone
 from analytics.models import Symbol, SymbolPrice
 
 
-def _collect_mexc_prices(symbol: Symbol, start: datetime, end: datetime):
-    url = f'https://www.mexc.com/api/platform/spot/kline/web/kline/query?interval=Min5&openPriceMode=LAST_CLOSE&' \
+FRAMES = (5, 60)
+
+
+def _collect_mexc_prices(symbol: Symbol, start: datetime, end: datetime, frame: int):
+    url = f'https://www.mexc.com/api/platform/spot/kline/web/kline/query?interval=Min{frame}&openPriceMode=LAST_CLOSE&' \
           f'start={int(start.timestamp())}&end={int(end.timestamp())}&symbolId={symbol.market_id}'
 
     resp = requests.get(url).json()
@@ -17,7 +20,7 @@ def _collect_mexc_prices(symbol: Symbol, start: datetime, end: datetime):
         SymbolPrice.objects.update_or_create(
             symbol=symbol,
             created=datetime.fromtimestamp(d['t']).astimezone(),
-            frame=5,
+            frame=frame,
             defaults={
                 'open': d['o'],
                 'close': d['c'],
@@ -29,13 +32,14 @@ def _collect_mexc_prices(symbol: Symbol, start: datetime, end: datetime):
         )
 
 
-def collect_mexc_prices(symbol: Symbol):
+def collect_mexc_prices(symbol: Symbol, frame: int):
     assert symbol.source == Symbol.MEXC
+    assert frame in FRAMES
 
     end = timezone.now().replace(second=0, microsecond=0) + timedelta(hours=1)
     start = end - timedelta(days=180)
 
-    last_date = SymbolPrice.objects.filter(symbol=symbol).aggregate(last=Max('created'))['last']
+    last_date = SymbolPrice.objects.filter(symbol=symbol, frame=frame).aggregate(last=Max('created'))['last']
 
     if last_date:
         start = max(start, last_date)
@@ -44,23 +48,24 @@ def collect_mexc_prices(symbol: Symbol):
 
     while start < end:
         print(f"Collecting {symbol} @ {start}")
-        _collect_mexc_prices(symbol, start, start + step)
+        _collect_mexc_prices(symbol, start, start + step, frame=frame)
         start += step
 
 
-def collect_tgju_prices(symbol: Symbol):
+def collect_tgju_prices(symbol: Symbol, frame: int):
     assert symbol.source == Symbol.TGJU
+    assert frame in FRAMES
 
     end = timezone.now().replace(second=0, microsecond=0) + timedelta(hours=1)
     start = end - timedelta(days=180)
 
-    last_date = SymbolPrice.objects.filter(symbol=symbol).aggregate(last=Max('created'))['last']
+    last_date = SymbolPrice.objects.filter(symbol=symbol, frame=frame).aggregate(last=Max('created'))['last']
 
     if last_date:
         start = max(start, last_date)
 
     url = f'https://dashboard-api.tgju.org/v1/tv2/history?' \
-          f'symbol={symbol.market_id}&resolution=5&from={int(start.timestamp())}&to={int(end.timestamp())}'
+          f'symbol={symbol.market_id}&resolution={frame}&from={int(start.timestamp())}&to={int(end.timestamp())}'
 
     resp = requests.get(url).json()
 
@@ -68,7 +73,7 @@ def collect_tgju_prices(symbol: Symbol):
         SymbolPrice.objects.update_or_create(
             symbol=symbol,
             created=datetime.fromtimestamp(resp['t'][i]).astimezone(),
-            frame=5,
+            frame=frame,
             defaults={
                 'open': resp['o'][i] / 10,
                 'close': resp['c'][i] / 10,
@@ -78,9 +83,9 @@ def collect_tgju_prices(symbol: Symbol):
         )
 
 
-def _collect_nobitex_prices(symbol: Symbol, start: datetime, end: datetime):
+def _collect_nobitex_prices(symbol: Symbol, start: datetime, end: datetime, frame: int):
     url = f'https://api.nobitex.ir/market/udf/history?' \
-          f'symbol={symbol.market_id}&resolution=5&from={int(start.timestamp())}&to={int(end.timestamp())}&countback=1000'
+          f'symbol={symbol.market_id}&resolution={frame}&from={int(start.timestamp())}&to={int(end.timestamp())}&countback=1000'
 
     resp = requests.get(url).json()
 
@@ -88,7 +93,7 @@ def _collect_nobitex_prices(symbol: Symbol, start: datetime, end: datetime):
         SymbolPrice.objects.update_or_create(
             symbol=symbol,
             created=datetime.fromtimestamp(resp['t'][i]).astimezone(),
-            frame=5,
+            frame=frame,
             defaults={
                 'open': resp['o'][i],
                 'close': resp['c'][i],
@@ -99,13 +104,14 @@ def _collect_nobitex_prices(symbol: Symbol, start: datetime, end: datetime):
         )
 
 
-def collect_nobitex_prices(symbol: Symbol):
+def collect_nobitex_prices(symbol: Symbol, frame: int):
     assert symbol.source == Symbol.NOBITEX
+    assert frame in FRAMES
 
     end = timezone.now().replace(second=0, microsecond=0) + timedelta(hours=1)
     start = end - timedelta(days=180)
 
-    last_date = SymbolPrice.objects.filter(symbol=symbol).aggregate(last=Max('created'))['last']
+    last_date = SymbolPrice.objects.filter(symbol=symbol, frame=frame).aggregate(last=Max('created'))['last']
 
     if last_date:
         start = max(start, last_date)
@@ -114,7 +120,7 @@ def collect_nobitex_prices(symbol: Symbol):
 
     while start < end:
         print(f"Collecting {symbol} @ {start}")
-        _collect_nobitex_prices(symbol, start, start + step)
+        _collect_nobitex_prices(symbol, start, start + step, frame=frame)
         start += step
 
 
@@ -141,8 +147,9 @@ def _collect_exness_prices(symbol: Symbol, end: datetime, frame: int):
         )
 
 
-def collect_exness_prices(symbol: Symbol, frame: int = 5, days: int = 180):
+def collect_exness_prices(symbol: Symbol, frame: int, days: int = 180):
     assert symbol.source == Symbol.EXNESS
+    assert frame in FRAMES
 
     current_prices = SymbolPrice.objects.filter(
         symbol=symbol,
