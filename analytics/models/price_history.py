@@ -22,6 +22,7 @@ class Symbol(models.Model):
 class SymbolPrice(models.Model):
     symbol = models.ForeignKey(Symbol, on_delete=models.CASCADE)
     created = models.DateTimeField()
+    frame = models.PositiveSmallIntegerField(default=5)
 
     open = get_amount_field()
     close = get_amount_field()
@@ -31,4 +32,4 @@ class SymbolPrice(models.Model):
     volume = get_amount_field(default=0)
 
     class Meta:
-        unique_together = ('symbol', 'created')
+        unique_together = ('symbol', 'created', 'frame')

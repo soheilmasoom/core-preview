@@ -17,6 +17,7 @@ def _collect_mexc_prices(symbol: Symbol, start: datetime, end: datetime):
         SymbolPrice.objects.update_or_create(
             symbol=symbol,
             created=datetime.fromtimestamp(d['t']).astimezone(),
+            frame=5,
             defaults={
                 'open': d['o'],
                 'close': d['c'],
@@ -67,6 +68,7 @@ def collect_tgju_prices(symbol: Symbol):
         SymbolPrice.objects.update_or_create(
             symbol=symbol,
             created=datetime.fromtimestamp(resp['t'][i]).astimezone(),
+            frame=5,
             defaults={
                 'open': resp['o'][i] / 10,
                 'close': resp['c'][i] / 10,
@@ -86,6 +88,7 @@ def _collect_nobitex_prices(symbol: Symbol, start: datetime, end: datetime):
         SymbolPrice.objects.update_or_create(
             symbol=symbol,
             created=datetime.fromtimestamp(resp['t'][i]).astimezone(),
+            frame=5,
             defaults={
                 'open': resp['o'][i],
                 'close': resp['c'][i],
@@ -130,6 +133,7 @@ def _collect_exness_prices(symbol: Symbol, end: datetime):
         SymbolPrice.objects.update_or_create(
             symbol=symbol,
             created=datetime.fromtimestamp(d['t'] / 1000).astimezone(),
+            frame=60,
             defaults={
                 'open': d['o'],
                 'close': d['c'],
