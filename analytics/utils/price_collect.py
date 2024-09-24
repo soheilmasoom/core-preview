@@ -16,7 +16,7 @@ def _collect_mexc_prices(symbol: Symbol, start: datetime, end: datetime):
     for d in resp['data']:
         SymbolPrice.objects.update_or_create(
             symbol=symbol,
-            created=datetime.utcfromtimestamp(d['t']).astimezone(),
+            created=datetime.fromtimestamp(d['t']).astimezone(),
             defaults={
                 'open': d['o'],
                 'close': d['c'],
@@ -66,7 +66,7 @@ def collect_tgju_prices(symbol: Symbol):
     for i in range(len(resp['t'])):
         SymbolPrice.objects.update_or_create(
             symbol=symbol,
-            created=datetime.utcfromtimestamp(resp['t'][i]).astimezone(),
+            created=datetime.fromtimestamp(resp['t'][i]).astimezone(),
             defaults={
                 'open': resp['o'][i] / 10,
                 'close': resp['c'][i] / 10,
