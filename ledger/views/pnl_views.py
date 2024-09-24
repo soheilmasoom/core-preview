@@ -20,14 +20,22 @@ class PNLOverview(APIView):
         market = self.request.query_params.get('market')
         if not market or market not in (Wallet.SPOT, Wallet.MARGIN):
             raise ValidationError(_('valid market is required'))
+
         today = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        profit_info = PNLHistory.objects.filter(
-            account=self.request.user.get_account(), date__gt=today - timedelta(days=30), market=market
-        ).values('base_asset').annotate(
+
+        pnls = PNLHistory.objects.filter(
+            account=self.request.user.get_account(),
+            date__range=(today - timedelta(days=30), today),
+            market=market
+        )
+
+        profit_info = pnls.values('base_asset').annotate(
             cumulative_profit_30=Sum('profit'),
             cumulative_profit_7=Sum('profit', filter=Q(date__gt=today - timedelta(days=7))),
-            last_profit=Sum('profit', filter=Q(date__gte=today))
+            last_profit=Sum('profit', filter=Q(date__gte=today)),
         )
+
+
 
         asset_roundness = {
             'IRT': 0,

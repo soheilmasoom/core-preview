@@ -4,11 +4,13 @@ from ledger.utils.fields import get_amount_field
 
 
 class Symbol(models.Model):
-    SOURCES = TGJU, NOBITEX, MEXC = 'tgju', 'nobitex', 'mexc'
+    SOURCES = TGJU, NOBITEX, MEXC, EXNESS, BINANCE = 'tgju', 'nobitex', 'mexc', 'exness', 'binance'
 
     name = models.CharField(max_length=64)
     source = models.CharField(max_length=64, choices=[(s, s) for s in SOURCES])
-    exchange_id = models.CharField(max_length=64, blank=True)
+    market_id = models.CharField(max_length=64, blank=True)
+    account_id = models.CharField(max_length=64, blank=True)
+    auth = models.CharField(max_length=2048, blank=True)
 
     class Meta:
         unique_together = ('name', 'source')

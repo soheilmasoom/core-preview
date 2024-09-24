@@ -23,7 +23,7 @@ class ReportPermissionAdmin(admin.ModelAdmin):
 
 @admin.register(Symbol)
 class SymbolAdmin(admin.ModelAdmin):
-    list_display = ('name', 'source', 'exchange_id')
+    list_display = ('name', 'source', 'market_id')
 
 
 @admin.register(SymbolPrice)
