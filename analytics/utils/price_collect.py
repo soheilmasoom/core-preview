@@ -118,12 +118,9 @@ def collect_nobitex_prices(symbol: Symbol):
         start += step
 
 
-EXNESS_TIMEFRAME = 60
-
-
-def _collect_exness_prices(symbol: Symbol, end: datetime):
+def _collect_exness_prices(symbol: Symbol, end: datetime, frame: int):
     url = f'https://api.exweb.mobi/rtapi/mt5/trial1/v1/accounts/{symbol.account_id}/instruments/{symbol.market_id}/' \
-          f'candles?time_frame={EXNESS_TIMEFRAME}&from={int(end.timestamp() * 1000)}&count=-1000'
+          f'candles?time_frame={frame}&from={int(end.timestamp() * 1000)}&count=-1000'
 
     resp = requests.get(url, headers={
         'Authorization': f'Bearer {symbol.auth}'
@@ -133,7 +130,7 @@ def _collect_exness_prices(symbol: Symbol, end: datetime):
         SymbolPrice.objects.update_or_create(
             symbol=symbol,
             created=datetime.fromtimestamp(d['t'] / 1000).astimezone(),
-            frame=60,
+            frame=frame,
             defaults={
                 'open': d['o'],
                 'close': d['c'],
@@ -144,10 +141,14 @@ def _collect_exness_prices(symbol: Symbol, end: datetime):
         )
 
 
-def collect_exness_prices(symbol: Symbol, days: int = 180):
+def collect_exness_prices(symbol: Symbol, frame: int = 5, days: int = 180):
     assert symbol.source == Symbol.EXNESS
 
-    current_prices = SymbolPrice.objects.filter(symbol=symbol).aggregate(first=Min('created'), last=Max('created'))
+    current_prices = SymbolPrice.objects.filter(
+        symbol=symbol,
+        frame=frame
+    ).aggregate(first=Min('created'), last=Max('created'))
+
     first_date = current_prices['first']
     last_date = current_prices['last']
 
@@ -160,7 +161,7 @@ def collect_exness_prices(symbol: Symbol, days: int = 180):
 
     while start < end:
         print(f"Collecting {symbol} @ {start}")
-        _collect_exness_prices(symbol, end)
+        _collect_exness_prices(symbol, end, frame=frame)
 
         current_prices = SymbolPrice.objects.filter(symbol=symbol).aggregate(first=Min('created'))
-        end = current_prices['first'] - timedelta(minutes=EXNESS_TIMEFRAME)
+        end = current_prices['first'] - timedelta(minutes=frame)
