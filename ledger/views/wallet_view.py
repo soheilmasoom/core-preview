@@ -147,7 +147,7 @@ class AssetListSerializer(serializers.ModelSerializer):
         return asset.symbol in self.context['withdraw_enable_coins']
 
     def get_logo(self, asset: Asset):
-        return settings.MINIO_STORAGE_STATIC_URL + '/coins/%s.png' % asset.symbol
+        return asset.logo and asset.logo.url
 
     def get_original_symbol(self, asset: Asset):
         return asset.get_original_symbol()

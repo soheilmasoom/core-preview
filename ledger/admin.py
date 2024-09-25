@@ -22,7 +22,7 @@ from accounting.models import AssetPrice
 from accounting.models import ReservedAsset
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
-from accounts.admin_guard.html_tags import anchor_tag
+from accounts.admin_guard.html_tags import anchor_tag, url_to_admin_list
 from accounts.admin_guard.utils.html import get_table_html
 from accounts.models import Account
 from accounts.models.user_feature_perm import UserFeaturePerm
@@ -68,10 +68,20 @@ class AssetVariantInline(admin.TabularInline):
 class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
     fields_edit_conditions = {
-        'order': True,
-        'trend': True,
         'name_fa': True,
+        'order': True,
+        'name': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'symbol': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'logo': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'enable': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
     }
+    fields_edit_on_add_conditions = {
+        'name': True,
+        'symbol': True,
+        'logo': True,
+        'enable': True
+    }
+
     list_display = (
         'symbol', 'enable', 'get_hedge_value', 'get_hedge_value_abs', 'get_hedge_amount', 'get_calc_hedge_amount',
         'get_total_asset', 'get_users_balance', 'get_reserved_amount',
@@ -79,7 +89,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'publish_date', 'spread_category', 'otc_status', 'price_page', 'get_distribution_factor', 'margin_interest_fee'
     )
     list_filter = ('enable', 'trend', 'spread_category', 'coincategory', 'otc_status')
-    list_editable = ('enable', 'order', 'trend', 'otc_status', 'hedge', 'price_page')
+    list_editable = ('order', )
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'order')
     actions = ('setup_asset', 'update_rank_by_cmc')
@@ -441,7 +451,7 @@ class OTCTradeAdmin(AdvancedAdmin):
 
 
 class TrxUserFilter(SimpleListFilter):
-    title = 'کاربر'
+    title = 'User'
     parameter_name = 'user'
 
     def lookups(self, request, model_admin):
@@ -450,12 +460,23 @@ class TrxUserFilter(SimpleListFilter):
     def queryset(self, request, queryset):
         user_id = request.GET.get('user')
         if user_id is not None:
-            wallets = Wallet.objects.filter(
-                market=Wallet.SPOT,
-                variant__isnull=True,
-                account__user_id=user_id
-            )
-            return queryset.filter(Q(sender__in=wallets) | Q(receiver__in=wallets))
+            return queryset.filter(Q(sender__account__user_id=user_id) | Q(receiver__account__user_id=user_id))
+        else:
+            return queryset
+
+
+class TrxWalletFilter(SimpleListFilter):
+    title = 'Wallet'
+    parameter_name = 'wallet'
+
+    def lookups(self, request, model_admin):
+        return [(1, 1)]
+
+    def queryset(self, request, queryset):
+        wallet_id = request.GET.get('wallet')
+
+        if wallet_id is not None:
+            return queryset.filter(Q(sender_id=wallet_id) | Q(receiver_id=wallet_id))
         else:
             return queryset
 
@@ -466,7 +487,7 @@ class TrxAdmin(AdvancedAdmin):
     search_fields = ('sender__asset__symbol', 'sender__account__user__phone', 'receiver__account__user__phone',
                      'group_id')
     readonly_fields = ('sender', 'receiver',)
-    list_filter = ('scope', TrxUserFilter)
+    list_filter = ('scope', TrxUserFilter, TrxWalletFilter)
     actions = ('revert',)
 
     list_permission_exclude_filters = ('id', 'user')
@@ -543,7 +564,7 @@ class WalletAdmin(AdvancedAdmin):
         WalletUserFilter,
         WalletBalanceFilter
     ]
-    readonly_fields = ('account', 'asset', 'market', 'balance', 'locked', 'variant')
+    readonly_fields = ('account', 'asset', 'market', 'balance', 'locked', 'variant', 'get_trx_list')
     search_fields = ('account__user__phone', 'asset__symbol')
     actions = ('sync_wallet_lock', 'clear_debt')
     list_permission_exclude_filters = ('id', 'account')
@@ -578,6 +599,11 @@ class WalletAdmin(AdvancedAdmin):
         return mark_safe(
             f'<span dir="ltr">{wallet.account}</span>'
         )
+
+    @admin.display(description='Trx List')
+    def get_trx_list(self, wallet: Wallet):
+        link = url_to_admin_list(Trx) + f'?wallet={wallet.id}'
+        return mark_safe("<a href='%s'>View</a>" % link)
 
     @admin.action(description='Sync Lock')
     def sync_wallet_lock(self, request, queryset):

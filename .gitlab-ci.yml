@@ -148,7 +148,7 @@ deploy_gold:
   image: hamravesh.hamdocker.ir/public/darkube-cli:v1.1
   only:
     refs:
-    - develop
+    - release/gold
   script:
     - 'darkube deploy --token ${GOLD_API_DEPLOY_TOKEN}
       --app-id ${GOLD_API_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"

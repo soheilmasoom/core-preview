@@ -11,6 +11,7 @@ from simple_history.models import HistoricalRecords
 
 from ledger.models import Wallet
 from ledger.utils.fields import get_amount_field
+from multimedia.storage import PublicMediaStorage
 
 
 class InvalidAmount(Exception):
@@ -48,6 +49,8 @@ class Asset(models.Model):
     original_symbol = models.CharField(max_length=16, blank=True)
     trading_view_symbol = models.CharField(max_length=32, blank=True)
 
+    logo = models.ImageField(blank=True, null=True, storage=PublicMediaStorage(), upload_to='coins/logo/')
+
     enable = models.BooleanField(default=False)
     order = models.SmallIntegerField(default=0, db_index=True)
 
@@ -62,7 +65,7 @@ class Asset(models.Model):
 
     otc_status = models.CharField(
         max_length=8,
-        default=ACTIVE,
+        default=COMING_SOON,
         choices=[(s, s) for s in OTC_STATUSES],
     )
 
@@ -181,7 +184,7 @@ class AssetSerializerMini(serializers.ModelSerializer):
         return Asset.PRECISION
 
     def get_logo(self, asset: Asset):
-        return settings.MINIO_STORAGE_STATIC_URL + '/coins/%s.png' % asset.symbol
+        return asset.logo and asset.logo.url
 
     def get_original_symbol(self, asset: Asset):
         return asset.get_original_symbol()

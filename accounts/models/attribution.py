@@ -39,6 +39,25 @@ class AttributionTracker(models.Model):
             return f'{settings.HOST_URL}/api/v1/accounts/attribution/?key={self.key}&{fields}'
 
 
+class AppConfig(models.Model):
+    package_name = models.CharField(max_length=256, unique=True)
+    default = models.BooleanField(default=False)
+
+    yandex_api_key = models.CharField(max_length=64, unique=True)
+    yandex_app_id = models.CharField(max_length=64, unique=True)
+
+    @classmethod
+    def get_by_package_name(cls, package_name: str) -> 'AppConfig':
+        app = AppConfig.objects.filter(package_name=package_name).first()
+        if app:
+            return app
+
+        return AppConfig.objects.filter(default=True).order_by('id').first()
+
+    def __str__(self):
+        return self.package_name
+
+
 class Attribution(models.Model):
     DEVICES = PHONE, TABLET, PHABLET, TV = 'PHONE', 'TABLET', 'PHABLET', 'TV'
 

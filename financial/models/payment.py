@@ -157,7 +157,7 @@ class Payment(models.Model):
 
     def accept(self, pipeline: WalletPipeline, ref_id: int = None, system_verify: bool = True):
         if system_verify and not verify_fiat_deposit(self):
-            send_system_message("Verify deposit: %s" % self, link=url_to_admin_list(self, {'status__exact': 'init'}))
+            send_system_message("Verify deposit: %s" % self, link=url_to_admin_list(self, {'status': 'init'}))
 
             self.status = INIT
             self.ref_id = ref_id
