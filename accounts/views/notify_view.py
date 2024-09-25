@@ -23,13 +23,13 @@ class NotifySerializer(serializers.Serializer):
             (EMAIL, EMAIL),
             (MISSION, MISSION)
         ])
-    content = serializers.CharField(required=False, write_only=True, default='')
-    content_html = serializers.CharField(required=False, write_only=True, default='')
-    title = serializers.CharField(required=False, write_only=True, default='')
-    link = serializers.CharField(required=False, allow_blank=True, write_only=True, default='')
+    content = serializers.CharField(required=False, write_only=True, allow_blank=True)
+    content_html = serializers.CharField(required=False, write_only=True, allow_blank=True)
+    title = serializers.CharField(required=False, write_only=True, allow_blank=True)
+    link = serializers.CharField(required=False, allow_blank=True, write_only=True)
     hidden = serializers.BooleanField(required=False, default=False, write_only=True)
     group_id = serializers.UUIDField(write_only=True)
-    mission_template_id = serializers.IntegerField(required=False, write_only=True)
+    mission_template_id = serializers.IntegerField(required=False, write_only=True, allow_null=True)
 
     def validate(self, attrs):
         _type = attrs.get('content')
