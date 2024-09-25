@@ -1455,7 +1455,7 @@ class ConvertDustTrxAdmin(admin.ModelAdmin):
 
 
 @admin.register(NetworkSchedule)
-class NetworkScheduleAdmin(admin.ModelAdmin):
+class NetworkScheduleAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'network', 'disable_at', 'status')
     list_filter = ('network', 'status')
     readonly_fields = ('status', )
