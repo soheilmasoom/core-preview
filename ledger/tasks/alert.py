@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.utils import timezone
 from accounts.models import Notification, User
 from ledger.models import CoinCategory, AssetAlert, BulkAssetAlert, AlertTrigger, Asset
+from ledger.models.asset_alert_rule import AssetAlertRule
 from ledger.utils.external_price import BUY
 from ledger.utils.precision import get_symbol_presentation_price
 from ledger.utils.price import USDT_IRT, get_prices, get_symbol_parts, get_coins_symbols
@@ -297,9 +298,9 @@ def send_price_notifications():
 
 
 @shared_task(queue="notif-manager")
-def check_price_alerts():
+def check_conditional_price_alerts():
     current_prices = get_current_prices()
-    active_alerts = AssetAlert.objects.filter(active=True, is_triggered=False)
+    active_alerts = AssetAlertRule.objects.filter(active=True, is_triggered=False)
 
     for alert in active_alerts:
         asset_price = current_prices.get(alert.asset.symbol)
