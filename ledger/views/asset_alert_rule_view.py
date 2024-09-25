@@ -25,42 +25,6 @@ class AssetAlertRuleSerializer(serializers.ModelSerializer):
         return AssetAlertRule.get_remaining_alert_rule_count(user=user, asset_id=asset.id)
 
 
-# class AssetAlertRuleViewSet(viewsets.ModelViewSet):
-#     serializer_class = AssetAlertRuleSerializer
-#     permission_classes = (IsAuthenticated,)
-
-#     def get_queryset(self):
-#         return AssetAlertRule.objects.filter(user=self.request.user)
-
-#     def create(self, request, *args, **kwargs):
-#         user = request.user
-#         asset_id = request.data.get('asset')
-#         active_alerts_count = AssetAlertRule.get_active_alert_rule_count(user=user, asset_id=asset_id)
-
-#         if active_alerts_count >= AssetAlertRule.MAX_ALERT_RULE_COUNT:
-#             remaining_alerts = AssetAlertRule.get_remaining_alert_rule_count(user, asset_id)
-#             return Response({'detail': f'حداکثر {AssetAlertRule.MAX_ALERT_RULE_COUNT} هشدار برای هر ارز دیجیتال مجاز است.', 'remaining_alerts': remaining_alerts}, status=status.HTTP_400_BAD_REQUEST)
-
-#         serializer = self.get_serializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save(user=user)
-#             remaining_alerts = AssetAlertRule.get_remaining_alert_rule_count(user=user, asset_id=asset_id)
-#             response_data = serializer.data
-#             response_data['remaining_alerts'] = remaining_alerts
-#             return Response(response_data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def get_object(self):
-#         alert_rule = get_object_or_404(AssetAlertRule, pk=self.kwargs['pk'], user=self.request.user)
-#         return alert_rule
-
-#     def destroy(self, request, *args, **kwargs):
-#         instance = self.get_object()
-#         self.perform_destroy(instance)
-#         remaining_alerts = AssetAlertRule.get_remaining_alert_rule_count(user=request.user, asset=instance.asset)
-#         return Response({'detail': 'هشدار قمیت حذف شد.', 'remaining_alerts': remaining_alerts}, status=status.HTTP_204_NO_CONTENT)
-
-
 class AssetAlertRuleViewSet(viewsets.ModelViewSet):
     serializer_class = AssetAlertRuleSerializer
     permission_classes = (IsAuthenticated,)
