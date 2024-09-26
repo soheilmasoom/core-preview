@@ -23,50 +23,64 @@ class NotifySerializer(serializers.Serializer):
             (EMAIL, EMAIL),
             (MISSION, MISSION)
         ])
-    content = serializers.CharField(required=False, write_only=True, default='')
-    content_html = serializers.CharField(required=False, write_only=True, default='')
-    title = serializers.CharField(required=False, write_only=True, default='')
-    link = serializers.CharField(required=False, allow_blank=True, write_only=True, default='')
+    content = serializers.CharField(required=False, write_only=True, allow_blank=True)
+    content_html = serializers.CharField(required=False, write_only=True, allow_blank=True)
+    title = serializers.CharField(required=False, write_only=True, allow_blank=True)
+    link = serializers.CharField(required=False, allow_blank=True, write_only=True)
     hidden = serializers.BooleanField(required=False, default=False, write_only=True)
     group_id = serializers.UUIDField(write_only=True)
-    mission_template_id = serializers.IntegerField(required=False, write_only=True)
+    mission_template_id = serializers.IntegerField(required=False, write_only=True, allow_null=True)
 
     def validate(self, attrs):
-        _type = attrs.get('content')
+        _type = attrs['type']
+        title = attrs.get('title', '')
+        content = attrs.get('content', '')
+        content_html = attrs.get('content_html', '')
+
         if _type == SMS:
-            if attrs.get('content', None) is None and not (attrs.get('content', None) and attrs.get('content', None)):
-                raise serializers.ValidationError('one of the content or (template, param) should has value')
+            if not content:
+                raise serializers.ValidationError('Content should exists')
+
         elif _type == PUSH:
-            if attrs.get('content', None) is None or attrs.get('tittle', None) is None:
+            if not title or not content:
                 raise serializers.ValidationError('one of the content or (template, param) should has value')
+
         elif _type == EMAIL:
-            if attrs.get('content_html', None) is None or attrs.get('content', None) is None:
+            if not content or not content_html:
                 raise serializers.ValidationError('content_html, content should has value')
+
         elif _type == MISSION:
-            if not attrs.get('mission_template_id', None):
+            if not attrs.get('mission_template_id'):
                 raise serializers.ValidationError('mission_template_id, mission_template_id should has value')
+
         return attrs
 
     def create(self, validated_data):
         notif_type = validated_data['type']
         recipient = get_object_or_404(User.objects.filter(id=validated_data['user_id']))
 
+        title = validated_data.get('title', '')
+        content = validated_data.get('content', '')
+        content_html = validated_data.get('content_html', '')
+        link = validated_data.get('link', '')
+
         if notif_type == SMS:
             notif, created = SmsNotification.objects.get_or_create(
                 recipient=recipient,
                 group_id=validated_data['group_id'],
                 defaults={
-                    'content': validated_data['content'],
+                    'content': content,
                 }
             )
+
         elif notif_type == PUSH:
             notif, created = Notification.objects.get_or_create(
                 recipient=recipient,
                 group_id=validated_data['group_id'],
                 defaults={
-                    'title': validated_data['title'],
-                    'link': validated_data['link'],
-                    'message': validated_data['content'],
+                    'title': title,
+                    'link': link,
+                    'message': content,
                     'hidden': validated_data['hidden'],
                     'push_status': Notification.PUSH_WAITING,
                     'source': 'crm'
@@ -78,9 +92,9 @@ class NotifySerializer(serializers.Serializer):
                 recipient=recipient,
                 group_id=validated_data['group_id'],
                 defaults={
-                    'title': validated_data['title'],
-                    'content': validated_data['content'],
-                    'content_html': validated_data['content_html'],
+                    'title': title,
+                    'content': content,
+                    'content_html': content_html,
                 }
             )
         elif notif_type == MISSION:

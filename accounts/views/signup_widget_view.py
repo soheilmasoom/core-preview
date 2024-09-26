@@ -16,6 +16,7 @@ from accounts.throttle import BurstRateThrottle
 from accounts.validators import mobile_number_validator, national_card_code_validator
 from ledger.widget.widget import Widget
 from .signup_view import SignupSerializer, InitiateSignupView
+from ..utils.signup import create_traffic_source, set_missions_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +81,9 @@ class WidgetSignupSerializer(serializers.Serializer):
                 user.set_unusable_password()
                 user.save()
 
-            signup_serializer = SignupSerializer()
-            signup_serializer.create_traffic_source(user, validated_data.get('utm') or {})
-            signup_serializer.set_missions_to_user(user)
+            utm = validated_data.get('utm') or {}
+            create_traffic_source(self.context['request'], user, utm)
+            set_missions_to_user(user)
 
             return user
 

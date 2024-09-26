@@ -34,7 +34,7 @@ from ledger import models
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
     MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer, ConvertDust, \
-    ConvertDustTrx
+    ConvertDustTrx, NetworkSchedule
 from ledger.models.asset_alert import AssetAlert, AlertTrigger, BulkAssetAlert
 from ledger.models.wallet import ReserveWallet
 from ledger.utils.external_price import BUY
@@ -1452,3 +1452,15 @@ class ConvertDustAdmin(admin.ModelAdmin):
 @admin.register(ConvertDustTrx)
 class ConvertDustTrxAdmin(admin.ModelAdmin):
     list_display = ('convert_dust', 'asset', 'base_asset', 'amount', 'converted_amount')
+
+
+@admin.register(NetworkSchedule)
+class NetworkScheduleAdmin(SimpleHistoryAdmin):
+    list_display = ('created', 'network', 'disable_at', 'status')
+    list_filter = ('network', 'status')
+    readonly_fields = ('status', )
+    actions = ('cancel', )
+
+    @admin.action(description='Cancel', permissions=['change'])
+    def cancel(self, request, queryset):
+        queryset.filter(status=PENDING).update(status=CANCELED)
