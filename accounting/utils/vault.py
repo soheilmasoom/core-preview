@@ -115,8 +115,8 @@ def update_hot_wallet_vault(now: datetime, prices: dict):
             asset = symbol_per_asset.get(coin)  # type: Asset
             if asset:
                 coin = asset.symbol
-                amount *= asset.get_coin_multiplier()
-                free *= asset.get_coin_multiplier()
+                amount /= asset.get_coin_multiplier()
+                free /= asset.get_coin_multiplier()
 
             vault_data.append(
                 VaultData(
