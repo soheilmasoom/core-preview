@@ -909,15 +909,19 @@ class PrizeAdmin(AdvancedAdmin):
         )
 
 
-@admin.register(models.CoinCategory)
-class CoinCategoryAdmin(admin.ModelAdmin):
+@admin.register(CoinCategory)
+class CoinCategoryAdmin(SimpleHistoryAdmin):
     list_display = ('name', 'title', 'get_coin_count', 'order')
     list_editable = ('order',)
+    exclude = ('coins',)
 
+    @admin.display(description="Count")
     def get_coin_count(self, coin_category: CoinCategory):
         return coin_category.coins.filter(enable=True).count()
 
-    get_coin_count.short_description = 'تعداد رمزارز'
+    def save_model(self, request, obj: CoinCategory, form, change):
+        obj.save()
+        obj.refresh()
 
 
 @admin.register(models.AddressKey)
