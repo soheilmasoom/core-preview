@@ -63,7 +63,7 @@ class BlocklinkRequester(BaseRequester):
 
         return resp.data.get('architecture')
 
-    def get_assets(self) -> Dict[str, Dict[str, Decimal]]:
+    def get_assets(self) -> Dict[str, Dict[str, Dict]]:
         resp = self.collect_api(
             path='/api/v1/hotwallet/amount/',
             data={'network': 1},
@@ -76,7 +76,10 @@ class BlocklinkRequester(BaseRequester):
         result = defaultdict(dict)
 
         for asset in resp.data:
-            result[asset['network']][asset['coin']] = Decimal(asset['amount'])
+            result[asset['network']][asset['coin']] = {
+                'amount': Decimal(asset['amount']),
+                'free': Decimal(asset['free']),
+            }
 
         return result
 
@@ -89,9 +92,12 @@ class BlocklinkRequester(BaseRequester):
         if not resp.ok:
             raise FetchError
 
-        return {
-            (hw['coin'], hw['network']): Decimal(hw['balance']) for hw in resp.data
-        }
+        balances = defaultdict(Decimal)
+
+        for hw in resp.data:
+            balances[(hw['coin'], hw['network'])] += Decimal(hw['balance'])
+
+        return dict(balances)
 
     def withdraw(self, receiver_address: str, amount: Decimal, network: str, coin: str, transfer_id: int,
                  memo: str = None, manual: bool = False) -> Response:

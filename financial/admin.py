@@ -231,7 +231,7 @@ class PaymentRequestUserFilter(SimpleListFilter):
 class PaymentRequestAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'gateway', 'bank_card', 'amount', 'authority', 'payment')
     search_fields = ('bank_card__card_pan', 'amount', 'authority', 'group_id')
-    readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity')
+    readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity', 'user')
     list_filter = (PaymentRequestUserFilter,)
     actions = ('verify', )
 

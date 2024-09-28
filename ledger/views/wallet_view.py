@@ -147,7 +147,7 @@ class AssetListSerializer(serializers.ModelSerializer):
         return asset.symbol in self.context['withdraw_enable_coins']
 
     def get_logo(self, asset: Asset):
-        return settings.MINIO_STORAGE_STATIC_URL + '/coins/%s.png' % asset.symbol
+        return asset.logo and asset.logo.url
 
     def get_original_symbol(self, asset: Asset):
         return asset.get_original_symbol()
@@ -319,7 +319,7 @@ class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
             asset__enable=False
         ).exclude(balance=0).values_list('asset_id', flat=True)
 
-        assets = Asset.objects.filter(Q(enable=True) | Q(id__in=disabled_assets))
+        assets = Asset.objects.filter(Q(enable=True) | Q(id__in=disabled_assets)).exclude(otc_status=Asset.COMING_SOON)
 
         only_coin = self.request.query_params.get('coin') == '1'
         if only_coin:

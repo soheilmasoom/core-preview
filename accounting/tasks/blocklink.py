@@ -95,4 +95,3 @@ def fill_blocklink_incomes():
         fetcher=blocklink_income_fetcher,
         interval=timedelta(hours=1)
     )
-

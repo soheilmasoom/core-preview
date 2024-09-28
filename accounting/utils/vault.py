@@ -93,7 +93,7 @@ def update_hot_wallet_vault(now: datetime, prices: dict):
         logger.info('updating hot wallet vaults ignored due to fetch error')
         return
 
-    for network, asset in data.items():
+    for network, asset_data in data.items():
         vault, _ = Vault.objects.get_or_create(
             type=Vault.HOT_WALLET,
             market=Vault.SPOT,
@@ -106,12 +106,23 @@ def update_hot_wallet_vault(now: datetime, prices: dict):
 
         vault_data = []
 
-        for coin, amount in asset.items():
+        assets = Asset.objects.filter(enable=True).exclude(original_symbol='')
+        symbol_per_asset = {a.original_symbol: a for a in assets}
+
+        for coin, amount_info in asset_data.items():
+            amount, free = amount_info['amount'], amount_info['free']
+
+            asset = symbol_per_asset.get(coin)  # type: Asset
+            if asset:
+                coin = asset.symbol
+                amount /= asset.get_coin_multiplier()
+                free /= asset.get_coin_multiplier()
+
             vault_data.append(
                 VaultData(
                     coin=coin,
                     balance=amount,
-                    free=amount,
+                    free=free,
                     value_usdt=amount * prices.get(coin + Asset.USDT, 0),
                     value_irt=amount * prices.get(coin + Asset.IRT, 0),
                 )

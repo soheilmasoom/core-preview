@@ -79,6 +79,7 @@ class FastBuyWidgetSerializer(serializers.ModelSerializer):
         fields = ('coin', 'amount', 'callback')
         read_only_fields = ('callback', )
 
+
 class FastBuyWidgetView(CreateAPIView):
     authentication_classes = (WidgetJWTAuthentication,)
     serializer_class = FastBuyWidgetSerializer
@@ -93,6 +94,7 @@ class WidgetConfigView(APIView):
         return Response(
             {
                 'is_fast_buy_enable': Gateway.objects.filter(active=True, widget_deposit_enable=True).exists(),
-                'min_irt_value': SystemConfig.get_system_config().min_fast_buy_irt
+                'min_irt_value': SystemConfig.get_system_config().min_fast_buy_irt,
+                'max_irt_value': SystemConfig.get_system_config().max_fast_buy_irt
             }
         )

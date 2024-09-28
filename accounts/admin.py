@@ -17,7 +17,7 @@ from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationCode, \
     UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
-    AttributionTracker
+    AttributionTracker, AppConfig
 from accounts.models import UserComment, TrafficSource, Referral
 from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object
 from financial.models.bank_card import BankCard, BankAccount
@@ -716,7 +716,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin.display(description='عکس سلفی')
     def get_selfie_image(self, user: User):
-        return mark_safe("<img src='%s' width='200' height='200' />" % user.selfie_image.get_absolute_image_url())
+        return mark_safe("<img src='%s' width='200' height='200' />" % user.selfie_image.get_url())
 
     def get_user_prizes(self, user: User):
         prizes = user.get_account().prize_set.all()
@@ -1033,6 +1033,12 @@ class AttributionAdmin(admin.ModelAdmin):
     @admin.display(description="Device")
     def get_device(self, attribution: Attribution):
         return f'{attribution.device_model} ({attribution.os_name} {attribution.os_version})'
+
+
+@admin.register(AppConfig)
+class AppConfigAdmin(admin.ModelAdmin):
+    list_display = ('package_name', 'default')
+    list_editable = ('default',)
 
 
 @admin.register(AppStatus)

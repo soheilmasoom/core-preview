@@ -219,29 +219,33 @@ STATICFILES_DIRS = [
 MEDIA_URL = config('MEDIA_URL', default='/media/')
 MEDIA_ROOT = config('MEDIA_ROOT', default=os.path.join(BASE_DIR, 'media/'))
 
-if not DEBUG_OR_TESTING:
+MINIO_ENDPOINT = config('MINIO_STORAGE_ENDPOINT', default='')
+
+if MINIO_ENDPOINT:
     INSTALLED_APPS.append('django_minio_backend')
 
     DEFAULT_FILE_STORAGE = "django_minio_backend.models.MinioBackend"
     STATICFILES_STORAGE = "django_minio_backend.models.MinioBackendStatic"
 
-    MINIO_ENDPOINT = config('MINIO_STORAGE_ENDPOINT')
     MINIO_ACCESS_KEY = config('MINIO_STORAGE_ACCESS_KEY')
     MINIO_SECRET_KEY = config('MINIO_STORAGE_SECRET_KEY')
     MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = True
     MINIO_USE_HTTPS = False
 
+MINIO_PUBLIC_MEDIA_FILES_BUCKET = 'core-media-public'
+MINIO_MEDIA_FILES_BUCKET = 'core-media'
+MINIO_STATIC_FILES_BUCKET = 'core-static'
+
 MINIO_PRIVATE_BUCKETS = [
-    'core-media',
+    MINIO_MEDIA_FILES_BUCKET,
 ]
+
 MINIO_PUBLIC_BUCKETS = [
-    'core-static',
-    'core-media-public'
+    MINIO_STATIC_FILES_BUCKET,
+    MINIO_PUBLIC_MEDIA_FILES_BUCKET
 ]
 
 MINIO_EXTERNAL_ENDPOINT = config('MINIO_CDN_ENDPOINT')
-MINIO_MEDIA_FILES_BUCKET = 'core-media'
-MINIO_STATIC_FILES_BUCKET = 'core-static'
 
 MINIO_STORAGE_STATIC_URL = f'https://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_STATIC_FILES_BUCKET}'
 MINIO_STORAGE_MEDIA_URL = f'https://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_MEDIA_FILES_BUCKET}'
@@ -307,7 +311,7 @@ if config('JWT_PRIVATE_KEY', None):
         'ALGORITHM': 'RS256',
         'SIGNING_KEY': config('JWT_PRIVATE_KEY', default=''),
         'VERIFYING_KEY': config('JWT_PUBLIC_KEY', default=''),
-        'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+        'REFRESH_TOKEN_LIFETIME': timedelta(days=3),
     }
 
 AUTH_USER_MODEL = 'accounts.User'

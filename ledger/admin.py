@@ -22,7 +22,7 @@ from accounting.models import AssetPrice
 from accounting.models import ReservedAsset
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
-from accounts.admin_guard.html_tags import anchor_tag
+from accounts.admin_guard.html_tags import anchor_tag, url_to_admin_list
 from accounts.admin_guard.utils.html import get_table_html
 from accounts.models import Account
 from accounts.models.user_feature_perm import UserFeaturePerm
@@ -34,7 +34,7 @@ from ledger import models
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
     MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer, ConvertDust, \
-    ConvertDustTrx
+    ConvertDustTrx, NetworkSchedule
 from ledger.models.asset_alert import AssetAlert, AlertTrigger, BulkAssetAlert
 from ledger.models.wallet import ReserveWallet
 from ledger.utils.external_price import BUY
@@ -68,9 +68,20 @@ class AssetVariantInline(admin.TabularInline):
 class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
     fields_edit_conditions = {
+        'name_fa': True,
         'order': True,
-        'trend': True,
+        'name': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'symbol': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'logo': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
+        'enable': M.superuser | M.is_value('otc_status', Asset.COMING_SOON),
     }
+    fields_edit_on_add_conditions = {
+        'name': True,
+        'symbol': True,
+        'logo': True,
+        'enable': True
+    }
+
     list_display = (
         'symbol', 'enable', 'get_hedge_value', 'get_hedge_value_abs', 'get_hedge_amount', 'get_calc_hedge_amount',
         'get_total_asset', 'get_users_balance', 'get_reserved_amount',
@@ -78,7 +89,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'publish_date', 'spread_category', 'otc_status', 'price_page', 'get_distribution_factor', 'margin_interest_fee'
     )
     list_filter = ('enable', 'trend', 'spread_category', 'coincategory', 'otc_status')
-    list_editable = ('enable', 'order', 'trend', 'otc_status', 'hedge', 'price_page')
+    list_editable = ('order', )
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'order')
     actions = ('setup_asset', 'update_rank_by_cmc')
@@ -440,7 +451,7 @@ class OTCTradeAdmin(AdvancedAdmin):
 
 
 class TrxUserFilter(SimpleListFilter):
-    title = 'کاربر'
+    title = 'User'
     parameter_name = 'user'
 
     def lookups(self, request, model_admin):
@@ -449,12 +460,23 @@ class TrxUserFilter(SimpleListFilter):
     def queryset(self, request, queryset):
         user_id = request.GET.get('user')
         if user_id is not None:
-            wallets = Wallet.objects.filter(
-                market=Wallet.SPOT,
-                variant__isnull=True,
-                account__user_id=user_id
-            )
-            return queryset.filter(Q(sender__in=wallets) | Q(receiver__in=wallets))
+            return queryset.filter(Q(sender__account__user_id=user_id) | Q(receiver__account__user_id=user_id))
+        else:
+            return queryset
+
+
+class TrxWalletFilter(SimpleListFilter):
+    title = 'Wallet'
+    parameter_name = 'wallet'
+
+    def lookups(self, request, model_admin):
+        return [(1, 1)]
+
+    def queryset(self, request, queryset):
+        wallet_id = request.GET.get('wallet')
+
+        if wallet_id is not None:
+            return queryset.filter(Q(sender_id=wallet_id) | Q(receiver_id=wallet_id))
         else:
             return queryset
 
@@ -465,7 +487,7 @@ class TrxAdmin(AdvancedAdmin):
     search_fields = ('sender__asset__symbol', 'sender__account__user__phone', 'receiver__account__user__phone',
                      'group_id')
     readonly_fields = ('sender', 'receiver',)
-    list_filter = ('scope', TrxUserFilter)
+    list_filter = ('scope', TrxUserFilter, TrxWalletFilter)
     actions = ('revert',)
 
     list_permission_exclude_filters = ('id', 'user')
@@ -542,7 +564,7 @@ class WalletAdmin(AdvancedAdmin):
         WalletUserFilter,
         WalletBalanceFilter
     ]
-    readonly_fields = ('account', 'asset', 'market', 'balance', 'locked', 'variant')
+    readonly_fields = ('account', 'asset', 'market', 'balance', 'locked', 'variant', 'get_trx_list')
     search_fields = ('account__user__phone', 'asset__symbol')
     actions = ('sync_wallet_lock', 'clear_debt')
     list_permission_exclude_filters = ('id', 'account')
@@ -577,6 +599,11 @@ class WalletAdmin(AdvancedAdmin):
         return mark_safe(
             f'<span dir="ltr">{wallet.account}</span>'
         )
+
+    @admin.display(description='Trx List')
+    def get_trx_list(self, wallet: Wallet):
+        link = url_to_admin_list(Trx) + f'?wallet={wallet.id}'
+        return mark_safe("<a href='%s'>View</a>" % link)
 
     @admin.action(description='Sync Lock')
     def sync_wallet_lock(self, request, queryset):
@@ -1182,7 +1209,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description="Images")
     def get_images(self, deposit_recovery: DepositRecoveryRequest):
-        htmls = map(lambda image: anchor_tag(str(image), image.get_absolute_image_url()), deposit_recovery.images.all())
+        htmls = map(lambda image: anchor_tag(str(image), image.get_url()), deposit_recovery.images.all())
         return mark_safe(', '.join(htmls))
 
     def has_manage_permission(self, request, obj=None):
@@ -1233,7 +1260,8 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 class TokenRebrandAdmin(admin.ModelAdmin):
     list_display = ('created', 'old_asset', 'new_asset', 'new_asset_multiplier', 'status')
     readonly_fields = ('status', 'group_id', 'get_rebrand_info')
-    actions = ('accept_for_testers', 'accept', 'reject')
+    actions = ('accept_for_testers', 'accept', 'reject', 'revert')
+    autocomplete_fields = ('old_asset', 'new_asset')
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -1250,6 +1278,11 @@ class TokenRebrandAdmin(admin.ModelAdmin):
     def reject(self, request, queryset):
         for rebrand in queryset.filter(status=PENDING):
             rebrand.reject()
+
+    @admin.action(description='Revert', permissions=['change'])
+    def revert(self, request, queryset):
+        for rebrand in queryset.filter(status=DONE):
+            rebrand.revert()
 
     @admin.display(description='Rebrand Info')
     def get_rebrand_info(self, token_rebrand: TokenRebrand):
@@ -1297,7 +1330,8 @@ class TokenTransferAdmin(admin.ModelAdmin):
 class TokenDelistAdmin(admin.ModelAdmin):
     list_display = ('created', 'delist_at', 'asset', 'status')
     readonly_fields = ('status', 'group_id', 'get_delist_info')
-    actions = ('accept_for_testers', 'accept', 'reject')
+    actions = ('accept_for_testers', 'accept', 'reject', 'revert')
+    autocomplete_fields = ('asset',)
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -1314,6 +1348,11 @@ class TokenDelistAdmin(admin.ModelAdmin):
     def reject(self, request, queryset):
         for delist in queryset.filter(status=PENDING):
             delist.reject()
+
+    @admin.action(description='Revert', permissions=['change'])
+    def revert(self, request, queryset):
+        for delist in queryset.filter(status=DONE):
+            delist.revert()
 
     @admin.display(description='Delist Info')
     def get_delist_info(self, token_delist: TokenDelist):
@@ -1413,3 +1452,15 @@ class ConvertDustAdmin(admin.ModelAdmin):
 @admin.register(ConvertDustTrx)
 class ConvertDustTrxAdmin(admin.ModelAdmin):
     list_display = ('convert_dust', 'asset', 'base_asset', 'amount', 'converted_amount')
+
+
+@admin.register(NetworkSchedule)
+class NetworkScheduleAdmin(SimpleHistoryAdmin):
+    list_display = ('created', 'network', 'disable_at', 'status')
+    list_filter = ('network', 'status')
+    readonly_fields = ('status', )
+    actions = ('cancel', )
+
+    @admin.action(description='Cancel', permissions=['change'])
+    def cancel(self, request, queryset):
+        queryset.filter(status=PENDING).update(status=CANCELED)

@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='banner',
             name='image',
-            field=models.ImageField(storage=multimedia.storage.PublicMediaStorage(), upload_to=''),
+            field=models.ImageField(storage=multimedia.storage.PublicMediaStorage(), upload_to='banners/'),
         ),
     ]

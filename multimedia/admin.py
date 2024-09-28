@@ -8,19 +8,25 @@ from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.admin_guard.html_tags import admin_page_anchor
 from multimedia.utils.backoffice_content import BackofficeContent
-from multimedia.models import Image, Banner, CoinPriceContent, Article, Section, File, Guide, GuideGroup
+from multimedia.models import Image, PublicVideo, Banner, CoinPriceContent, Article, Section, File, Guide, GuideGroup
 from markdown import markdown
 
 
 @admin.register(Image)
 class ImageAdmin(admin.ModelAdmin):
     list_display = ('created', 'uuid',)
-    readonly_fields = ('uuid', 'get_selfie_image',)
+    readonly_fields = ('uuid', 'get_image',)
     search_fields = ('uuid',)
 
     @admin.display(description='preview')
-    def get_selfie_image(self, image: Image):
-        return mark_safe("<img src='%s' width='200' height='200' />" % image.get_absolute_image_url())
+    def get_image(self, image: Image):
+        return mark_safe("<img src='%s' width='200' height='200' />" % image.get_url())
+
+
+@admin.register(PublicVideo)
+class PublicVideoAdmin(admin.ModelAdmin):
+    list_display = ('created', 'title',)
+    search_fields = ('title',)
 
 
 @admin.register(File)

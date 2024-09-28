@@ -5,32 +5,34 @@ from datetime import datetime
 import requests
 from decouple import config
 
-from accounts.models import User, TrafficSource
+from accounts.models import User, TrafficSource, AppConfig
 
 logger = logging.getLogger(__name__)
 
 
 def send_yandex_event(user: User, name: str, data: dict = None):
-    yandex_api_key = config('YANDEX_API_KEY', None)
-    yandex_application_id = config('YANDEX_APPLICATION_ID', None)
-
-    if not yandex_api_key or not yandex_application_id:
-        logger.info(f'Sending yandex event ({name}) for {user} ignored due to config')
+    source = getattr(user, 'traffic_source', None)  # type: TrafficSource
+    if not source:
+        logger.info(f'Sending yandex event ({name}) for {user} ignored due to no source traffic')
         return
 
-    source = getattr(user, 'traffic_source', None)  # type: TrafficSource
-
-    profile_id = source and source.yandex_profile_id
+    profile_id = source.yandex_profile_id
 
     if not profile_id:
         logger.info(f'Sending yandex event ({name}) for {user} ignored due to profile_id')
         return
 
+    app = AppConfig.get_by_package_name(source.package_name)
+
+    if not app:
+        logger.info(f'Sending yandex event ({name}) for {user} ignored due to app config')
+        return
+
     data = data or {}
 
     request_data = {
-        'post_api_key': yandex_api_key,
-        'application_id': yandex_application_id,
+        'post_api_key': app.yandex_api_key,
+        'application_id': app.yandex_app_id,
         'event_timestamp': int(datetime.utcnow().timestamp()),
         'profile_id': profile_id,
         'event_name': name,

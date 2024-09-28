@@ -9,7 +9,7 @@ from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from ledger.fields import WithdrawSources
 from ledger.models import Transfer
 from ledger.models.asset import AssetSerializerMini
-from ledger.utils.fields import INIT, PROCESS, REFUND, DONE
+from ledger.utils.fields import INIT, PROCESS, REFUND, DONE, CANCELED
 from ledger.utils.precision import get_presentation_amount
 
 
@@ -91,7 +91,7 @@ class DepositHistoryView(WithdrawHistoryView):
             wallet__account=self.request.user.get_account(),
             deposit=True,
         ).exclude(
-            status=REFUND
+            status__in=[CANCELED, REFUND]
         ).order_by('-created')
 
         if 'coin' in query_params:

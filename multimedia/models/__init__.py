@@ -1,4 +1,4 @@
-from .data import Image, File
+from .file import Image, File, PublicVideo
 from .banner import Banner
 from .coin_price_content import CoinPriceContent
 from .faq import Section, Article

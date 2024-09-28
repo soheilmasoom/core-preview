@@ -9,9 +9,10 @@ from django.utils import timezone
 from accounts.models import User, Account, Notification
 from ledger.models import Asset, Wallet, Trx
 from ledger.utils.external_price import BUY
-from ledger.utils.fields import get_status_field, CANCELED, DONE, PENDING, get_group_id_field
+from ledger.utils.fields import get_status_field, CANCELED, DONE, PENDING, get_group_id_field, REFUND
 from ledger.utils.precision import humanize_number
 from ledger.utils.price import get_price
+from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 
@@ -62,6 +63,20 @@ class TokenDelist(models.Model):
 
             delist.status = DONE
             delist.save(update_fields=['status'])
+
+    def revert(self):
+        with WalletPipeline() as pipeline:
+            rebrand = TokenDelist.objects.filter(id=self.id, status=DONE).select_for_update().first()
+
+            if not rebrand:
+                return
+
+            revert_trx_group(pipeline, self.group_id)
+
+            Notification.objects.filter(group_id=self.group_id).delete()
+
+            rebrand.status = REFUND
+            rebrand.save(update_fields=['status'])
 
     def get_candidate_wallets(self, only_testers: bool = False):
         wallets = Wallet.objects.filter(
@@ -164,4 +179,5 @@ class TokenDelist(models.Model):
                         humanize_number(int(base_amount))
                     ),
                     level=Notification.INFO,
+                    group_id=self.group_id
                 )
