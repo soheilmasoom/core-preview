@@ -173,7 +173,7 @@ class User(AbstractUser):
         choices=((1, 1), (2, 2), (3, 3), (5, 5), (10, 10), (20, 20), (40, 40))
     )
 
-    promotion = models.CharField(max_length=256, choices=[(p, p) for p in PROMOTIONS])
+    promotion = models.CharField(max_length=256, choices=[(p, p) for p in PROMOTIONS], blank=True)
 
     custom_crypto_withdraw_ceil = models.PositiveBigIntegerField(null=True, blank=True)
     custom_fiat_withdraw_ceil = models.PositiveBigIntegerField(null=True, blank=True)
