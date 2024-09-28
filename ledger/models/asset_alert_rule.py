@@ -19,8 +19,8 @@ class AssetAlertRule(models.Model):
     trigger_price = get_amount_field()
     active = models.BooleanField(default=True)
     type = models.CharField(max_length=8, choices=PRICE_CHANGE_ALERT_TYPES)
-    description = models.TextField(verbose_name='توضیحات', blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    description = models.TextField(verbose_name='توضیحات', blank=True)
+    created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f'{self.asset_alert.user.username} - {self.asset_alert.asset.symbol} at {self.trigger_price}'
