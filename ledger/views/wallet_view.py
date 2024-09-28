@@ -26,7 +26,7 @@ from ledger.utils.fields import get_irt_market_asset_symbols
 from ledger.utils.precision import get_presentation_amount, get_symbol_presentation_price, \
     get_coin_presentation_balance
 from ledger.utils.price import get_prices, get_coins_symbols, get_last_prices, get_price
-from ledger.utils.wallet_pipeline import WalletPipeline
+from ledger.utils.wallet_pipeline import WalletPipeline, DECIMAL
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +220,8 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
         return get_presentation_amount(network_asset.withdraw_fee)
 
     def get_withdraw_precision(self, network_asset: NetworkAsset):
-        return network_asset.withdraw_precision
+        # return network_asset.withdraw_precision
+        return DECIMAL
 
     def get_slow_withdraw(self, network_asset: NetworkAsset):
         return not network_asset.network.can_deposit
