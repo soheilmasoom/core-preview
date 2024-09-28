@@ -5,6 +5,7 @@ from celery import shared_task
 from django.utils import timezone
 
 from accounts.models import Notification, BulkNotification, User, EmailNotification
+from accounts.models.fcm_topic_subscription import FCMTopicSubscription
 from accounts.models.sms_notification import SmsNotification
 from accounts.tasks.send_sms import send_kavenegar_exclusive_sms
 from accounts.utils.email import send_email, EmailInfo
@@ -101,9 +102,14 @@ def send_email_notifications():
 
 
 @shared_task(queue='notif-manager')
-def manage_user_topic_subscription_task(user_id, topic, action):
+def manage_user_topic_subscription_task():
     from accounts.utils.push_notif import manage_user_topic_subscription
-    from accounts.models import User
 
-    user = User.objects.get(id=user_id)
-    manage_user_topic_subscription(user, topic, action)
+    subscriptions = FCMTopicSubscription.objects.filter(status__in=[FCMTopicSubscription.FAIL, FCMTopicSubscription.PENDING])
+    for subscription in subscriptions:
+        manage_user_topic_subscription(
+            fcm_topic_subscription=subscription,
+            user=subscription.user,
+            topic=subscription.topic,
+            action=subscription.action,
+        )

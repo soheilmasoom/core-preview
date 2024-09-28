@@ -8,6 +8,7 @@ from decouple import config
 from oauth2client.service_account import ServiceAccountCredentials
 
 from accounts.models import User
+from accounts.models.fcm_topic_subscription import FCMTopicSubscription
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ def _get_access_token() -> AccessToken:
 
     return _access_token
 
-def manage_user_topic_subscription(user: User, topic: str, action: str, token: str = None) -> bool:
+def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription, user: User, topic: str, action: str, token: str = None) -> bool:
     from accounts.models import FirebaseToken
 
     tokens = FirebaseToken.objects.filter(user=user).values_list('token', flat=True)
@@ -79,8 +80,11 @@ def manage_user_topic_subscription(user: User, topic: str, action: str, token: s
     logger.warning(f'json {json_resp} --- {headers_resp} {action} user ID {user} to topic: {topic}- token {token}')
     if resp.ok:
         logger.warning(f'{action} user ID {user} to topic: {topic}')
+        fcm_topic_subscription.status = FCMTopicSubscription.DONE
     else:
         logger.warning(f'Failed to {action} user ID {user} to topic: {topic} Response: {resp.text}-{resp}')
+        fcm_topic_subscription.status = FCMTopicSubscription.FAIL
+    fcm_topic_subscription.save(update_fields=['status'])
     return resp.ok
 
 
