@@ -14,6 +14,7 @@ from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.dto import NetworkInfo
 from ledger.utils.fields import get_amount_field
 from ledger.utils.price import get_last_price
+from ledger.utils.wallet_pipeline import DECIMAL
 
 MIN_PRECISION_AMOUNT = Decimal('0.00000001')
 
@@ -135,7 +136,7 @@ class NetworkAsset(models.Model):
 
         if resp.ok:
             data = resp.data
-            self.withdraw_precision = max(min(data['precision'], Decimal), 0)
+            self.withdraw_precision = max(min(data['precision'], DECIMAL), 0)
             self.contract = data['contract']
             self.save(update_fields=['withdraw_precision', 'contract'])
             return True
