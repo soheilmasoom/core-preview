@@ -135,7 +135,7 @@ class NetworkAsset(models.Model):
 
         if resp.ok:
             data = resp.data
-            self.withdraw_precision = data['precision']
+            self.withdraw_precision = max(min(data['precision'], Decimal), 0)
             self.contract = data['contract']
             self.save(update_fields=['withdraw_precision', 'contract'])
             return True
