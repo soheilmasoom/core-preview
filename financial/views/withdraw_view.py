@@ -160,11 +160,12 @@ class WithdrawHistorySerializer(serializers.ModelSerializer):
     bank_account = BankAccountSerializer()
     rial_estimate_receive_time = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
+    freeze_seconds = serializers.SerializerMethodField()
 
     class Meta:
         model = FiatWithdrawRequest
         fields = ('id', 'created', 'status', 'fee_amount', 'amount', 'bank_account', 'ref_id',
-                  'rial_estimate_receive_time',)
+                  'rial_estimate_receive_time', 'freeze_seconds')
 
     def get_rial_estimate_receive_time(self, withdraw_request: FiatWithdrawRequest):
         if withdraw_request.status in (INIT, PROCESS):
@@ -181,6 +182,9 @@ class WithdrawHistorySerializer(serializers.ModelSerializer):
             return PROCESS
         else:
             return withdraw.status
+
+    def get_freeze_seconds(self, withdraw: FiatWithdrawRequest):
+        return FiatWithdrawRequest.FREEZE_TIME
 
 
 class WithdrawHistoryView(ListAPIView):
