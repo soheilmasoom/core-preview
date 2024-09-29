@@ -316,6 +316,14 @@ app.conf.beat_schedule = {
             'expires': 60
         }
     },
+    'check_conditional_price_alerts': {
+        'task': 'ledger.tasks.alert.check_conditional_price_alerts',
+        'schedule': crontab(minute=5),
+        'options': {
+            'queue': 'celery',
+            'expires': 3600
+        },
+    },
     'network_schedules': {
         'task': 'ledger.tasks.network.check_network_schedules',
         'schedule': crontab(minute='30'),
