@@ -304,7 +304,7 @@ def check_conditional_price_alerts():
     active_alerts = AssetAlertRule.objects.filter(active=True, is_triggered=False)
 
     for alert in active_alerts:
-        if alert.base_asset.symbol == "USDT":
+        if alert.base_asset.symbol == Asset.USDT:
             asset_price = usdt_current_prices.get(alert.asset.symbol)
         else:
             asset_price = irt_current_prices.get(alert.asset.symbol)
@@ -320,6 +320,7 @@ def check_conditional_price_alerts():
 
         if alert.is_triggered:
             alert.is_triggered = False
+            alert.deactive_reason = 'trigger'
             alert.save(update_fields=['is_triggered'])
 
             Notification.send(
