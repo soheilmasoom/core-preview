@@ -8,6 +8,14 @@ urlpatterns = [
     path('v1/networkassets/', views.NetworkAssetView.as_view()),
     path('v1/asset/overview/', views.AssetOverviewAPIView.as_view()),
     path('v2/asset/overview/', views.AssetOverviewAPIV2View.as_view()),
+    path('v1/alert/<int:asset_alert_pk>/rules/', views.AssetAlertRuleViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    })),
+    path('v1/alert/<int:asset_alert_pk>/rules/<int:rule_pk>/', views.AssetAlertRuleViewSet.as_view({
+        'delete': 'destroy',
+        'put': 'update',
+    })),
     path('v1/price/alert/single/', views.AssetAlertViewSet.as_view({
         'post': 'create',
         'get': 'list',
