@@ -279,7 +279,7 @@ class NetworkAssetAdmin(SimpleHistoryAdmin):
                      'expected_hw_balance', 'network_order')
     list_filter = (NetworkAssetFilter, 'can_deposit', 'can_withdraw', 'network', 'update_fee_with_provider',
                    'update_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable', 'withdraw_source')
-    actions = ('update_fees', )
+    actions = ('update_fees', 'update_with_blocklink')
     ordering = ('asset', 'network_order')
 
     @admin.display(description='withdraw_fee', ordering='withdraw_fee')
