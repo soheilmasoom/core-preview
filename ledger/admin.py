@@ -209,6 +209,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
                 )
 
                 ns.update_network_asset_with_provider(info, now)
+                ns.update_info_with_blocklink()
 
             create_symbols_for_asset(asset)
 
@@ -300,6 +301,11 @@ class NetworkAssetAdmin(SimpleHistoryAdmin):
     @admin.action(description='Update With Provider', permissions=['change'])
     def update_fees(self, request, queryset):
         update_network_fees(queryset)
+
+    @admin.action(description='Update With Blocklink', permissions=['change'])
+    def update_with_blocklink(self, request, queryset):
+        for network_asset in queryset:
+            network_asset.update_info_with_blocklink()
 
 
 class DepositAddressUserFilter(admin.SimpleListFilter):

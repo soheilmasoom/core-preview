@@ -10,6 +10,7 @@ from simple_history.models import HistoricalRecords
 
 from ledger.fields import WithdrawSources
 from ledger.models import Asset
+from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.dto import NetworkInfo
 from ledger.utils.fields import get_amount_field
 from ledger.utils.price import get_last_price
@@ -51,6 +52,8 @@ class NetworkAsset(models.Model):
     network_order = models.PositiveSmallIntegerField(default=0)
 
     withdraw_source = WithdrawSources.get_db_field()
+
+    contract = models.CharField(max_length=128, blank=True)
 
     def can_deposit_enabled(self, check_provider: bool = True) -> bool:
         system_enable = self.network.can_deposit and self.can_deposit
@@ -126,3 +129,15 @@ class NetworkAsset(models.Model):
             to_update_fields.extend(['withdraw_fee', 'withdraw_min', 'withdraw_max'])
 
         self.save(update_fields=to_update_fields)
+
+    def update_info_with_blocklink(self):
+        resp = get_blocklink_requester().get_contract_info(coin=self.asset.symbol, network=self.network.symbol)
+
+        if resp.ok:
+            data = resp.data
+            self.withdraw_precision = data['precision']
+            self.contract = data['contract']
+            self.save(update_fields=['withdraw_precision', 'contract'])
+            return True
+        else:
+            return False

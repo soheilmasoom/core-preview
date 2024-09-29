@@ -229,7 +229,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
                   'min_deposit', 'network_name', 'address_regex', 'withdraw_precision', 'need_memo', 'min_confirm',
                   'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name', 'deposit_need_memo',
-                  'withdraw_allow_memo')
+                  'withdraw_allow_memo', 'contract')
         model = NetworkAsset
 
 

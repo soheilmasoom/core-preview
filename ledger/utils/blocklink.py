@@ -144,6 +144,15 @@ class BlocklinkRequester(BaseRequester):
             }
         )
 
+    def get_contract_info(self, coin: str, network: str) -> Response:
+        return self.collect_api(
+            path='/api/v1/tracker/contracts/info/',
+            data={
+                'coin': coin,
+                'network': network
+            }
+        )
+
 
 class MockBlocklinkRequester(BlocklinkRequester):
     def get_network_arch(self, network: str) -> str:
