@@ -132,7 +132,10 @@ class NetworkAsset(models.Model):
         self.save(update_fields=to_update_fields)
 
     def update_info_with_blocklink(self):
-        resp = get_blocklink_requester().get_contract_info(coin=self.asset.symbol, network=self.network.symbol)
+        resp = get_blocklink_requester().get_contract_info(
+            coin=self.asset.get_original_symbol(),
+            network=self.network.symbol
+        )
 
         if resp.ok:
             data = resp.data
