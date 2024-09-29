@@ -54,9 +54,9 @@ class AlertData:
         return (self.user, self.asset) == (other.user, other.asset)
 
 
-def get_current_prices() -> dict:
+def get_current_prices(only_base=Asset.USDT) -> dict:
     coins = list(Asset.objects.values_list('symbol', flat=True))
-    symbols = get_coins_symbols(coins, only_base=Asset.USDT)
+    symbols = get_coins_symbols(coins, only_base=only_base)
     symbols.append(USDT_IRT)
 
     return get_prices(symbols, side=BUY)
@@ -299,11 +299,15 @@ def send_price_notifications():
 
 @shared_task(queue="notif-manager")
 def check_conditional_price_alerts():
-    current_prices = get_current_prices()
+    usdt_current_prices = get_current_prices(only_base=Asset.USDT)
+    irt_current_prices = get_current_prices(only_base=Asset.IRT)
     active_alerts = AssetAlertRule.objects.filter(active=True, is_triggered=False)
 
     for alert in active_alerts:
-        asset_price = current_prices.get(alert.asset.symbol)
+        if alert.base_asset.symbol == "USDT":
+            asset_price = usdt_current_prices.get(alert.asset.symbol)
+        else:
+            asset_price = irt_current_prices.get(alert.asset.symbol)
         trigger_price = alert.trigger_price
 
         if not asset_price or not trigger_price:
@@ -311,11 +315,7 @@ def check_conditional_price_alerts():
 
         if alert.type == 'gt' and asset_price > trigger_price:
             alert.is_triggered = True
-        elif alert.type == 'gte' and asset_price >= trigger_price:
-            alert.is_triggered = True
         elif alert.type == 'lt' and asset_price < trigger_price:
-            alert.is_triggered = True
-        elif alert.type == 'lte' and asset_price <= trigger_price:
             alert.is_triggered = True
 
         if alert.is_triggered:
