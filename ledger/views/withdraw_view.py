@@ -122,7 +122,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 'در حال حاضر امکان برداشت {} روی شبکه {} وجود ندارد.'.format(asset.symbol, network.symbol))
 
-        if get_precision(amount) > DECIMAL:
+        if get_precision(amount) > network_asset.get_withdraw_precision():
             raise ValidationError('مقدار وارد شده اشتباه است.')
 
         if amount < network_asset.withdraw_min:

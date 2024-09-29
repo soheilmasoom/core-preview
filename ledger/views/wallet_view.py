@@ -220,8 +220,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
         return get_presentation_amount(network_asset.withdraw_fee)
 
     def get_withdraw_precision(self, network_asset: NetworkAsset):
-        # return network_asset.withdraw_precision
-        return DECIMAL
+        return network_asset.get_withdraw_precision()
 
     def get_slow_withdraw(self, network_asset: NetworkAsset):
         return not network_asset.network.can_deposit

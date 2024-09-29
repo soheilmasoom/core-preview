@@ -23,10 +23,10 @@ from accounting.models import ReservedAsset
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
 from accounts.admin_guard.html_tags import anchor_tag, url_to_admin_list
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.admin_guard.utils.html import get_table_html
 from accounts.models import Account
 from accounts.models.user_feature_perm import UserFeaturePerm
-from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from financial.models import Payment
 from gamify.utils import clone_model
@@ -204,7 +204,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
                         'withdraw_fee': info.withdraw_fee,
                         'withdraw_min': info.withdraw_min,
                         'withdraw_max': info.withdraw_max,
-                        'withdraw_precision': 0,
+                        'withdraw_precision': 8,
                     }
                 )
 
