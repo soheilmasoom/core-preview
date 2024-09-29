@@ -34,6 +34,7 @@ class AlertRuleUpdateSerializer(serializers.ModelSerializer):
 class AssetAlertRuleSerializer(serializers.ModelSerializer):
     description = serializers.CharField(required=False)
     remaining_alerts = serializers.SerializerMethodField()
+    base_asset = serializers.CharField(required=True)
 
     class Meta:
         model = AssetAlertRule
