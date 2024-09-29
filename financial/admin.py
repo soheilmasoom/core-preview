@@ -569,12 +569,12 @@ class BankPaymentRequestAcceptFilter(SimpleListFilter):
     parameter_name = 'accepted'
 
     def lookups(self, request, model_admin):
-        return [('no', 'no'), ('yes', 'yes')]
+        return [('0', 'خیر'), ('1', 'بله')]
 
     def queryset(self, request, queryset):
         val = self.value()
         if val is not None:
-            queryset = queryset.filter(payment__isnull=val == 'no')
+            queryset = queryset.filter(payment__isnull=val == '0')
 
         return queryset
 

@@ -258,13 +258,13 @@ class NetworkAssetFilter(admin.SimpleListFilter):
     parameter_name = 'active'
 
     def lookups(self, request, model_admin):
-        return [('yes', 'بله'), ('no', 'خیر')]
+        return [('1', 'بله'), ('0', 'خیر')]
 
     def queryset(self, request, queryset):
         active = request.GET.get('active')
 
         if active is not None:
-            queryset = queryset.filter(NetworkAsset.get_active_q(active=active == 'yes'))
+            queryset = queryset.filter(NetworkAsset.get_active_q(active=active == '1'))
 
         return queryset
 
