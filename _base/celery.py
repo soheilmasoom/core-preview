@@ -323,7 +323,15 @@ app.conf.beat_schedule = {
             'queue': 'celery',
             'expires': 3600
         },
-    }
+    },
+    'network_schedules': {
+        'task': 'ledger.tasks.network.check_network_schedules',
+        'schedule': crontab(minute='30'),
+        'options': {
+            'queue': 'celery',
+            'expires': 3 * 3600
+        }
+    },
 }
 
 
