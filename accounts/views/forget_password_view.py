@@ -37,7 +37,7 @@ class InitiateForgetPasswordView(APIView):
         if request.user.is_authenticated:
             return Response({'msg': 'already logged in', 'code': codes.USER_ALREADY_LOGGED_IN})
 
-        serializer = InitiateForgotPasswordSerializer(data=request.data)
+        serializer = InitiateForgotPasswordSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         serializer.save()
