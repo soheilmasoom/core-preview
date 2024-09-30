@@ -24,6 +24,7 @@ from ledger.utils.fields import get_group_id_field, get_status_field
 from ledger.utils.fraud import verify_fiat_deposit
 from ledger.utils.precision import humanize_number, get_presentation_amount
 from ledger.utils.price import get_last_price, USDT_IRT
+from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 from ledger.widget.widget import Widget
 
@@ -195,8 +196,7 @@ class Payment(models.Model):
             if payment.status != DONE:
                 return
 
-            for trx in Trx.objects.filter(group_id=payment.group_id):
-                trx.revert(pipeline)
+            revert_trx_group(pipeline, payment.group_id)
 
             payment.status = REFUND
             payment.save(update_fields=['status'])
