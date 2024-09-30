@@ -4,12 +4,12 @@ from django.contrib.auth.models import Permission
 from rest_framework.test import APITestCase, APIClient
 
 from accounts.models import User, SmsNotification, Notification
-from financial.utils.test import new_user, new_custom_token
+from accounts.utils.test import new_user, new_custom_token
 
 
 class TestNotify(APITestCase):
     def setUp(self):
-        self.user = new_user(name='test_user_1', phone='09305913458', level=User.LEVEL1)
+        self.user = new_user(phone='09305913458', level=User.LEVEL1)
         self.token = new_custom_token(self.user)
 
         permission = Permission.objects.get(codename='can_generate_notification')
