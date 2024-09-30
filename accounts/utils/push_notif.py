@@ -76,7 +76,6 @@ def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription,
         resp_json = resp.json()
     except ValueError:
         resp_json = None
-    success = False
     not_found_tokens = []
     if resp.ok and resp_json and 'results' in resp_json:
         for idx, result in enumerate(resp_json['results']):
@@ -88,24 +87,17 @@ def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription,
                 else:
                     logger.warning(f'Error for token {tokens[idx]}: {error}')
             else:
-                success = True
+                logger.info(f'Successfully {action} user {user} topic: {topic}')
+                fcm_topic_subscription.status = FCMTopicSubscription.DONE
+                fcm_topic_subscription.save(update_fields=['status'])
+                return
     else:
         logger.warning(
             f'Failed to {action} user {user} to topic: {topic} Response: {resp.text}-{resp}'
         )
-        fcm_topic_subscription.status = FCMTopicSubscription.FAIL
-
     if not_found_tokens:
         FirebaseToken.objects.filter(token__in=not_found_tokens).delete()
-
-    if success:
-        logger.info(f'Successfully {action} user {user} topic: {topic}')
-        fcm_topic_subscription.status = FCMTopicSubscription.DONE
-    else:
-        fcm_topic_subscription.status = FCMTopicSubscription.FAIL
-
-    fcm_topic_subscription.save(update_fields=['status'])
-    return success
+    return False
 
 
 def send_push_notif_to_user(user: User, title: str, body: str, image: str = None, link: str = None):

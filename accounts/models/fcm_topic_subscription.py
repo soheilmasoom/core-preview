@@ -2,13 +2,13 @@ from django.db import models
 from accounts.models import User
 
 class FCMTopicSubscription(models.Model):
-    PENDING, DONE, FAIL = 'p', 'd', 'f'
+    PENDING, DONE = 'p', 'd'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     topic = models.CharField(max_length=255)
     action = models.CharField(max_length=50)
     status = models.CharField(
-        choices=((PENDING, 'p'), (DONE, 'd'), (FAIL, 'f')),
+        choices=((PENDING, 'p'), (DONE, 'd')),
         max_length=1,
         db_index=True,
         default=PENDING
