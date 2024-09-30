@@ -118,7 +118,7 @@ class NewPhoneVerifySerializer(serializers.Serializer):
 
 class ChangePhoneView(APIView):
     def post(self, request):
-        serializer = UserVerifySerializer(data=request.data)
+        serializer = UserVerifySerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         return Response({'msg': 'کد باموفقیت ارسال شد.'})
 
