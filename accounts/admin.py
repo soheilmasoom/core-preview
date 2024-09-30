@@ -6,12 +6,14 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib import messages
 from django.contrib.admin import SimpleListFilter
+from django.contrib.auth import get_permission_codename
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import Q
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
+from django_otp.plugins.otp_totp.models import TOTPDevice
 from jalali_date.admin import ModelAdminJalaliMixin
 from simple_history.admin import SimpleHistoryAdmin
 
@@ -366,8 +368,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     ordering = ('-id', )
     actions = (
         'verify_user_name', 'reject_user_name', 'archive_users', 'unarchive_users', 'reevaluate_basic_verify',
-        'verify_user', 'reject_user', 'check_achievements', 'export_transactions', 'safe_delete_user',
-        'update_deposits', 'ban_credit_deposit'
+        'verify_user', 'reject_user', 'check_achievements', 'export_transactions',
+        'update_deposits', 'ban_credit_deposit', 'disable_2fa_auth', 'safe_delete_user',
     )
     readonly_fields = (
         'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet', 'get_positions',
@@ -393,7 +395,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
-    @admin.action(description='حذف امن کاربر', permissions=['change'])
+    def has_manage_users_permission(self, request):
+        opts = self.opts
+        codename = get_permission_codename("manage_users", opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
+
+    @admin.action(description='حذف امن کاربر', permissions=['manage_users'])
     def safe_delete_user(self, request, queryset : List[User]):
         for user in queryset:
             try:
@@ -470,6 +477,10 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
                 writer.writerow([trx['id'], trx['created'], trx['wallet_type'], trx['coin'], trx['amount'], trx['scope']])
 
         return response
+
+    @admin.action(description='غیرفعال‌سازی شناسه دو عاملی', permissions=['manage_users'])
+    def disable_2fa_auth(self, request, queryset):
+        TOTPDevice.objects.filter(user__in=queryset.filter(is_staff=False), confirmed=True).update(confirmed=False)
 
     @admin.display(description='2fa', boolean=True)
     def is_2fa_active(self, user: User):
