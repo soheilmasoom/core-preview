@@ -73,7 +73,7 @@ class UserVerifySerializer(serializers.Serializer):
             raise ValidationError('توکن نامعتبر است.')
 
         token_verification.set_token_used()
-        VerificationCode.send_otp_code(new_phone, VerificationCode.SCOPE_NEW_PHONE)
+        VerificationCode.send_otp_code(self.context['request'], new_phone, VerificationCode.SCOPE_NEW_PHONE)
         return data
 
 

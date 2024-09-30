@@ -19,7 +19,7 @@ from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationCode, \
     UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
-    AttributionTracker, AppConfig
+    AttributionTracker, AppConfig, SpamPhone
 from accounts.models import UserComment, TrafficSource, Referral
 from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object
 from financial.models.bank_card import BankCard, BankAccount
@@ -401,7 +401,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
     @admin.action(description='حذف امن کاربر', permissions=['manage_users'])
-    def safe_delete_user(self, request, queryset : List[User]):
+    def safe_delete_user(self, request, queryset: List[User]):
         for user in queryset:
             try:
                 user.archive_registered_phone()
@@ -1116,3 +1116,11 @@ class CompanyAdmin(SimpleHistoryAdmin):
 class LevelGrantsAdmin(admin.ModelAdmin):
     list_display = ('level', 'max_daily_crypto_withdraw', 'max_daily_fiat_withdraw', 'max_daily_fiat_deposit')
     ordering = ('level',)
+
+
+@admin.register(SpamPhone)
+class SpamPhoneAdmin(admin.ModelAdmin):
+    list_display = ('created', 'phone')
+    search_fields = ('phone', )
+
+

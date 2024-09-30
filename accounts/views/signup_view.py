@@ -48,7 +48,7 @@ class InitiateSignupView(APIView):
         serializer.is_valid(raise_exception=True)
 
         phone = serializer.validated_data['phone']
-        VerificationCode.send_otp_code(phone, self.scope)
+        VerificationCode.send_otp_code(request, phone, self.scope)
         return Response({'msg': 'otp sent', 'code': 0})
 
 

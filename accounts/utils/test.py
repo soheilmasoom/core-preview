@@ -43,9 +43,8 @@ if settings.DEBUG_OR_TESTING:
             code='1',
             user=user
             )
-        return otp_code.code
+        return otp_code
 
     def new_custom_token(user: User) -> str:
         token, _ = CustomToken.objects.get_or_create(user=user)
         return token.key
-
