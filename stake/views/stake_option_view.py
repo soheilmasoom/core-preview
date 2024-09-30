@@ -29,7 +29,7 @@ class StakeOptionSerializer(serializers.ModelSerializer):
         if 'filled' not in self.context:
             return
 
-        return round(self.context['filled'].get(stake_option.id, 0) / stake_option.total_cap * 100, 2)
+        return min(max(round(self.context['filled'].get(stake_option.id, 0) / stake_option.total_cap * 100, 2), 0), 100)
 
     def get_apr(self, stake_option: StakeOption):
         return get_presentation_amount(stake_option.apr)
