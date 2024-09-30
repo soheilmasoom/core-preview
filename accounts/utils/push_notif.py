@@ -9,6 +9,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 from accounts.models import User
 from accounts.models.fcm_topic_subscription import FCMTopicSubscription
+from ledger.utils.fields import DONE
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription,
                     logger.warning(f'Error for token {tokens[idx]}: {error}')
             else:
                 logger.info(f'Successfully {action} user {user} topic: {topic}')
-                fcm_topic_subscription.status = FCMTopicSubscription.DONE
+                fcm_topic_subscription.status = DONE
                 fcm_topic_subscription.save(update_fields=['status'])
                 return
     else:

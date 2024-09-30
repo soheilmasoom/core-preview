@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('topic', models.CharField(max_length=255)),
                 ('action', models.CharField(max_length=50)),
-                ('status', models.CharField(choices=[('p', 'p'), ('d', 'd'), ('f', 'f')], db_index=True, default='p', max_length=1)),
+                ('status', models.CharField(choices=[('init', 'init'), ('process', 'process'), ('pending', 'pending'), ('canceled', 'canceled'), ('done', 'done'), ('refund', 'refund')], db_index=True, default='pending', max_length=8)),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
             ],
         ),

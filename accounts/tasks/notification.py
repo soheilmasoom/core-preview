@@ -105,7 +105,7 @@ def send_email_notifications():
 def manage_user_topic_subscription_task():
     from accounts.utils.push_notif import manage_user_topic_subscription
 
-    subscriptions = FCMTopicSubscription.objects.filter(status=FCMTopicSubscription.PENDING)
+    subscriptions = FCMTopicSubscription.objects.filter(status=PENDING)
     for subscription in subscriptions:
         manage_user_topic_subscription(
             fcm_topic_subscription=subscription,
