@@ -184,32 +184,35 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         now = timezone.now()
 
         for asset in queryset:
-            networks_info = get_provider_requester().get_network_info(asset.symbol)
+            requester = get_provider_requester()
 
-            for info in networks_info:
-                network, _ = Network.objects.get_or_create(
-                    symbol=info.network,
-                    defaults={
-                        'can_deposit': False,
-                        'can_withdraw': False,
-                        'address_regex': info.address_regex
-                    }
-                )
+            if requester:
+                networks_info = requester.get_network_info(asset.symbol)
 
-                ns, _ = NetworkAsset.objects.get_or_create(
-                    asset=asset,
-                    network=network,
+                for info in networks_info:
+                    network, _ = Network.objects.get_or_create(
+                        symbol=info.network,
+                        defaults={
+                            'can_deposit': False,
+                            'can_withdraw': False,
+                            'address_regex': info.address_regex
+                        }
+                    )
 
-                    defaults={
-                        'withdraw_fee': info.withdraw_fee,
-                        'withdraw_min': info.withdraw_min,
-                        'withdraw_max': info.withdraw_max,
-                        'withdraw_precision': 8,
-                    }
-                )
+                    ns, _ = NetworkAsset.objects.get_or_create(
+                        asset=asset,
+                        network=network,
 
-                ns.update_network_asset_with_provider(info, now)
-                ns.update_info_with_blocklink()
+                        defaults={
+                            'withdraw_fee': info.withdraw_fee,
+                            'withdraw_min': info.withdraw_min,
+                            'withdraw_max': info.withdraw_max,
+                            'withdraw_precision': 8,
+                        }
+                    )
+
+                    ns.update_network_asset_with_provider(info, now)
+                    ns.update_info_with_blocklink()
 
             create_symbols_for_asset(asset)
 
