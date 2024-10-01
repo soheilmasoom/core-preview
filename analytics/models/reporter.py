@@ -15,3 +15,6 @@ class ReportPermission(models.Model):
     group_id = get_group_id_field()
 
     user = models.OneToOneField('accounts.User', on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.user} {self.utm_source}/{self.utm_medium}'
