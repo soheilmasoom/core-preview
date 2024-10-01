@@ -403,7 +403,7 @@ class OrderTypeOTCFilter(SimpleListFilter):
 
 
 @admin.register(models.OTCTrade)
-class OTCTradeAdmin(AdvancedAdmin):
+class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'get_username', 'otc_request', 'get_order_type', 'status', 'get_value', 'get_value_irt',
                     'execution_type', 'gap_revenue', 'hedged')
     list_filter = (OTCUserFilter, 'status', 'execution_type', 'hedged', OrderTypeOTCFilter)
