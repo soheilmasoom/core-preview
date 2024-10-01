@@ -243,17 +243,27 @@ class OTCTrade(models.Model):
 
     def reject(self, is_user_canceled=False):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
+            otc_trade = OTCTrade.objects.select_for_update().get(id=self.id)
+
+            if otc_trade.status != self.PENDING:
+                return
+
             pipeline.release_lock(self.group_id)
             if is_user_canceled:
-                self.change_status(self.USER_CANCELED)
+                otc_trade.change_status(self.USER_CANCELED)
             else:
-                self.change_status(self.CANCELED)
+                otc_trade.change_status(self.CANCELED)
 
     def accept(self, pipeline: WalletPipeline):
+        otc_trade = OTCTrade.objects.select_for_update().get(id=self.id)
+
+        if otc_trade.status != self.PENDING:
+            return
+
         pipeline.release_lock(self.group_id)
 
-        self.change_status(self.DONE)
-        self.create_ledger(pipeline)
+        otc_trade.change_status(self.DONE)
+        otc_trade.create_ledger(pipeline)
 
         register_fee_transactions(
             pipeline=pipeline,
