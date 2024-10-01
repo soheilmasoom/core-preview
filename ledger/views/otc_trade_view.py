@@ -167,6 +167,12 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         if from_symbol == to_symbol:
             raise ValidationError('هر دو دارایی نمی‌تواند یکی باشد.')
 
+        try:
+            attrs['from_asset'] = Asset.get(from_symbol)
+            attrs['to_asset'] = Asset.get(to_symbol)
+        except Asset.DoesNotExist:
+            raise ValidationError('دارایی نامعتبر است.')
+
         from_amount = attrs.get('from_amount')
         to_amount = attrs.get('to_amount')
 
