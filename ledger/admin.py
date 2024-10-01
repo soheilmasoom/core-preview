@@ -359,7 +359,7 @@ class OTCRequestUserFilter(SimpleListFilter):
 @admin.register(models.OTCRequest)
 class OTCRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'symbol', 'side', 'price', 'amount', 'fee_amount', 'fee_revenue')
-    readonly_fields = ('account', 'login_activity')
+    readonly_fields = ('account', 'login_activity', 'token')
     search_fields = ('token', 'symbol__name', 'account__user__phone')
     list_filter = (OTCRequestUserFilter, 'type')
     list_permission_exclude_filters = ('id', 'user')
@@ -408,7 +408,7 @@ class OTCTradeAdmin(AdvancedAdmin):
                     'execution_type', 'gap_revenue', 'hedged')
     list_filter = (OTCUserFilter, 'status', 'execution_type', 'hedged', OrderTypeOTCFilter)
     search_fields = ('group_id', 'order_id', 'otc_request__symbol__asset__symbol', 'otc_request__account__user__phone')
-    readonly_fields = ('otc_request', 'get_username', 'get_order_type')
+    readonly_fields = ('otc_request', 'get_username', 'get_order_type', 'group_id')
     actions = ('accept_trade', 'accept_trade_without_hedge', 'cancel_trade', 'revert')
 
     list_permission_exclude_filters = ('id', 'user')
