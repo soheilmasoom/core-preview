@@ -1110,4 +1110,4 @@ class LevelGrantsAdmin(admin.ModelAdmin):
 
 @admin.register(FCMTopicSubscription)
 class FCMTopicSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'action', 'status', 'topic')
+    list_display = ('user', 'action', 'status', 'topic',)
