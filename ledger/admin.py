@@ -23,10 +23,10 @@ from accounting.models import ReservedAsset
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
 from accounts.admin_guard.html_tags import anchor_tag, url_to_admin_list
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.admin_guard.utils.html import get_table_html
 from accounts.models import Account
 from accounts.models.user_feature_perm import UserFeaturePerm
-from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from financial.models import Payment
 from gamify.utils import clone_model
@@ -34,7 +34,7 @@ from ledger import models
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
     MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer, ConvertDust, \
-    ConvertDustTrx
+    ConvertDustTrx, NetworkSchedule
 from ledger.models.asset_alert import AssetAlert, AlertTrigger, BulkAssetAlert
 from ledger.models.wallet import ReserveWallet
 from ledger.utils.external_price import BUY
@@ -184,31 +184,35 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         now = timezone.now()
 
         for asset in queryset:
-            networks_info = get_provider_requester().get_network_info(asset.symbol)
+            requester = get_provider_requester()
 
-            for info in networks_info:
-                network, _ = Network.objects.get_or_create(
-                    symbol=info.network,
-                    defaults={
-                        'can_deposit': False,
-                        'can_withdraw': False,
-                        'address_regex': info.address_regex
-                    }
-                )
+            if requester:
+                networks_info = requester.get_network_info(asset.symbol)
 
-                ns, _ = NetworkAsset.objects.get_or_create(
-                    asset=asset,
-                    network=network,
+                for info in networks_info:
+                    network, _ = Network.objects.get_or_create(
+                        symbol=info.network,
+                        defaults={
+                            'can_deposit': False,
+                            'can_withdraw': False,
+                            'address_regex': info.address_regex
+                        }
+                    )
 
-                    defaults={
-                        'withdraw_fee': info.withdraw_fee,
-                        'withdraw_min': info.withdraw_min,
-                        'withdraw_max': info.withdraw_max,
-                        'withdraw_precision': 0,
-                    }
-                )
+                    ns, _ = NetworkAsset.objects.get_or_create(
+                        asset=asset,
+                        network=network,
 
-                ns.update_network_asset_with_provider(info, now)
+                        defaults={
+                            'withdraw_fee': info.withdraw_fee,
+                            'withdraw_min': info.withdraw_min,
+                            'withdraw_max': info.withdraw_max,
+                            'withdraw_precision': 8,
+                        }
+                    )
+
+                    ns.update_network_asset_with_provider(info, now)
+                    ns.update_info_with_blocklink()
 
             create_symbols_for_asset(asset)
 
@@ -257,13 +261,13 @@ class NetworkAssetFilter(admin.SimpleListFilter):
     parameter_name = 'active'
 
     def lookups(self, request, model_admin):
-        return [('yes', 'بله'), ('no', 'خیر')]
+        return [('1', 'بله'), ('0', 'خیر')]
 
     def queryset(self, request, queryset):
         active = request.GET.get('active')
 
         if active is not None:
-            queryset = queryset.filter(NetworkAsset.get_active_q(active=active == 'yes'))
+            queryset = queryset.filter(NetworkAsset.get_active_q(active=active == '1'))
 
         return queryset
 
@@ -278,7 +282,7 @@ class NetworkAssetAdmin(SimpleHistoryAdmin):
                      'expected_hw_balance', 'network_order')
     list_filter = (NetworkAssetFilter, 'can_deposit', 'can_withdraw', 'network', 'update_fee_with_provider',
                    'update_with_provider', 'hedger_withdraw_enable', 'hedger_deposit_enable', 'withdraw_source')
-    actions = ('update_fees', )
+    actions = ('update_fees', 'update_with_blocklink')
     ordering = ('asset', 'network_order')
 
     @admin.display(description='withdraw_fee', ordering='withdraw_fee')
@@ -300,6 +304,11 @@ class NetworkAssetAdmin(SimpleHistoryAdmin):
     @admin.action(description='Update With Provider', permissions=['change'])
     def update_fees(self, request, queryset):
         update_network_fees(queryset)
+
+    @admin.action(description='Update With Blocklink', permissions=['change'])
+    def update_with_blocklink(self, request, queryset):
+        for network_asset in queryset:
+            network_asset.update_info_with_blocklink()
 
 
 class DepositAddressUserFilter(admin.SimpleListFilter):
@@ -353,7 +362,7 @@ class OTCRequestUserFilter(SimpleListFilter):
 @admin.register(models.OTCRequest)
 class OTCRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'get_username', 'symbol', 'side', 'price', 'amount', 'fee_amount', 'fee_revenue')
-    readonly_fields = ('account', 'login_activity')
+    readonly_fields = ('account', 'login_activity', 'token')
     search_fields = ('token', 'symbol__name', 'account__user__phone')
     list_filter = (OTCRequestUserFilter, 'type')
     list_permission_exclude_filters = ('id', 'user')
@@ -397,12 +406,12 @@ class OrderTypeOTCFilter(SimpleListFilter):
 
 
 @admin.register(models.OTCTrade)
-class OTCTradeAdmin(AdvancedAdmin):
+class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'get_username', 'otc_request', 'get_order_type', 'status', 'get_value', 'get_value_irt',
                     'execution_type', 'gap_revenue', 'hedged')
     list_filter = (OTCUserFilter, 'status', 'execution_type', 'hedged', OrderTypeOTCFilter)
     search_fields = ('group_id', 'order_id', 'otc_request__symbol__asset__symbol', 'otc_request__account__user__phone')
-    readonly_fields = ('otc_request', 'get_username', 'get_order_type')
+    readonly_fields = ('otc_request', 'get_username', 'get_order_type', 'group_id')
     actions = ('accept_trade', 'accept_trade_without_hedge', 'cancel_trade', 'revert')
 
     list_permission_exclude_filters = ('id', 'user')
@@ -909,15 +918,19 @@ class PrizeAdmin(AdvancedAdmin):
         )
 
 
-@admin.register(models.CoinCategory)
-class CoinCategoryAdmin(admin.ModelAdmin):
+@admin.register(CoinCategory)
+class CoinCategoryAdmin(SimpleHistoryAdmin):
     list_display = ('name', 'title', 'get_coin_count', 'order')
     list_editable = ('order',)
+    exclude = ('coins',)
 
+    @admin.display(description="Count")
     def get_coin_count(self, coin_category: CoinCategory):
         return coin_category.coins.filter(enable=True).count()
 
-    get_coin_count.short_description = 'تعداد رمزارز'
+    def save_model(self, request, obj: CoinCategory, form, change):
+        obj.save()
+        obj.refresh()
 
 
 @admin.register(models.AddressKey)
@@ -1452,3 +1465,15 @@ class ConvertDustAdmin(admin.ModelAdmin):
 @admin.register(ConvertDustTrx)
 class ConvertDustTrxAdmin(admin.ModelAdmin):
     list_display = ('convert_dust', 'asset', 'base_asset', 'amount', 'converted_amount')
+
+
+@admin.register(NetworkSchedule)
+class NetworkScheduleAdmin(SimpleHistoryAdmin):
+    list_display = ('created', 'network', 'disable_at', 'status')
+    list_filter = ('network', 'status')
+    readonly_fields = ('status', )
+    actions = ('cancel', )
+
+    @admin.action(description='Cancel', permissions=['change'])
+    def cancel(self, request, queryset):
+        queryset.filter(status=PENDING).update(status=CANCELED)

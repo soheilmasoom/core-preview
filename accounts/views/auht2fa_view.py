@@ -46,7 +46,7 @@ class TOTPView(APIView):
         user = request.user
         device = TOTPDevice.objects.filter(user=user).first()
         scope = request.data.get('scope', ACTIVATE if device is None or device.confirmed is False else DEACTIVATE)
-        VerificationCode.send_otp_code(phone=user.phone, scope=VerificationCode.SCOPE_2FA, user=user)
+        VerificationCode.send_otp_code(request, phone=user.phone, scope=VerificationCode.SCOPE_2FA, user=user)
         response_data = {}
 
         if scope == ACTIVATE:
@@ -135,7 +135,7 @@ class CustomLoginSerializer(serializers.Serializer):
 
     def save(self, **kwargs):
         user = self.validated_data
-        VerificationCode.send_otp_code(phone=user.phone, scope=VerificationCode.SCOPE_FORGET_2FA, user=user)
+        VerificationCode.send_otp_code(self.context['request'], phone=user.phone, scope=VerificationCode.SCOPE_FORGET_2FA, user=user)
 
 
 class Forget2FAInitView(CreateAPIView):

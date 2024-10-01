@@ -154,9 +154,12 @@ def update_withdraws():
 
     with transaction.atomic():
         for withdraw in ManualWithdraw.objects.filter(status=PROCESS).select_for_update():  # type: ManualWithdraw
+            asset = withdraw.asset
+            coin_mult = asset.get_coin_multiplier()
+
             resp = get_blocklink_requester().withdraw(
                 receiver_address=withdraw.receiver_address,
-                amount=withdraw.amount,
+                amount=withdraw.amount * coin_mult,
                 network=withdraw.network.symbol,
                 coin=withdraw.asset.get_original_symbol(),
                 transfer_id=withdraw.id,

@@ -168,19 +168,16 @@ class OTCRequestSerializer(serializers.ModelSerializer):
             raise ValidationError('هر دو دارایی نمی‌تواند یکی باشد.')
 
         try:
-            from_asset = attrs['from_asset'] = Asset.get(from_symbol)
-            to_asset = attrs['to_asset'] = Asset.get(to_symbol)
-        except:
+            attrs['from_asset'] = Asset.get(from_symbol)
+            attrs['to_asset'] = Asset.get(to_symbol)
+        except Asset.DoesNotExist:
             raise ValidationError('دارایی نامعتبر است.')
 
         from_amount = attrs.get('from_amount')
         to_amount = attrs.get('to_amount')
 
-        if not from_amount and not to_amount:
-            raise ValidationError('یک مقدار باید وارد شود.')
-
-        if from_amount and to_amount:
-            raise ValidationError('یک مقدار باید وارد شود.')
+        if not from_amount and not to_amount or (from_amount and to_amount):
+            raise ValidationError('دقیقا یکی از مقادیر از و به باید وارد شود.')
 
         return attrs
 

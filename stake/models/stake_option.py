@@ -45,7 +45,7 @@ class StakeOption(models.Model):
 
     def get_filled_cap_percent(self):
 
-        return (1 - self.get_free_cap_amount() / self.total_cap) * 100
+        return min(max((1 - self.get_free_cap_amount() / self.total_cap) * 100, 0), 100)
 
     def get_free_amount_per_user(self, user: User):
         from stake.models import StakeRequest

@@ -56,7 +56,7 @@ class UserMissionExpiredFilter(SimpleListFilter):
     parameter_name = 'expired'
 
     def lookups(self, request, model_admin):
-        return [('yes', 'بله'), ('no', 'خیر')]
+        return [('1', 'بله'), ('0', 'خیر')]
 
     def queryset(self, request, queryset):
         action = self.value()
@@ -66,7 +66,7 @@ class UserMissionExpiredFilter(SimpleListFilter):
 
         q = Q(mission__expiration__isnull=False, mission__expiration__lt=timezone.now())
 
-        if action == 'no':
+        if action == '0':
             q = ~q
 
         return queryset.filter(q)

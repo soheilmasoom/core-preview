@@ -1,6 +1,8 @@
+from uuid import uuid4
+
 from django.conf import settings
 
-from ledger.utils.wallet_pipeline import WalletPipeline
+from accounting.models import TradeRevenue
 
 if settings.DEBUG_OR_TESTING:
     import random
@@ -8,10 +10,13 @@ if settings.DEBUG_OR_TESTING:
 
     from accounts.models import Account, User, VerificationCode
     from ledger.utils.external_price import _get_price_redis
-    from ledger.models import Asset, AddressBook, Network, NetworkAsset
+    from ledger.models import Asset, AddressBook, Network, NetworkAsset, Wallet
     from financial.models import BankCard, Gateway
     from market.models import PairSymbol
     from market.utils.order_utils import new_order
+    from ledger.utils.wallet_pipeline import WalletPipeline
+    from ledger.models import OTCRequest
+    from decimal import Decimal
 
 
     def get_rand_int():
@@ -115,3 +120,28 @@ if settings.DEBUG_OR_TESTING:
                     amount=d[1],
                     side=side
                 )
+
+    def new_otc_request(account: Account = None):
+        if not account:
+            account = new_account()
+
+        from_asset = Asset.get(Asset.IRT)
+        from_amount = Decimal(1000000)
+
+        from_asset.get_wallet(account).airdrop(from_amount)
+
+        return OTCRequest.new_trade(
+            account=account,
+            from_asset=from_asset,
+            to_asset=Asset.get(Asset.USDT),
+            from_amount=from_amount,
+            market=Wallet.SPOT,
+            order_type=OTCRequest.MARKET,
+        )
+
+    def new_trade_revenue(account: Account = None):
+        return TradeRevenue.new(
+            user_trade=new_otc_request(account),
+            group_id=uuid4(),
+            source=TradeRevenue.OTC_MARKET,
+        ).save()

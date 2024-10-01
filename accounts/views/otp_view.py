@@ -57,7 +57,6 @@ class VerifyOTPView(CreateAPIView):
 
 
 class OTPSerializer(serializers.ModelSerializer):
-
     new_phone = serializers.CharField(required=False)
 
     def create(self, validated_data):
@@ -82,7 +81,7 @@ class OTPSerializer(serializers.ModelSerializer):
         if not phone:
             raise ValidationError('امکان ارسال کد وجود ندارد.')
 
-        VerificationCode.send_otp_code(phone=phone, scope=scope, user=user)
+        VerificationCode.send_otp_code(request=self.context['request'], phone=phone, scope=scope, user=user)
 
         return {}
 

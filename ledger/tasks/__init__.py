@@ -9,3 +9,4 @@ from .distribution import update_distribution_factors
 from .coins_info import populate_coins_info
 from .alert import send_price_notifications
 from .withdraw import update_withdraws
+from .network import check_network_schedules
