@@ -212,10 +212,12 @@ def get_depth_base_price_and_spread(symbol: str, side: str, amount: Decimal) -> 
     if not depth_encoded:
         return Decimal(0), Decimal(0)
 
+    coin, _ = split_symbol(symbol)
+
     base_price, side, values = decode_depth(depth_encoded)
     assert len(values) == len(DEPTH_THRESHOLD_SPREADS)
 
-    base_price *= _get_external_price_multiplier(symbol)
+    base_price *= _get_external_price_multiplier(coin)
 
     value = amount * base_price
 
