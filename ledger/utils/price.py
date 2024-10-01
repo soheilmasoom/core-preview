@@ -6,9 +6,9 @@ from django.db.models import Min, Max, F
 from accounts.models import SystemConfig
 from ledger.exceptions import SmallDepthError
 from ledger.utils.cache import cache_for
-from ledger.utils.depth import get_base_price_and_spread, NoDepthError
-from ledger.utils.external_price import fetch_external_redis_prices, BUY, SELL, get_other_side, fetch_external_depth, \
-    IRT, USDT, fetch_external_price_by_symbol, split_symbol
+from ledger.utils.depth import NoDepthError
+from ledger.utils.external_price import fetch_external_redis_prices, BUY, SELL, get_other_side, \
+    IRT, USDT, fetch_external_price_by_symbol, split_symbol, get_depth_base_price_and_spread
 from ledger.utils.otc import spread_to_multiplier, get_otc_spread
 from ledger.utils.precision import floor_precision, ceil_precision
 
@@ -211,26 +211,24 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
             symbol = f'{coin}USDT'
             base_price = get_price(USDT_IRT, side)
 
-        external_depth = fetch_external_depth(symbol, side)
+        try:
+            price, spread = get_depth_base_price_and_spread(symbol, side, amount)
+        except NoDepthError as exp:
+            raise SmallDepthError(exp.args[0])
 
-        if external_depth:
-            try:
-                price, spread = get_base_price_and_spread(external_depth, amount)
+        if price:
+            extra_spread = get_otc_spread(
+                coin=coin,
+                base_coin=USDT,
+                value=amount * price,
+                side=side,
+            )
 
-                extra_spread = get_otc_spread(
-                    coin=coin,
-                    base_coin=USDT,
-                    value=amount * price,
-                    side=side,
-                )
+            if side == BUY:
+                extra_spread = -extra_spread
 
-                if side == BUY:
-                    extra_spread = -extra_spread
+            spread += extra_spread
 
-                spread += extra_spread
-
-            except NoDepthError as exp:
-                raise SmallDepthError(exp.args[0])
         else:
             price = get_price(f'{coin}USDT', side)
             if not price:

@@ -1,13 +1,14 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, Union
+from typing import List, Union, Tuple
 
 from django.conf import settings
 from django.utils import timezone
 from redis import Redis
 
 from ledger.utils.cache import cache_for
+from ledger.utils.depth import decode_depth, THRESHOLD_SPREADS as DEPTH_THRESHOLD_SPREADS, NoDepthError, BID
 
 logger = logging.getLogger(__name__)
 
@@ -197,9 +198,36 @@ def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow
     return results
 
 
-def fetch_external_depth(symbol: str, side: str) -> str:
+def _fetch_external_depth(symbol: str, side: str) -> str:
     key = SIDE_MAP[side]
     data = _get_price_redis(False).hgetall(name=f'depth:{_get_external_symbol(symbol).lower()}')
 
     if data and _check_price_dict_time_frame(data):
         return data[key]
+
+
+def get_depth_base_price_and_spread(symbol: str, side: str, amount: Decimal) -> Tuple[Decimal, Decimal]:
+    depth_encoded = _fetch_external_depth(symbol, side)
+
+    if not depth_encoded:
+        return Decimal(0), Decimal(0)
+
+    base_price, side, values = decode_depth(depth_encoded)
+    assert len(values) == len(DEPTH_THRESHOLD_SPREADS)
+
+    base_price *= _get_external_price_multiplier(symbol)
+
+    value = amount * base_price
+
+    for i in range(len(values)):
+        if value <= values[i]:
+            break
+    else:
+        raise NoDepthError(values[-1] / base_price)
+
+    spread = DEPTH_THRESHOLD_SPREADS[i]
+
+    if side == BID:
+        spread = -spread
+
+    return base_price, spread

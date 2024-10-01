@@ -75,22 +75,3 @@ def decode_depth(encoded: str) -> Tuple[Decimal, int, List[int]]:
     parts = encoded.split('-')
     return Decimal(parts[0]), int(parts[1]), list(map(int, parts[2:]))
 
-
-def get_base_price_and_spread(encoded: str, amount: Decimal) -> Tuple[Decimal, Decimal]:
-    base_price, side, values = decode_depth(encoded)
-    assert len(values) == len(THRESHOLD_SPREADS)
-
-    value = amount * base_price
-
-    for i in range(len(values)):
-        if value <= values[i]:
-            break
-    else:
-        raise NoDepthError(values[-1] / base_price)
-
-    spread = THRESHOLD_SPREADS[i]
-
-    if side == BID:
-        spread = -spread
-
-    return base_price, spread
