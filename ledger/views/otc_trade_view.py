@@ -283,6 +283,7 @@ class OTCTradeSerializer(serializers.ModelSerializer):
         try:
             otc_trade = OTCTrade.handle_otc_request(otc_request)
             send_yandex_event(request.user, 'purchase')
+            otc_trade.refresh_from_db()
             return otc_trade
         except TokenExpired:
             raise ValidationError({'token': 'سفارش منقضی شده است. لطفا دوباره اقدام کنید.'})
