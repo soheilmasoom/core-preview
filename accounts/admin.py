@@ -20,6 +20,7 @@ from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationC
     AttributionTracker, AppConfig
 from accounts.models import UserComment, TrafficSource, Referral
 from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object
+from accounts.models.fcm_topic_subscription import FCMTopicSubscription
 from financial.models.bank_card import BankCard, BankAccount
 from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
@@ -1105,3 +1106,8 @@ class CompanyAdmin(SimpleHistoryAdmin):
 class LevelGrantsAdmin(admin.ModelAdmin):
     list_display = ('level', 'max_daily_crypto_withdraw', 'max_daily_fiat_withdraw', 'max_daily_fiat_deposit')
     ordering = ('level',)
+
+
+@admin.register(FCMTopicSubscription)
+class FCMTopicSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'action', 'status', 'topic')
