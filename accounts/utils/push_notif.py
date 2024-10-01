@@ -8,6 +8,8 @@ from decouple import config
 from oauth2client.service_account import ServiceAccountCredentials
 
 from accounts.models import User
+from accounts.models.fcm_topic_subscription import FCMTopicSubscription
+from ledger.utils.fields import DONE
 
 logger = logging.getLogger(__name__)
 
@@ -43,45 +45,60 @@ def _get_access_token() -> AccessToken:
 
     return _access_token
 
-def manage_user_topic_subscription(user: User, topic: str, action: str, token: str = None) -> bool:
+def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription, user: User, topic: str, action: str, token: str = None):
     from accounts.models import FirebaseToken
 
-    tokens = FirebaseToken.objects.filter(user=user).values_list('token', flat=True)
+    tokens = list(FirebaseToken.objects.filter(user=user).values_list('token', flat=True))
     if not tokens:
-        logger.info(f'No tokens found for user ID: {user}')
+        logger.info(f'No tokens found for user: {user}')
         return False
 
     access_token = _get_access_token()
-    url = 'https://iid.googleapis.com/iid/v1:batchAdd' if action == 'subscribe' else 'https://iid.googleapis.com/iid/v1:batchRemove'
+    url = (
+        'https://iid.googleapis.com/iid/v1:batchAdd'
+        if action == 'subscribe'
+        else 'https://iid.googleapis.com/iid/v1:batchRemove'
+    )
 
     resp = requests.post(
         url=url,
         headers={
             'Authorization': f'Bearer {access_token.token}',
             'Content-Type': 'application/json',
-            "access_token_auth": "true"
+            "access_token_auth": "true",
         },
         json={
             'to': f'/topics/{topic}',
-            'registration_tokens': list(tokens)
-        }
+            'registration_tokens': tokens,
+        },
     )
-    url=url,
-    headers_resp={
-        'Authorization': f'Bearer {access_token.token}',
-        'Content-Type': 'application/json',
-    },
-    json_resp={
-        'to': f'/topics/{topic}',
-        'registration_tokens': list(tokens)
-    }
-    #TODO: to be removed
-    logger.warning(f'json {json_resp} --- {headers_resp} {action} user ID {user} to topic: {topic}- token {token}')
-    if resp.ok:
-        logger.warning(f'{action} user ID {user} to topic: {topic}')
+
+    try:
+        resp_json = resp.json()
+    except ValueError:
+        resp_json = None
+    not_found_tokens = []
+    if resp.ok and resp_json and 'results' in resp_json:
+        for idx, result in enumerate(resp_json['results']):
+            if 'error' in result:
+                error = result['error']
+                if error == 'NOT_FOUND':
+                    not_found_tokens.append(tokens[idx])
+                    logger.warning(f'Token not found: {tokens[idx]}')
+                else:
+                    logger.warning(f'Error for token {tokens[idx]}: {error}')
+            else:
+                logger.info(f'Successfully {action} user {user} topic: {topic}')
+                fcm_topic_subscription.status = DONE
+                fcm_topic_subscription.save(update_fields=['status'])
+                return
     else:
-        logger.warning(f'Failed to {action} user ID {user} to topic: {topic} Response: {resp.text}-{resp}')
-    return resp.ok
+        logger.warning(
+            f'Failed to {action} user {user} to topic: {topic} Response: {resp.text}-{resp}'
+        )
+    if not_found_tokens:
+        FirebaseToken.objects.filter(token__in=not_found_tokens).delete()
+    return False
 
 
 def send_push_notif_to_user(user: User, title: str, body: str, image: str = None, link: str = None):
