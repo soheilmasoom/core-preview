@@ -400,7 +400,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         codename = get_permission_codename("manage_users", opts)
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
-    @admin.action(description='حذف امن کاربر', permissions=['manage_users'])
+    @admin.action(description='حذف امن کاربر', permissions=['change'])
     def safe_delete_user(self, request, queryset: List[User]):
         for user in queryset:
             try:
