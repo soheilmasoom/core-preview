@@ -89,14 +89,14 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime) -> Tu
     ).values(
         'date_str', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'
     ).annotate(
-        user_count=Count('user__id', distinct=True),
+        user_count=Count('user_id', distinct=True),
         verified_count=Count(
-            'user__id',
+            'user_id',
             distinct=True,
             filter=Q(user__level_2_verify_datetime__lte=F('user__date_joined') + Value(timedelta(days=1)))
         ),
         depositor_count=Count(
-            'user__id', distinct=True,
+            'user_id', distinct=True,
             filter=Q(user__first_fiat_deposit_date__lte=F('user__date_joined') + Value(timedelta(days=1))) |
                    Q(user__first_crypto_deposit_date__lte=F('user__date_joined') + Value(timedelta(days=1)))
         )
@@ -108,6 +108,12 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime) -> Tu
     data = list(queryset)
 
     if permission.referral_percent_revenue:
+        group_by = (
+            'date_str', 'account__user__traffic_source__utm_source', 'account__user__traffic_source__utm_medium',
+            'account__user__traffic_source__utm_campaign', 'account__user__traffic_source__utm_content',
+            'account__user__traffic_source__utm_term'
+        )
+
         revenues = TradeRevenue.objects.filter(
             created__range=[start, end],
             account__user__traffic_source__utm_source=permission.utm_source,
@@ -115,14 +121,14 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime) -> Tu
             account__user__account__referral__isnull=True
         ).annotate(
             date_str=Cast(TruncDate('created'), output_field=CharField())
-        ).values('date_str').annotate(
+        ).values(*group_by).annotate(
             revenue=Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F('value')) * permission.referral_percent_revenue / 100
-        ).values_list('date_str', 'revenue')
+        ).values_list(*group_by, 'revenue')
 
         data = join_lists_with_first_element(data, list(revenues), len(headers), 2)
         headers.append('revenue')
 
-    return headers, list(data)
+    return headers, sorted(list(data))
 
 
 def queryset_to_workbook(headers: list, data: list):
