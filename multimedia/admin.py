@@ -7,6 +7,7 @@ from typing import List
 from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.admin_guard.html_tags import admin_page_anchor
+from multimedia.models.faq_category import FAQ, FAQCategory
 from multimedia.utils.backoffice_content import BackofficeContent
 from multimedia.models import Image, PublicVideo, Banner, CoinPriceContent, Article, Section, File, Guide, GuideGroup
 from markdown import markdown
@@ -156,3 +157,13 @@ class GuidAdmin(SimpleHistoryAdmin):
     list_filter = ('group', )
     search_fields = ('title', )
     list_editable = ('order', )
+
+
+@admin.register(FAQ)
+class FAQAdmin(admin.ModelAdmin):
+    list_display = ('category', 'question_text', 'answer_text', 'created',)
+
+
+@admin.register(FAQCategory)
+class FAQAdmin(admin.ModelAdmin):
+    list_display = ('title',)
