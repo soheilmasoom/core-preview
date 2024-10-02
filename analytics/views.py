@@ -125,7 +125,8 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime) -> Tu
             revenue=Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F('value')) * permission.referral_percent_revenue / 100
         ).values_list(*group_by, 'revenue')
 
-        data = join_lists_with_first_element(data, list(revenues), len(headers), 2)
+        data = join_lists_with_first_element(data, list(revenues), n1=len(headers), n2=len(group_by) + 1,
+                                             group_len=len(group_by))
         headers.append('revenue')
 
     return headers, sorted(list(data))
