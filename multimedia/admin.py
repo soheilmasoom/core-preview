@@ -7,6 +7,7 @@ from typing import List
 from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.admin_guard.html_tags import admin_page_anchor
+from multimedia.models.faq_category import FAQ, FAQCategory
 from multimedia.utils.backoffice_content import BackofficeContent
 from multimedia.models import Image, PublicVideo, Banner, CoinPriceContent, Article, Section, File, Guide, GuideGroup
 from markdown import markdown
@@ -131,7 +132,26 @@ class SectionAdmin(SimpleHistoryAdmin):
     }
 
 
-class GuidTabularInline(admin.TabularInline):
+class FAQTabularInline(admin.TabularInline):
+    fields = ('question_text', 'answer_text')
+    readonly_fields = ('get_id', )
+    model = FAQ
+    extra = 1
+
+    @admin.display(description="id")
+    def get_id(self, faq: FAQ):
+        return admin_page_anchor(faq.id or '', faq)
+
+
+@admin.register(FAQCategory)
+class FAQCategoryAdmin(SimpleHistoryAdmin):
+    list_display = ('slug', 'title',)
+    search_fields = ('slug', 'title',)
+
+    inlines = (FAQTabularInline, )
+
+
+class GuideTabularInline(admin.TabularInline):
     fields = ('get_id', 'title', 'image', 'description', 'link', 'video')
     readonly_fields = ('get_id', )
     model = Guide
@@ -147,7 +167,7 @@ class GuideGroupAdmin(SimpleHistoryAdmin):
     list_display = ('slug', 'title',)
     search_fields = ('slug', 'title',)
 
-    inlines = (GuidTabularInline, )
+    inlines = (GuideTabularInline, )
 
 
 @admin.register(Guide)
@@ -156,3 +176,8 @@ class GuidAdmin(SimpleHistoryAdmin):
     list_filter = ('group', )
     search_fields = ('title', )
     list_editable = ('order', )
+
+
+@admin.register(FAQ)
+class FAQAdmin(admin.ModelAdmin):
+    list_display = ('category', 'question_text', 'answer_text', 'created',)
