@@ -14,7 +14,7 @@ from openpyxl import Workbook
 from accounting.models import TradeRevenue
 from accounts.models import TrafficSource, User
 from analytics.models import ReportPermission
-from analytics.utils.join import join_lists_with_first_element
+from analytics.utils.list import join_lists_with_first_element
 
 
 def _get_report_permission(user: User, group_id: str):
