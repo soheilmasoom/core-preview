@@ -50,9 +50,11 @@ def parse_int(value: str) -> int:
 
 @login_required
 def request_source_analytics(request, group_id: str):
-    _get_report_permission(request.user, group_id)
+    perm = _get_report_permission(request.user, group_id)
 
     context = {
+        'utm_source': perm.utm_source,
+        'utm_medium': perm.utm_medium,
         'redirect_url': settings.HOST_URL + f'/analytics/marketing/reports/{group_id}/download/'
     }
     return render(request, 'datetime_form.html', context)
