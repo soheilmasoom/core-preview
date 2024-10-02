@@ -41,6 +41,13 @@ def parse_date(date_str: str) -> datetime:
         raise BadRequest('Invalid Data')
 
 
+def parse_int(value: str) -> int:
+    try:
+        return int(value)
+    except ValueError:
+        pass
+
+
 @login_required
 def request_source_analytics(request, group_id: str):
     _get_report_permission(request.user, group_id)
@@ -55,13 +62,14 @@ def request_source_analytics(request, group_id: str):
 def get_source_analytics(request, group_id: str):
     permission = _get_report_permission(request.user, group_id)
 
-    start = parse_date(request.GET.get('start'))
-    end = parse_date(request.GET.get('end'))
+    start = parse_date(request.GET.get('start', ''))
+    end = parse_date(request.GET.get('end', '')) + timedelta(days=1)
+    level = max(min(parse_int(request.GET.get('level', '')) or 2, 5), 1)
 
     if end - start > timedelta(days=30):
         raise BadRequest('Report can export at most 30 days')
 
-    headers, data = get_data(permission, start, end)
+    headers, data = get_data(permission, start, end, level)
 
     workbook = queryset_to_workbook(headers, data)
 
@@ -75,8 +83,9 @@ def get_source_analytics(request, group_id: str):
     return response
 
 
-def get_data(permission: ReportPermission, start: datetime, end: datetime) -> Tuple[list, list]:
-    headers = ['date', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'users', 'verified',
+def get_data(permission: ReportPermission, start: datetime, end: datetime, level: int = 2) -> Tuple[list, list]:
+    utms = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'][:level]
+    headers = ['date', *utms, 'users', 'verified',
                'depositors']
 
     queryset = TrafficSource.objects.filter(
@@ -87,7 +96,7 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime) -> Tu
     ).annotate(
         date_str=Cast(TruncDate('created'), output_field=CharField())
     ).values(
-        'date_str', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'
+        'date_str', *utms
     ).annotate(
         user_count=Count('user_id', distinct=True),
         verified_count=Count(
@@ -101,18 +110,13 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime) -> Tu
                    Q(user__first_crypto_deposit_date__lte=F('user__date_joined') + Value(timedelta(days=1)))
         )
     ).values_list(
-        'date_str', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
-        'user_count', 'verified_count', 'depositor_count',
+        'date_str', *utms, 'user_count', 'verified_count', 'depositor_count',
     )
 
     data = list(queryset)
 
     if permission.referral_percent_revenue:
-        group_by = (
-            'date_str', 'account__user__traffic_source__utm_source', 'account__user__traffic_source__utm_medium',
-            'account__user__traffic_source__utm_campaign', 'account__user__traffic_source__utm_content',
-            'account__user__traffic_source__utm_term'
-        )
+        group_by = ['date_str'] + [f'account__user__traffic_source__{s}' for s in utms]
 
         revenues = TradeRevenue.objects.filter(
             created__range=[start, end],

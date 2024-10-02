@@ -7,9 +7,19 @@
     <h1>Enter Start and End</h1>
     <form action="{{ redirect_url }}" method="get">
       <label for="start">Start Datetime:</label>
-      <input type="date" id="start" name="start"><br><br>
+      <input type="date" id="start" name="start" required><br><br>
       <label for="end">End Datetime:</label>
-      <input type="date" id="end" name="end"><br><br>
+      <input type="date" id="end" name="end" required><br><br>
+
+      <label for="level">Select Level:</label>
+      <select id="level" name="level">
+        <option value="1">Source</option>
+        <option value="2">Medium</option>
+        <option value="3">Campaign</option>
+        <option value="4">Content</option>
+        <option value="5">Term</option>
+      </select><br><br>
+
       <input type="submit" value="Submit">
     </form>
   </body>
