@@ -22,10 +22,10 @@ def url_to_admin_list(obj, filters: dict = None):
     return url
 
 
-def admin_page_anchor(title, obj, change: bool = True):
+def admin_page_anchor(obj, title: str = '', change: bool = True):
     if change:
         url = url_to_edit_object(obj)
     else:
         url = url_to_admin_list(obj)
 
-    return anchor_tag(title, url)
+    return anchor_tag(title or str(obj), url)

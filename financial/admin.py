@@ -16,7 +16,7 @@ from simple_history.admin import SimpleHistoryAdmin
 from accounting.models import VaultItem, Vault
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
-from accounts.admin_guard.html_tags import anchor_tag
+from accounts.admin_guard.html_tags import anchor_tag, admin_page_anchor
 from accounts.models import User
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.admin_guard.html_tags import url_to_edit_object
@@ -229,9 +229,9 @@ class PaymentRequestUserFilter(SimpleListFilter):
 
 @admin.register(PaymentRequest)
 class PaymentRequestAdmin(SimpleHistoryAdmin):
-    list_display = ('created', 'gateway', 'bank_card', 'amount', 'authority', 'payment')
+    list_display = ('created', 'gateway', 'bank_card', 'amount', 'authority', 'get_payment')
     search_fields = ('bank_card__card_pan', 'amount', 'authority', 'group_id')
-    readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity', 'user')
+    readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity', 'user', 'get_payment')
     list_filter = (PaymentRequestUserFilter,)
     actions = ('verify', )
 
@@ -245,18 +245,37 @@ class PaymentRequestAdmin(SimpleHistoryAdmin):
 
             payment_request.get_gateway().verify(payment)
 
+    @admin.display(description='Payment', ordering='payment')
+    def get_payment(self, payment_request: PaymentRequest):
+        return admin_page_anchor(payment_request.payment)
+
 
 class PaymentUserFilter(SimpleListFilter):
-    title = 'کاربر'
+    title = 'User'
     parameter_name = 'user'
 
     def lookups(self, request, model_admin):
         return [(1, 1)]
 
     def queryset(self, request, queryset):
-        user = request.GET.get('user')
+        user = self.value()
         if user is not None:
             return queryset.filter(user=user)
+        else:
+            return queryset
+
+
+class PaymentGatewayFilter(SimpleListFilter):
+    title = 'Gateway'
+    parameter_name = 'gateway'
+
+    def lookups(self, request, model_admin):
+        return [(g.id, g.name) for g in Gateway.objects.order_by('id')]
+
+    def queryset(self, request, queryset):
+        gateway_id = self.value()
+        if gateway_id is not None:
+            return queryset.filter(paymentrequest__gateway_id=gateway_id)
         else:
             return queryset
 
@@ -265,7 +284,7 @@ class PaymentUserFilter(SimpleListFilter):
 class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
     list_display = ('created', 'get_amount', 'get_fee', 'status', 'ref_id', 'ref_status',
                     'source', 'get_card_pan', 'get_user',)
-    list_filter = (PaymentUserFilter, 'status', 'source')
+    list_filter = (PaymentGatewayFilter, 'status', 'source', PaymentUserFilter, )
     search_fields = ('ref_id', 'paymentrequest__bank_card__card_pan', 'amount', 'paymentrequest__authority',
                      'user__phone', 'user__first_name', 'user__last_name')
     readonly_fields = ('group_id', 'user', 'amount', 'fee', 'source')

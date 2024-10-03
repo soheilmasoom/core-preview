@@ -48,7 +48,7 @@ class PaymentRequest(models.Model):
 
     source = models.CharField(max_length=16, choices=((APP, APP), (DESKTOP, DESKTOP)), default=DESKTOP)
 
-    authority = models.CharField(max_length=64, blank=True, db_index=True, null=True)
+    authority = models.CharField(max_length=64, blank=True, db_index=True)
     token = models.CharField(max_length=256, blank=True)
 
     login_activity = models.ForeignKey('accounts.LoginActivity', on_delete=models.SET_NULL, null=True, blank=True)
@@ -121,7 +121,7 @@ class Payment(models.Model):
 
     status = get_status_field()
 
-    ref_id = models.CharField(null=True, blank=True, max_length=256)
+    ref_id = models.CharField(blank=True, max_length=256)
     ref_status = models.SmallIntegerField(null=True, blank=True)
 
     description = models.CharField(max_length=DESCRIPTION_SIZE, blank=True)

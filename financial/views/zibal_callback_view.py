@@ -36,6 +36,4 @@ class ZibalCallbackView(TemplateView):
             else:
                 payment_request.get_gateway().verify(payment)
 
-        print('REDIRECTING', payment.   get_redirect_url())
-
         return payment.redirect_to_app()

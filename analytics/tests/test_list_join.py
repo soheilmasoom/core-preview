@@ -1,6 +1,6 @@
 import unittest
 
-from analytics.utils.join import join_lists_with_first_element
+from analytics.utils.list import join_lists_with_first_element
 
 
 class TestJoinListsWithFirstElement(unittest.TestCase):
@@ -26,8 +26,8 @@ class TestJoinListsWithFirstElement(unittest.TestCase):
         expected = [
             ('a', 1, ''),
             ('b', 2, ''),
-            ('', 'c', 3),
-            ('', 'd', 4)
+            ('c', '', 3),
+            ('d', '', 4)
         ]
         result = join_lists_with_first_element(list1, list2, n1, n2)
         # Sorting the results because order may vary
@@ -42,7 +42,7 @@ class TestJoinListsWithFirstElement(unittest.TestCase):
         expected = [
             ('a', 1, ''),
             ('b', 2, 3),
-            ('', 'c', 4)
+            ('c', '', 4)
         ]
         result = join_lists_with_first_element(list1, list2, n1, n2)
         self.assertEqual(sorted(result), sorted(expected))
@@ -54,8 +54,8 @@ class TestJoinListsWithFirstElement(unittest.TestCase):
         n1 = 2  # Expected size of tuples in list1
         n2 = len(list2[0])
         expected = [
-            ('', 'a', 1),
-            ('', 'b', 2)
+            ('a', '', 1),
+            ('b', '', 2)
         ]
         result = join_lists_with_first_element(list1, list2, n1, n2)
         self.assertEqual(sorted(result), sorted(expected))
@@ -154,7 +154,7 @@ class TestJoinListsWithFirstElement(unittest.TestCase):
         n2 = len(list2[0])  # 2
         expected = [
             ('a', 1, 3),
-            ('', 'b', 4)
+            ('b', '', 4)
         ]
         result = join_lists_with_first_element(list1, list2, n1, n2)
         self.assertEqual(sorted(result), sorted(expected))
