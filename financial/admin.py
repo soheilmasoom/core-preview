@@ -251,7 +251,7 @@ class PaymentRequestAdmin(SimpleHistoryAdmin):
 
 
 class PaymentUserFilter(SimpleListFilter):
-    title = 'User'
+    title = 'user'
     parameter_name = 'user'
 
     def lookups(self, request, model_admin):
@@ -266,7 +266,7 @@ class PaymentUserFilter(SimpleListFilter):
 
 
 class PaymentGatewayFilter(SimpleListFilter):
-    title = 'Gateway'
+    title = 'gateway'
     parameter_name = 'gateway'
 
     def lookups(self, request, model_admin):

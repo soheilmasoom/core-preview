@@ -48,7 +48,7 @@ class PaymentRequest(models.Model):
 
     source = models.CharField(max_length=16, choices=((APP, APP), (DESKTOP, DESKTOP)), default=DESKTOP)
 
-    authority = models.CharField(max_length=64, blank=True, db_index=True)
+    authority = models.CharField(max_length=64, blank=True, db_index=True, null=True)
     token = models.CharField(max_length=256, blank=True)
 
     login_activity = models.ForeignKey('accounts.LoginActivity', on_delete=models.SET_NULL, null=True, blank=True)

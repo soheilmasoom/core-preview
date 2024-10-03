@@ -17,21 +17,9 @@ class Migration(migrations.Migration):
             preserve_default=False,
         ),
         migrations.AlterField(
-            model_name='historicalpaymentrequest',
-            name='authority',
-            field=models.CharField(blank=True, db_index=True, default='', max_length=64),
-            preserve_default=False,
-        ),
-        migrations.AlterField(
             model_name='payment',
             name='ref_id',
             field=models.CharField(blank=True, default='', max_length=256),
-            preserve_default=False,
-        ),
-        migrations.AlterField(
-            model_name='paymentrequest',
-            name='authority',
-            field=models.CharField(blank=True, db_index=True, default='', max_length=64),
             preserve_default=False,
         ),
     ]
