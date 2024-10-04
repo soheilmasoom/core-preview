@@ -248,7 +248,7 @@ class WithdrawFeedbackAdmin(admin.ModelAdmin):
 class NetworkAdmin(SimpleHistoryAdmin):
     list_display = (
         'symbol', 'can_withdraw', 'can_deposit', 'min_confirm', 'unlock_confirm', 'deposit_need_memo',
-        'withdraw_allow_memo', 'address_regex',
+        'withdraw_allow_memo', 'address_regex', 'memo_regex'
     )
     list_editable = ('can_withdraw', 'can_deposit')
     search_fields = ('symbol',)

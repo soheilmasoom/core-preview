@@ -178,6 +178,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     can_deposit = serializers.SerializerMethodField()
     can_withdraw = serializers.SerializerMethodField()
     address_regex = serializers.CharField(source='network.address_regex')
+    memo_regex = serializers.CharField(source='network.memo_regex')
     slow_withdraw = serializers.SerializerMethodField()
 
     withdraw_commission = serializers.SerializerMethodField()
@@ -227,7 +228,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
-                  'min_deposit', 'network_name', 'address_regex', 'withdraw_precision', 'need_memo', 'min_confirm',
+                  'min_deposit', 'network_name', 'address_regex', 'memo_regex', 'withdraw_precision', 'need_memo', 'min_confirm',
                   'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name', 'deposit_need_memo',
                   'withdraw_allow_memo', 'contract')
         model = NetworkAsset
@@ -409,7 +410,7 @@ class NetworkSerializer(serializers.ModelSerializer):
     network_name = serializers.CharField(source='name')
 
     class Meta:
-        fields = ('id', 'name', 'network_name', 'network', 'symbol', 'address_regex', 'deposit_need_memo',
+        fields = ('id', 'name', 'network_name', 'network', 'symbol', 'address_regex', 'memo_regex', 'deposit_need_memo',
                   'withdraw_allow_memo', 'memo_title_fa', 'memo_name_fa', 'memo_name', 'min_confirm')
         model = Network
 
