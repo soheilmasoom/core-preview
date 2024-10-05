@@ -112,7 +112,7 @@ class Payment(models.Model):
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     modified = models.DateTimeField(auto_now=True)
 
-    group_id = get_group_id_field()
+    group_id = get_group_id_field(unique=True)
 
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
 
