@@ -16,9 +16,9 @@ class PaystarCallbackView(TemplateView):
 
     def get(self, request, *args, **kwargs):
         status = request.GET.get('status')
-        authority = request.GET.get('ref_num')
+        authority = request.GET.get('ref_num', '')
         tracking_code = request.GET.get('tracking_code')
-        card_number = request.GET.get('card_number') or ''
+        card_number = request.GET.get('card_number', '')
 
         if not authority:
             raise ValidationError('no authority')
