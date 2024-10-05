@@ -17,7 +17,7 @@ from ledger.models import Asset, NetworkAsset, CoinCategory, TokenDelist
 from ledger.models.asset import AssetSerializerMini
 from ledger.utils.coins_info import get_coins_info
 from ledger.utils.external_price import SELL
-from ledger.utils.fields import get_irt_market_asset_symbols
+from ledger.utils.fields import get_irt_market_asset_symbols, get_irt_margin_enable_coins
 from ledger.utils.precision import get_symbol_presentation_price, get_presentation_amount
 from ledger.utils.price import get_prices, get_coins_symbols, get_price
 from ledger.utils.provider import CoinInfo
@@ -44,6 +44,7 @@ class AssetSerializerBuilder(AssetSerializerMini):
     min_withdraw_amount = serializers.SerializerMethodField()
     min_withdraw_fee = serializers.SerializerMethodField()
     market_irt_enable = serializers.SerializerMethodField()
+    margin_enable = serializers.SerializerMethodField()
 
     can_deposit = serializers.SerializerMethodField()
     can_withdraw = serializers.SerializerMethodField()
@@ -60,6 +61,9 @@ class AssetSerializerBuilder(AssetSerializerMini):
 
     def get_market_irt_enable(self, asset: Asset):
         return asset.symbol in self.context['enable_irt_market_list']
+
+    def get_margin_enable(self, asset: Asset):
+        return asset.symbol in self.context['irt_margin_coins']
 
     def get_cap(self, asset) -> CoinInfo:
         return self.context['cap_info'].get(asset.symbol, CoinInfo())
@@ -159,7 +163,10 @@ class AssetSerializerBuilder(AssetSerializerMini):
         new_fields = []
 
         if prices:
-            new_fields = ['price_usdt', 'price_irt', 'trend_url', 'change_24h', 'volume_24h', 'market_irt_enable']
+            new_fields = [
+                'price_usdt', 'price_irt', 'trend_url', 'change_24h', 'volume_24h', 'market_irt_enable',
+                'margin_enable',
+            ]
 
         if extra_info:
             new_fields = [
@@ -187,6 +194,7 @@ class AssetsViewSet(ModelViewSet):
         ctx = super().get_serializer_context()
 
         ctx['enable_irt_market_list'] = get_irt_market_asset_symbols()
+        ctx['irt_margin_coins'] = get_irt_margin_enable_coins()
 
         if self.get_options('prices') or self.get_options('extra_info'):
             coins = list(self.get_queryset().values_list('symbol', flat=True))
