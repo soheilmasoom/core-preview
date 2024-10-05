@@ -67,7 +67,7 @@ class PaymentRequest(models.Model):
     def rial_amount(self):
         return (self.fee + self.amount) * 10
 
-    def get_or_create_payment(self) -> 'Payment':
+    def get_or_create_payment(self, **kwargs) -> 'Payment':
         with transaction.atomic():
             payment, created = Payment.objects.get_or_create(
                 group_id=self.group_id,
@@ -76,6 +76,7 @@ class PaymentRequest(models.Model):
                     'amount': self.amount,
                     'fee': self.fee,
                     'source': Payment.IPG,
+                    **kwargs
                 }
             )
             if created:

@@ -29,11 +29,10 @@ class PaystarCallbackView(TemplateView):
 
         if not payment:
             with transaction.atomic():
-                payment = payment_request.get_or_create_payment()
-                payment.ref_id = tracking_code
-                payment.card_pan = card_number
-                payment.save(update_fields=['ref_id', 'card_pan'])
-
+                payment = payment_request.get_or_create_payment(
+                    ref_id=tracking_code,
+                    card_pan=card_number
+                )
         if payment.status == PENDING:
             if status != '1':
                 payment.status = CANCELED
