@@ -124,7 +124,7 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime, level
             created__range=[start, end],
             account__user__traffic_source__utm_source=permission.utm_source,
             account__user__traffic_source__utm_medium=permission.utm_medium,
-            account__user__account__referral__isnull=True
+            # account__user__account__referral__isnull=True
         ).annotate(
             date_str=Cast(TruncDate('created'), output_field=CharField())
         ).values(*group_by).annotate(
