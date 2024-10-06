@@ -20,4 +20,4 @@ class TrafficSource(models.Model):
     user_agent = models.CharField(max_length=256, blank=True)
 
     def __str__(self):
-        return 'نظرهای ' + str(self.user)
+        return f'User {self.user.id}: {self.utm_source}/{self.utm_medium}'

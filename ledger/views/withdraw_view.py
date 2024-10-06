@@ -23,6 +23,7 @@ from ledger.models.asset import CoinField
 from ledger.models.network import NetworkField
 from ledger.utils.precision import get_precision, get_presentation_amount, humanize_number
 from ledger.utils.price import get_last_price
+from ledger.utils.wallet_pipeline import DECIMAL
 from ledger.utils.withdraw_verify import can_withdraw
 from ledger.views.address_book_view import AddressBookCreateSerializer
 
@@ -121,7 +122,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 'در حال حاضر امکان برداشت {} روی شبکه {} وجود ندارد.'.format(asset.symbol, network.symbol))
 
-        if get_precision(amount) > network_asset.withdraw_precision:
+        if get_precision(amount) > network_asset.get_withdraw_precision():
             raise ValidationError('مقدار وارد شده اشتباه است.')
 
         if amount < network_asset.withdraw_min:
@@ -136,10 +137,13 @@ class WithdrawSerializer(serializers.ModelSerializer):
         my_deposit_addresses = DepositAddress.objects.filter(address=address, address_key__account=account)
 
         if network.withdraw_allow_memo:
-            if not memo:
-                my_deposit_addresses = DepositAddress.objects.none()
-            else:
+            if memo:
                 my_deposit_addresses = my_deposit_addresses.filter(address_key__memo=memo)
+
+                if not re.match(network.memo_regex, memo):
+                    raise ValidationError(f'{network.memo_title_fa} به فرمت درستی وارد نشده است.')
+            else:
+                my_deposit_addresses = DepositAddress.objects.none()
         else:
             memo = ''
 

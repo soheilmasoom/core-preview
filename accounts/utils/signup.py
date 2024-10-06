@@ -1,4 +1,6 @@
-from accounts.models import TrafficSource
+from django.db import transaction
+
+from accounts.models import TrafficSource, User
 from accounts.utils.ip import get_client_ip
 import logging
 
@@ -63,12 +65,19 @@ def create_traffic_source(request, user, utm: dict):
     )
 
 
-def set_missions_to_user(user):
+def set_missions_to_user(user: User, promotion: str):
     from gamify.models import MissionJourney, MissionTemplate, UserMission
 
-    try:
-        account = user.get_account()
-        journey = MissionJourney.get_journey(account)
+    journey = MissionJourney.objects.filter(name=promotion, active=True).first()
+    if not journey:
+        journey = MissionJourney.objects.filter(active=True, default=True).first()
+
+    if not journey:
+        return
+
+    with transaction.atomic():
+        user.mission_journey = journey
+        user.save(update_fields=['mission_journey'])
 
         missions = []
         for mission_template in MissionTemplate.objects.filter(journey=journey, active=True):
@@ -76,6 +85,3 @@ def set_missions_to_user(user):
 
         if missions:
             UserMission.objects.bulk_create(missions)
-
-    except Exception as e:
-        logger.warning(f'Failed to set missions to user={user.id} due to={str(e)}')

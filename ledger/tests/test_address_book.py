@@ -1,5 +1,7 @@
 from django.test import Client
 from django.test import TestCase
+
+from accounts.utils.test import generate_otp_code
 from ledger.models import Asset
 from ledger.utils.test import new_account, new_address_book, new_network, new_network_asset
 from accounts.models.phone_verification import VerificationCode
@@ -15,8 +17,11 @@ class AddressBookTestCase(TestCase):
         self.client = Client()
         self.client.force_login(self.user)
         self.network = new_network()
-        self.otp = VerificationCode.send_otp_code(self.account.user.phone, VerificationCode.SCOPE_ADDRESS_BOOK,
-                                                  user=self.account.user)
+        self.otp = generate_otp_code(
+            phone=self.account.user.phone,
+            scope=VerificationCode.SCOPE_ADDRESS_BOOK,
+            user=self.account.user
+        )
         self.address_book = new_address_book(account=self.account, network=self.network, asset='USDT')
         self.address_book_without_coin = new_address_book(account=self.account, network=self.network)
         self.usdt = Asset.get(Asset.USDT)

@@ -32,6 +32,7 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
         network = get_object_or_404(Network, symbol=attrs['network'], can_withdraw=True)
         sms_code = attrs.get('sms_code', '')
         totp = attrs.get('totp', '')
+        memo = attrs.get('memo', '')
 
         if attrs['coin']:
             asset = get_object_or_404(Asset, symbol=attrs['coin'])
@@ -41,6 +42,9 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
 
         if not re.match(network.address_regex, address):
             raise ValidationError('آدرس به فرمت درستی وارد نشده است.')
+
+        if memo and not re.match(network.memo_regex, memo):
+            raise ValidationError(f'{network.memo_title_fa} به فرمت درستی وارد نشده است.')
 
         if not AddressBook.is_address_used_in_24h(address):
             sms_verification_code = VerificationCode.get_by_code(sms_code, user.phone,
@@ -58,7 +62,7 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
             'asset': asset,
             'name': name,
             'address': address,
-            'memo': attrs.get('memo', ''),
+            'memo': memo,
             'whitelist': attrs.get('whitelist', False),
         }
 

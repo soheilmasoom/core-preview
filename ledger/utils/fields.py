@@ -59,7 +59,7 @@ def get_status_field(default=PENDING):
 
 def get_verify_status_field(default=INIT):
     return models.CharField(
-        default=INIT,
+        default=default,
         max_length=8,
         choices=[(INIT, 'init'), (PENDING, 'pending'), (REJECTED, 'rejected'), (VERIFIED, 'verified')]
     )

@@ -24,6 +24,7 @@ from ledger.utils.fields import get_group_id_field, get_status_field, PENDING, C
 from ledger.utils.fraud import verify_fiat_withdraw
 from ledger.utils.precision import humanize_number
 from ledger.utils.price import get_last_price, USDT_IRT
+from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 logger = logging.getLogger(__name__)
@@ -195,8 +196,7 @@ class FiatWithdrawRequest(BaseTransfer):
         })
 
         with WalletPipeline() as pipeline:
-            for trx in Trx.objects.filter(group_id=self.group_id):
-                trx.revert(pipeline)
+            revert_trx_group(pipeline, self.group_id)
 
             user = self.bank_account.user
             SmsNotification.objects.create(

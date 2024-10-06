@@ -4,6 +4,7 @@ from .account import Account
 from .user import User, LevelGrants
 from .email_notification import EmailNotification
 from .user_auth import UserAuthRequest
+from .spam_phone import SpamPhone
 from .phone_verification import VerificationCode
 from .user_comment import UserComment
 from .traffic_source import TrafficSource

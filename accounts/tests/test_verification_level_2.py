@@ -1,18 +1,14 @@
-from datetime import timedelta
-from unittest.mock import patch
-
-from django.utils import timezone
 from django.test import TestCase, Client
-from accounts.tasks import verify_user
+
 from accounts.models import User
-from financial.utils.test import new_user
+from accounts.utils.test import new_user
 
 
 class VerificationLevel2TestCase(TestCase):
 
     def setUp(self):
-        self.user_verify = new_user(name='user_test_2', phone='09125555555')
-        self.user = new_user(level=User.LEVEL1)
+        self.user_verify = new_user(phone='09125555555')
+        self.user = new_user(phone='09125555554', level=User.LEVEL1)
         self.client = Client()
 
     def test_success_verify(self):

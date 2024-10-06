@@ -30,7 +30,9 @@ class JibitCallbackView(TemplateView):
 
         if not payment:
             with transaction.atomic():
-                payment = payment_request.get_or_create_payment()
+                payment = payment_request.get_or_create_payment(
+                    card_pan=request.POST.get('payerMaskedCardNumber', '')
+                )
 
         if payment.status == PENDING:
             if status == 'FAILED':

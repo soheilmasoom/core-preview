@@ -73,7 +73,7 @@ class UserVerifySerializer(serializers.Serializer):
             raise ValidationError('توکن نامعتبر است.')
 
         token_verification.set_token_used()
-        VerificationCode.send_otp_code(new_phone, VerificationCode.SCOPE_NEW_PHONE)
+        VerificationCode.send_otp_code(self.context['request'], new_phone, VerificationCode.SCOPE_NEW_PHONE)
         return data
 
 
@@ -118,7 +118,7 @@ class NewPhoneVerifySerializer(serializers.Serializer):
 
 class ChangePhoneView(APIView):
     def post(self, request):
-        serializer = UserVerifySerializer(data=request.data)
+        serializer = UserVerifySerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         return Response({'msg': 'کد باموفقیت ارسال شد.'})
 
