@@ -1,12 +1,13 @@
 import uuid
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Tuple
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, BadRequest
 from django.db.models import Q, Count, F, Value, CharField, Sum
-from django.db.models.functions import Cast, TruncDate
+from django.db.models.functions import Cast, TruncDate, Greatest
 from django.http import HttpResponse
 from django.shortcuts import render
 from openpyxl import Workbook
@@ -128,7 +129,7 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime, level
         ).annotate(
             date_str=Cast(TruncDate('created'), output_field=CharField())
         ).values(*group_by).annotate(
-            revenue=Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F('value')) * permission.referral_percent_revenue / 100
+            revenue=Greatest(Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F('value')) * permission.referral_percent_revenue / 100, Decimal(0))
         ).values_list(*group_by, 'revenue')
 
         data = join_lists_with_first_element(data, list(revenues), n1=len(headers), n2=len(group_by) + 1,
