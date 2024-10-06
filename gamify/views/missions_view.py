@@ -1,3 +1,4 @@
+from django.http import Http404
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.generics import ListAPIView, RetrieveAPIView, get_object_or_404
@@ -190,7 +191,7 @@ class TotalVoucherAPIView(APIView):
 class MissionDigestSerializer(serializers.ModelSerializer):
     class Meta:
         model = MissionDigest
-        fields = ('title', 'description')
+        fields = ('id', 'title', 'description')
 
 
 class MissionJourneySerializer(serializers.ModelSerializer):
@@ -208,4 +209,9 @@ class MissionJourneyAPIView(RetrieveAPIView):
     serializer_class = MissionJourneySerializer
 
     def get_object(self):
-        return get_object_or_404(MissionJourney, name=self.kwargs['name'])
+        journey = MissionJourney.get_by_promotion(self.kwargs['name'])
+
+        if not journey:
+            raise Http404
+
+        return journey
