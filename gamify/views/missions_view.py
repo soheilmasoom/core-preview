@@ -1,11 +1,11 @@
 from django.utils import timezone
 from rest_framework import serializers, status
-from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.authentication import is_app
-from gamify.models import Task, Achievement, UserMission
+from gamify.models import Task, Achievement, UserMission, MissionJourney, MissionDigest
 from ledger.models import Prize
 from ledger.models.asset import AssetSerializerMini
 
@@ -185,3 +185,27 @@ class TotalVoucherAPIView(APIView):
         return Response({
             'voucher_usdt': voucher_amount
         })
+
+
+class MissionDigestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MissionDigest
+        fields = ('title', 'description')
+
+
+class MissionJourneySerializer(serializers.ModelSerializer):
+    digests = MissionDigestSerializer(many=True)
+
+    def get_logo(self, asset: MissionJourney):
+        return asset.logo and asset.logo.url
+
+    class Meta:
+        model = MissionJourney
+        fields = ('name', 'title', 'description', 'logo', 'digests')
+
+
+class MissionJourneyAPIView(RetrieveAPIView):
+    serializer_class = MissionJourneySerializer
+
+    def get_object(self):
+        return get_object_or_404(MissionJourney, name=self.kwargs['name'])

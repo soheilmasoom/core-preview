@@ -85,15 +85,12 @@ class SignupSerializer(serializers.Serializer):
 
         phone = otp_code.phone
         promotion = validated_data.get('promotion')
-        if promotion not in User.PROMOTIONS:
-            promotion = MissionJourney.get_default_promotion() or ''
 
         with transaction.atomic():
 
             user = User.objects.create_user(
                 username=phone,
                 phone=phone,
-                promotion=promotion
             )
 
             if company_national_id:
@@ -119,7 +116,7 @@ class SignupSerializer(serializers.Serializer):
 
         request = self.context['request']
         create_traffic_source(request, user, utm)
-        set_missions_to_user(user)
+        set_missions_to_user(user, promotion)
 
         send_yandex_event(user, 'sign_up', {'id': user.id})
 
@@ -142,5 +139,3 @@ class SignupView(CreateAPIView):
             )
         except ValueError:
             logger.exception('Error in setting login activity for signup')
-
-
