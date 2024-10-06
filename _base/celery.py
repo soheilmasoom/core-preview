@@ -253,10 +253,19 @@ app.conf.beat_schedule = {
 
     'trigger_kafka_event': {
         'task': 'analytics.tasks.trigger_kafka_event',
-        'schedule': 10,
+        'schedule': 60,
         'options': {
-            'queue': 'notif-manager',
-            'expires': 12
+            'queue': 'history',
+            'expires': 120
+        }
+    },
+
+    'collect_symbol_prices': {
+        'task': 'analytics.tasks.collect_symbol_prices',
+        'schedule': crontab(minute=0, hour=0),
+        'options': {
+            'queue': 'history',
+            'expires': 10 * 3600
         }
     },
 
