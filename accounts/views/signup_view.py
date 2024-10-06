@@ -87,7 +87,6 @@ class SignupSerializer(serializers.Serializer):
         promotion = validated_data.get('promotion')
 
         with transaction.atomic():
-
             user = User.objects.create_user(
                 username=phone,
                 phone=phone,

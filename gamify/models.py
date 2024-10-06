@@ -30,6 +30,14 @@ class MissionJourney(models.Model):
     def __str__(self):
         return self.name
 
+    @classmethod
+    def get_by_promotion(cls, promotion: str) -> 'MissionJourney':
+        journey = MissionJourney.objects.filter(name=promotion, active=True).first()
+        if not journey:
+            journey = MissionJourney.objects.filter(active=True, default=True).first()
+
+        return journey
+
     def save(self, *args, **kwargs):
         self.name = slugify(self.name)
         super(MissionJourney, self).save(*args, **kwargs)

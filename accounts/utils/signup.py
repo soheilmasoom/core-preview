@@ -68,9 +68,7 @@ def create_traffic_source(request, user, utm: dict):
 def set_missions_to_user(user: User, promotion: str):
     from gamify.models import MissionJourney, MissionTemplate, UserMission
 
-    journey = MissionJourney.objects.filter(name=promotion, active=True).first()
-    if not journey:
-        journey = MissionJourney.objects.filter(active=True, default=True).first()
+    journey = MissionJourney.get_by_promotion(promotion)
 
     if not journey:
         return
