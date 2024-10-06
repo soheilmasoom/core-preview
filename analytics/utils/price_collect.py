@@ -10,6 +10,25 @@ from analytics.models import Symbol, SymbolPrice
 FRAMES = (5, 60)
 
 
+def collect_symbol(symbol: Symbol):
+    source = symbol.source
+
+    collectors = {
+        Symbol.TGJU: collect_tgju_prices,
+        Symbol.NOBITEX: collect_nobitex_prices,
+        Symbol.MEXC: collect_mexc_prices,
+        Symbol.EXNESS: collect_exness_prices
+    }
+
+    if source not in collectors:
+        raise NotImplemented
+
+    collector = collectors[source]
+
+    for frame in FRAMES:
+        collector(symbol=symbol, frame=frame)
+
+
 def _collect_mexc_prices(symbol: Symbol, start: datetime, end: datetime, frame: int):
     url = f'https://www.mexc.com/api/platform/spot/kline/web/kline/query?interval=Min{frame}&openPriceMode=LAST_CLOSE&' \
           f'start={int(start.timestamp())}&end={int(end.timestamp())}&symbolId={symbol.market_id}'
@@ -127,9 +146,9 @@ def collect_nobitex_prices(symbol: Symbol, frame: int):
         start += step
 
 
-def _collect_exness_prices(symbol: Symbol, end: datetime, frame: int):
+def _collect_exness_prices(symbol: Symbol, end: datetime, frame: int, count: int = 1000):
     url = f'https://api.exweb.mobi/rtapi/mt5/trial1/v1/accounts/{symbol.account_id}/instruments/{symbol.market_id}/' \
-          f'candles?time_frame={frame}&from={int(end.timestamp() * 1000)}&count=-1000'
+          f'candles?time_frame={frame}&from={int(end.timestamp() * 1000)}&count=-{count}'
 
     resp = requests.get(url, headers={
         'Authorization': f'Bearer {symbol.auth}'
@@ -150,7 +169,7 @@ def _collect_exness_prices(symbol: Symbol, end: datetime, frame: int):
         )
 
 
-def collect_exness_prices(symbol: Symbol, frame: int, days: int = 180):
+def collect_exness_prices(symbol: Symbol, frame: int, days: int = 30):
     assert symbol.source == Symbol.EXNESS
     assert frame in FRAMES
 
@@ -162,16 +181,18 @@ def collect_exness_prices(symbol: Symbol, frame: int, days: int = 180):
     first_date = current_prices['first']
     last_date = current_prices['last']
 
+    end = timezone.now().replace(second=0, microsecond=0) + timedelta(hours=1)
+    start = end - timedelta(days=days)
+
     if first_date:
         end = first_date
         start = last_date - timedelta(days=days)
-    else:
-        end = timezone.now().replace(second=0, microsecond=0) + timedelta(hours=1)
-        start = end - timedelta(days=days)
 
     while start < end:
-        print(f"Collecting {symbol} @ {start}")
-        _collect_exness_prices(symbol, end, frame=frame)
+        count = 1000
+        _end = start + timedelta(seconds=count * frame * 60)
 
-        current_prices = SymbolPrice.objects.filter(symbol=symbol).aggregate(first=Min('created'))
-        end = current_prices['first'] - timedelta(minutes=frame)
+        print(f"Collecting {symbol} @ {start} - {_end}")
+        _collect_exness_prices(symbol, _end, frame=frame, count=count)
+
+        start = _end

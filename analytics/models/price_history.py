@@ -12,6 +12,8 @@ class Symbol(models.Model):
     account_id = models.CharField(max_length=64, blank=True)
     auth = models.CharField(max_length=2048, blank=True)
 
+    auto_collect = models.BooleanField(default=True)
+
     class Meta:
         unique_together = ('name', 'source')
 
