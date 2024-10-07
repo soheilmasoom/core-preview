@@ -206,6 +206,7 @@ class MissionJourneySerializer(serializers.ModelSerializer):
 
 
 class MissionJourneyAPIView(RetrieveAPIView):
+    permission_classes = []
     serializer_class = MissionJourneySerializer
 
     def get_object(self):
