@@ -247,8 +247,7 @@ class PaymentRequestAdmin(SimpleHistoryAdmin):
 
     @admin.display(description='Payment', ordering='payment')
     def get_payment(self, payment_request: PaymentRequest):
-        if payment_request.payment:
-            return admin_page_anchor(payment_request.payment)
+        return admin_page_anchor(payment_request.payment)
 
 
 class PaymentUserFilter(SimpleListFilter):

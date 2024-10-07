@@ -23,6 +23,9 @@ def url_to_admin_list(obj, filters: dict = None):
 
 
 def admin_page_anchor(obj, title: str = '', change: bool = True):
+    if obj is None:
+        return ''
+
     if change:
         url = url_to_edit_object(obj)
     else:
