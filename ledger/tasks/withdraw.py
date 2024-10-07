@@ -91,6 +91,12 @@ def create_withdraw(transfer_id: int):
 
         resp_data = response.data
 
+
+        if not response.ok:
+            message = '\n' if transfer.comment else ''
+            transfer.comment = message + resp_data.get('reason')
+            transfer.save(update_fields=['comment'])
+
         if response.ok:
             transfer.status = PENDING
             transfer.save(update_fields=['status'])
