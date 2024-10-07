@@ -90,12 +90,8 @@ def create_withdraw(transfer_id: int):
         )
 
         resp_data = response.data
-
-
-        if not response.ok:
-            message = '\n' if transfer.comment else ''
-            transfer.comment = message + resp_data.get('reason')
-            transfer.save(update_fields=['comment'])
+        reject_reason = resp_data.get('reason', '')
+        reject_type = resp_data.get('type')
 
         if response.ok:
             transfer.status = PENDING
@@ -105,12 +101,18 @@ def create_withdraw(transfer_id: int):
             logger.info('withdraw %s received 403' % transfer.id)
             return
 
-        elif response.status_code == 400 and resp_data.get('type') == 'Invalid':
+        elif response.status_code == 400 and reject_type == 'Invalid':
             logger.info('withdraw failed %s %s %s' % (transfer.id, response.status_code, resp_data))
+
+            if transfer.comment:
+                transfer.comment += '\n\n'
+
+            transfer.comment += f'Blocklink reject reason: {reject_reason}'
+            transfer.save(update_fields=['comment'])
 
             transfer.reject()
 
-            if resp_data.get('reason') == 'InvalidReceiverAddress':
+            if reject_reason == 'InvalidReceiverAddress':
                 user = transfer.wallet.account.user
                 from accounts.models import Notification
                 Notification.send(
@@ -120,7 +122,7 @@ def create_withdraw(transfer_id: int):
                     message='آدرس مقصد وارد شده نامعتبر است'
                 )
 
-        elif response.status_code == 400 and resp_data.get('type') == 'NotHandled':
+        elif response.status_code == 400 and reject_type == 'NotHandled':
             logger.info('withdraw switch %s %s' % (transfer.id, resp_data))
 
             # if transfer.network_asset.allow_provider_withdraw:
