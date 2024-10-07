@@ -36,6 +36,7 @@ class Trx(models.Model):
     DELIST = 'dl'
     REBRAND = 'rb'
     TOKEN_TRANSFER = 'tt'
+    INTERNAL_TRANSFER = 'it'
 
     SCOPES_VERBOSE = {
         TRADE: 'trade',
