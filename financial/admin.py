@@ -46,7 +46,7 @@ class GatewayAdmin(admin.ModelAdmin):
     list_editable = ('active', 'active_for_staff', 'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable',
                      'deposit_priority', 'withdraw_priority', 'suspended')
     readonly_fields = ('get_balance', 'get_min_deposit_amount', 'get_max_deposit_amount')
-    list_filter = ('active', 'type')
+    list_filter = ('active', 'type', 'ipg_deposit_enable', 'withdraw_enable')
 
     ordering = ('-active', '-ipg_deposit_enable', '-deposit_priority', '-withdraw_enable', '-withdraw_priority')
 
