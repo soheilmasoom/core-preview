@@ -49,6 +49,9 @@ urlpatterns = [
         'get': 'list',
         'post': 'create'
     })),
+    path('v1/internal-transfers/<int:pk>/', views.InternalTransferViewSet.as_view({
+        'delete': 'destroy'
+    })),
     path('v1/deposit/address/', views.DepositAddressView.as_view()),
 
     path('v1/withdraw/', views.WithdrawView.as_view()),

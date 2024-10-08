@@ -635,6 +635,23 @@ class TransferUserFilter(SimpleListFilter):
             return queryset
 
 
+@admin.register(models.InternalTransfer)
+class InternalTransferAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'created',
+        'sender_account',
+        'receiver_account',
+        'amount',
+        'status',
+        'asset',
+        'description',
+    )
+
+    list_filter = ('status', 'asset', 'created', 'sender_account', 'receiver_account')
+    search_fields = ('sender_account__phone', 'receiver_account__phone', 'group_id', 'description')
+
+
 @admin.register(models.Transfer)
 class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
@@ -1397,7 +1414,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         if price is not None:
             price = floor_precision(obj.average_price, obj.symbol.tick_size)
         return price
-    
+
     @admin.action(description='convert dust and close', permissions=['change'])
     def convert_dust_close(self, request, queryset):
         positions = []
