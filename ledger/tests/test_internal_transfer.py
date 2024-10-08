@@ -10,6 +10,7 @@ from ledger.models import Asset, InternalTransfer, Wallet
 from ledger.utils.test import new_account, set_price
 from accounts.utils.login import set_login_activity
 from market.models import PairSymbol
+from ledger.utils.test import new_account, new_address_book, generate_otp_code, new_network, new_network_asset
 
 
 class InternalTransferTestCase(TestCase):
@@ -21,7 +22,10 @@ class InternalTransferTestCase(TestCase):
         self.user2.phone = "09121231234"
         self.user2.level = User.LEVEL2
         self.user1.level = User.LEVEL2
+        self.user1.custom_crypto_withdraw_ceil = 1000000000
+        self.user2.custom_crypto_withdraw_ceil = 1000000000
         self.user2.save()
+        self.user1.save()
 
         self.client = Client()
         self.client.force_login(self.user1)
@@ -45,21 +49,22 @@ class InternalTransferTestCase(TestCase):
 
 
     def test_create_internal_transfer(self):
-        self.wallet_usdt.airdrop(10)
+        self.wallet_usdt.airdrop(1)
 
         url = "/api/v1/internal-transfers/"
         data = {
             'receiver_phone': "09121231234",
             'asset': 'USDT',
-            'amount': '10',
+            'amount': '1',
             'description': 'Test transfer',
-            'code': "1111"
+            'code': generate_otp_code(self.user1, 'withdraw')
         }
         response = self.client.post(url, data)
+        print("go", response.json())
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(InternalTransfer.objects.count(), 1)
         transfer = InternalTransfer.objects.first()
         self.assertEqual(transfer.sender_account, self.account1)
         self.assertEqual(transfer.receiver_account, self.account2)
-        self.assertEqual(transfer.amount, Decimal('10'))
+        self.assertEqual(transfer.amount, Decimal('1'))
         self.assertEqual(transfer.asset, self.usdt)

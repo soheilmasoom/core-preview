@@ -100,11 +100,10 @@ class InternalTransferSerializer(serializers.ModelSerializer):
             irt_value = irt_price * amount
             ceil = LevelGrants.get_max_daily_crypto_withdraw(user)
             today_withdraw_value = get_crypto_withdraw_irt_value(user)
-
-            if irt_value > ceil:
+            if irt_value >= ceil:
                 raise ValidationError({'amount': 'مبلغ برداشتی بیش از میزان مجاز سطح کاربری شماست.'})
 
-            if today_withdraw_value + irt_value > ceil:
+            if today_withdraw_value + irt_value >= ceil:
                 raise ValidationError({'amount': 'شما به سقف برداشت روزانه ارز دیجیتال خود رسیده اید.'})
 
         if sms_verification_code:
