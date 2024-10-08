@@ -23,7 +23,7 @@ from ledger.models import Trx, NetworkAsset, Asset, DepositAddress
 from ledger.models import Wallet, Network
 from ledger.utils.fields import get_amount_field, get_address_field, CANCELED, DONE, PROCESS, INIT, get_status_field, \
     REFUND
-from ledger.utils.precision import humanize_number
+from ledger.utils.precision import humanize_number, get_presentation_amount
 from ledger.utils.price import get_last_price
 from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
@@ -389,7 +389,8 @@ class Transfer(models.Model):
         else:
             action = 'withdraw'
 
-        return f'{action} {self.amount} {self.asset}/{self.network} ({self.usdt_value}$)'
+        return f'{action} {get_presentation_amount(self.amount)} {self.asset}/{self.network} ' \
+               f'({get_presentation_amount(self.usdt_value)}$)'
 
 
 @receiver(post_save, sender=Transfer)
