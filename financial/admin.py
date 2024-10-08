@@ -48,6 +48,8 @@ class GatewayAdmin(admin.ModelAdmin):
     readonly_fields = ('get_balance', 'get_min_deposit_amount', 'get_max_deposit_amount')
     list_filter = ('active', 'type')
 
+    ordering = ('-active', '-ipg_deposit_enable', '-deposit_priority', '-withdraw_enable', '-withdraw_priority')
+
     @admin.display(description='balance')
     def get_balance(self, gateway: Gateway):
         balance = gateway.get_balance()
