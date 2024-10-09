@@ -9,7 +9,7 @@ from gamify.utils import clone_mission_template
 
 
 class MissionDigestInline(admin.TabularInline):
-    fields = ('title', 'description')
+    fields = ('title', 'description', 'order')
     model = models.MissionDigest
     extra = 1
 

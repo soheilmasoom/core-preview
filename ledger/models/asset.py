@@ -173,7 +173,6 @@ class AssetSerializer(serializers.ModelSerializer):
 class AssetSerializerMini(serializers.ModelSerializer):
     precision = serializers.SerializerMethodField()
     step_size = serializers.SerializerMethodField()
-    logo = serializers.SerializerMethodField()
     original_name_fa = serializers.SerializerMethodField()
     original_symbol = serializers.SerializerMethodField()
 
@@ -182,10 +181,6 @@ class AssetSerializerMini(serializers.ModelSerializer):
 
     def get_step_size(self, asset: Asset):
         return Asset.PRECISION
-
-    def get_logo(self, asset: Asset):
-        if asset.logo:
-            return asset.logo.url
 
     def get_original_symbol(self, asset: Asset):
         return asset.get_original_symbol()
