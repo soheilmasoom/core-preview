@@ -499,7 +499,7 @@ def handle_user_save(sender, instance: User, created, **kwargs):
     if referrer:
         referrer_id = referrer.id
 
-    if instance.mission_journey:
+    if not instance.mission_journey:
         promotion = ''
     else:
         promotion = instance.mission_journey.name
