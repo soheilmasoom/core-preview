@@ -51,7 +51,7 @@ class InternalTransferTestCase(TestCase):
     def test_create_internal_transfer(self):
         self.wallet_usdt.airdrop(1)
 
-        url = "/api/v1/internal-transfers/"
+        url = "/api/v1/withdraw/internal/"
         data = {
             'receiver': "09121231234",
             'coin': 'USDT',

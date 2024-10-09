@@ -147,7 +147,7 @@ class InternalTransferViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         internal_transfer = self.get_object()
-        if internal_transfer.status in InternalTransfer.COMPLETE_STATUSES:
+        if internal_transfer.in_freeze_time() or internal_transfer.status in InternalTransfer.COMPLETE_STATUSES:
             return Response({"detail": "لغو مجاز نمی‌باشد."}, status=status.HTTP_400_BAD_REQUEST)
 
         internal_transfer.reject()
