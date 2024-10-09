@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='missionjourney',
             name='promotion',
-            field=models.CharField(choices=[('true', 'true'), ('voucher', 'voucher'), ('pepe', 'pepe'), ('notcoin', 'notcoin'), ('dogs', 'dogs')], max_length=8, unique=True),
+            field=models.CharField(choices=[('true', 'true'), ('voucher', 'voucher'), ('pepe', 'pepe'), ('notcoin', 'notcoin'), ('dogs', 'dogs')], blank=True, max_length=8, unique=True),
         ),
     ]

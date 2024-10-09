@@ -6,4 +6,5 @@ urlpatterns = [
     path('missions/', views.MissionsAPIView.as_view(), ),
     path('missions/active/', views.ActiveMissionsAPIView.as_view(), ),
     path('voucher/', views.TotalVoucherAPIView.as_view(), ),
+    path('journey/<slug:name>/', views.MissionJourneyAPIView.as_view(), ),
 ]

@@ -78,7 +78,7 @@ def trigger_users_event(threshold=1000):
         id__gt=tracker.last_id
     ).order_by('id')[:threshold]
 
-    for user in user_list:
+    for user in user_list:  # type: User
         if not hasattr(user, 'account'):
             account = user.get_account()
         else:
@@ -97,7 +97,7 @@ def trigger_users_event(threshold=1000):
             birth_date=user.birth_date,
             can_withdraw=user.can_withdraw,
             can_trade=user.can_trade,
-            promotion=user.promotion,
+            promotion=user.mission_journey.name,
             chat_uuid=user.chat_uuid,
             verify_status=user.verify_status,
             reject_reason=user.reject_reason,
