@@ -31,7 +31,7 @@ from ledger.models import AddressKey
 from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx, MarginLeverage, MarginPosition
 from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.external_price import BUY
-from ledger.utils.fields import PENDING, DONE
+from ledger.utils.fields import PENDING, DONE, CANCELED
 from ledger.utils.precision import humanize_number
 from ledger.utils.report import export_transactions
 from market.models import Trade, ReferralTrx, Order
@@ -182,6 +182,15 @@ class ConsultationAdmin(admin.ModelAdmin):
     readonly_fields = ('created', 'user')
     list_filter = ('status',)
     search_fields = ('user__phone', 'user__email',)
+    actions = ('cancel_consultation', 'done_consultation',)
+
+    @admin.action(description='تغیر به لغو شده', permissions=['change'])
+    def cancel_consultation(self, request, queryset):
+        queryset.objects.update(status=CANCELED)
+
+    @admin.action(description='تغییر به انجام شده', permissions=['change'])
+    def done_consultation(self, request, queryset):
+        queryset.objects.update(status=DONE)
 
     @admin.display(description='description')
     def get_description(self, consultation: Consultation):
