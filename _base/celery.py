@@ -191,6 +191,15 @@ app.conf.beat_schedule = {
         },
     },
 
+    'update_internal_transfers': {
+        'task': 'ledger.tasks.internal_transfer.update_internal_transfers',
+        'schedule': 30,
+        'options': {
+            'queue': 'internal_transfer',
+            'expires': 30
+        },
+    },
+
     'handle_missing_payments': {
         'task': 'financial.tasks.gateway.handle_missing_payments',
         'schedule': 60 * TASK_MULTIPLIER,

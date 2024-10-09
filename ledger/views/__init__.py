@@ -29,3 +29,4 @@ from .withdraw_viewset import WithdrawViewSet
 from .manaul_withdraw_request_view import ManualWithdrawUpdateView
 from .widget import FastBuyWidgetView, WidgetConfigView
 from .asset_alert_rule_view import AssetAlertRuleViewSet
+from .internal_transfer_view import InternalTransferViewSet
