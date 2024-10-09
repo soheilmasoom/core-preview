@@ -659,7 +659,7 @@ class InternalTransferAdmin(admin.ModelAdmin):
 
     list_filter = ('status', 'asset', 'created', 'sender_account', 'receiver_account')
     search_fields = ('sender_account__phone', 'receiver_account__phone', 'group_id', 'description')
-
+    raw_id_fields = ('sender_account', 'receiver_account', 'asset')
 
 @admin.register(models.Transfer)
 class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):

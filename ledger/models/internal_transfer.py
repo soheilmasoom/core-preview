@@ -1,6 +1,9 @@
+from datetime import timedelta
 import logging
 from decimal import Decimal
 from uuid import uuid4
+from django.conf import settings
+from decouple import config
 
 from django.db import models
 from django.db.models import CheckConstraint, Q
@@ -9,7 +12,7 @@ from django.utils import timezone
 
 from accounts.models import Account
 from ledger.models import Wallet, Trx, Asset
-from ledger.utils.fields import get_amount_field, get_status_field
+from ledger.utils.fields import CANCELED, DONE, PENDING, get_amount_field, get_status_field
 from ledger.utils.wallet_pipeline import WalletPipeline
 from ledger.utils.precision import humanize_number
 from accounts.models import Account, Notification, EmailNotification, User
@@ -17,10 +20,6 @@ from accounts.models import Account, Notification, EmailNotification, User
 logger = logging.getLogger(__name__)
 
 class InternalTransfer(models.Model):
-    PENDING = 'pending'
-    DONE = 'done'
-    CANCELED = 'canceled'
-
     COMPLETE_STATUSES = (CANCELED, DONE)
 
     FREEZE_SECONDS = 30
@@ -49,17 +48,17 @@ class InternalTransfer(models.Model):
             receiver_account=receiver_account,
             amount=amount,
             asset=asset,
-            status=InternalTransfer.PENDING,
+            status=PENDING,
             description=description
             )
 
     def accept(self):
         with WalletPipeline() as pipeline:
             transfer = InternalTransfer.objects.select_for_update().get(id=self.id)
-            if transfer.status == self.DONE:
+            if transfer.status in self.COMPLETE_STATUSES:
                 return
 
-            transfer.status = self.DONE
+            transfer.status = DONE
             transfer.save(update_fields=['status'])
 
             sender_wallet = self.asset.get_wallet(self.sender_account)
@@ -77,13 +76,13 @@ class InternalTransfer(models.Model):
         if self.status in self.COMPLETE_STATUSES:
             return
 
-        self.status = self.CANCELED
+        self.status = CANCELED
         self.save(update_fields=['status'])
 
     def change_status(self, status: str):
-        if status == self.DONE:
+        if status == DONE:
             self.accept()
-        elif status == self.CANCELED:
+        elif status == CANCELED:
             self.reject()
         else:
             InternalTransfer.objects.filter(
@@ -99,11 +98,11 @@ class InternalTransfer(models.Model):
 
         receiver_title = 'دریافت شد: %s %s' % (humanize_number(self.amount), self.asset.name_fa)
         receiver_message = ''
-        # receiver_template = 'crypto_deposit_successful'
+        receiver_template = 'internal_crypto_deposit_successful'
 
         sender_title = 'ارسال شد: %s %s' % (humanize_number(self.amount), self.asset.name_fa)
         sender_message = ''
-        # sender_template = 'crypto_withdraw_successful'
+        sender_template = 'internal_crypto_withdraw_successful'
 
         Notification.send(
             recipient=sender_user,
@@ -114,6 +113,28 @@ class InternalTransfer(models.Model):
             recipient=receiver_user,
             title=receiver_title,
             message=receiver_message
+        )
+        EmailNotification.send_by_template(
+            recipient=receiver_template,
+            template=receiver_template,
+            context={
+                'amount': humanize_number(self.amount),
+                'coin': self.asset.symbol,
+                'brand': settings.BRAND,
+                'panel_url': settings.PANEL_URL,
+                'logo_elastic_url': config('LOGO_ELASTIC_URL', ''),
+            }
+        )
+        EmailNotification.send_by_template(
+            recipient=sender_user,
+            template=sender_template,
+            context={
+                'amount': humanize_number(self.amount),
+                'coin': self.asset.symbol,
+                'brand': settings.BRAND,
+                'panel_url': settings.PANEL_URL,
+                'logo_elastic_url': config('LOGO_ELASTIC_URL', ''),
+            }
         )
 
     class Meta:

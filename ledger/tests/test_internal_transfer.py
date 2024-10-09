@@ -53,8 +53,8 @@ class InternalTransferTestCase(TestCase):
 
         url = "/api/v1/internal-transfers/"
         data = {
-            'receiver_phone': "09121231234",
-            'asset': 'USDT',
+            'receiver': "09121231234",
+            'coin': 'USDT',
             'amount': '1',
             'description': 'Test transfer',
             'code': generate_otp_code(self.user1, 'withdraw')

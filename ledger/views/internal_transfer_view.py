@@ -12,6 +12,7 @@ from accounts.utils.validation import persian_timedelta
 from rest_framework.exceptions import ValidationError
 from django.utils import timezone
 from accounts.validators import mobile_number_validator
+from ledger.models.asset import CoinField
 from ledger.utils.precision import get_precision, get_presentation_amount, humanize_number
 from ledger.utils.price import get_last_price
 from ledger.utils.withdraw_verify import can_withdraw
@@ -21,49 +22,23 @@ from rest_framework.authentication import SessionAuthentication
 
 
 class InternalTransferSerializer(serializers.ModelSerializer):
-    sender = serializers.CharField(source='sender_account.user.phone', read_only=True)
-    receiver_phone = serializers.CharField(write_only=True, required=True, validators=[mobile_number_validator], trim_whitespace=True)
-    asset = serializers.CharField(required=True)
+    # sender = serializers.CharField(source='sender_account.user.phone', read_only=True)
+    receiver = serializers.CharField(write_only=True, required=True, validators=[mobile_number_validator], trim_whitespace=True)
+    coin = CoinField(source='asset', required=True)
     code = serializers.CharField(write_only=True, required=False)
     totp = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
 
 
     class Meta:
         model = InternalTransfer
-        fields = ['id', 'totp', 'code','sender', 'receiver_phone', 'asset', 'amount', 'status', 'created', 'description']
-        read_only_fields = ['id', 'sender', 'status', 'created']
+        fields = ['id', 'totp', 'code', 'coin', 'receiver', 'amount', 'status', 'created', 'description']
+        read_only_fields = ['id', 'status', 'created']
 
     def validate(self, attrs):
         user = self.context['request'].user
-        receiver_phone = attrs['receiver_phone']
-        asset_symbol = attrs['asset']
-
-        if user.is_suspended:
-            td = persian_timedelta(user.suspended_until - timezone.now())
-
-            raise ValidationError(
-                f'به دلیل افزایش امنیت حساب‌ کاربری شما، امکان ‌برداشت تا {td} دیگر وجود ندارد.'
-            )
-
-        try:
-            receiver = User.objects.get(phone=receiver_phone)
-        except User.DoesNotExist:
-            raise serializers.ValidationError({'receiver': 'کاربر پیدا نشد.'})
-
-        try:
-            asset = Asset.objects.get(symbol=asset_symbol)
-        except Asset.DoesNotExist:
-            raise serializers.ValidationError({'asset': 'رمز ارز یافت نشد.'})
-
-        amount = attrs['amount']
+        receiver = attrs['receiver']
+        asset_symbol = attrs['asset'].symbol
         totp = attrs.get('totp', None)
-
-        if get_precision(amount) > Asset.PRECISION:
-            raise serializers.ValidationError('مقدار وارد شده اشتباه است.')
-
-        if asset.symbol == Asset.IRT:
-            raise ValidationError('نشانه دارایی اشتباه است.')
-
         sms_verification_code = None
 
         code = attrs.get('code')
@@ -78,8 +53,33 @@ class InternalTransferSerializer(serializers.ModelSerializer):
         if not user.is_2fa_valid(totp):
             raise ValidationError({'totp': 'شناسه‌ دوعاملی صحیح نمی‌باشد.'})
 
-        sender_wallet = asset.get_wallet(user.get_account())
+        if user.is_suspended:
+            td = persian_timedelta(user.suspended_until - timezone.now())
+
+            raise ValidationError(
+                f'به دلیل افزایش امنیت حساب‌ کاربری شما، امکان ‌برداشت تا {td} دیگر وجود ندارد.'
+            )
+
+        try:
+            receiver = User.objects.get(phone=receiver)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({'receiver': 'کاربر پیدا نشد.'})
+
+        try:
+            asset = Asset.objects.get(symbol=asset_symbol)
+        except Asset.DoesNotExist:
+            raise serializers.ValidationError({'asset': 'رمز ارز یافت نشد.'})
+
+        if asset.symbol == Asset.IRT:
+            raise ValidationError('نشانه دارایی اشتباه است.')
+
+        amount = attrs['amount']
+
+        if get_precision(amount) > Asset.PRECISION:
+            raise serializers.ValidationError('مقدار وارد شده اشتباه است.')
+
         sender_account = user.get_account()
+        sender_wallet = asset.get_wallet(sender_account)
         receiver_account = receiver.get_account()
 
         if not sender_wallet.has_balance(attrs['amount']):
@@ -143,8 +143,7 @@ class InternalTransferViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
-            internal_transfer = serializer.save()
-            internal_transfer.accept()
+            serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
