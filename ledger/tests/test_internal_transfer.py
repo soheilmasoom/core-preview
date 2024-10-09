@@ -60,7 +60,6 @@ class InternalTransferTestCase(TestCase):
             'code': generate_otp_code(self.user1, 'withdraw')
         }
         response = self.client.post(url, data)
-        print("go", response.json())
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(InternalTransfer.objects.count(), 1)
         transfer = InternalTransfer.objects.first()

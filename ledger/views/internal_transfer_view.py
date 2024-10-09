@@ -22,7 +22,6 @@ from rest_framework.authentication import SessionAuthentication
 
 
 class InternalTransferSerializer(serializers.ModelSerializer):
-    # sender = serializers.CharField(source='sender_account.user.phone', read_only=True)
     receiver = serializers.CharField(write_only=True, required=True, validators=[mobile_number_validator], trim_whitespace=True)
     coin = CoinField(source='asset', required=True)
     code = serializers.CharField(write_only=True, required=False)
