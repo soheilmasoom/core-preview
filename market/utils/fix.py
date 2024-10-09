@@ -31,7 +31,7 @@ def create_symbols_for_asset(asset: Asset):
         if base_asset.symbol != Asset.USDT:
             price = get_last_price(asset.symbol + Asset.USDT)
 
-        PairSymbol.objects.update_or_create(
+        PairSymbol.objects.get_or_create(
             asset=asset, base_asset=base_asset, defaults={
                 'name': f'{asset.symbol}{base_asset.symbol}',
                 'tick_size': tick_size,

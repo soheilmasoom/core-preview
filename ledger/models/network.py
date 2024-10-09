@@ -23,6 +23,7 @@ class Network(models.Model):
 
     explorer_link = models.CharField(max_length=128, blank=True)
     address_regex = models.CharField(max_length=128, blank=True)
+    memo_regex = models.CharField(max_length=128, blank=True)
 
     deposit_need_memo = models.BooleanField(default=False)
     withdraw_allow_memo = models.BooleanField(default=False)

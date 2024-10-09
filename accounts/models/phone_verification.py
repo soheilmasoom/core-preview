@@ -9,6 +9,8 @@ from django.db import models
 from django.utils import timezone
 from decouple import config
 
+from accounts.models import SpamPhone
+from accounts.utils.ip import get_client_ip
 from accounts.utils.validation import generate_random_code, PHONE_MAX_LENGTH, fifteen_minutes_later_datetime, MINUTES
 
 logger = logging.getLogger(__name__)
@@ -87,6 +89,9 @@ class VerificationCode(models.Model):
         blank=True
     )
 
+    user_agent = models.TextField(blank=True)
+    ip = models.GenericIPAddressField(null=True)
+
     @classmethod
     def get_by_code(cls, code: str, phone: str, scope: str, user=None) -> 'VerificationCode':
         otp_codes = VerificationCode.objects.filter(
@@ -112,11 +117,17 @@ class VerificationCode(models.Model):
         ).first()
 
     @classmethod
-    def send_otp_code(cls, phone: str, scope: str, user=None) -> Union['VerificationCode', None]:
+    def send_otp_code(cls, request, phone: str, scope: str, user=None) -> Union['VerificationCode', None]:
         # todo: handle throttling (don't allow to send more than twice in minute per phone / scope)
         # todo: use user devices / ip , ...
+        ip = get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
 
-        if phone == '09120889956':
+        if SpamPhone.objects.filter(phone=phone):
+            logger.info('[OTP] Ignored sending otp to kavenegar due to blacklist')
+            return
+
+        if user_agent == 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36':
             logger.info('[OTP] Ignored sending otp to kavenegar due to blacklist')
             return
 
@@ -156,6 +167,8 @@ class VerificationCode(models.Model):
             scope=scope,
             code=code,
             user=user,
+            ip=ip,
+            user_agent=user_agent
         )
 
         if not settings.DEBUG_OR_TESTING_OR_STAGING:

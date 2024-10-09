@@ -1,106 +1,160 @@
+import uuid
 from datetime import datetime, timedelta
+from decimal import Decimal
+from typing import Tuple
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Count, F, Value
-from django.http import HttpResponse, HttpResponseForbidden, HttpResponseBadRequest
+from django.core.exceptions import PermissionDenied, BadRequest
+from django.db.models import Q, Count, F, Value, CharField, Sum, IntegerField
+from django.db.models.functions import Cast, TruncDate, Greatest
+from django.http import HttpResponse
 from django.shortcuts import render
 from openpyxl import Workbook
 
+from accounting.models import TradeRevenue
 from accounts.models import TrafficSource, User
 from analytics.models import ReportPermission
+from analytics.utils.list import join_lists_with_first_element
+
+
+def _get_report_permission(user: User, group_id: str):
+    try:
+        group_id = uuid.UUID(group_id)
+    except ValueError:
+        raise PermissionDenied
+
+    permission = ReportPermission.objects.filter(group_id=group_id, enable=True).first()
+
+    if not permission:
+        raise PermissionDenied
+
+    if not user.is_superuser and permission.user != user:
+        raise PermissionDenied
+
+    return permission
+
+
+def parse_date(date_str: str) -> datetime:
+    try:
+        return datetime.strptime(date_str or '', '%Y-%m-%d').astimezone()
+    except ValueError:
+        raise BadRequest('Invalid Data')
+
+
+def parse_int(value: str) -> int:
+    try:
+        return int(value)
+    except ValueError:
+        pass
 
 
 @login_required
-def request_source_analytics(request):
-    report_permissions = ReportPermission.objects.filter(user=request.user)
-    if not report_permissions:
-        return HttpResponseForbidden('No permission!')
+def request_source_analytics(request, group_id: str):
+    perm = _get_report_permission(request.user, group_id)
 
-    correct_url = settings.HOST_URL + '/analytics/marketing/reports/download/'
     context = {
-        'redirect_url': correct_url
+        'utm_source': perm.utm_source,
+        'utm_medium': perm.utm_medium,
+        'redirect_url': settings.HOST_URL + f'/analytics/marketing/reports/{group_id}/download/'
     }
     return render(request, 'datetime_form.html', context)
 
 
 @login_required
-def get_source_analytics(request):
-    start_date_str = request.GET.get('start_date', None)
-    end_date_str = request.GET.get('end_date', None)
+def get_source_analytics(request, group_id: str):
+    permission = _get_report_permission(request.user, group_id)
 
-    if start_date_str and end_date_str:
+    start = parse_date(request.GET.get('start', ''))
+    end = parse_date(request.GET.get('end', '')) + timedelta(days=1)
+    level = max(min(parse_int(request.GET.get('level', '')) or 2, 5), 1)
 
-        start_datetime = datetime.strptime(start_date_str, '%Y-%m-%d').astimezone()
-        end_datetime = datetime.strptime(end_date_str, '%Y-%m-%d').astimezone()
+    if end - start > timedelta(days=30):
+        raise BadRequest('Report can export at most 30 days')
 
-        if start_datetime < end_datetime - timedelta(days=30):
-            return HttpResponseBadRequest('Report time filter threshold must be less than 30 days')
+    headers, data = get_data(permission, start, end, level)
 
-        q = Q()
-        report_permissions = ReportPermission.objects.filter(user=request.user, enable=True)
-        if not report_permissions:
-            return HttpResponseForbidden('No permission!')
+    workbook = queryset_to_workbook(headers, data)
 
-        for permission in report_permissions:
-            q = q | permission.q
+    # create a response object
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=reports.xlsx'
 
-        # generate Excel workbook from queryset
-        if q is None:
-            return HttpResponseBadRequest('There is no data in this period')
+    # write workbook to response
+    workbook.save(response)
 
-        workbook = queryset_to_workbook(
-            TrafficSource.objects.filter(
-                q,
-                created__range=[start_datetime, end_datetime]
-            )
+    return response
+
+
+def get_data(permission: ReportPermission, start: datetime, end: datetime, level: int = 2) -> Tuple[list, list]:
+    utms = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'][:level]
+    headers = ['date', *utms, 'users', 'verified',
+               'depositors']
+
+    queryset = TrafficSource.objects.filter(
+        utm_source=permission.utm_source,
+        utm_medium=permission.utm_medium,
+        created__range=[start, end],
+        user__account__referral__isnull=True,
+    ).annotate(
+        date_str=Cast(TruncDate('created'), output_field=CharField())
+    ).values(
+        'date_str', *utms
+    ).annotate(
+        user_count=Count('user_id', distinct=True),
+        verified_count=Count(
+            'user_id',
+            distinct=True,
+            filter=Q(user__level_2_verify_datetime__lte=F('user__date_joined') + Value(timedelta(days=1)))
+        ),
+        depositor_count=Count(
+            'user_id', distinct=True,
+            filter=Q(user__first_fiat_deposit_date__lte=F('user__date_joined') + Value(timedelta(days=1))) |
+                   Q(user__first_crypto_deposit_date__lte=F('user__date_joined') + Value(timedelta(days=1)))
         )
+    ).values_list(
+        'date_str', *utms, 'user_count', 'verified_count', 'depositor_count',
+    )
 
-        # create a response object
-        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename=reports.xlsx'
+    data = list(queryset)
 
-        # write workbook to response
-        workbook.save(response)
+    if permission.referral_percent_revenue:
+        group_by = ['date_str'] + [f'account__user__traffic_source__{s}' for s in utms]
 
-        return response
+        revenues = TradeRevenue.objects.filter(
+            created__range=[start, end],
+            account__user__traffic_source__utm_source=permission.utm_source,
+            account__user__traffic_source__utm_medium=permission.utm_medium,
+            # account__user__account__referral__isnull=True
+        ).annotate(
+            date_str=Cast(TruncDate('created'), output_field=CharField())
+        ).values(*group_by).annotate(
+            revenue=Greatest(
+                Cast(
+                    Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F('value')) * permission.referral_percent_revenue / 100,
+                    output_field=IntegerField()
+                ), 0)
+        ).values_list(*group_by, 'revenue')
 
-    return HttpResponseBadRequest('Invalid data')
+        data = join_lists_with_first_element(data, list(revenues), n1=len(headers), n2=len(group_by) + 1,
+                                             group_len=len(group_by))
+        headers.append('revenue')
+
+    return headers, sorted(list(data))
 
 
-def queryset_to_workbook(queryset, sheet_name='Sheet1'):
+def queryset_to_workbook(headers: list, data: list):
     workbook = Workbook()
     sheet = workbook.active
-    sheet.title = sheet_name
-
-    headers = ['date', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'users', 'verified',
-               'depositors']
+    sheet.title = 'Sheet1'
 
     # write headers
     for col_num, header in enumerate(headers, 1):
         cell = sheet.cell(row=1, column=col_num)
         cell.value = header
 
-    groups = queryset.values('created__date', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term') \
-        .annotate(
-        user_count=Count('user__id', distinct=True),
-        verified_count=Count(
-            'user__id',
-            distinct=True,
-            filter=Q(user__level_2_verify_datetime__lte=F('user__date_joined') + Value(timedelta(days=1)))
-        ),
-        depositor_count=Count(
-            'user__id', distinct=True,
-            filter=Q(user__first_fiat_deposit_date__lte=F('user__date_joined') + Value(timedelta(days=1))) |
-                   Q(user__first_crypto_deposit_date__lte=F('user__date_joined') + Value(timedelta(days=1)))
-        )
-    ).values_list(
-        'created__date', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
-        'user_count', 'verified_count', 'depositor_count',
-    )
-
     # write data
-    for row_num, row in enumerate(groups, 1):
+    for row_num, row in enumerate(data, 1):
         for col_num, field_name in enumerate(headers, 1):
             cell = sheet.cell(row=row_num+1, column=col_num)
             cell.value = row[col_num-1]

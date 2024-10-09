@@ -34,7 +34,7 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         fields = ('asset', 'network', 'network_name', 'withdraw_commission', 'min_withdraw', 'min_deposit',
-                  'slow_withdraw')
+                  'slow_withdraw', 'contract')
         model = NetworkAsset
 
 

@@ -25,5 +25,8 @@ class ManualWithdraw(models.Model):
         if self.network.address_regex and not re.match(self.network.address_regex, self.receiver_address):
             raise ValidationError({'receiver_address': 'Invalid Address'})
 
+        if self.memo and self.network.memo_regex and not re.match(self.network.memo_regex, self.memo):
+            raise ValidationError({'memo': 'Invalid Memo'})
+
     def __str__(self):
         return f'Manual withdraw {self.amount} {self.asset}/{self.network}'

@@ -24,6 +24,7 @@ from ledger.utils.fields import get_group_id_field, get_status_field
 from ledger.utils.fraud import verify_fiat_deposit
 from ledger.utils.precision import humanize_number, get_presentation_amount
 from ledger.utils.price import get_last_price, USDT_IRT
+from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 from ledger.widget.widget import Widget
 
@@ -66,7 +67,7 @@ class PaymentRequest(models.Model):
     def rial_amount(self):
         return (self.fee + self.amount) * 10
 
-    def get_or_create_payment(self) -> 'Payment':
+    def get_or_create_payment(self, **kwargs) -> 'Payment':
         with transaction.atomic():
             payment, created = Payment.objects.get_or_create(
                 group_id=self.group_id,
@@ -75,6 +76,7 @@ class PaymentRequest(models.Model):
                     'amount': self.amount,
                     'fee': self.fee,
                     'source': Payment.IPG,
+                    **kwargs
                 }
             )
             if created:
@@ -111,7 +113,7 @@ class Payment(models.Model):
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     modified = models.DateTimeField(auto_now=True)
 
-    group_id = get_group_id_field()
+    group_id = get_group_id_field(unique=True)
 
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
 
@@ -120,7 +122,7 @@ class Payment(models.Model):
 
     status = get_status_field()
 
-    ref_id = models.CharField(null=True, blank=True, max_length=256)
+    ref_id = models.CharField(blank=True, max_length=256)
     ref_status = models.SmallIntegerField(null=True, blank=True)
 
     description = models.CharField(max_length=DESCRIPTION_SIZE, blank=True)
@@ -195,8 +197,7 @@ class Payment(models.Model):
             if payment.status != DONE:
                 return
 
-            for trx in Trx.objects.filter(group_id=payment.group_id):
-                trx.revert(pipeline)
+            revert_trx_group(pipeline, payment.group_id)
 
             payment.status = REFUND
             payment.save(update_fields=['status'])

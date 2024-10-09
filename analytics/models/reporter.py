@@ -1,21 +1,20 @@
+from django.core.validators import MaxValueValidator
 from django.db import models
-from django.db.models import Q
+
+from ledger.utils.fields import get_group_id_field
 
 
 class ReportPermission(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
-    user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
-    utm_source = models.CharField(max_length=256, blank=True)
-    utm_medium = models.CharField(max_length=256, blank=True)
+    utm_source = models.CharField(max_length=256)
+    utm_medium = models.CharField(max_length=256)
+    referral_percent_revenue = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(100)])
+
     enable = models.BooleanField(default=True)
+    group_id = get_group_id_field()
 
-    @property
-    def q(self):
-        q = Q()
-        if self.utm_source:
-            q = q & Q(utm_source=self.utm_source)
-        if self.utm_medium:
-            q = q & Q(utm_medium=self.utm_medium)
+    user = models.OneToOneField('accounts.User', on_delete=models.CASCADE, null=True, blank=True)
 
-        return q
+    def __str__(self):
+        return f'{self.user} {self.utm_source}/{self.utm_medium}'

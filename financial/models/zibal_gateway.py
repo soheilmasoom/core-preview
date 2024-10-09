@@ -78,8 +78,6 @@ class ZibalGateway(Gateway):
         )
 
         data = resp.json()
-        print('verify %s' % payment)
-        print(data)
 
         if data['result'] in (100, 201):
             with WalletPipeline() as pipeline:

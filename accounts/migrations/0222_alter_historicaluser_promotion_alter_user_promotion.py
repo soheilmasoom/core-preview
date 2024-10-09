@@ -13,11 +13,11 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='historicaluser',
             name='promotion',
-            field=models.CharField(choices=[('true', 'true'), ('voucher', 'voucher'), ('pepe', 'pepe'), ('notcoin', 'notcoin'), ('dogs', 'dogs')], max_length=256),
+            field=models.CharField(choices=[('true', 'true'), ('voucher', 'voucher'), ('pepe', 'pepe'), ('notcoin', 'notcoin'), ('dogs', 'dogs')], max_length=256, blank=True),
         ),
         migrations.AlterField(
             model_name='user',
             name='promotion',
-            field=models.CharField(choices=[('true', 'true'), ('voucher', 'voucher'), ('pepe', 'pepe'), ('notcoin', 'notcoin'), ('dogs', 'dogs')], max_length=256),
+            field=models.CharField(choices=[('true', 'true'), ('voucher', 'voucher'), ('pepe', 'pepe'), ('notcoin', 'notcoin'), ('dogs', 'dogs')], max_length=256, blank=True),
         ),
     ]

@@ -4,6 +4,7 @@ import os
 from uuid import uuid4
 
 from django.utils import timezone
+from simple_history.models import HistoricalRecords
 
 from ledger.utils.price import get_depth_price, get_price
 from accounts.models import Notification
@@ -40,6 +41,8 @@ class TokenExpired(Exception):
 class OTCTrade(models.Model):
     PENDING, CANCELED, USER_CANCELED, DONE, REVERT, EXPIRED = 'pending', 'canceled', 'user_canceled', 'done', 'revert', 'expired'
     MARKET, PROVIDER = 'm', 'p'
+
+    history = HistoricalRecords()
 
     created = models.DateTimeField(auto_now_add=True)
     otc_request = models.OneToOneField('ledger.OTCRequest', on_delete=models.PROTECT)
@@ -155,7 +158,6 @@ class OTCTrade(models.Model):
             otc_request__price__lte=Decimal(current_price) * Decimal("1.2") if side == BUY else Decimal(current_price)
         )
 
-        print("triggered_requests:#", list(triggered))
         triggered_otc_trades = list(triggered)
         for triggered_otc_trade in triggered_otc_trades:
             if is_triggered_price(triggered_otc_trade.otc_request):
@@ -239,20 +241,29 @@ class OTCTrade(models.Model):
                 hedge_key=str(fok_order.id),
             ).save()
 
-
     def reject(self, is_user_canceled=False):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
+            otc_trade = OTCTrade.objects.select_for_update().get(id=self.id)
+
+            if otc_trade.status != self.PENDING:
+                return
+
             pipeline.release_lock(self.group_id)
             if is_user_canceled:
-                self.change_status(self.USER_CANCELED)
+                otc_trade.change_status(self.USER_CANCELED)
             else:
-                self.change_status(self.CANCELED)
+                otc_trade.change_status(self.CANCELED)
 
     def accept(self, pipeline: WalletPipeline):
+        otc_trade = OTCTrade.objects.select_for_update().get(id=self.id)
+
+        if otc_trade.status != self.PENDING:
+            return
+
         pipeline.release_lock(self.group_id)
 
-        self.change_status(self.DONE)
-        self.create_ledger(pipeline)
+        otc_trade.change_status(self.DONE)
+        otc_trade.create_ledger(pipeline)
 
         register_fee_transactions(
             pipeline=pipeline,
@@ -288,7 +299,6 @@ class OTCTrade(models.Model):
                 message=f'سفارش {symbol} شما انجام شد.',
                 link="/trade/otc/history?tab=convert-history"
             )
-
 
     def get_pending_hedge_trades(self):
         return OTCTrade.objects.filter(

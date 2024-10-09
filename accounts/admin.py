@@ -6,21 +6,22 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib import messages
 from django.contrib.admin import SimpleListFilter
+from django.contrib.auth import get_permission_codename
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import Q
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
+from django_otp.plugins.otp_totp.models import TOTPDevice
 from jalali_date.admin import ModelAdminJalaliMixin
 from simple_history.admin import SimpleHistoryAdmin
 
+from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object, admin_page_anchor
 from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationCode, \
     UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
-    AttributionTracker, AppConfig
+    AttributionTracker, AppConfig, SpamPhone
 from accounts.models import UserComment, TrafficSource, Referral
-from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object
-from accounts.models.fcm_topic_subscription import FCMTopicSubscription
 from financial.models.bank_card import BankCard, BankAccount
 from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
@@ -38,6 +39,7 @@ from stake.models import StakeRequest
 from .admin_guard import M
 from .admin_guard.admin import AdvancedAdmin
 from .models import User, Account, Notification, UserAuthRequest, Company, LevelGrants
+from .models.fcm_topic_subscription import FCMTopicSubscription
 from .models.login_activity import LoginActivity
 from .models.sms_notification import SmsNotification
 from .models.user_feature_perm import UserFeaturePerm
@@ -307,7 +309,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         (None, {'fields': ('username', 'password')}),
         (_('Personal info'), {'fields': ('first_name', 'last_name', 'national_code', 'email', 'phone', 'birth_date',
                                          'get_selfie_image', 'archived',
-                                         'get_user_reject_reason', 'get_source_medium', 'promotion'
+                                         'get_user_reject_reason', 'get_source_medium', 'get_promotion'
                                          )}),
         (_('Authentication'), {'fields': ('level', 'verify_status', 'first_name_verified',
                                           'last_name_verified', 'national_code_verified', 'national_code_phone_verified',
@@ -356,7 +358,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     )
 
     list_display = ('get_date_joined_jalali', 'get_username', 'first_name', 'last_name', 'level', 'archived', 'get_user_reject_reason',
-                    'verify_status', 'promotion', 'get_source_medium', 'get_referrer_user', 'is_price_notif_on',
+                    'verify_status', 'get_promotion', 'get_source_medium', 'get_referrer_user', 'is_price_notif_on',
                     'get_suspended',)
     list_filter = (
         'archived', ManualNameVerifyFilter, 'level', 'national_code_phone_verified', 'date_joined', 'verify_status', 'level_2_verify_datetime',
@@ -367,8 +369,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     ordering = ('-id', )
     actions = (
         'verify_user_name', 'reject_user_name', 'archive_users', 'unarchive_users', 'reevaluate_basic_verify',
-        'verify_user', 'reject_user', 'check_achievements', 'export_transactions', 'safe_delete_user',
-        'update_deposits', 'ban_credit_deposit'
+        'verify_user', 'reject_user', 'check_achievements', 'export_transactions',
+        'update_deposits', 'ban_credit_deposit', 'disable_2fa_auth', 'safe_delete_user',
     )
     readonly_fields = (
         'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet', 'get_positions',
@@ -394,8 +396,13 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
+    def has_manage_users_permission(self, request):
+        opts = self.opts
+        codename = get_permission_codename("manage_users", opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
+
     @admin.action(description='حذف امن کاربر', permissions=['change'])
-    def safe_delete_user(self, request, queryset : List[User]):
+    def safe_delete_user(self, request, queryset: List[User]):
         for user in queryset:
             try:
                 user.archive_registered_phone()
@@ -472,9 +479,18 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
         return response
 
+    @admin.action(description='غیرفعال‌سازی شناسه دو عاملی', permissions=['manage_users'])
+    def disable_2fa_auth(self, request, queryset):
+        TOTPDevice.objects.filter(user__in=queryset.filter(is_staff=False), confirmed=True).update(confirmed=False)
+
     @admin.display(description='2fa', boolean=True)
     def is_2fa_active(self, user: User):
         return user.is_2fa_active()
+
+    @admin.display(description='promotion')
+    def get_promotion(self, user: User):
+        if user.mission_journey:
+            return mark_safe(admin_page_anchor(user.mission_journey))
 
     @admin.display(description='username')
     def get_username(self, user: User):
@@ -1049,7 +1065,7 @@ class AppStatusAdmin(admin.ModelAdmin):
 
 @admin.register(VerificationCode)
 class VerificationCodeAdmin(admin.ModelAdmin):
-    list_display = ('created', 'phone', 'user', 'scope', 'expiration', 'code_used')
+    list_display = ('created', 'phone', 'user', 'scope', 'expiration', 'code_used', 'ip', 'user_agent')
     search_fields = ('user__phone', 'phone', 'user__first_name', 'user__last_name')
     list_filter = ('scope', )
     readonly_fields = ('user', )
@@ -1106,6 +1122,12 @@ class CompanyAdmin(SimpleHistoryAdmin):
 class LevelGrantsAdmin(admin.ModelAdmin):
     list_display = ('level', 'max_daily_crypto_withdraw', 'max_daily_fiat_withdraw', 'max_daily_fiat_deposit')
     ordering = ('level',)
+
+
+@admin.register(SpamPhone)
+class SpamPhoneAdmin(admin.ModelAdmin):
+    list_display = ('created', 'phone')
+    search_fields = ('phone', )
 
 
 @admin.register(FCMTopicSubscription)

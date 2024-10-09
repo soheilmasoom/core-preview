@@ -37,7 +37,10 @@ class ProviderRequester(BaseRequester):
         return config('PROVIDER_BASE_URL', default='https://provider.raastinwallet.com')
 
     def get_auth_token(self):
-        return config('PROVIDER_TOKEN')
+        return config('PROVIDER_TOKEN', '')
+
+    def __bool__(self):
+        return bool(self.get_auth_token())
 
     def get_market_info(self, asset: Asset, side: str) -> MarketInfo:
         data = self.collect_api('/api/v1/market/', data={'coin': asset.symbol, 'side': side}, cache_timeout=60).data
