@@ -226,6 +226,7 @@ class BaseChangeAdmin(admin.ModelAdmin):
 class Forget2FAAdmin(BaseChangeAdmin):
     list_display = ('created', 'status', 'get_username',)
     readonly_fields = ('created', 'status', 'user', 'selfie_image',)
+    search_fields = ('user__phone', )
 
     @admin.display(description='user')
     def get_username(self, forget_2fa: Forget2FA):
@@ -238,6 +239,7 @@ class Forget2FAAdmin(BaseChangeAdmin):
 class ChangePhoneAdmin(BaseChangeAdmin):
     list_display = ('created', 'status', 'get_username', 'new_phone')
     readonly_fields = ('created', 'status', 'user', 'new_phone', 'selfie_image',)
+    search_fields = ('user__phone', )
 
     @admin.display(description='user')
     def get_username(self, change_phone: ChangePhone):
