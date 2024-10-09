@@ -147,7 +147,8 @@ class AssetListSerializer(serializers.ModelSerializer):
         return asset.symbol in self.context['withdraw_enable_coins']
 
     def get_logo(self, asset: Asset):
-        return asset.logo and asset.logo.url
+        if asset.logo:
+            return asset.logo.url
 
     def get_original_symbol(self, asset: Asset):
         return asset.get_original_symbol()

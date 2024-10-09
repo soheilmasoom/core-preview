@@ -187,6 +187,13 @@ class JibitClient(BaseClient):
 
     def _create_and_verify_payment_data(self, data: dict):
         merchant_ref = data['merchantReferenceNumber']
+
+        try:
+            merchant_ref = uuid.UUID(merchant_ref)
+        except ValueError:
+            self._collect_api(f'/v1/payments/{merchant_ref}/fail')
+            return
+
         payment_id = PaymentId.objects.get(pay_id=data['paymentId'], group_id=merchant_ref)
         deposit_time = jdatetime.datetime.strptime(data['rawBankTimestamp'], '%Y/%m/%d %H:%M:%S').togregorian().astimezone()
 
