@@ -385,7 +385,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'get_login_activity_link', 'get_last_trade', 'get_total_balance_irt_admin', 'get_order_link',
         'get_notifications_link', 'get_staking_link', 'get_prizes_link', 'get_suspended',
         'suspension_reason', 'get_bots_link', 'is_2fa_active', 'get_totp', 'get_dust', 'get_total_fiat_deposits',
-        'get_total_fiat_withdraws', 'get_total_crypto_deposits', 'get_total_crypto_withdraws'
+        'get_total_fiat_withdraws', 'get_total_crypto_deposits', 'get_total_crypto_withdraws', 'get_promotion'
     )
     preserve_filters = ('archived', )
 
