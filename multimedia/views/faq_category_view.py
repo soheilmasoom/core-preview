@@ -16,7 +16,7 @@ class FAQCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FAQCategory
-        fields = ['slug', 'title', 'faqs']
+        fields = ['title', 'faqs']
 
 
 class FAQByCategoryView(ListAPIView):
