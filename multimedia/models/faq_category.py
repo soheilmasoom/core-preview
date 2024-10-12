@@ -18,9 +18,9 @@ class FAQ(models.Model):
     ]
 
     category = models.ForeignKey(FAQCategory, related_name='faqs', on_delete=models.CASCADE)
-    question_text = models.CharField(max_length=255)
-    answer_text = models.TextField()
-    type = models.CharField(max_length=4, choices=FAQ_TYPES, default='qa')
+    question_text = models.CharField(max_length=255, null=True, blank=True)
+    answer_text = models.TextField(blank=True, null=True)
+    type = models.CharField(max_length=4, choices=FAQ_TYPES)
     title = models.CharField(max_length=255, blank=True, null=True)
     link = models.URLField(blank=True, null=True)
 
