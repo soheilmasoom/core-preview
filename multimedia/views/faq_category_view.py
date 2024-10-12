@@ -16,10 +16,12 @@ class FAQCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FAQCategory
-        fields = ['title', 'faqs']
+        fields = ['slug', 'title', 'faqs']
 
 
 class FAQByCategoryView(ListAPIView):
+    authentication_classes = []
+    permission_classes = []
     serializer_class = FAQSerializer
 
     def get_queryset(self):
