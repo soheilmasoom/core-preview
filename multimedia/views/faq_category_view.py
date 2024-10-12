@@ -1,29 +1,46 @@
-from rest_framework import serializers, viewsets
-from multimedia.models import FAQCategory, FAQ
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from rest_framework import serializers
+from multimedia.models import FAQ
 from rest_framework.generics import ListAPIView
+from rest_framework.response import Response
+from rest_framework.exceptions import NotFound
 
-
-class FAQSerializer(serializers.ModelSerializer):
+class FAQItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQ
-        fields = ['id', 'question_text', 'answer_text']
+        fields = ['question_text', 'answer_text', 'title', 'link']
 
+    def to_representation(self, instance):
+        if instance.type == FAQ.LINK:
+            return {
+                'title': instance.title,
+                'link': instance.link
+            }
+        else:
+            return {
+                'question_text': instance.question_text,
+                'answer_text': instance.answer_text
+            }
 
-class FAQCategorySerializer(serializers.ModelSerializer):
-    faqs = FAQSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = FAQCategory
-        fields = ['slug', 'title', 'faqs']
-
+class FAQResponseSerializer(serializers.Serializer):
+    type = serializers.CharField()
+    result = FAQItemSerializer(many=True)
 
 class FAQByCategoryView(ListAPIView):
     authentication_classes = []
     permission_classes = []
-    serializer_class = FAQSerializer
+    serializer_class = FAQResponseSerializer
 
-    def get_queryset(self):
+    def list(self, request, *args, **kwargs):
         slug = self.kwargs['slug']
-        return FAQ.objects.filter(category__slug=slug)
+        faqs = FAQ.objects.filter(category__slug=slug)
+
+        if not faqs.exists():
+            raise NotFound(f"پیدا نشد : {slug}")
+
+        faq_type = faqs.first().type
+
+        serializer = self.get_serializer({
+            'type': faq_type,
+            'result': faqs
+        })
+        return Response(serializer.data)
