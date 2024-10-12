@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class FAQCategory(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=256, unique=True, db_index=True)
