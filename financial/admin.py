@@ -189,7 +189,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='Accept Manual', permissions=['change'])
     def accept_manual(self, request, queryset):
-        valid_qs = queryset.filter(gateway__type=Gateway.MANUAL).exclude(ref_id='')
+        valid_qs = queryset.exclude(ref_id='')
 
         for fiat_withdraw in valid_qs:
             fiat_withdraw.change_status(DONE)
