@@ -184,10 +184,12 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         pair = get_trading_pair(attrs['from_asset'], attrs['to_asset'], from_amount, to_amount)
 
         symbol = PairSymbol.objects.get(asset=pair.coin, base_asset=pair.base)
-        if pair.side == BUY and (get_precision(from_amount) > Asset.PRECISION or get_precision(to_amount) > symbol.step_size):
-            raise ValidationError('اعشار درست وارد نشده است.')
-        elif pair.side == SELL and (get_precision(from_amount) > symbol.step_size or get_precision(to_amount) > Asset.PRECISION):
-            raise ValidationError('اعشار درست وارد نشده است.')
+        if pair.side == BUY:
+            if (from_amount and get_precision(from_amount) > Asset.PRECISION) or (to_amount and get_precision(to_amount) > symbol.step_size):
+                raise ValidationError('اعشار درست وارد نشده است.')
+        elif pair.side == SELL:
+            if (from_amount and get_precision(from_amount) > symbol.step_size) or (to_amount and get_precision(to_amount) > Asset.PRECISION):
+                raise ValidationError('اعشار درست وارد نشده است.')
 
         return attrs
 
