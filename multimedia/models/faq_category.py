@@ -26,5 +26,8 @@ class FAQ(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return self.question_text
+def __str__(self):
+    if self.type == self.LINK:
+        return self.title or ""
+    return self.question_text or ""
+
