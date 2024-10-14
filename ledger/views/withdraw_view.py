@@ -15,6 +15,7 @@ from accounts.models import VerificationCode, LoginActivity, User, SmsNotificati
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from accounts.utils.validation import persian_timedelta
+from accounts.validators import mobile_number_validator
 from financial.utils.withdraw_limit import get_crypto_withdraw_irt_value
 from ledger.exceptions import InsufficientBalance
 from ledger.models import Asset, Transfer, NetworkAsset, AddressBook, DepositAddress
@@ -34,6 +35,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
     network = NetworkField(required=False)
     code = serializers.CharField(write_only=True, required=False)
     address = serializers.CharField(source='out_address', required=False)
+    receiver = serializers.CharField(write_only=True, required=False, validators=[mobile_number_validator], trim_whitespace=True)
     memo = serializers.CharField(required=False, allow_blank=True)
     address_book = serializers.SerializerMethodField()
     totp = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
@@ -56,6 +58,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
         address = attrs.get('out_address')
         address_book = None
         totp = attrs.get('totp', None)
+        receiver = attrs.get('receiver', None)
         whitelist = False
         memo = attrs.get('memo') or ''
 
@@ -74,9 +77,9 @@ class WithdrawSerializer(serializers.ModelSerializer):
         else:
             if not asset:
                 raise ValidationError('ارز دیجیتالی انتخاب نشده است.')
-            if not network:
+            if not receiver and not network:
                 raise ValidationError('شبکه‌ای انتخاب نشده است.')
-            if not address:
+            if not receiver and not address:
                 raise ValidationError('آدرس وارد نشده است.')
 
             if from_panel and 'code' not in attrs:
@@ -89,7 +92,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
         if not can_withdraw(user.get_account(), request, value_usdt=value_usdt) or not user.can_withdraw_crypto:
             raise ValidationError('امکان برداشت وجود ندارد.')
 
-        if not re.match(network.address_regex, address):
+        if not receiver and not re.match(network.address_regex, address):
             raise ValidationError('آدرس به فرمت درستی وارد نشده است.')
 
         if asset.symbol == Asset.IRT:
@@ -118,37 +121,38 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
         network_asset = get_object_or_404(NetworkAsset, asset=asset, network=network)
 
-        if not network_asset.can_withdraw_enabled():
+        if not receiver and not network_asset.can_withdraw_enabled():
             raise ValidationError(
                 'در حال حاضر امکان برداشت {} روی شبکه {} وجود ندارد.'.format(asset.symbol, network.symbol))
 
-        if get_precision(amount) > network_asset.get_withdraw_precision():
+        if not receiver and get_precision(amount) > network_asset.get_withdraw_precision():
             raise ValidationError('مقدار وارد شده اشتباه است.')
 
-        if amount < network_asset.withdraw_min:
+        if not receiver and amount < network_asset.withdraw_min:
             raise ValidationError('مقدار وارد شده کوچک است.')
 
-        if amount > network_asset.withdraw_max:
+        if not receiver and amount > network_asset.withdraw_max:
             raise ValidationError('مقدار وارد شده بزرگ است.')
 
-        if DepositAddress.objects.filter(address=address, address_key__deleted=True):
+        if not receiver and DepositAddress.objects.filter(address=address, address_key__deleted=True):
             raise ValidationError('آدرس برداشت نامعتبر است.')
 
-        my_deposit_addresses = DepositAddress.objects.filter(address=address, address_key__account=account)
+        if not receiver:
+            my_deposit_addresses = DepositAddress.objects.filter(address=address, address_key__account=account)
 
-        if network.withdraw_allow_memo:
-            if memo:
-                my_deposit_addresses = my_deposit_addresses.filter(address_key__memo=memo)
+            if network.withdraw_allow_memo:
+                if memo:
+                    my_deposit_addresses = my_deposit_addresses.filter(address_key__memo=memo)
 
-                if not re.match(network.memo_regex, memo):
-                    raise ValidationError(f'{network.memo_title_fa} به فرمت درستی وارد نشده است.')
+                    if not re.match(network.memo_regex, memo):
+                        raise ValidationError(f'{network.memo_title_fa} به فرمت درستی وارد نشده است.')
+                else:
+                    my_deposit_addresses = DepositAddress.objects.none()
             else:
-                my_deposit_addresses = DepositAddress.objects.none()
-        else:
-            memo = ''
+                memo = ''
 
-        if my_deposit_addresses:
-            raise ValidationError('آدرس برداشت متعلق به خودتان است. لطفا آدرس دیگری را وارد نمایید.')
+            if my_deposit_addresses:
+                raise ValidationError('آدرس برداشت متعلق به خودتان است. لطفا آدرس دیگری را وارد نمایید.')
 
         wallet = asset.get_wallet(account)
 
@@ -180,6 +184,11 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
         if sms_verification_code:
             sms_verification_code.set_code_used()
+
+        try:
+            receiver = User.objects.get(phone=receiver)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({'receiver': 'کاربر پیدا نشد.'})
 
         return {
             'network': network,

@@ -2,8 +2,8 @@ from django.db import models
 
 
 class WithdrawSources:
-    SELF, INTERNAL, PROVIDER, MANUAL = 'self', 'internal', 'provider', 'manual'
-    CHOICES = (SELF, SELF), (INTERNAL, INTERNAL), (PROVIDER, PROVIDER), (MANUAL, MANUAL)
+    SELF, INTERNAL, INTERNAL_ACCOUNT, PROVIDER, MANUAL = 'self', 'internal', 'internal_account', 'provider', 'manual'
+    CHOICES = (SELF, SELF), (INTERNAL, INTERNAL), (INTERNAL_ACCOUNT, INTERNAL_ACCOUNT), (PROVIDER, PROVIDER), (MANUAL, MANUAL)
 
     @classmethod
     def get_db_field(cls):

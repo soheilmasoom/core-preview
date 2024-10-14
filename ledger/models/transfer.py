@@ -16,6 +16,7 @@ from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 from accounts.models import Account, Notification, EmailNotification, User
+from accounts.utils.mask import get_masked_phone
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
 from ledger.fields import WithdrawSources
@@ -46,7 +47,7 @@ class Transfer(models.Model):
 
     group_id = models.UUIDField(default=uuid4, db_index=True)
     deposit_address = models.ForeignKey('ledger.DepositAddress', on_delete=models.CASCADE, null=True, blank=True)
-    network = models.ForeignKey('ledger.Network', on_delete=models.CASCADE)
+    network = models.ForeignKey('ledger.Network', on_delete=models.CASCADE, null=True, blank=True)
     wallet = models.ForeignKey('ledger.Wallet', on_delete=models.CASCADE)
 
     amount = get_amount_field()
@@ -105,6 +106,19 @@ class Transfer(models.Model):
         return self.network.explorer_link.format(hash=self.trx_hash)
 
     def build_trx(self, pipeline: WalletPipeline):
+        if self.source == WithdrawSources.INTERNAL_ACCOUNT:
+            sender_wallet = self.wallet
+            receiver = User.objects.filter(phone=self.out_address).first()
+            receiver_wallet = self.wallet.assset.get_wallet(receiver.account)
+            pipeline.new_trx(
+                group_id=self.group_id,
+                sender=sender_wallet,
+                receiver=receiver_wallet,
+                amount=self.amount,
+                scope=Trx.INTERNAL_TRANSFER
+            )
+            return
+
         asset = self.wallet.asset
         out_wallet = asset.get_wallet(Account.out())
 
@@ -135,30 +149,50 @@ class Transfer(models.Model):
             check_prize_achievements(receiver.account, Task.DEPOSIT)
 
     @classmethod
-    def check_fast_forward(cls, sender_wallet: Wallet, network: Network, amount: Decimal, address: str,
-                           memo: str = '') -> Union['Transfer', None]:
-
-        queryset = DepositAddress.objects.filter(address=address)
-
-        if network.deposit_need_memo and memo:
-            queryset = queryset.filter(address_key__memo=memo)
-
-        if not queryset.exists() or (network.deposit_need_memo and not memo):
-            return
-
-        sender_deposit_address = DepositAddress.get_deposit_address(
-            account=sender_wallet.account,
-            network=network
-        )
-
-        receiver_account = queryset.first().address_key.account
-        receiver_deposit_address = DepositAddress.get_deposit_address(
-            account=receiver_account,
-            network=network
-        )
-        receiver_wallet = sender_wallet.asset.get_wallet(receiver_account)
+    def check_fast_forward(cls, sender_wallet: Wallet, amount: Decimal, receiver_wallet: Union['Wallet', None] = None, address: str = '',
+                           memo: str = '', network: Union['Network', None] = None) -> Union['Transfer', None]:
 
         group_id = uuid4()
+
+        if address:
+            queryset = DepositAddress.objects.filter(address=address)
+
+            if network.deposit_need_memo and memo:
+                queryset = queryset.filter(address_key__memo=memo)
+
+            if not queryset.exists() or (network.deposit_need_memo and not memo):
+                return
+
+            sender_deposit_address = DepositAddress.get_deposit_address(
+                account=sender_wallet.account,
+                network=network
+            )
+
+            receiver_account = queryset.first().address_key.account
+            receiver_deposit_address = DepositAddress.get_deposit_address(
+                account=receiver_account,
+                network=network
+            )
+            receiver_wallet = sender_wallet.asset.get_wallet(receiver_account)
+            scope = Trx.TRANSFER
+            trx_hash = 'internal: <%s>' % str(group_id)
+            source = WithdrawSources.INTERNAL
+            out_address = address
+            sender_out_address = sender_deposit_address.address
+
+        elif receiver_wallet:
+            sender_deposit_address = None
+            receiver_deposit_address = None
+            memo = None
+            network = None
+            trx_hash = 'internal_accoutn: <%s>' % str(group_id)
+            scope = Trx.INTERNAL_TRANSFER
+            source = WithdrawSources.INTERNAL_ACCOUNT
+            out_address = get_masked_phone(receiver_wallet.account.user.username)
+            sender_out_address = get_masked_phone(sender_wallet.account.user.username)
+            receiver_account = receiver_wallet.account
+        else:
+            return
 
         price_usdt = get_last_price(sender_wallet.asset.symbol + Asset.USDT) or 0
         price_irt = get_last_price(sender_wallet.asset.symbol + Asset.IRT) or 0
@@ -167,7 +201,7 @@ class Transfer(models.Model):
             pipeline.new_trx(
                 sender=sender_wallet,
                 receiver=receiver_wallet,
-                scope=Trx.TRANSFER,
+                scope=scope,
                 group_id=group_id,
                 amount=amount
             )
@@ -180,9 +214,9 @@ class Transfer(models.Model):
                 amount=amount,
                 deposit=False,
                 group_id=group_id,
-                trx_hash='internal: <%s>' % str(group_id),
-                out_address=address,
-                source=WithdrawSources.INTERNAL,
+                trx_hash=trx_hash,
+                out_address=out_address,
+                source=source,
                 usdt_value=amount * price_usdt,
                 irt_value=amount * price_irt,
             )
@@ -196,9 +230,9 @@ class Transfer(models.Model):
                 amount=amount,
                 deposit=True,
                 group_id=group_id,
-                trx_hash='internal: <%s>' % str(group_id),
-                out_address=sender_deposit_address.address,
-                source=WithdrawSources.INTERNAL,
+                trx_hash=trx_hash,
+                out_address=sender_out_address,
+                source=source,
                 usdt_value=amount * price_usdt,
                 irt_value=amount * price_irt,
             )
@@ -212,13 +246,15 @@ class Transfer(models.Model):
         return sender_transfer
 
     @classmethod
-    def new_withdraw(cls, wallet: Wallet, network: Network, amount: Decimal, address: str, memo: str = '',
-                     whitelist: bool = False):
+    def new_withdraw(cls, wallet: Wallet, amount: Decimal, address: str, memo: str = '',
+                     whitelist: bool = False, network: Union['Network', None] = None, receiver_wallet: Union['Wallet', None] = None):
+
         assert wallet.asset.symbol != Asset.IRT
         assert wallet.account.is_ordinary_user()
         wallet.has_balance(amount, raise_exception=True, check_system_wallets=True)
 
         fast_forward = cls.check_fast_forward(
+            receiver_wallet=receiver_wallet,
             sender_wallet=wallet,
             network=network,
             amount=amount,
@@ -274,14 +310,24 @@ class Transfer(models.Model):
 
         if user and user.is_active:
             if self.deposit:
-                title = 'دریافت شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
-                message = 'از ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
-                template = 'crypto_deposit_successful'
-
+                if self.source == WithdrawSources.INTERNAL_ACCOUNT:
+                    title = 'دریافت شد: %s %s' % (humanize_number(self.amount), self.asset.name_fa)
+                    message = ''
+                    template = 'internal_crypto_deposit_successful'
+                else:
+                    title = 'دریافت شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
+                    message = 'از ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
+                    template = 'crypto_deposit_successful'
             else:
-                title = 'ارسال شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
-                message = 'به ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
-                template = 'crypto_withdraw_successful'
+                if self.source == WithdrawSources.INTERNAL_ACCOUNT:
+                    title = 'ارسال شد: %s %s' % (humanize_number(self.amount), self.asset.name_fa)
+                    message = ''
+                    template = 'internal_crypto_withdraw_successful'
+                else:
+                    title = 'ارسال شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
+                    message = 'به ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
+                    template = 'crypto_withdraw_successful'
+
 
             Notification.send(
                 recipient=self.wallet.account.user,
@@ -403,7 +449,7 @@ def handle_transfer_save(sender, instance, created, **kwargs):
         user_id=instance.wallet.account.user_id,
         amount=instance.amount,
         coin=instance.wallet.asset.symbol,
-        network=instance.network.symbol,
+        network=instance.network.symbol if instance.network else None,
         created=instance.created,
         is_deposit=instance.deposit,
         value_irt=instance.irt_value,
