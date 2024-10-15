@@ -18,6 +18,7 @@ from accounts.utils.validation import persian_timedelta
 from accounts.validators import mobile_number_validator
 from financial.utils.withdraw_limit import get_crypto_withdraw_irt_value
 from ledger.exceptions import InsufficientBalance
+from ledger.fields import WithdrawSources
 from ledger.models import Asset, Transfer, NetworkAsset, AddressBook, DepositAddress
 from ledger.models import WithdrawFeedback, FeedbackCategory
 from ledger.models.asset import CoinField
@@ -30,15 +31,18 @@ from ledger.views.address_book_view import AddressBookCreateSerializer
 
 
 class WithdrawSerializer(serializers.ModelSerializer):
+    ALLOWED_WITHDRAW_CHOICES = (WithdrawSources.INTERNAL_ACCOUNT, WithdrawSources.INTERNAL_ACCOUNT), (WithdrawSources.SELF, WithdrawSources.SELF)
+
     address_book_id = serializers.CharField(write_only=True, required=False, default=None)
     coin = CoinField(source='asset', required=True)
     network = NetworkField(required=False)
     code = serializers.CharField(write_only=True, required=False)
     address = serializers.CharField(source='out_address', required=False)
-    receiver = serializers.CharField(write_only=True, required=False, validators=[mobile_number_validator], trim_whitespace=True)
+    # receiver = serializers.CharField(write_only=True, required=False, validators=[mobile_number_validator], trim_whitespace=True)
     memo = serializers.CharField(required=False, allow_blank=True)
     address_book = serializers.SerializerMethodField()
     totp = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+    source = serializers.ChoiceField(choices=ALLOWED_WITHDRAW_CHOICES, required=False, write_only=True)
 
     def validate(self, attrs):
         request = self.context['request']
@@ -51,6 +55,13 @@ class WithdrawSerializer(serializers.ModelSerializer):
                 f'به دلیل افزایش امنیت حساب‌ کاربری شما، امکان ‌برداشت تا {td} دیگر وجود ندارد.'
             )
 
+        receiver_phone = None
+        if attrs.get('source') == WithdrawSources.INTERNAL_ACCOUNT:
+            receiver_phone = attrs.get('out_address')
+            is_via_network = False
+        elif attrs.get('source') == WithdrawSources.SELF:
+            is_via_network = True
+
         account = user.get_account()
         from_panel = self.context.get('from_panel')
         asset = attrs.get('asset')
@@ -58,7 +69,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
         address = attrs.get('out_address')
         address_book = None
         totp = attrs.get('totp', None)
-        receiver = attrs.get('receiver', None)
+        # receiver = attrs.get('receiver', None)
         whitelist = False
         memo = attrs.get('memo') or ''
 
@@ -77,9 +88,9 @@ class WithdrawSerializer(serializers.ModelSerializer):
         else:
             if not asset:
                 raise ValidationError('ارز دیجیتالی انتخاب نشده است.')
-            if not receiver and not network:
+            if is_via_network and not network:
                 raise ValidationError('شبکه‌ای انتخاب نشده است.')
-            if not receiver and not address:
+            if is_via_network and not address:
                 raise ValidationError('آدرس وارد نشده است.')
 
             if from_panel and 'code' not in attrs:
@@ -92,7 +103,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
         if not can_withdraw(user.get_account(), request, value_usdt=value_usdt) or not user.can_withdraw_crypto:
             raise ValidationError('امکان برداشت وجود ندارد.')
 
-        if not receiver and not re.match(network.address_regex, address):
+        if is_via_network and not re.match(network.address_regex, address):
             raise ValidationError('آدرس به فرمت درستی وارد نشده است.')
 
         if asset.symbol == Asset.IRT:
@@ -121,23 +132,23 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
         network_asset = get_object_or_404(NetworkAsset, asset=asset, network=network)
 
-        if not receiver and not network_asset.can_withdraw_enabled():
+        if is_via_network and not network_asset.can_withdraw_enabled():
             raise ValidationError(
                 'در حال حاضر امکان برداشت {} روی شبکه {} وجود ندارد.'.format(asset.symbol, network.symbol))
 
-        if not receiver and get_precision(amount) > network_asset.get_withdraw_precision():
+        if is_via_network and get_precision(amount) > network_asset.get_withdraw_precision():
             raise ValidationError('مقدار وارد شده اشتباه است.')
 
-        if not receiver and amount < network_asset.withdraw_min:
+        if is_via_network and amount < network_asset.withdraw_min:
             raise ValidationError('مقدار وارد شده کوچک است.')
 
-        if not receiver and amount > network_asset.withdraw_max:
+        if is_via_network and amount > network_asset.withdraw_max:
             raise ValidationError('مقدار وارد شده بزرگ است.')
 
-        if not receiver and DepositAddress.objects.filter(address=address, address_key__deleted=True):
+        if is_via_network and DepositAddress.objects.filter(address=address, address_key__deleted=True):
             raise ValidationError('آدرس برداشت نامعتبر است.')
 
-        if not receiver:
+        if is_via_network:
             my_deposit_addresses = DepositAddress.objects.filter(address=address, address_key__account=account)
 
             if network.withdraw_allow_memo:
@@ -186,11 +197,12 @@ class WithdrawSerializer(serializers.ModelSerializer):
             sms_verification_code.set_code_used()
 
         try:
-            receiver = User.objects.get(phone=receiver)
+            receiver_user = User.objects.get(phone=receiver_phone)
         except User.DoesNotExist:
             raise serializers.ValidationError({'receiver': 'کاربر پیدا نشد.'})
 
         return {
+            'receiver_user': receiver_user,
             'network': network,
             'asset': asset,
             'wallet': wallet,
@@ -220,6 +232,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
             with transaction.atomic():
 
                 transfer = Transfer.new_withdraw(
+                    receiver_user=validated_data['receiver_user'],
                     wallet=wallet,
                     network=validated_data['network'],
                     amount=amount,

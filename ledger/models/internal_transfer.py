@@ -20,23 +20,23 @@ from accounts.models import Account, Notification, EmailNotification, User
 logger = logging.getLogger(__name__)
 
 class InternalTransfer(models.Model):
-    # COMPLETE_STATUSES = (CANCELED, DONE)
+    COMPLETE_STATUSES = (CANCELED, DONE)
 
-    # FREEZE_SECONDS = 30
+    FREEZE_SECONDS = 30
 
-    # history = HistoricalRecords()
-    # created = models.DateTimeField(auto_now_add=True, db_index=True)
-    # group_id = models.UUIDField(default=uuid4, db_index=True)
-    # sender_account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='sent_internal_transfers')
-    # receiver_account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='received_internal_transfers')
-    # amount = get_amount_field()
-    # status = get_status_field()
-    # asset = models.ForeignKey(to='ledger.Asset', on_delete=models.PROTECT)
-    # description = models.TextField(blank=True)
-    # login_activity = models.ForeignKey('accounts.LoginActivity', on_delete=models.SET_NULL, null=True, blank=True)
+    history = HistoricalRecords()
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+    group_id = models.UUIDField(default=uuid4, db_index=True)
+    sender_account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='sent_internal_transfers')
+    receiver_account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='received_internal_transfers')
+    amount = get_amount_field()
+    status = get_status_field()
+    asset = models.ForeignKey(to='ledger.Asset', on_delete=models.PROTECT)
+    description = models.TextField(blank=True)
+    login_activity = models.ForeignKey('accounts.LoginActivity', on_delete=models.SET_NULL, null=True, blank=True)
 
-    # def in_freeze_time(self):
-    #     return timezone.now() <= self.created + timedelta(seconds=self.FREEZE_SECONDS)
+    def in_freeze_time(self):
+        return timezone.now() <= self.created + timedelta(seconds=self.FREEZE_SECONDS)
 
     @classmethod
     def new_internal_transfer(cls, asset: Asset, sender_account: Account, receiver_account: Account, amount: Decimal, description: str = ''):

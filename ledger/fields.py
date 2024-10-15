@@ -8,7 +8,7 @@ class WithdrawSources:
     @classmethod
     def get_db_field(cls):
         return models.CharField(
-            max_length=8,
+            max_length=16,
             default=cls.SELF,
             choices=cls.CHOICES
         )

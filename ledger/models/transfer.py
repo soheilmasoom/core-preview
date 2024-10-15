@@ -149,7 +149,7 @@ class Transfer(models.Model):
             check_prize_achievements(receiver.account, Task.DEPOSIT)
 
     @classmethod
-    def check_fast_forward(cls, sender_wallet: Wallet, amount: Decimal, receiver_wallet: Union['Wallet', None] = None, address: str = '',
+    def check_fast_forward(cls, sender_wallet: Wallet, amount: Decimal, receiver_user: Union['User', None] = None, address: str = '',
                            memo: str = '', network: Union['Network', None] = None) -> Union['Transfer', None]:
 
         group_id = uuid4()
@@ -180,7 +180,7 @@ class Transfer(models.Model):
             out_address = address
             sender_out_address = sender_deposit_address.address
 
-        elif receiver_wallet:
+        elif receiver_user:
             sender_deposit_address = None
             receiver_deposit_address = None
             memo = None
@@ -188,9 +188,9 @@ class Transfer(models.Model):
             trx_hash = 'internal_accoutn: <%s>' % str(group_id)
             scope = Trx.INTERNAL_TRANSFER
             source = WithdrawSources.INTERNAL_ACCOUNT
-            out_address = get_masked_phone(receiver_wallet.account.user.username)
+            out_address = get_masked_phone(receiver_user.username)
             sender_out_address = get_masked_phone(sender_wallet.account.user.username)
-            receiver_account = receiver_wallet.account
+            receiver_account = receiver_user.get_account()
         else:
             return
 
@@ -247,14 +247,14 @@ class Transfer(models.Model):
 
     @classmethod
     def new_withdraw(cls, wallet: Wallet, amount: Decimal, address: str, memo: str = '',
-                     whitelist: bool = False, network: Union['Network', None] = None, receiver_wallet: Union['Wallet', None] = None):
+                     whitelist: bool = False, network: Union['Network', None] = None, receiver_user: Union['User', None] = None):
 
         assert wallet.asset.symbol != Asset.IRT
         assert wallet.account.is_ordinary_user()
         wallet.has_balance(amount, raise_exception=True, check_system_wallets=True)
 
         fast_forward = cls.check_fast_forward(
-            receiver_wallet=receiver_wallet,
+            receiver_user=receiver_user,
             sender_wallet=wallet,
             network=network,
             amount=amount,
