@@ -97,9 +97,10 @@ class Transfer(models.Model):
             return min(max(self.last_block_number - self.block_number, 0), self.network.min_confirm)
 
     def get_explorer_link(self) -> str:
+        if not self.network:
+            return ''
         if not self.trx_hash:
             return ''
-
         if 'Internal transfer' in self.trx_hash:
             return ''
 
@@ -154,7 +155,7 @@ class Transfer(models.Model):
 
         group_id = uuid4()
 
-        if address:
+        if network:
             queryset = DepositAddress.objects.filter(address=address)
 
             if network.deposit_need_memo and memo:
@@ -181,9 +182,10 @@ class Transfer(models.Model):
             sender_out_address = sender_deposit_address.address
 
         elif receiver_user:
+            receiver_wallet = sender_wallet.asset.get_wallet(receiver_user.get_account())
             sender_deposit_address = None
             receiver_deposit_address = None
-            memo = None
+            memo = ''
             network = None
             trx_hash = 'internal_accoutn: <%s>' % str(group_id)
             scope = Trx.INTERNAL_TRANSFER

@@ -17,13 +17,23 @@ class TransferSerializer(serializers.ModelSerializer):
     link = serializers.SerializerMethodField()
     amount = serializers.SerializerMethodField()
     fee_amount = serializers.SerializerMethodField()
-    network = serializers.CharField(source='network.symbol')
-    min_confirm = serializers.IntegerField(source='network.min_confirm')
-    unlock_confirm = serializers.IntegerField(source='network.unlock_confirm')
+    network = serializers.SerializerMethodField()
+    min_confirm = serializers.SerializerMethodField()
+    unlock_confirm = serializers.SerializerMethodField()
     confirmation = serializers.SerializerMethodField()
     asset = AssetSerializerMini(source='wallet.asset', read_only=True)
     is_internal = serializers.SerializerMethodField()
+    is_internal_account = serializers.SerializerMethodField()
     cancelable = serializers.SerializerMethodField()
+
+    def get_network(self, transfer: Transfer):
+        return transfer.network.symbol if transfer.network else None
+
+    def get_min_confirm(self, transfer: Transfer):
+        return transfer.network.min_confirm if transfer.network else None
+
+    def get_unlock_confirm(self, transfer: Transfer):
+        return transfer.network.unlock_confirm if transfer.network else None
 
     def get_link(self, transfer: Transfer):
         return transfer.get_explorer_link()
@@ -37,7 +47,12 @@ class TransferSerializer(serializers.ModelSerializer):
     def get_is_internal(self, transfer: Transfer):
         return transfer.source == WithdrawSources.INTERNAL
 
+    def get_is_internal_account(self, transfer: Transfer):
+        return transfer.source == WithdrawSources.INTERNAL_ACCOUNT
+
     def get_confirmation(self, transfer: Transfer):
+        if not transfer.network:
+            return 0
         if transfer.status == DONE:
             return transfer.network.min_confirm
 
@@ -51,7 +66,7 @@ class TransferSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transfer
         fields = ('id', 'created', 'amount', 'status', 'link', 'out_address', 'asset', 'network', 'trx_hash',
-                  'fee_amount', 'is_internal', 'cancelable', 'min_confirm', 'unlock_confirm', 'confirmation')
+                  'fee_amount', 'is_internal', 'is_internal_account', 'cancelable', 'min_confirm', 'unlock_confirm', 'confirmation')
 
 
 class WithdrawHistoryView(ListAPIView):

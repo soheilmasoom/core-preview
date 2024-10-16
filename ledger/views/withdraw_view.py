@@ -129,8 +129,8 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
                 if not user.is_2fa_valid(totp):
                     raise ValidationError({'totp': 'شناسه‌ دوعاملی صحیح نمی‌باشد.'})
-
-        network_asset = get_object_or_404(NetworkAsset, asset=asset, network=network)
+        if is_via_network:
+            network_asset = get_object_or_404(NetworkAsset, asset=asset, network=network)
 
         if is_via_network and not network_asset.can_withdraw_enabled():
             raise ValidationError(
@@ -266,7 +266,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transfer
-        fields = ('id', 'amount', 'address', 'coin', 'network', 'code', 'address_book_id', 'address_book', 'memo',
+        fields = ('id', 'amount', 'source', 'address', 'coin', 'network', 'code', 'address_book_id', 'address_book', 'memo',
                   'totp')
         ref_name = 'Withdraw Serializer'
 
