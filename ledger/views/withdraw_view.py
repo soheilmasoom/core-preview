@@ -195,10 +195,11 @@ class WithdrawSerializer(serializers.ModelSerializer):
         if sms_verification_code:
             sms_verification_code.set_code_used()
 
-        try:
-            receiver_user = User.objects.get(phone=receiver_phone)
-        except User.DoesNotExist:
-            raise serializers.ValidationError({'receiver': 'کاربر پیدا نشد.'})
+        if not is_via_network:
+            try:
+                receiver_user = User.objects.get(phone=receiver_phone)
+            except User.DoesNotExist:
+                raise serializers.ValidationError({'receiver': 'کاربر پیدا نشد.'})
 
         if receiver_user.phone == user.phone :
             raise ValidationError({'receiver': 'امکان انتقال به خود را ندارید.'})
