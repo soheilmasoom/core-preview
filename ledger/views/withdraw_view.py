@@ -38,11 +38,10 @@ class WithdrawSerializer(serializers.ModelSerializer):
     network = NetworkField(required=False)
     code = serializers.CharField(write_only=True, required=False)
     address = serializers.CharField(source='out_address', required=False)
-    # receiver = serializers.CharField(write_only=True, required=False, validators=[mobile_number_validator], trim_whitespace=True)
     memo = serializers.CharField(required=False, allow_blank=True)
     address_book = serializers.SerializerMethodField()
     totp = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
-    source = serializers.ChoiceField(choices=ALLOWED_WITHDRAW_CHOICES, required=False, write_only=True)
+    source = serializers.ChoiceField(choices=ALLOWED_WITHDRAW_CHOICES, required=False)
 
     def validate(self, attrs):
         request = self.context['request']
