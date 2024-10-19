@@ -34,7 +34,7 @@ class TransactionHistoryView(ListAPIView):
     def get_queryset(self):
         return TransactionHistory.objects.filter(
             user=self.request.user
-        )
+        ).order_by('-created')
 
 
 class TransactionDetailView(RetrieveAPIView):
