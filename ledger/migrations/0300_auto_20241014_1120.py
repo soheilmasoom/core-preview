@@ -17,10 +17,10 @@ class Migration(migrations.Migration):
                 FROM ledger_otctrade t JOIN ledger_otcrequest r ON t.otc_request_id = r.id JOIN accounts_account aa ON r.account_id = aa.id JOIN market_pairsymbol symbol ON r.symbol_id = symbol.id JOIN ledger_asset a ON symbol.asset_id = a.id
             
             UNION ALL
-            SELECT created, group_id, user_id, status, 'deposit' AS side, amount, 'IRT' AS coin FROM financial_payment
+            SELECT created, group_id, user_id, status, 'fiat_deposit' AS side, amount, 'IRT' AS coin FROM financial_payment
             
             UNION ALL
-            SELECT w.created, group_id, user_id, status, 'withdraw' AS side, amount, 'IRT' AS coin FROM financial_fiatwithdrawrequest w JOIN financial_bankaccount fb on w.bank_account_id = fb.id
+            SELECT w.created, group_id, user_id, status, 'fiat_withdraw' AS side, amount, 'IRT' AS coin FROM financial_fiatwithdrawrequest w JOIN financial_bankaccount fb on w.bank_account_id = fb.id
 
             """,
             reverse_sql="DROP VIEW IF EXISTS ledger_transaction_history_view;"

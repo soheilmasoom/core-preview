@@ -47,7 +47,7 @@ class OTCTrade(models.Model):
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     otc_request = models.OneToOneField('ledger.OTCRequest', on_delete=models.PROTECT)
 
-    group_id = models.UUIDField(default=uuid4, db_index=True)
+    group_id = models.UUIDField(default=uuid4, unique=True)
 
     status = models.CharField(
         default=PENDING,

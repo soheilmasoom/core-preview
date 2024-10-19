@@ -108,7 +108,8 @@ urlpatterns = [
     path('v1/widget/config/', views.WidgetConfigView.as_view()),
 
     path('v1/transactions/recent/', views.RecentTransactionsView.as_view()),
-    path('v1/transactions/history/', views.TransactionHistoryView.as_view()),
+    path('v1/transactions/', views.TransactionHistoryView.as_view()),
+    path('v1/transactions/<slug:type>/<uuid:group_id>/', views.TransactionDetailView.as_view()),
 
     path('v1/deposit/recover/', views.DepositRecoveryView.as_view()),
 

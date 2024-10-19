@@ -13,9 +13,8 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='TransactionHistory',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('created', models.DateTimeField()),
-                ('group_id', models.UUIDField()),
+                ('group_id', models.UUIDField(primary_key=True)),
                 ('status', models.CharField(max_length=16)),
                 ('type', models.CharField(max_length=16)),
                 ('amount', models.DecimalField(decimal_places=8, max_digits=30, validators=[django.core.validators.MinValueValidator(0)])),
