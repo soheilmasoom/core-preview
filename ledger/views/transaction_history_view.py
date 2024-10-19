@@ -22,7 +22,7 @@ class TransactionHistoryFilter(django_filters.FilterSet):
 class TransactionHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = TransactionHistory
-        fields = ('created', 'group_id', 'status', 'type', 'amount', 'coin')
+        fields = ('created', 'group_id', 'type', 'amount', 'coin', 'status', )
 
 
 class TransactionHistoryView(ListAPIView):
