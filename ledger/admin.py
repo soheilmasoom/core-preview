@@ -930,7 +930,7 @@ class PrizeAdmin(AdvancedAdmin):
 class CoinCategoryAdmin(SimpleHistoryAdmin):
     list_display = ('name', 'title', 'get_coin_count', 'order')
     list_editable = ('order',)
-    exclude = ('coins',)
+    exclude = ('coins', '_description_html')
 
     @admin.display(description="Count")
     def get_coin_count(self, coin_category: CoinCategory):
