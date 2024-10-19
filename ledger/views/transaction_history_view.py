@@ -14,6 +14,9 @@ from ledger.views.otc_history_view import OTCRequestSerializer
 
 class TransactionHistoryFilter(django_filters.FilterSet):
     created = django_filters.IsoDateTimeFromToRangeFilter()
+    type = django_filters.BaseInFilter()
+    coin = django_filters.BaseInFilter()
+    status = django_filters.BaseInFilter()
 
     class Meta:
         model = TransactionHistory
@@ -40,9 +43,6 @@ class TransactionHistoryView(ListAPIView):
 
 
 class TransactionDetailView(RetrieveAPIView):
-    filter_class = TransactionHistoryFilter
-    serializer_class = TransactionHistorySerializer
-
     def get_object(self):
         user = self.request.user
         account = user.get_account()
