@@ -16,9 +16,9 @@ class PaystarCallbackView(TemplateView):
 
     def get(self, request, *args, **kwargs):
         status = request.GET.get('status')
-        authority = request.GET.get('ref_num')
+        authority = request.GET.get('ref_num', '')
         tracking_code = request.GET.get('tracking_code', '')
-        card_number = request.GET.get('card_number') or ''
+        card_number = request.GET.get('card_number', '')
 
         if not authority:
             raise ValidationError('no authority')
@@ -29,11 +29,10 @@ class PaystarCallbackView(TemplateView):
 
         if not payment:
             with transaction.atomic():
-                payment = payment_request.get_or_create_payment()
-                payment.ref_id = tracking_code
-                payment.card_pan = card_number
-                payment.save(update_fields=['ref_id', 'card_pan'])
-
+                payment = payment_request.get_or_create_payment(
+                    ref_id=tracking_code,
+                    card_pan=card_number
+                )
         if payment.status == PENDING:
             if status != '1':
                 payment.status = CANCELED

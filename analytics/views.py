@@ -1,12 +1,13 @@
 import uuid
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Tuple
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, BadRequest
-from django.db.models import Q, Count, F, Value, CharField, Sum
-from django.db.models.functions import Cast, TruncDate
+from django.db.models import Q, Count, F, Value, CharField, Sum, IntegerField
+from django.db.models.functions import Cast, TruncDate, Greatest
 from django.http import HttpResponse
 from django.shortcuts import render
 from openpyxl import Workbook
@@ -14,7 +15,7 @@ from openpyxl import Workbook
 from accounting.models import TradeRevenue
 from accounts.models import TrafficSource, User
 from analytics.models import ReportPermission
-from analytics.utils.join import join_lists_with_first_element
+from analytics.utils.list import join_lists_with_first_element
 
 
 def _get_report_permission(user: User, group_id: str):
@@ -41,11 +42,20 @@ def parse_date(date_str: str) -> datetime:
         raise BadRequest('Invalid Data')
 
 
+def parse_int(value: str) -> int:
+    try:
+        return int(value)
+    except ValueError:
+        pass
+
+
 @login_required
 def request_source_analytics(request, group_id: str):
-    _get_report_permission(request.user, group_id)
+    perm = _get_report_permission(request.user, group_id)
 
     context = {
+        'utm_source': perm.utm_source,
+        'utm_medium': perm.utm_medium,
         'redirect_url': settings.HOST_URL + f'/analytics/marketing/reports/{group_id}/download/'
     }
     return render(request, 'datetime_form.html', context)
@@ -55,13 +65,14 @@ def request_source_analytics(request, group_id: str):
 def get_source_analytics(request, group_id: str):
     permission = _get_report_permission(request.user, group_id)
 
-    start = parse_date(request.GET.get('start'))
-    end = parse_date(request.GET.get('end'))
+    start = parse_date(request.GET.get('start', ''))
+    end = parse_date(request.GET.get('end', '')) + timedelta(days=1)
+    level = max(min(parse_int(request.GET.get('level', '')) or 2, 5), 1)
 
     if end - start > timedelta(days=30):
         raise BadRequest('Report can export at most 30 days')
 
-    headers, data = get_data(permission, start, end)
+    headers, data = get_data(permission, start, end, level)
 
     workbook = queryset_to_workbook(headers, data)
 
@@ -75,8 +86,9 @@ def get_source_analytics(request, group_id: str):
     return response
 
 
-def get_data(permission: ReportPermission, start: datetime, end: datetime) -> Tuple[list, list]:
-    headers = ['date', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'users', 'verified',
+def get_data(permission: ReportPermission, start: datetime, end: datetime, level: int = 2) -> Tuple[list, list]:
+    utms = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'][:level]
+    headers = ['date', *utms, 'users', 'verified',
                'depositors']
 
     queryset = TrafficSource.objects.filter(
@@ -87,42 +99,48 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime) -> Tu
     ).annotate(
         date_str=Cast(TruncDate('created'), output_field=CharField())
     ).values(
-        'date_str', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'
+        'date_str', *utms
     ).annotate(
-        user_count=Count('user__id', distinct=True),
+        user_count=Count('user_id', distinct=True),
         verified_count=Count(
-            'user__id',
+            'user_id',
             distinct=True,
             filter=Q(user__level_2_verify_datetime__lte=F('user__date_joined') + Value(timedelta(days=1)))
         ),
         depositor_count=Count(
-            'user__id', distinct=True,
+            'user_id', distinct=True,
             filter=Q(user__first_fiat_deposit_date__lte=F('user__date_joined') + Value(timedelta(days=1))) |
                    Q(user__first_crypto_deposit_date__lte=F('user__date_joined') + Value(timedelta(days=1)))
         )
     ).values_list(
-        'date_str', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
-        'user_count', 'verified_count', 'depositor_count',
+        'date_str', *utms, 'user_count', 'verified_count', 'depositor_count',
     )
 
     data = list(queryset)
 
     if permission.referral_percent_revenue:
+        group_by = ['date_str'] + [f'account__user__traffic_source__{s}' for s in utms]
+
         revenues = TradeRevenue.objects.filter(
             created__range=[start, end],
             account__user__traffic_source__utm_source=permission.utm_source,
             account__user__traffic_source__utm_medium=permission.utm_medium,
-            account__user__account__referral__isnull=True
+            # account__user__account__referral__isnull=True
         ).annotate(
             date_str=Cast(TruncDate('created'), output_field=CharField())
-        ).values('date_str').annotate(
-            revenue=Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F('value')) * permission.referral_percent_revenue / 100
-        ).values_list('date_str', 'revenue')
+        ).values(*group_by).annotate(
+            revenue=Greatest(
+                Cast(
+                    Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F('value')) * permission.referral_percent_revenue / 100,
+                    output_field=IntegerField()
+                ), 0)
+        ).values_list(*group_by, 'revenue')
 
-        data = join_lists_with_first_element(data, list(revenues), len(headers), 2)
+        data = join_lists_with_first_element(data, list(revenues), n1=len(headers), n2=len(group_by) + 1,
+                                             group_len=len(group_by))
         headers.append('revenue')
 
-    return headers, list(data)
+    return headers, sorted(list(data))
 
 
 def queryset_to_workbook(headers: list, data: list):

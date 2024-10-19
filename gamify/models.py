@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from django.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 
 from accounts.models import Notification, Account, User
 from ledger.models import Prize, Asset
@@ -11,39 +12,46 @@ from ledger.utils.fields import get_amount_field, get_created_field
 from ledger.utils.precision import humanize_number
 from ledger.utils.price import get_last_price
 from ledger.utils.wallet_pipeline import WalletPipeline
+from multimedia.storage import PublicMediaStorage
 
 logger = logging.getLogger(__name__)
 
 
 class MissionJourney(models.Model):
-    name = models.CharField(max_length=64)
-    active = models.BooleanField(default=False)
-    promotion = models.CharField(max_length=8, unique=True, choices=[(p, p) for p in User.PROMOTIONS])
+    name = models.CharField(max_length=64, unique=True)
 
-    default = models.BooleanField(default=True)
+    active = models.BooleanField(default=True)
+    default = models.BooleanField(default=False)
+
+    title = models.CharField(max_length=1024, blank=True)
+    description = models.CharField(max_length=1024, blank=True)
+    logo = models.ImageField(blank=True, null=True, storage=PublicMediaStorage(), upload_to='missions/logo/')
 
     def __str__(self):
         return self.name
 
     @classmethod
-    def get_default_promotion(cls):
-        journey = MissionJourney.objects.filter(active=True).order_by('-default').first()
-        if journey:
-            return journey.promotion
-
-    @classmethod
-    def get_journey(cls, account: Account) -> 'MissionJourney':
-        journey = MissionJourney.objects.filter(promotion=account.user.promotion, active=True).first()
+    def get_by_promotion(cls, promotion: str) -> 'MissionJourney':
+        journey = MissionJourney.objects.filter(name=promotion, active=True).first()
         if not journey:
-            default_journey = MissionJourney.objects.filter(active=True, default=True).first()
-            return default_journey
-        else:
-            return journey
+            journey = MissionJourney.objects.filter(active=True, default=True).first()
 
-    def get_active_mission(self, account: Account):
-        for mission in self.missiontemplate_set.filter(active=True):
-            if not mission.finished(account):
-                return mission
+        return journey
+
+    def save(self, *args, **kwargs):
+        self.name = slugify(self.name)
+        super(MissionJourney, self).save(*args, **kwargs)
+
+
+class MissionDigest(models.Model):
+    journey = models.ForeignKey(MissionJourney, on_delete=models.CASCADE, related_name='digests')
+    order = models.PositiveSmallIntegerField(default=0)
+
+    title = models.CharField(max_length=1024, blank=True)
+    description = models.CharField(max_length=1024, blank=True)
+
+    class Meta:
+        ordering = ('order', 'id')
 
 
 class MissionTemplate(models.Model):

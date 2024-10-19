@@ -21,7 +21,7 @@ from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationC
     UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
     AttributionTracker, AppConfig, SpamPhone
 from accounts.models import UserComment, TrafficSource, Referral
-from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object, admin_page_anchor
 from financial.models.bank_card import BankCard, BankAccount
 from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
@@ -310,7 +310,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         (None, {'fields': ('username', 'password')}),
         (_('Personal info'), {'fields': ('first_name', 'last_name', 'national_code', 'email', 'phone', 'birth_date',
                                          'get_selfie_image', 'archived',
-                                         'get_user_reject_reason', 'get_source_medium', 'promotion'
+                                         'get_user_reject_reason', 'get_source_medium', 'get_promotion'
                                          )}),
         (_('Authentication'), {'fields': ('level', 'verify_status', 'first_name_verified',
                                           'last_name_verified', 'national_code_verified', 'national_code_phone_verified',
@@ -359,7 +359,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     )
 
     list_display = ('get_date_joined_jalali', 'get_username', 'first_name', 'last_name', 'level', 'archived', 'get_user_reject_reason',
-                    'verify_status', 'promotion', 'get_source_medium', 'get_referrer_user', 'is_price_notif_on',
+                    'verify_status', 'get_promotion', 'get_source_medium', 'get_referrer_user', 'is_price_notif_on',
                     'get_suspended',)
     list_filter = (
         'archived', ManualNameVerifyFilter, 'level', 'national_code_phone_verified', 'date_joined', 'verify_status', 'level_2_verify_datetime',
@@ -387,7 +387,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'get_login_activity_link', 'get_last_trade', 'get_total_balance_irt_admin', 'get_order_link',
         'get_notifications_link', 'get_staking_link', 'get_prizes_link', 'get_suspended',
         'suspension_reason', 'get_bots_link', 'is_2fa_active', 'get_totp', 'get_dust', 'get_total_fiat_deposits',
-        'get_total_fiat_withdraws', 'get_total_crypto_deposits', 'get_total_crypto_withdraws'
+        'get_total_fiat_withdraws', 'get_total_crypto_deposits', 'get_total_crypto_withdraws', 'get_promotion'
     )
     preserve_filters = ('archived', )
 
@@ -402,7 +402,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         codename = get_permission_codename("manage_users", opts)
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
-    @admin.action(description='حذف امن کاربر', permissions=['manage_users'])
+    @admin.action(description='حذف امن کاربر', permissions=['change'])
     def safe_delete_user(self, request, queryset: List[User]):
         for user in queryset:
             try:
@@ -487,6 +487,11 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     @admin.display(description='2fa', boolean=True)
     def is_2fa_active(self, user: User):
         return user.is_2fa_active()
+
+    @admin.display(description='promotion')
+    def get_promotion(self, user: User):
+        if user.mission_journey:
+            return mark_safe(admin_page_anchor(user.mission_journey))
 
     @admin.display(description='username')
     def get_username(self, user: User):

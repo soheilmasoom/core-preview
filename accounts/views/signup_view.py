@@ -12,15 +12,13 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import User, Company, TrafficSource, Referral
+from accounts.models import User, Company, Referral
 from accounts.models.phone_verification import VerificationCode
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
-from accounts.utils.ip import get_client_ip
 from accounts.utils.login import set_login_activity
 from accounts.utils.signup import create_traffic_source, set_missions_to_user
 from accounts.validators import mobile_number_validator, password_validator, company_national_id_validator
 from analytics.utils.yandex import send_yandex_event
-from gamify.models import MissionJourney
 
 logger = logging.getLogger(__name__)
 
@@ -84,16 +82,12 @@ class SignupSerializer(serializers.Serializer):
         validate_password(password=password)
 
         phone = otp_code.phone
-        promotion = validated_data.get('promotion')
-        if promotion not in User.PROMOTIONS:
-            promotion = MissionJourney.get_default_promotion() or ''
+        promotion = validated_data.get('promotion', '')
 
         with transaction.atomic():
-
             user = User.objects.create_user(
                 username=phone,
                 phone=phone,
-                promotion=promotion
             )
 
             if company_national_id:
@@ -119,7 +113,7 @@ class SignupSerializer(serializers.Serializer):
 
         request = self.context['request']
         create_traffic_source(request, user, utm)
-        set_missions_to_user(user)
+        set_missions_to_user(user, promotion)
 
         send_yandex_event(user, 'sign_up', {'id': user.id})
 
@@ -142,5 +136,3 @@ class SignupView(CreateAPIView):
             )
         except ValueError:
             logger.exception('Error in setting login activity for signup')
-
-

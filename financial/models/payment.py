@@ -67,7 +67,7 @@ class PaymentRequest(models.Model):
     def rial_amount(self):
         return (self.fee + self.amount) * 10
 
-    def get_or_create_payment(self) -> 'Payment':
+    def get_or_create_payment(self, **kwargs) -> 'Payment':
         with transaction.atomic():
             payment, created = Payment.objects.get_or_create(
                 group_id=self.group_id,
@@ -76,6 +76,7 @@ class PaymentRequest(models.Model):
                     'amount': self.amount,
                     'fee': self.fee,
                     'source': Payment.IPG,
+                    **kwargs
                 }
             )
             if created:
@@ -112,7 +113,7 @@ class Payment(models.Model):
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     modified = models.DateTimeField(auto_now=True)
 
-    group_id = get_group_id_field()
+    group_id = get_group_id_field(unique=True)
 
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
 
@@ -121,7 +122,7 @@ class Payment(models.Model):
 
     status = get_status_field()
 
-    ref_id = models.CharField(null=True, blank=True, max_length=256)
+    ref_id = models.CharField(blank=True, max_length=256)
     ref_status = models.SmallIntegerField(null=True, blank=True)
 
     description = models.CharField(max_length=DESCRIPTION_SIZE, blank=True)
@@ -156,7 +157,7 @@ class Payment(models.Model):
             }
         )
 
-    def accept(self, pipeline: WalletPipeline, ref_id: int = None, system_verify: bool = True):
+    def accept(self, pipeline: WalletPipeline, ref_id: int = '', system_verify: bool = True):
         if system_verify and not verify_fiat_deposit(self):
             send_system_message("Verify deposit: %s" % self, link=url_to_admin_list(self, {'status': 'init'}))
 

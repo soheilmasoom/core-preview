@@ -92,7 +92,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_editable = ('order', )
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'order')
-    actions = ('setup_asset', 'update_rank_by_cmc')
+    actions = ('setup_asset', 'update_rank_by_cmc', 'set_to_hedge', 'set_to_not_hedge')
     readonly_fields = ('distribution_factor',)
     inlines = (CoinCategoryInline, AssetVariantInline)
 
@@ -229,6 +229,14 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
                 asset.order = rank
                 asset.save(update_fields=['order'])
 
+    @admin.action(description='Set to Hedge', permissions=['change'])
+    def set_to_hedge(self, request, queryset):
+        queryset.update(hedge=True)
+
+    @admin.action(description='Set to Not Hedge', permissions=['change'])
+    def set_to_not_hedge(self, request, queryset):
+        queryset.update(hedge=False)
+
 
 @admin.register(FeedbackCategory)
 class FeedbackCategoryAdmin(admin.ModelAdmin):
@@ -248,7 +256,7 @@ class WithdrawFeedbackAdmin(admin.ModelAdmin):
 class NetworkAdmin(SimpleHistoryAdmin):
     list_display = (
         'symbol', 'can_withdraw', 'can_deposit', 'min_confirm', 'unlock_confirm', 'deposit_need_memo',
-        'withdraw_allow_memo', 'address_regex',
+        'withdraw_allow_memo', 'address_regex', 'memo_regex'
     )
     list_editable = ('can_withdraw', 'can_deposit')
     search_fields = ('symbol',)

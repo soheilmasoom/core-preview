@@ -16,7 +16,7 @@ from simple_history.admin import SimpleHistoryAdmin
 from accounting.models import VaultItem, Vault
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
-from accounts.admin_guard.html_tags import anchor_tag
+from accounts.admin_guard.html_tags import anchor_tag, admin_page_anchor
 from accounts.models import User
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.admin_guard.html_tags import url_to_edit_object
@@ -46,7 +46,9 @@ class GatewayAdmin(admin.ModelAdmin):
     list_editable = ('active', 'active_for_staff', 'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable',
                      'deposit_priority', 'withdraw_priority', 'suspended')
     readonly_fields = ('get_balance', 'get_min_deposit_amount', 'get_max_deposit_amount')
-    list_filter = ('active', 'type')
+    list_filter = ('active', 'type', 'ipg_deposit_enable', 'withdraw_enable')
+
+    ordering = ('-active', '-ipg_deposit_enable', '-deposit_priority', '-withdraw_enable', '-withdraw_priority')
 
     @admin.display(description='balance')
     def get_balance(self, gateway: Gateway):
@@ -229,9 +231,9 @@ class PaymentRequestUserFilter(SimpleListFilter):
 
 @admin.register(PaymentRequest)
 class PaymentRequestAdmin(SimpleHistoryAdmin):
-    list_display = ('created', 'gateway', 'bank_card', 'amount', 'authority', 'payment')
+    list_display = ('created', 'gateway', 'bank_card', 'amount', 'authority', 'get_payment')
     search_fields = ('bank_card__card_pan', 'amount', 'authority', 'group_id')
-    readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity', 'user')
+    readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity', 'user', 'get_payment')
     list_filter = (PaymentRequestUserFilter,)
     actions = ('verify', )
 
@@ -245,18 +247,37 @@ class PaymentRequestAdmin(SimpleHistoryAdmin):
 
             payment_request.get_gateway().verify(payment)
 
+    @admin.display(description='Payment', ordering='payment')
+    def get_payment(self, payment_request: PaymentRequest):
+        return admin_page_anchor(payment_request.payment)
+
 
 class PaymentUserFilter(SimpleListFilter):
-    title = 'کاربر'
+    title = 'user'
     parameter_name = 'user'
 
     def lookups(self, request, model_admin):
         return [(1, 1)]
 
     def queryset(self, request, queryset):
-        user = request.GET.get('user')
+        user = self.value()
         if user is not None:
             return queryset.filter(user=user)
+        else:
+            return queryset
+
+
+class PaymentGatewayFilter(SimpleListFilter):
+    title = 'gateway'
+    parameter_name = 'gateway'
+
+    def lookups(self, request, model_admin):
+        return [(g.id, g.name) for g in Gateway.objects.order_by('id')]
+
+    def queryset(self, request, queryset):
+        gateway_id = self.value()
+        if gateway_id is not None:
+            return queryset.filter(paymentrequest__gateway_id=gateway_id)
         else:
             return queryset
 
@@ -265,7 +286,7 @@ class PaymentUserFilter(SimpleListFilter):
 class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
     list_display = ('created', 'get_amount', 'get_fee', 'status', 'ref_id', 'ref_status',
                     'source', 'get_card_pan', 'get_user',)
-    list_filter = (PaymentUserFilter, 'status', 'source')
+    list_filter = (PaymentGatewayFilter, 'status', 'source', PaymentUserFilter, )
     search_fields = ('ref_id', 'paymentrequest__bank_card__card_pan', 'amount', 'paymentrequest__authority',
                      'user__phone', 'user__first_name', 'user__last_name')
     readonly_fields = ('group_id', 'user', 'amount', 'fee', 'source')

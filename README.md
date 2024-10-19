@@ -37,7 +37,7 @@ CREATE VIEW accounts_users AS SELECT id, last_login, is_superuser, username, fir
                                      last_name_verified, level, national_code, national_code_verified, verify_status, 
                                      first_fiat_deposit_date, first_crypto_deposit_date, level_2_verify_datetime, 
                                      level_3_verify_datetime, archived, margin_quiz_pass_date, show_margin, 
-                                     show_strategy_bot, show_community, show_staking, can_withdraw, can_trade, promotion 
+                                     show_strategy_bot, show_community, show_staking, can_withdraw, can_trade
 FROM accounts_user;
 
 CREATE VIEW accounts_historicalusers AS SELECT history_id, history_date, history_change_reason, history_type, history_user_id,
@@ -46,7 +46,7 @@ CREATE VIEW accounts_historicalusers AS SELECT history_id, history_date, history
                                      last_name_verified, level, national_code, national_code_verified, verify_status, 
                                      first_fiat_deposit_date, first_crypto_deposit_date, level_2_verify_datetime, 
                                      level_3_verify_datetime, archived, margin_quiz_pass_date, show_margin, 
-                                     show_strategy_bot, show_community, show_staking, can_withdraw, can_trade, promotion 
+                                     show_strategy_bot, show_community, show_staking, can_withdraw, can_trade 
 FROM accounts_historicaluser;
 
 GRANT SELECT ON accounts_users TO metabase;

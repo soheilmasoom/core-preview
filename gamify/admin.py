@@ -5,13 +5,20 @@ from django.utils import timezone
 
 from gamify import models
 from gamify.models import UserMission, Task
-from gamify.utils import clone_mission_template, check_prize_achievements
+from gamify.utils import clone_mission_template
+
+
+class MissionDigestInline(admin.TabularInline):
+    fields = ('title', 'description', 'order')
+    model = models.MissionDigest
+    extra = 1
 
 
 @admin.register(models.MissionJourney)
 class MissionJourneyAdmin(admin.ModelAdmin):
     list_display = ('name', 'active', 'default')
     list_editable = ('active', 'default')
+    inlines = [MissionDigestInline]
 
 
 @admin.register(models.Achievement)

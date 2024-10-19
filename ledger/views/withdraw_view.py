@@ -137,10 +137,13 @@ class WithdrawSerializer(serializers.ModelSerializer):
         my_deposit_addresses = DepositAddress.objects.filter(address=address, address_key__account=account)
 
         if network.withdraw_allow_memo:
-            if not memo:
-                my_deposit_addresses = DepositAddress.objects.none()
-            else:
+            if memo:
                 my_deposit_addresses = my_deposit_addresses.filter(address_key__memo=memo)
+
+                if not re.match(network.memo_regex, memo):
+                    raise ValidationError(f'{network.memo_title_fa} به فرمت درستی وارد نشده است.')
+            else:
+                my_deposit_addresses = DepositAddress.objects.none()
         else:
             memo = ''
 

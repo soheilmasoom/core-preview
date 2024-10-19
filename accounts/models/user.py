@@ -49,8 +49,6 @@ class User(AbstractUser):
 
     INIT, PENDING, REJECTED, VERIFIED = 'init', 'pending', 'rejected', 'verified'
 
-    PROMOTIONS = SHIB, VOUCHER, PEPE, NOT, DOGS = 'true', 'voucher', 'pepe', 'notcoin', 'dogs'
-
     USERNAME_FIELD = 'phone'
 
     FIAT, CRYPTO = 'fiat', 'crypto'
@@ -173,7 +171,7 @@ class User(AbstractUser):
         choices=((1, 1), (2, 2), (3, 3), (5, 5), (10, 10), (20, 20), (40, 40))
     )
 
-    promotion = models.CharField(max_length=256, choices=[(p, p) for p in PROMOTIONS], blank=True)
+    mission_journey = models.ForeignKey('gamify.MissionJourney', null=True, blank=True, on_delete=models.SET_NULL)
 
     custom_crypto_withdraw_ceil = models.PositiveBigIntegerField(null=True, blank=True)
     custom_fiat_withdraw_ceil = models.PositiveBigIntegerField(null=True, blank=True)
@@ -484,7 +482,7 @@ class User(AbstractUser):
 
 
 @receiver(post_save, sender=User)
-def handle_user_save(sender, instance, created, **kwargs):
+def handle_user_save(sender, instance: User, created, **kwargs):
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return
 
@@ -501,6 +499,11 @@ def handle_user_save(sender, instance, created, **kwargs):
     if referrer:
         referrer_id = referrer.id
 
+    if not instance.mission_journey:
+        promotion = ''
+    else:
+        promotion = instance.mission_journey.name
+
     event = UserEvent(
         user_id=instance.id,
         first_name=instance.first_name,
@@ -514,7 +517,7 @@ def handle_user_save(sender, instance, created, **kwargs):
         birth_date=instance.birth_date,
         can_withdraw=instance.can_withdraw,
         can_trade=instance.can_trade,
-        promotion=instance.promotion,
+        promotion=promotion,
         chat_uuid=instance.chat_uuid,
         verify_status=instance.verify_status,
         reject_reason=instance.reject_reason,

@@ -7,7 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('ledger', '0291_asset_external_price_symbol_and_more'),
-        ('ledger', '0295_historicalotctrade'),
+        ('ledger', '0297_alter_asset_options'),
     ]
 
     operations = [
