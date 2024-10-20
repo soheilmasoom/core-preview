@@ -55,11 +55,10 @@ class WithdrawSerializer(serializers.ModelSerializer):
             )
 
         receiver_phone = None
+        is_via_network = True
         if attrs.get('source') == WithdrawSources.INTERNAL_ACCOUNT:
             receiver_phone = attrs.get('out_address')
             is_via_network = False
-        elif attrs.get('source') == WithdrawSources.SELF:
-            is_via_network = True
 
         account = user.get_account()
         from_panel = self.context.get('from_panel')
@@ -68,7 +67,6 @@ class WithdrawSerializer(serializers.ModelSerializer):
         address = attrs.get('out_address')
         address_book = None
         totp = attrs.get('totp', None)
-        # receiver = attrs.get('receiver', None)
         whitelist = False
         memo = attrs.get('memo') or ''
 

@@ -1,16 +1,14 @@
 from django.test import TestCase, Client
-from django.urls import reverse
 from rest_framework import status
 from decimal import Decimal
-from django.utils import timezone
-from datetime import timedelta
 
 from accounts.models import User, Account
-from ledger.models import Asset, InternalTransfer, Wallet
+from ledger.models import Asset
+from ledger.models.transfer import Transfer
 from ledger.utils.test import new_account, set_price
-from accounts.utils.login import set_login_activity
 from market.models import PairSymbol
-from ledger.utils.test import new_account, new_address_book, generate_otp_code, new_network, new_network_asset
+from ledger.utils.test import new_account, generate_otp_code
+from accounts.utils.mask import get_masked_phone
 
 
 class InternalTransferTestCase(TestCase):
@@ -51,9 +49,10 @@ class InternalTransferTestCase(TestCase):
     def test_create_internal_transfer(self):
         self.wallet_usdt.airdrop(1)
 
-        url = "/api/v1/withdraw/internal/"
+        url = "/api/v1/withdraw/"
         data = {
-            'receiver': "09121231234",
+            'source': "internal_account",
+            'address': "09121231234",
             'coin': 'USDT',
             'amount': '1',
             'description': 'Test transfer',
@@ -61,9 +60,9 @@ class InternalTransferTestCase(TestCase):
         }
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(InternalTransfer.objects.count(), 1)
-        transfer = InternalTransfer.objects.first()
-        self.assertEqual(transfer.sender_account, self.account1)
-        self.assertEqual(transfer.receiver_account, self.account2)
+        self.assertEqual(Transfer.objects.count(), 2)
+        transfer = Transfer.objects.first()
+        self.assertEqual(transfer.wallet, transfer.asset.get_wallet(self.account1))
+        self.assertEqual(transfer.out_address,  get_masked_phone(self.account2.user.username))
         self.assertEqual(transfer.amount, Decimal('1'))
         self.assertEqual(transfer.asset, self.usdt)
