@@ -170,28 +170,28 @@ class Transfer(models.Model):
             )
 
             receiver_account = queryset.first().address_key.account
-            receiver_deposit_address = DepositAddress.get_deposit_address(
-                account=receiver_account,
-                network=network
-            )
+            # receiver_deposit_address = DepositAddress.get_deposit_address(
+            #     account=receiver_account,
+            #     network=network
+            # )
             receiver_wallet = sender_wallet.asset.get_wallet(receiver_account)
             scope = Trx.TRANSFER
             trx_hash = 'internal: <%s>' % str(group_id)
             source = WithdrawSources.INTERNAL
             out_address = address
-            sender_out_address = sender_deposit_address.address
+            # sender_out_address = sender_deposit_address.address
 
         elif receiver_user:
             receiver_wallet = sender_wallet.asset.get_wallet(receiver_user.get_account())
             sender_deposit_address = None
-            receiver_deposit_address = None
+            # receiver_deposit_address = None
             memo = ''
             network = None
             trx_hash = 'internal_accoutn: <%s>' % str(group_id)
             scope = Trx.INTERNAL_TRANSFER
             source = WithdrawSources.INTERNAL_ACCOUNT
             out_address = get_masked_phone(receiver_user.username)
-            sender_out_address = get_masked_phone(sender_wallet.account.user.username)
+            # sender_out_address = get_masked_phone(sender_wallet.account.user.username)
             receiver_account = receiver_user.get_account()
         else:
             return
@@ -208,7 +208,7 @@ class Transfer(models.Model):
                 amount=amount
             )
             sender_transfer = Transfer.objects.create(
-                status=DONE,
+                status=PROCESS,
                 deposit_address=sender_deposit_address,
                 memo=memo,
                 wallet=sender_wallet,
@@ -223,27 +223,27 @@ class Transfer(models.Model):
                 irt_value=amount * price_irt,
             )
 
-            receiver_transfer = Transfer.objects.create(
-                status=DONE,
-                deposit_address=receiver_deposit_address,
-                memo=memo,
-                wallet=receiver_wallet,
-                network=network,
-                amount=amount,
-                deposit=True,
-                group_id=group_id,
-                trx_hash=trx_hash,
-                out_address=sender_out_address,
-                source=source,
-                usdt_value=amount * price_usdt,
-                irt_value=amount * price_irt,
-            )
+            # receiver_transfer = Transfer.objects.create(
+            #     status=DONE,
+            #     deposit_address=receiver_deposit_address,
+            #     memo=memo,
+            #     wallet=receiver_wallet,
+            #     network=network,
+            #     amount=amount,
+            #     deposit=True,
+            #     group_id=group_id,
+            #     trx_hash=trx_hash,
+            #     out_address=sender_out_address,
+            #     source=source,
+            #     usdt_value=amount * price_usdt,
+            #     irt_value=amount * price_irt,
+            # )
 
-        from gamify.utils import check_prize_achievements, Task
-        check_prize_achievements(receiver_account, Task.DEPOSIT)
+        # from gamify.utils import check_prize_achievements, Task
+        # check_prize_achievements(receiver_account, Task.DEPOSIT)
 
-        sender_transfer.alert_user()
-        receiver_transfer.alert_user()
+        # sender_transfer.alert_user()
+        # receiver_transfer.alert_user()
 
         return sender_transfer
 
@@ -255,17 +255,19 @@ class Transfer(models.Model):
         assert wallet.account.is_ordinary_user()
         wallet.has_balance(amount, raise_exception=True, check_system_wallets=True)
 
-        fast_forward = cls.check_fast_forward(
-            receiver_user=receiver_user,
-            sender_wallet=wallet,
-            network=network,
-            amount=amount,
-            address=address,
-            memo=memo
-        )
+        with WalletPipeline() as pipeline:  # type: WalletPipeline
+            fast_forward = cls.check_fast_forward(
+                receiver_user=receiver_user,
+                sender_wallet=wallet,
+                network=network,
+                amount=amount,
+                address=address,
+                memo=memo
+            )
 
-        if fast_forward:
-            return fast_forward
+            if fast_forward:
+                pipeline.new_lock(key=fast_forward.group_id, wallet=wallet, amount=amount, reason=WalletPipeline.WITHDRAW)
+                return fast_forward
 
         network_asset = NetworkAsset.objects.get(network=network, asset=wallet.asset)
         assert network_asset.withdraw_max >= amount >= max(network_asset.withdraw_min, network_asset.withdraw_fee)

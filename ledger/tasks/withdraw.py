@@ -4,11 +4,13 @@ from datetime import timedelta
 from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
+from accounts.models.user import User
+from accounts.utils.mask import get_masked_phone
 
 from ledger.fields import WithdrawSources
 from ledger.models import Transfer, ManualWithdraw
 from ledger.utils.blocklink import get_blocklink_requester
-from ledger.utils.fields import PROCESS, PENDING
+from ledger.utils.fields import DONE, PROCESS, PENDING
 from ledger.utils.fraud import verify_crypto_withdraw
 from ledger.withdraw.exchange import change_to_manual
 
@@ -159,6 +161,43 @@ def update_withdraws():
 
     for transfer in re_handle_transfers:
         create_withdraw.delay(transfer.id)
+
+    internal_transfers = Transfer.objects.filter(
+        deposit=False,
+        source__in=[WithdrawSources.INTERNAL, WithdrawSources.INTERNAL_ACCOUNT],
+        status=PROCESS,
+        created__lte=timezone.now() - timedelta(seconds=Transfer.FREEZE_SECONDS),
+    )
+
+    for internal_transfer in internal_transfers:
+        sender_out_address = get_masked_phone(internal_transfer.wallet.account.user.username)
+        if internal_transfer.source == WithdrawSources.INTERNAL_ACCOUNT:
+            receiver_user = User.objects.get(phone=internal_transfer.out_address)
+        else:
+            receiver_user = internal_transfer.out_address.address_key.account.user
+
+        receiver_wallet = internal_transfer.wallet.asset.get_wallet(receiver_user.get_account())
+        receiver_transfer = Transfer.objects.create(
+            status=DONE,
+            deposit_address=None,
+            memo='',
+            wallet=receiver_wallet,
+            network=None,
+            amount=internal_transfer.amount,
+            deposit=True,
+            group_id=internal_transfer.group_id,
+            trx_hash=internal_transfer.trx_hash,
+            out_address=sender_out_address,
+            source=internal_transfer.source,
+            usdt_value=internal_transfer.usdt_value,
+            irt_value=internal_transfer.irt_value,
+        )
+
+        from gamify.utils import check_prize_achievements, Task
+        check_prize_achievements(receiver_user.account, Task.DEPOSIT)
+
+        receiver_transfer.alert_user()
+        internal_transfer.accept()
 
     with transaction.atomic():
         for withdraw in ManualWithdraw.objects.filter(status=PROCESS).select_for_update():  # type: ManualWithdraw
