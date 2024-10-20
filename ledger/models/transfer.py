@@ -188,7 +188,7 @@ class Transfer(models.Model):
             memo = ''
             network = None
             trx_hash = 'internal_accoutn: <%s>' % str(group_id)
-            scope = Trx.INTERNAL_TRANSFER
+            scope = Trx.TRANSFER
             source = WithdrawSources.INTERNAL_ACCOUNT
             out_address = get_masked_phone(receiver_user.username)
             # sender_out_address = get_masked_phone(sender_wallet.account.user.username)
@@ -200,13 +200,13 @@ class Transfer(models.Model):
         price_irt = get_last_price(sender_wallet.asset.symbol + Asset.IRT) or 0
 
         with WalletPipeline() as pipeline:
-            pipeline.new_trx(
-                sender=sender_wallet,
-                receiver=receiver_wallet,
-                scope=scope,
-                group_id=group_id,
-                amount=amount
-            )
+            # pipeline.new_trx(
+            #     sender=sender_wallet,
+            #     receiver=receiver_wallet,
+            #     scope=scope,
+            #     group_id=group_id,
+            #     amount=amount
+            # )
             sender_transfer = Transfer.objects.create(
                 status=PROCESS,
                 deposit_address=sender_deposit_address,
