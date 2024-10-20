@@ -22,7 +22,8 @@ class OTCFilter(django_filters.FilterSet):
 class OTCRequestSerializer(AccountTradeSerializer):
     from_asset = serializers.CharField(source='from_asset.symbol')
     to_asset = serializers.CharField(source='to_asset.symbol')
-    otc_trade_status = serializers.CharField(source='otctrade.status')
+    otc_trade_status = serializers.CharField(source='otctrade.status')  # todo: deprecated
+    status = serializers.CharField(source='otctrade.status')
     from_amount = serializers.SerializerMethodField()
     to_amount = serializers.SerializerMethodField()
 
@@ -38,7 +39,7 @@ class OTCRequestSerializer(AccountTradeSerializer):
 
     class Meta(AccountTradeSerializer.Meta):
         model = OTCRequest
-        fields = (*AccountTradeSerializer.Meta.fields, 'from_asset', 'to_asset', 'from_amount', 'to_amount', 'otc_trade_status', 'otctrade', 'type', 'gtd')
+        fields = (*AccountTradeSerializer.Meta.fields, 'from_asset', 'to_asset', 'from_amount', 'to_amount', 'otc_trade_status', 'status', 'otctrade', 'type', 'gtd')
         ref_name = 'OTCHistoryRequestSerializer'  # Unique name
 
 
