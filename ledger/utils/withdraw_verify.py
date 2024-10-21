@@ -12,6 +12,7 @@ from accounts.models import Account, User, SystemConfig
 from accounts.models.login_activity import LoginActivity
 from accounts.utils.hijack import get_hijacker_id
 from financial.models import Payment
+from ledger.fields import WithdrawSources
 from ledger.models import Transfer, Wallet, NetworkAsset
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import CANCELED
@@ -30,6 +31,8 @@ SAFE_CURRENT_TRANSFERS_COUNT = 12
 def auto_withdraw_verify(transfer: Transfer) -> bool:
     assert not transfer.deposit
 
+    if transfer.source in [WithdrawSources.INTERNAL, WithdrawSources.INTERNAL_ACCOUNT]:
+        return True
     if transfer.wallet.account.user.withdraw_limit_whitelist:
         return True
 
