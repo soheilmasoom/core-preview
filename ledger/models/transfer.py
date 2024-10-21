@@ -180,11 +180,11 @@ class Transfer(models.Model):
         price_irt = get_last_price(wallet.asset.symbol + Asset.IRT) or 0
         price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
 
+        out_address = address
         deposit_address = ""
+        receiver_account = None
         trx_hash = ""
         source = None
-        out_address = ""
-        receiver_account = None
         fee_amount = 0
 
         if withdraw_source == WithdrawSources.INTERNAL:
@@ -194,7 +194,6 @@ class Transfer(models.Model):
             )
             trx_hash = f'internal: <{str(group_id)}>'
             source = WithdrawSources.INTERNAL
-            out_address = address
             receiver_account = DepositAddress.objects.filter(address=address).first().address_key.account
 
         elif withdraw_source == WithdrawSources.INTERNAL_ACCOUNT:
@@ -211,7 +210,6 @@ class Transfer(models.Model):
 
             fee_amount = network_asset.withdraw_fee
             source = network_asset.withdraw_source
-            out_address = address
 
         with WalletPipeline() as pipeline:
             transfer = Transfer.objects.create(
@@ -248,117 +246,6 @@ class Transfer(models.Model):
             pass
 
         return transfer
-
-    # @classmethod
-    # def new_withdraw(cls, wallet: Wallet, amount: Decimal, address: str, memo: str = '',
-    #                  whitelist: bool = False, network: Union['Network', None] = None, receiver_user: Union['User', None] = None):
-
-    #     assert wallet.asset.symbol != Asset.IRT
-    #     assert wallet.account.is_ordinary_user()
-    #     wallet.has_balance(amount, raise_exception=True, check_system_wallets=True)
-
-    #     group_id = uuid4()
-    #     withdraw_source = Transfer.get_withdraw_source(receiver_user, network, address, memo)
-
-    #     if withdraw_source == WithdrawSources.INTERNAL:
-    #         sender_deposit_address = DepositAddress.get_deposit_address(
-    #             account=wallet.account,
-    #             network=network
-    #         )
-    #         trx_hash = 'internal: <%s>' % str(group_id)
-    #         source = WithdrawSources.INTERNAL
-    #         out_address = address
-    #         receiver_account = DepositAddress.objects.filter(address=address).first().address_key.account
-
-    #     elif withdraw_source == WithdrawSources.INTERNAL_ACCOUNT:
-    #         sender_deposit_address = None
-    #         memo = ''
-    #         network = None
-    #         trx_hash = 'internal_account: <%s>' % str(group_id)
-    #         source = WithdrawSources.INTERNAL_ACCOUNT
-    #         out_address = get_masked_phone(receiver_user.username)
-    #         receiver_account = receiver_user.get_account()
-
-    #     price_irt = get_last_price(wallet.asset.symbol + Asset.IRT) or 0
-    #     price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
-
-
-
-    #     with WalletPipeline() as pipeline:  # type: WalletPipeline
-    #         if withdraw_source == WithdrawSources.SELF:
-    #             network_asset = NetworkAsset.objects.get(network=network, asset=wallet.asset)
-    #             assert network_asset.withdraw_max >= amount >= max(network_asset.withdraw_min, network_asset.withdraw_fee)
-    #             commission = network_asset.withdraw_fee
-
-    #             transfer = Transfer.objects.create(
-    #                 status=INIT,
-    #                 wallet=wallet,
-    #                 network=network,
-    #                 amount=amount - commission,
-    #                 fee_amount=commission,
-    #                 source=network_asset.withdraw_source,
-    #                 out_address=address,
-    #                 deposit=False,
-    #                 memo=memo,
-    #                 usdt_value=amount * price_usdt,
-    #                 irt_value=amount * price_irt,
-    #                 whitelist=whitelist
-    #             )
-
-    #         elif withdraw_source in [WithdrawSources.INTERNAL, WithdrawSources.INTERNAL_ACCOUNT]:
-    #             transfer = Transfer.objects.create(
-    #                 status=PROCESS,
-    #                 deposit_address=sender_deposit_address,
-    #                 memo=memo,
-    #                 wallet=wallet,
-    #                 network=network,
-    #                 amount=amount,
-    #                 deposit=False,
-    #                 group_id=group_id,
-    #                 trx_hash=trx_hash,
-    #                 out_address=out_address,
-    #                 source=source,
-    #                 usdt_value=amount * price_usdt,
-    #                 irt_value=amount * price_irt,
-    #                 receiver_account=receiver_account
-    #             )
-
-
-    #     with WalletPipeline() as pipeline:
-    #         transfer = Transfer.objects.create(
-    #             wallet=wallet,
-    #             network=network,
-    #             deposit=False,
-    #             memo=memo,
-    #             usdt_value=amount * price_usdt,
-    #             irt_value=amount * price_irt,
-    #             group_id=group_id,
-    #             status=transfer_kwargs.get('status', None),
-    #             deposit_address=transfer_kwargs.get('deposit_address', None),
-    #             trx_hash=transfer_kwargs.get('trx_hash', None),
-    #             source=transfer_kwargs.get('source', None),
-    #             out_address=transfer_kwargs.get('out_address', None),
-    #             receiver_account=transfer_kwargs.get('receiver_account', None),
-    #             amount=transfer_kwargs.get('amount', amount),
-    #             fee_amount=transfer_kwargs.get('fee_amount', None),
-    #             whitelist=transfer_kwargs.get('whitelist', whitelist)
-    #         )
-
-    #         pipeline.new_lock(key=transfer.group_id, wallet=wallet, amount=amount, reason=WalletPipeline.WITHDRAW)
-
-    #     from ledger.utils.withdraw_verify import auto_withdraw_verify
-
-    #     if auto_withdraw_verify(transfer):
-    #         transfer.status = PROCESS
-    #         transfer.save(update_fields=['status'])
-    #     else:
-    #         # send_system_message(
-    #         #     message='INIT %s' % transfer,
-    #         #     link=url_to_edit_object(transfer)
-    #         # )
-    #         pass
-
-    #     return transfer
 
     def alert_user(self):
         user = self.wallet.account.user
