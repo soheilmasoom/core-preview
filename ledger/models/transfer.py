@@ -180,71 +180,38 @@ class Transfer(models.Model):
         price_irt = get_last_price(wallet.asset.symbol + Asset.IRT) or 0
         price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
 
-        transfer_dict = {
-            'wallet': wallet,
-            'status': INIT,
-            'network': network,
-            'deposit': False,
-            'memo': memo,
-            'usdt_value': amount * price_usdt,
-            'group_id': group_id,
-            'irt_value': amount * price_irt,
-        }
+        deposit_address = ""
+        trx_hash = ""
+        source = None
+        out_address = ""
+        receiver_account = None
+        fee_amount = 0
 
         if withdraw_source == WithdrawSources.INTERNAL:
-            sender_deposit_address = DepositAddress.get_deposit_address(
+            deposit_address = DepositAddress.get_deposit_address(
                 account=wallet.account,
                 network=network
             )
-            trx_hash = 'internal: <%s>' % str(group_id)
+            trx_hash = f'internal: <{str(group_id)}>'
             source = WithdrawSources.INTERNAL
             out_address = address
             receiver_account = DepositAddress.objects.filter(address=address).first().address_key.account
 
-            transfer_dict.update({
-                'deposit_address': sender_deposit_address,
-                'trx_hash': trx_hash,
-                'source': source,
-                'out_address': out_address,
-                'receiver_account': receiver_account,
-                'amount': amount,
-            })
-
         elif withdraw_source == WithdrawSources.INTERNAL_ACCOUNT:
-            sender_deposit_address = None
             memo = ''
             network = None
-            trx_hash = 'internal_account: <%s>' % str(group_id)
+            trx_hash = f'internal_account: <{str(group_id)}>'
             source = WithdrawSources.INTERNAL_ACCOUNT
             out_address = get_masked_phone(receiver_user.username)
             receiver_account = receiver_user.get_account()
 
-            transfer_dict.update({
-                'deposit_address': sender_deposit_address,
-                'trx_hash': trx_hash,
-                'source': source,
-                'out_address': out_address,
-                'receiver_account': receiver_account,
-                'amount': amount,
-                'network': network,
-                'memo': memo,
-            })
-
         elif withdraw_source == WithdrawSources.SELF:
             network_asset = NetworkAsset.objects.get(network=network, asset=wallet.asset)
             assert network_asset.withdraw_max >= amount >= max(network_asset.withdraw_min, network_asset.withdraw_fee)
-            commission = network_asset.withdraw_fee
+
+            fee_amount = network_asset.withdraw_fee
             source = network_asset.withdraw_source
             out_address = address
-            real_amount = amount - commission
-
-            transfer_dict.update({
-                'source': source,
-                'out_address': out_address,
-                'fee_amount': commission,
-                'whitelist': whitelist,
-                'amount': real_amount,
-            })
 
         with WalletPipeline() as pipeline:
             transfer = Transfer.objects.create(
@@ -255,16 +222,17 @@ class Transfer(models.Model):
                 usdt_value=amount * price_usdt,
                 irt_value=amount * price_irt,
                 group_id=group_id,
-                status=transfer_dict.get('status'),
-                deposit_address=transfer_dict.get('deposit_address', ""),
-                trx_hash=transfer_dict.get('trx_hash', ""),
-                source=transfer_dict.get('source'),
-                out_address=transfer_dict.get('out_address', ""),
-                receiver_account=transfer_dict.get('receiver_account', None),
-                amount=transfer_dict.get('amount', amount),
-                fee_amount=transfer_dict.get('fee_amount', 0),
-                whitelist=transfer_dict.get('whitelist', whitelist)
+                status=INIT,
+                deposit_address=deposit_address,
+                trx_hash=trx_hash,
+                source=source,
+                out_address=out_address,
+                receiver_account=receiver_account,
+                amount=amount - fee_amount,
+                fee_amount=fee_amount,
+                whitelist=whitelist
             )
+
             pipeline.new_lock(key=transfer.group_id, wallet=wallet, amount=amount, reason=WalletPipeline.WITHDRAW)
 
         from ledger.utils.withdraw_verify import auto_withdraw_verify
@@ -280,7 +248,6 @@ class Transfer(models.Model):
             pass
 
         return transfer
-
 
     # @classmethod
     # def new_withdraw(cls, wallet: Wallet, amount: Decimal, address: str, memo: str = '',
