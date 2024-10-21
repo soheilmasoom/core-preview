@@ -655,7 +655,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     }
 
     list_display = (
-        'created', 'network', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
+        'created', 'network', 'receiver_account', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
         'usdt_value', 'get_remaining_time_to_pass_48h', 'get_jalali_created', 'get_jalali_finished', 'out_address',
         'trx_hash', 'get_confirmation',
     )

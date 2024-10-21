@@ -145,6 +145,43 @@ def create_withdraw(transfer_id: int):
                 'resp': resp_data
             })
 
+def process_internal_transfers():
+    internal_transfers = Transfer.objects.filter(
+        deposit=False,
+        source__in=[WithdrawSources.INTERNAL, WithdrawSources.INTERNAL_ACCOUNT],
+        status=PROCESS,
+        created__lte=timezone.now() - timedelta(seconds=Transfer.FREEZE_SECONDS),
+    )
+
+    for internal_transfer in internal_transfers:
+        sender_out_address = get_masked_phone(internal_transfer.wallet.account.user.username)
+        receiver_wallet = internal_transfer.wallet.asset.get_wallet(internal_transfer.receiver_account)
+
+        receiver_transfer = create_receiver_transfer(internal_transfer, receiver_wallet, sender_out_address)
+
+        from gamify.utils import check_prize_achievements, Task
+        check_prize_achievements(internal_transfer.receiver_account, Task.DEPOSIT)
+
+        receiver_transfer.alert_user()
+        internal_transfer.accept()
+
+
+def create_receiver_transfer(internal_transfer, receiver_wallet, sender_out_address):
+    return Transfer.objects.create(
+        status=DONE,
+        deposit_address=None,
+        memo='',
+        wallet=receiver_wallet,
+        network=None,
+        amount=internal_transfer.amount,
+        deposit=True,
+        group_id=internal_transfer.group_id,
+        trx_hash=internal_transfer.trx_hash,
+        out_address=sender_out_address,
+        source=internal_transfer.source,
+        usdt_value=internal_transfer.usdt_value,
+        irt_value=internal_transfer.irt_value,
+    )
 
 @shared_task(queue='transfer')
 def update_withdraws():
@@ -162,42 +199,7 @@ def update_withdraws():
     for transfer in re_handle_transfers:
         create_withdraw.delay(transfer.id)
 
-    internal_transfers = Transfer.objects.filter(
-        deposit=False,
-        source__in=[WithdrawSources.INTERNAL, WithdrawSources.INTERNAL_ACCOUNT],
-        status=PROCESS,
-        created__lte=timezone.now() - timedelta(seconds=Transfer.FREEZE_SECONDS),
-    )
-
-    for internal_transfer in internal_transfers:
-        sender_out_address = get_masked_phone(internal_transfer.wallet.account.user.username)
-        if internal_transfer.source == WithdrawSources.INTERNAL_ACCOUNT:
-            receiver_user = User.objects.get(phone=internal_transfer.out_address)
-        else:
-            receiver_user = internal_transfer.out_address.address_key.account.user
-
-        receiver_wallet = internal_transfer.wallet.asset.get_wallet(receiver_user.get_account())
-        receiver_transfer = Transfer.objects.create(
-            status=DONE,
-            deposit_address=None,
-            memo='',
-            wallet=receiver_wallet,
-            network=None,
-            amount=internal_transfer.amount,
-            deposit=True,
-            group_id=internal_transfer.group_id,
-            trx_hash=internal_transfer.trx_hash,
-            out_address=sender_out_address,
-            source=internal_transfer.source,
-            usdt_value=internal_transfer.usdt_value,
-            irt_value=internal_transfer.irt_value,
-        )
-
-        from gamify.utils import check_prize_achievements, Task
-        check_prize_achievements(receiver_user.account, Task.DEPOSIT)
-
-        receiver_transfer.alert_user()
-        internal_transfer.accept()
+    process_internal_transfers()
 
     with transaction.atomic():
         for withdraw in ManualWithdraw.objects.filter(status=PROCESS).select_for_update():  # type: ManualWithdraw
