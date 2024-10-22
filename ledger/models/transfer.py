@@ -111,13 +111,13 @@ class Transfer(models.Model):
         if self.source in [WithdrawSources.INTERNAL_ACCOUNT, WithdrawSources.INTERNAL]:
             sender_wallet = self.wallet
             receiver = User.objects.filter(phone=self.receiver_account.user.phone).first()
-            receiver_wallet = self.wallet.assset.get_wallet(receiver.account)
+            receiver_wallet = self.wallet.asset.get_wallet(receiver.account)
             pipeline.new_trx(
                 group_id=self.group_id,
                 sender=sender_wallet,
                 receiver=receiver_wallet,
                 amount=self.amount,
-                scope=self.source
+                scope=Trx.INTERNAL_TRANSFER if self.source == WithdrawSources.INTERNAL_ACCOUNT else Trx.TRANSFER
             )
             return
 
@@ -152,7 +152,7 @@ class Transfer(models.Model):
 
 
     @classmethod
-    def get_withdraw_source(receiver_user, network, address, memo):
+    def get_withdraw_source(cls, receiver_user, network, address, memo):
         if network:
             queryset = DepositAddress.objects.filter(address=address)
 
@@ -160,11 +160,11 @@ class Transfer(models.Model):
                 queryset = queryset.filter(address_key__memo=memo)
 
             if not queryset.exists() or (network.deposit_need_memo and not memo):
-                return WithdrawSources.INTERNAL
+                return WithdrawSources.SELF
         if receiver_user:
             return WithdrawSources.INTERNAL_ACCOUNT
         else:
-            return WithdrawSources.SELF
+            return WithdrawSources.INTERNAL
 
     @classmethod
     def new_withdraw(cls, wallet: Wallet, amount: Decimal, address: str, memo: str = '',
@@ -181,17 +181,17 @@ class Transfer(models.Model):
         price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
 
         out_address = address
-        deposit_address = ""
+        deposit_address = None
         receiver_account = None
         trx_hash = ""
         source = None
         fee_amount = 0
 
         if withdraw_source == WithdrawSources.INTERNAL:
-            deposit_address = DepositAddress.get_deposit_address(
-                account=wallet.account,
-                network=network
-            )
+            # deposit_address = DepositAddress.get_deposit_address(
+            #     account=wallet.account,
+            #     network=network
+            # )
             trx_hash = f'internal: <{str(group_id)}>'
             source = WithdrawSources.INTERNAL
             receiver_account = DepositAddress.objects.filter(address=address).first().address_key.account
@@ -221,7 +221,7 @@ class Transfer(models.Model):
                 irt_value=amount * price_irt,
                 group_id=group_id,
                 status=INIT,
-                deposit_address=deposit_address,
+                # deposit_address=deposit_address,
                 trx_hash=trx_hash,
                 source=source,
                 out_address=out_address,
