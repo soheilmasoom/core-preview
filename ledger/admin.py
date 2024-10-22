@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -54,6 +55,7 @@ from .utils.coins_info import get_coins_info
 from .utils.price import get_last_price
 from .utils.wallet_pipeline import WalletPipeline
 
+logger = logging.getLogger(__name__)
 
 class CoinCategoryInline(admin.TabularInline):
     model = CoinCategory.coins.through
@@ -700,7 +702,10 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description='Confirmation')
     def get_confirmation(self, transfer: models.Transfer):
-        if transfer.source == WithdrawSources.INTERNAL_ACCOUNT:
+        logger.warning(
+        f'Failedadmin {transfer.source} user {transfer.network} to topic: {transfer.trx_hash}'
+        )
+        if transfer.source in [WithdrawSources.INTERNAL_ACCOUNT, WithdrawSources.INTERNAL]:
             return 0
         return f'{transfer.get_confirmation_blocks() or 0}/{transfer.network.min_confirm}'
 
