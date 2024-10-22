@@ -212,6 +212,9 @@ class Transfer(models.Model):
             source = network_asset.withdraw_source
 
         with WalletPipeline() as pipeline:
+            logger.warning(
+                f'Failed transactiono {wallet} user {network} to topic: {withdraw_source}'
+                )
             transfer = Transfer.objects.create(
                 wallet=wallet,
                 network=network,
