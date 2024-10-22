@@ -182,8 +182,6 @@ class DepositSerializer(serializers.ModelSerializer):
                 }
             )
 
-            transfer.alert_user()
-
         description = ''
 
         if not network_asset.can_deposit_enabled():

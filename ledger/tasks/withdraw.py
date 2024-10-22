@@ -145,40 +145,44 @@ def create_withdraw(transfer_id: int):
                 'resp': resp_data
             })
 
+
 def process_internal_transfers():
-    internal_transfers = Transfer.objects.filter(
+    withdraws = Transfer.objects.filter(
         deposit=False,
         source__in=[WithdrawSources.INTERNAL, WithdrawSources.INTERNAL_ACCOUNT],
         status=PROCESS,
         created__lte=timezone.now() - timedelta(seconds=Transfer.FREEZE_SECONDS),
     )
 
-    for internal_transfer in internal_transfers:
-        sender_out_address = get_masked_phone(internal_transfer.wallet.account.user.username)
-        receiver_wallet = internal_transfer.wallet.asset.get_wallet(internal_transfer.receiver_account)
-
-        receiver_transfer = create_receiver_transfer(internal_transfer, receiver_wallet, sender_out_address)
-
-        receiver_transfer.accept()
-        internal_transfer.accept()
+    for withdraw in withdraws:
+        with transaction.atomic():
+            deposit = create_internal_deposit_transfer(withdraw)
+            withdraw.accept()
+            deposit.accept()
 
 
-def create_receiver_transfer(internal_transfer, receiver_wallet, sender_out_address):
+def create_internal_deposit_transfer(withdraw: Transfer):
+    assert not withdraw.deposit and withdraw.source != WithdrawSources.SELF
+
+    out_address = get_masked_phone(withdraw.wallet.account.user.username)
+    receiver_wallet = withdraw.wallet.asset.get_wallet(withdraw.receiver_account)
+
     return Transfer.objects.create(
         status=PENDING,
         deposit_address=None,
         memo='',
         wallet=receiver_wallet,
-        network=internal_transfer.network,
-        amount=internal_transfer.amount,
+        network=withdraw.network,
+        amount=withdraw.amount,
         deposit=True,
-        group_id=internal_transfer.group_id,
-        trx_hash=internal_transfer.trx_hash,
-        out_address=sender_out_address,
-        source=internal_transfer.source,
-        usdt_value=internal_transfer.usdt_value,
-        irt_value=internal_transfer.irt_value,
+        group_id=withdraw.group_id,
+        trx_hash=withdraw.trx_hash,
+        out_address=out_address,
+        source=withdraw.source,
+        usdt_value=withdraw.usdt_value,
+        irt_value=withdraw.irt_value,
     )
+
 
 @shared_task(queue='transfer')
 def update_withdraws():

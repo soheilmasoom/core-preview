@@ -109,16 +109,18 @@ class Transfer(models.Model):
 
     def build_trx(self, pipeline: WalletPipeline):
         if self.source in [WithdrawSources.INTERNAL_ACCOUNT, WithdrawSources.INTERNAL]:
-            sender_wallet = self.wallet
-            receiver = User.objects.filter(phone=self.receiver_account.user.phone).first()
-            receiver_wallet = self.wallet.asset.get_wallet(receiver.account)
-            pipeline.new_trx(
-                group_id=self.group_id,
-                sender=sender_wallet,
-                receiver=receiver_wallet,
-                amount=self.amount,
-                scope=Trx.INTERNAL_TRANSFER if self.source == WithdrawSources.INTERNAL_ACCOUNT else Trx.TRANSFER
-            )
+            if not self.deposit:
+                sender_wallet = self.wallet
+                receiver_wallet = self.wallet.asset.get_wallet(self.receiver_account)
+
+                pipeline.new_trx(
+                    group_id=self.group_id,
+                    sender=sender_wallet,
+                    receiver=receiver_wallet,
+                    amount=self.amount,
+                    scope=Trx.INTERNAL_TRANSFER if self.source == WithdrawSources.INTERNAL_ACCOUNT else Trx.TRANSFER
+                )
+
             return
 
         asset = self.wallet.asset
@@ -145,11 +147,6 @@ class Transfer(models.Model):
                 amount=self.fee_amount,
                 scope=Trx.COMMISSION
             )
-
-        if self.deposit:
-            from gamify.utils import check_prize_achievements, Task
-            check_prize_achievements(receiver.account, Task.DEPOSIT)
-
 
     @classmethod
     def get_withdraw_source(cls, receiver_user, network, address, memo):
@@ -188,10 +185,6 @@ class Transfer(models.Model):
         fee_amount = 0
 
         if withdraw_source == WithdrawSources.INTERNAL:
-            # deposit_address = DepositAddress.get_deposit_address(
-            #     account=wallet.account,
-            #     network=network
-            # )
             trx_hash = f'internal: <{str(group_id)}>'
             source = WithdrawSources.INTERNAL
             receiver_account = DepositAddress.objects.filter(address=address).first().address_key.account
@@ -305,9 +298,6 @@ class Transfer(models.Model):
             if not transfer.deposit:
                 pipeline.release_lock(transfer.group_id)
 
-                # We should alert user when deposit transfer created and when withdraw transfer changes to done
-                transfer.alert_user()
-
             else:
                 User.objects.filter(
                     id=transfer.wallet.account.user_id,
@@ -315,13 +305,14 @@ class Transfer(models.Model):
                 ).update(
                     first_crypto_deposit_date=timezone.now()
                 )
-                if transfer.source in [WithdrawSources.INTERNAL, WithdrawSources.INTERNAL_ACCOUNT]:
-                    from gamify.utils import check_prize_achievements, Task
-                    check_prize_achievements(transfer.receiver_account, Task.DEPOSIT)
-                    transfer.alert_user()
-                    return
+
+                from gamify.utils import check_prize_achievements
+                from gamify.models import Task
+
+                check_prize_achievements(transfer.wallet.account, Task.DEPOSIT)
 
             transfer.build_trx(pipeline)
+            transfer.alert_user()
 
     def reject(self):
         with WalletPipeline() as pipeline:
@@ -364,7 +355,18 @@ class Transfer(models.Model):
 
     class Meta:
         constraints = [
-            CheckConstraint(check=Q(amount__gte=0, fee_amount__gte=0), name='check_ledger_transfer_amounts', ),
+            CheckConstraint(
+                check=Q(amount__gte=0, fee_amount__gte=0),
+                name='check_ledger_transfer_amounts'
+            ),
+            CheckConstraint(
+                check=Q(network__isnull=False) | Q(source='internal_account'),
+                name='check_ledger_transfer_network_not_null'
+            ),
+            CheckConstraint(
+                check=Q(receiver_account__isnull=False) | Q(source='self'),
+                name='check_ledger_transfer_receiver_account_not_null'
+            ),
             UniqueConstraint(
                 fields=('trx_hash', 'network', 'wallet', 'deposit_address', 'out_address'),
                 condition=Q(trx_hash__isnull=False, source='self'),
