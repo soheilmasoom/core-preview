@@ -31,6 +31,7 @@ from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from financial.models import Payment
 from gamify.utils import clone_model
 from ledger import models
+from ledger.fields import WithdrawSources
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
     MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer, ConvertDust, \
@@ -699,6 +700,8 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description='Confirmation')
     def get_confirmation(self, transfer: models.Transfer):
+        if transfer.source == WithdrawSources.INTERNAL_ACCOUNT:
+            return 0
         return f'{transfer.get_confirmation_blocks() or 0}/{transfer.network.min_confirm}'
 
     @admin.display(description='User')
