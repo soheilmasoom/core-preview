@@ -181,7 +181,7 @@ class Transfer(models.Model):
         price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
 
         out_address = address
-        deposit_address = None
+        # deposit_address = None
         receiver_account = None
         trx_hash = ""
         source = None
@@ -212,9 +212,6 @@ class Transfer(models.Model):
             source = network_asset.withdraw_source
 
         with WalletPipeline() as pipeline:
-            logger.warning(
-                f'Failed transactiono {wallet} user {network} to topic: {withdraw_source}'
-                )
             transfer = Transfer.objects.create(
                 wallet=wallet,
                 network=network,
@@ -318,6 +315,11 @@ class Transfer(models.Model):
                 ).update(
                     first_crypto_deposit_date=timezone.now()
                 )
+                if transfer.source in [WithdrawSources.INTERNAL, WithdrawSources.INTERNAL_ACCOUNT]:
+                    from gamify.utils import check_prize_achievements, Task
+                    check_prize_achievements(transfer.receiver_account, Task.DEPOSIT)
+                    transfer.alert_user()
+                    return
 
             transfer.build_trx(pipeline)
 

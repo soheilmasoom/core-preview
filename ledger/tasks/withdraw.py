@@ -159,20 +159,17 @@ def process_internal_transfers():
 
         receiver_transfer = create_receiver_transfer(internal_transfer, receiver_wallet, sender_out_address)
 
-        from gamify.utils import check_prize_achievements, Task
-        check_prize_achievements(internal_transfer.receiver_account, Task.DEPOSIT)
-
-        receiver_transfer.alert_user()
+        receiver_transfer.accept()
         internal_transfer.accept()
 
 
 def create_receiver_transfer(internal_transfer, receiver_wallet, sender_out_address):
     return Transfer.objects.create(
-        status=DONE,
+        status=PENDING,
         deposit_address=None,
         memo='',
         wallet=receiver_wallet,
-        network=None,
+        network=internal_transfer.network,
         amount=internal_transfer.amount,
         deposit=True,
         group_id=internal_transfer.group_id,

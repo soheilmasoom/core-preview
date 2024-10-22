@@ -58,6 +58,8 @@ class WithdrawSerializer(serializers.ModelSerializer):
         is_via_network = True
         if attrs.get('source') == WithdrawSources.INTERNAL_ACCOUNT:
             receiver_phone = attrs.get('out_address')
+            if len(receiver_phone) == 10:
+                receiver_phone = '0' + receiver_phone
             is_via_network = False
 
         account = user.get_account()
