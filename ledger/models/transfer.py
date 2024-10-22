@@ -49,6 +49,7 @@ class Transfer(models.Model):
     deposit_address = models.ForeignKey('ledger.DepositAddress', on_delete=models.CASCADE, null=True, blank=True)
     network = models.ForeignKey('ledger.Network', on_delete=models.CASCADE, null=True, blank=True)
     wallet = models.ForeignKey('ledger.Wallet', on_delete=models.CASCADE)
+    receiver_account = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, blank=True)
 
     amount = get_amount_field()
     fee_amount = get_amount_field(default=Decimal(0))
@@ -107,16 +108,16 @@ class Transfer(models.Model):
         return self.network.explorer_link.format(hash=self.trx_hash)
 
     def build_trx(self, pipeline: WalletPipeline):
-        if self.source == WithdrawSources.INTERNAL_ACCOUNT:
+        if self.source in [WithdrawSources.INTERNAL_ACCOUNT, WithdrawSources.INTERNAL]:
             sender_wallet = self.wallet
-            receiver = User.objects.filter(phone=self.out_address).first()
-            receiver_wallet = self.wallet.assset.get_wallet(receiver.account)
+            receiver = User.objects.filter(phone=self.receiver_account.user.phone).first()
+            receiver_wallet = self.wallet.asset.get_wallet(receiver.account)
             pipeline.new_trx(
                 group_id=self.group_id,
                 sender=sender_wallet,
                 receiver=receiver_wallet,
                 amount=self.amount,
-                scope=Trx.INTERNAL_TRANSFER
+                scope=Trx.INTERNAL_TRANSFER if self.source == WithdrawSources.INTERNAL_ACCOUNT else Trx.TRANSFER
             )
             return
 
@@ -149,12 +150,9 @@ class Transfer(models.Model):
             from gamify.utils import check_prize_achievements, Task
             check_prize_achievements(receiver.account, Task.DEPOSIT)
 
+
     @classmethod
-    def check_fast_forward(cls, sender_wallet: Wallet, amount: Decimal, receiver_user: Union['User', None] = None, address: str = '',
-                           memo: str = '', network: Union['Network', None] = None) -> Union['Transfer', None]:
-
-        group_id = uuid4()
-
+    def get_withdraw_source(cls, receiver_user, network, address, memo):
         if network:
             queryset = DepositAddress.objects.filter(address=address)
 
@@ -162,133 +160,75 @@ class Transfer(models.Model):
                 queryset = queryset.filter(address_key__memo=memo)
 
             if not queryset.exists() or (network.deposit_need_memo and not memo):
-                return
-
-            sender_deposit_address = DepositAddress.get_deposit_address(
-                account=sender_wallet.account,
-                network=network
-            )
-
-            receiver_account = queryset.first().address_key.account
-            receiver_deposit_address = DepositAddress.get_deposit_address(
-                account=receiver_account,
-                network=network
-            )
-            receiver_wallet = sender_wallet.asset.get_wallet(receiver_account)
-            scope = Trx.TRANSFER
-            trx_hash = 'internal: <%s>' % str(group_id)
-            source = WithdrawSources.INTERNAL
-            out_address = address
-            sender_out_address = sender_deposit_address.address
-
-        elif receiver_user:
-            receiver_wallet = sender_wallet.asset.get_wallet(receiver_user.get_account())
-            sender_deposit_address = None
-            receiver_deposit_address = None
-            memo = ''
-            network = None
-            trx_hash = 'internal_accoutn: <%s>' % str(group_id)
-            scope = Trx.INTERNAL_TRANSFER
-            source = WithdrawSources.INTERNAL_ACCOUNT
-            out_address = get_masked_phone(receiver_user.username)
-            sender_out_address = get_masked_phone(sender_wallet.account.user.username)
-            receiver_account = receiver_user.get_account()
+                return WithdrawSources.SELF
+        if receiver_user:
+            return WithdrawSources.INTERNAL_ACCOUNT
         else:
-            return
-
-        price_usdt = get_last_price(sender_wallet.asset.symbol + Asset.USDT) or 0
-        price_irt = get_last_price(sender_wallet.asset.symbol + Asset.IRT) or 0
-
-        with WalletPipeline() as pipeline:
-            pipeline.new_trx(
-                sender=sender_wallet,
-                receiver=receiver_wallet,
-                scope=scope,
-                group_id=group_id,
-                amount=amount
-            )
-            sender_transfer = Transfer.objects.create(
-                status=DONE,
-                deposit_address=sender_deposit_address,
-                memo=memo,
-                wallet=sender_wallet,
-                network=network,
-                amount=amount,
-                deposit=False,
-                group_id=group_id,
-                trx_hash=trx_hash,
-                out_address=out_address,
-                source=source,
-                usdt_value=amount * price_usdt,
-                irt_value=amount * price_irt,
-            )
-
-            receiver_transfer = Transfer.objects.create(
-                status=DONE,
-                deposit_address=receiver_deposit_address,
-                memo=memo,
-                wallet=receiver_wallet,
-                network=network,
-                amount=amount,
-                deposit=True,
-                group_id=group_id,
-                trx_hash=trx_hash,
-                out_address=sender_out_address,
-                source=source,
-                usdt_value=amount * price_usdt,
-                irt_value=amount * price_irt,
-            )
-
-        from gamify.utils import check_prize_achievements, Task
-        check_prize_achievements(receiver_account, Task.DEPOSIT)
-
-        sender_transfer.alert_user()
-        receiver_transfer.alert_user()
-
-        return sender_transfer
+            return WithdrawSources.INTERNAL
 
     @classmethod
     def new_withdraw(cls, wallet: Wallet, amount: Decimal, address: str, memo: str = '',
-                     whitelist: bool = False, network: Union['Network', None] = None, receiver_user: Union['User', None] = None):
+                    whitelist: bool = False, network: Union['Network', None] = None, receiver_user: Union['User', None] = None):
 
         assert wallet.asset.symbol != Asset.IRT
         assert wallet.account.is_ordinary_user()
         wallet.has_balance(amount, raise_exception=True, check_system_wallets=True)
 
-        fast_forward = cls.check_fast_forward(
-            receiver_user=receiver_user,
-            sender_wallet=wallet,
-            network=network,
-            amount=amount,
-            address=address,
-            memo=memo
-        )
-
-        if fast_forward:
-            return fast_forward
-
-        network_asset = NetworkAsset.objects.get(network=network, asset=wallet.asset)
-        assert network_asset.withdraw_max >= amount >= max(network_asset.withdraw_min, network_asset.withdraw_fee)
-
-        commission = network_asset.withdraw_fee
+        group_id = uuid4()
+        withdraw_source = Transfer.get_withdraw_source(receiver_user, network, address, memo)
 
         price_irt = get_last_price(wallet.asset.symbol + Asset.IRT) or 0
         price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
 
-        with WalletPipeline() as pipeline:  # type: WalletPipeline
+        out_address = address
+        deposit_address = None
+        receiver_account = None
+        trx_hash = ""
+        source = None
+        fee_amount = 0
+
+        if withdraw_source == WithdrawSources.INTERNAL:
+            # deposit_address = DepositAddress.get_deposit_address(
+            #     account=wallet.account,
+            #     network=network
+            # )
+            trx_hash = f'internal: <{str(group_id)}>'
+            source = WithdrawSources.INTERNAL
+            receiver_account = DepositAddress.objects.filter(address=address).first().address_key.account
+
+        elif withdraw_source == WithdrawSources.INTERNAL_ACCOUNT:
+            memo = ''
+            network = None
+            trx_hash = f'internal_account: <{str(group_id)}>'
+            source = WithdrawSources.INTERNAL_ACCOUNT
+            out_address = get_masked_phone(receiver_user.username)
+            receiver_account = receiver_user.get_account()
+
+        elif withdraw_source == WithdrawSources.SELF:
+            network_asset = NetworkAsset.objects.get(network=network, asset=wallet.asset)
+            assert network_asset.withdraw_max >= amount >= max(network_asset.withdraw_min, network_asset.withdraw_fee)
+
+            fee_amount = network_asset.withdraw_fee
+            source = network_asset.withdraw_source
+
+        with WalletPipeline() as pipeline:
             transfer = Transfer.objects.create(
-                status=INIT,
                 wallet=wallet,
                 network=network,
-                amount=amount - commission,
-                fee_amount=commission,
-                source=network_asset.withdraw_source,
-                out_address=address,
                 deposit=False,
                 memo=memo,
                 usdt_value=amount * price_usdt,
                 irt_value=amount * price_irt,
-                whitelist=whitelist,
+                group_id=group_id,
+                status=INIT,
+                # deposit_address=deposit_address,
+                trx_hash=trx_hash,
+                source=source,
+                out_address=out_address,
+                receiver_account=receiver_account,
+                amount=amount - fee_amount,
+                fee_amount=fee_amount,
+                whitelist=whitelist
             )
 
             pipeline.new_lock(key=transfer.group_id, wallet=wallet, amount=amount, reason=WalletPipeline.WITHDRAW)
@@ -451,7 +391,7 @@ def handle_transfer_save(sender, instance, created, **kwargs):
         user_id=instance.wallet.account.user_id,
         amount=instance.amount,
         coin=instance.wallet.asset.symbol,
-        network=instance.network.symbol if instance.network else None,
+        network=instance.network.symbol if instance.network else 'internal',
         created=instance.created,
         is_deposit=instance.deposit,
         value_irt=instance.irt_value,

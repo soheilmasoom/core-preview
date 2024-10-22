@@ -45,13 +45,6 @@ urlpatterns = [
     path('v1/withdraw/feedback/categories/', views.FeedbackCategories.as_view()),
     path('v1/withdraw/feedback/', views.WithdrawFeedbackViewSet.as_view({'post': 'create'})),
     path('v1/withdraw/feedback/<int:pk>/', views.WithdrawFeedbackViewSet.as_view({'patch': 'partial_update'})),
-    path('v1/withdraw/internal/', views.InternalTransferViewSet.as_view({
-        'get': 'list',
-        'post': 'create'
-    })),
-    path('v1/withdraw/internal/<int:pk>/', views.InternalTransferViewSet.as_view({
-        'delete': 'destroy'
-    })),
     path('v1/deposit/address/', views.DepositAddressView.as_view()),
 
     path('v1/withdraw/', views.WithdrawView.as_view()),
