@@ -172,6 +172,7 @@ def create_internal_deposit_transfer(withdraw: Transfer):
         deposit_address=None,
         memo='',
         wallet=receiver_wallet,
+        receiver_account=withdraw.wallet.account,
         network=withdraw.network,
         amount=withdraw.amount,
         deposit=True,

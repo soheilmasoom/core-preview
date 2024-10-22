@@ -7,6 +7,7 @@ from accounts.models import User, Account
 from ledger.models import Asset, Transfer, Network, NetworkAsset, DepositAddress
 from ledger.fields import WithdrawSources
 from ledger.models.address_key import AddressKey
+from ledger.models.trx import Trx
 from ledger.tasks import update_withdraws
 from ledger.utils.test import new_account, set_price, generate_otp_code
 
@@ -162,3 +163,49 @@ class WithdrawViewWithCeleryTestCase(TestCase):
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+
+    def test_withdraw_to_internal_address_with_processing(self):
+        address = '1BoatSLRHtKNngkdXEeobR76b53LETtpyT'
+        address_key = AddressKey.objects.create(account=self.account2, address=address)
+
+        deposit_address = DepositAddress.objects.create(
+            address=address,
+            network=self.network_btc,
+            address_key=address_key
+        )
+
+        code = generate_otp_code(self.user1, 'withdraw')
+
+        url = '/api/v1/withdraw/'
+        data = {
+            'coin': 'BTC',
+            'network': 'BTC',
+            'amount': '0.001',
+            'address': deposit_address.address,
+            'memo': '',
+            'code': code,
+            'totp': ''
+        }
+
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Transfer.objects.count(), 1)
+
+        transfer = Transfer.objects.first()
+        self.assertEqual(transfer.status, 'process')
+
+        transfer.created = transfer.created - timedelta(seconds=2*transfer.FREEZE_SECONDS)
+        transfer.save(update_fields=['created'])
+        update_withdraws()
+
+        transfer.refresh_from_db()
+
+        self.assertEqual(transfer.status, 'done')
+
+        receiver_wallet = self.btc.get_wallet(self.account2)
+        self.assertEqual(receiver_wallet.balance, Decimal('0.001'))
+
+
+        self.assertEqual(
+            Trx.objects.get(sender=self.btc.get_wallet(self.account1)).group_id,
+            Transfer.objects.get(receiver_account=receiver_wallet.account).group_id)
