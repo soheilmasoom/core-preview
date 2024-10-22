@@ -70,6 +70,9 @@ class SystemConfig(models.Model):
     min_fast_buy_irt = models.PositiveIntegerField(default=50_000)
     max_fast_buy_irt = models.PositiveIntegerField(default=25_000_000)
 
+    min_otc_irt = models.PositiveIntegerField(default=10_000)
+    max_otc_irt = models.PositiveIntegerField(default=1_000_000_000)
+
     check_national_code_for_widget = models.BooleanField(default=True)
 
     def __str__(self):
