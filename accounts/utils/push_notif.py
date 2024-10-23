@@ -31,7 +31,6 @@ def _get_access_token() -> AccessToken:
 
     if now - _access_token.time >= 3600:
         scopes = ['https://www.googleapis.com/auth/firebase.messaging']
-        logger.warning(f"firebase_dict {config('FIREBASE_SECRET_JSON')}")
         firebase_dict = json.loads(config('FIREBASE_SECRET_JSON', ''))
 
         credentials = ServiceAccountCredentials._from_parsed_json_keyfile(firebase_dict, scopes)
@@ -147,12 +146,12 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         },
         timeout=30,
     )
-    logger.warning(f"rrres--{resp}--{body}")
+    logger.info(f"fcm-resp--{resp}--{body}")
 
     if not resp.ok:
-        logger.warning(f"res--{body}")
-        logger.warning(f"res-{resp.status_code}")
-        logger.warning(f"res--{resp.json()}")
+        logger.info(f"fcm-resp--{body}")
+        logger.info(f"fcm-resp--{resp.status_code}")
+        logger.info(f"fcm-resp--{resp.json()}")
 
     if resp.status_code == 404:
         from accounts.models import FirebaseToken
