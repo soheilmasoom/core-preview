@@ -22,11 +22,11 @@ class AlertRuleUpdateSerializer(serializers.ModelSerializer):
         if is_active and not alert_rule.active:
             alert_rule.active = True
             alert_rule.is_triggered = False
-            alert_rule.deactive_reason = None
+            alert_rule.deactive_reason = ""
         elif not is_active and alert_rule.active:
             alert_rule.active = False
             alert_rule.is_triggered = False
-            alert_rule.deactive_reason = 'user'
+            alert_rule.deactive_reason = AssetAlertRule.USER
         alert_rule.save(update_fields=['active', 'deactive_reason', 'is_triggered'])
         return alert_rule
 

@@ -6,13 +6,14 @@ PRICE_CHANGE_ALERT_TYPES = [
     ("lt", "Less Than"),
 ]
 
-ALERT_DEACTIVE_REASON_CHOICES = [
-    ("user", "User"),
-    ("trigger", "Trigger"),
-]
-
 class AssetAlertRule(models.Model):
     MAX_ALERT_RULE_COUNT = 10
+    USER, TRIGGER = 'user', 'trigger'
+
+    ALERT_DEACTIVE_REASON_CHOICES = [
+        (USER, USER),
+        (TRIGGER, TRIGGER),
+    ]
 
     asset_alert = models.ForeignKey(to='AssetAlert', on_delete=models.CASCADE)
     base_asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='asset_alert_rule_base_asset')
@@ -22,7 +23,7 @@ class AssetAlertRule(models.Model):
     type = models.CharField(max_length=8, choices=PRICE_CHANGE_ALERT_TYPES)
     description = models.TextField(verbose_name='توضیحات', blank=True)
     created = models.DateTimeField(auto_now_add=True)
-    deactive_reason = models.CharField(max_length=8, choices=ALERT_DEACTIVE_REASON_CHOICES, blank=True, null=True)
+    deactive_reason = models.CharField(max_length=8, choices=ALERT_DEACTIVE_REASON_CHOICES, blank=True)
 
     def __str__(self):
         return f'{self.asset_alert.user.username} - {self.asset_alert.asset.symbol}-{self.asset_alert.base_asset.symbol} at {self.trigger_price}'

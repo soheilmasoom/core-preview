@@ -166,7 +166,7 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
                 topic=topic,
                 action='unsubscribe'
             )
-            logger.warning(f"destroy {topic}, {user}")
+            logger.info(f"destroy {topic}, {user}")
             if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
                 user.is_price_notif_on = False
                 user.save(update_fields=['is_price_notif_on'])

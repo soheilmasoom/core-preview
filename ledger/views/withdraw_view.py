@@ -202,7 +202,7 @@ class WithdrawSerializer(serializers.ModelSerializer):
             except User.DoesNotExist:
                 raise serializers.ValidationError({'receiver': 'کاربر پیدا نشد.'})
 
-            if receiver_user.phone == user.phone :
+            if receiver_user == user:
                 raise ValidationError({'receiver': 'امکان انتقال به خود را ندارید.'})
 
         return {

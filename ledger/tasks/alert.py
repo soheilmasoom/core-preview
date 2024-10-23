@@ -98,9 +98,9 @@ def send_notifications(asset_alerts, altered_coins):
 
         #TODO: chekc that tokens do not needed
         assets = {alert_data.asset for alert_data in asset_alerts}
-        logger.warning(f"sendpush#{title} #unique:{assets} -- {altered_coins}-{asset_alerts}")
+        logger.info(f"sendpush#{title} #unique:{assets} -- {altered_coins}-{asset_alerts}")
         for asset in assets:
-            logger.warning(f"sendpush#{title} #one-unique:{asset.name}-{asset.symbol} -- {altered_coins}-{asset_alerts}")
+            logger.info(f"sendpush#{title} #one-unique:{asset.name}-{asset.symbol} -- {altered_coins}-{asset_alerts}")
             send_push_notif(
                 title=title,
                 body=message,
