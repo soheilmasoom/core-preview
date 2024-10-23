@@ -149,9 +149,9 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
     logger.info(f"fcm-resp--{resp}--{body}")
 
     if not resp.ok:
-        logger.warning(f"fcm-resp--{body}")
-        logger.warning(f"fcm-resp--{resp.status_code}")
-        logger.warning(f"fcm-resp--{resp.json()}")
+        logger.info(f"fcm-resp--{body}")
+        logger.info(f"fcm-resp--{resp.status_code}")
+        logger.info(f"fcm-resp--{resp.json()}")
 
     if resp.status_code == 404:
         from accounts.models import FirebaseToken
