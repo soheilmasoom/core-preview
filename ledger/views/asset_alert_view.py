@@ -79,7 +79,7 @@ class AssetAlertObjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AssetAlert
-        fields = ('asset', 'price_usdt', 'price_irt', 'change_24h')
+        fields = ('id', 'asset', 'price_usdt', 'price_irt', 'change_24h')
 
 
 class BulkAssetAlertViewSerializer(serializers.ModelSerializer):

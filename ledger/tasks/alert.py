@@ -108,6 +108,7 @@ def send_notifications(asset_alerts, altered_coins):
                 topic=f"price_alerts_{asset.symbol.lower()}"
             )
 
+
 def process_chanel_change(asset: Asset, current_chanel: int) -> bool:
     last_chanel_triggered_alerts = AlertTrigger.objects.filter(
         asset=asset,
