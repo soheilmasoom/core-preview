@@ -23,7 +23,6 @@ class TransferSerializer(serializers.ModelSerializer):
     confirmation = serializers.SerializerMethodField()
     asset = AssetSerializerMini(source='wallet.asset', read_only=True)
     is_internal = serializers.SerializerMethodField()
-    is_internal_account = serializers.SerializerMethodField()
     cancelable = serializers.SerializerMethodField()
 
     def get_network(self, transfer: Transfer):
@@ -45,10 +44,7 @@ class TransferSerializer(serializers.ModelSerializer):
         return get_presentation_amount(transfer.fee_amount)
 
     def get_is_internal(self, transfer: Transfer):
-        return transfer.source == WithdrawSources.INTERNAL
-
-    def get_is_internal_account(self, transfer: Transfer):
-        return transfer.source == WithdrawSources.INTERNAL_ACCOUNT
+        return transfer.source in [WithdrawSources.INTERNAL, WithdrawSources.INTERNAL_ACCOUNT]
 
     def get_confirmation(self, transfer: Transfer):
         if not transfer.network:
