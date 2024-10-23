@@ -48,6 +48,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='transfer',
-            constraint=models.CheckConstraint(check=models.Q(('receiver_account__isnull', False), models.Q(('source__in', ['internal', 'internal_account']), _negated=True), _connector='OR'), name='c_check_ledger_transfer_receiver_account_not_null'),
+            constraint=models.CheckConstraint(check=models.Q(('receiver_account__isnull', False), models.Q(('source__in', ['internal', 'internal_account']), _negated=True), _connector='OR'), name='check_ledger_transfer_receiver_account_not_null'),
         ),
     ]
