@@ -499,6 +499,11 @@ def handle_user_save(sender, instance: User, created, **kwargs):
     if referrer:
         referrer_id = referrer.id
 
+    if not instance.mission_journey:
+        promotion = ''
+    else:
+        promotion = instance.mission_journey.name
+
     event = UserEvent(
         user_id=instance.id,
         first_name=instance.first_name,
@@ -512,7 +517,7 @@ def handle_user_save(sender, instance: User, created, **kwargs):
         birth_date=instance.birth_date,
         can_withdraw=instance.can_withdraw,
         can_trade=instance.can_trade,
-        promotion=instance.mission_journey.name,
+        promotion=promotion,
         chat_uuid=instance.chat_uuid,
         verify_status=instance.verify_status,
         reject_reason=instance.reject_reason,

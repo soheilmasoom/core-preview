@@ -33,7 +33,9 @@ class DepositRecoverySerializer(ModelSerializer):
             if network.address_regex and not re.match(network.address_regex, attrs['receiver_address']):
                 raise ValidationError('آدرس به فرمت درستی وارد نشده است.')
 
-            if network.memo_regex and not re.match(network.memo_regex, attrs.get('memo', '')):
+            memo = attrs.get('memo', '')
+
+            if memo and network.memo_regex and not re.match(network.memo_regex, memo):
                 raise ValidationError(f'{network.memo_title_fa} به فرمت درستی وارد نشده است.')
 
         comment = ''

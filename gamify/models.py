@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 class MissionJourney(models.Model):
     name = models.CharField(max_length=64, unique=True)
 
-    active = models.BooleanField(default=False)
-    default = models.BooleanField(default=True)
+    active = models.BooleanField(default=True)
+    default = models.BooleanField(default=False)
 
     title = models.CharField(max_length=1024, blank=True)
     description = models.CharField(max_length=1024, blank=True)

@@ -58,12 +58,6 @@ class ProviderRequester(BaseRequester):
             max_quantity=data['max_quantity'],
         )
 
-    def get_spot_balance_map(self, exchange: str, market: str = 'trade') -> dict:
-        resp = self.collect_api('/api/v1/spot/balance/', data={'exchange': exchange, 'market': market})
-        if not resp.success:
-            return {}
-        return resp.data
-
     def get_futures_info(self, exchange: str) -> dict:
         resp = self.collect_api('/api/v1/futures/', timeout=30, data={'exchange': exchange})
         if resp.ok:
@@ -146,22 +140,6 @@ class ProviderRequester(BaseRequester):
                     if order_amount * price < min_notional:
                         logger.info('ignored due to small order')
                         return
-
-        if side == BUY and market_info.base_coin == 'BUSD':
-            busd_balance = Decimal(self.get_spot_balance_map(market_info.exchange)['BUSD'])
-            needed_busd = order_amount * price
-
-            if needed_busd > busd_balance:
-                logger.info('providing busd for order')
-                to_buy_busd = max(math.ceil((needed_busd - busd_balance) * Decimal('1.01')), min_notional)
-
-                self.new_order(
-                    request_id=request_id,
-                    asset=Asset.get('BUSD'),
-                    side=BUY,
-                    amount=Decimal(to_buy_busd),
-                    scope='prv-base',
-                )
 
         if hedge_price:
             hedge_price = floor_precision(hedge_price, min(-int(log10(market_info.tick_size)), 8))
@@ -316,10 +294,6 @@ class MockProviderRequester(ProviderRequester):
             max_quantity=Decimal(1000),
             min_notional=Decimal(10)
         )
-
-    def get_spot_balance_map(self, exchange: str, market: str = 'trade') -> dict:
-        self._collect_api('/')
-        return {}
 
     def get_futures_info(self, exchange: str) -> dict:
         self._collect_api('/')

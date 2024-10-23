@@ -92,8 +92,8 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_filter = ('enable', 'trend', 'spread_category', 'coincategory', 'otc_status')
     list_editable = ('order', )
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
-    ordering = ('-enable', '-pin_to_top', '-trend', 'order')
-    actions = ('setup_asset', 'update_rank_by_cmc')
+    ordering = ('-enable', '-pin_to_top', '-trend', 'otc_status', 'order')
+    actions = ('setup_asset', 'update_rank_by_cmc', 'set_to_hedge', 'set_to_not_hedge')
     readonly_fields = ('distribution_factor',)
     inlines = (CoinCategoryInline, AssetVariantInline)
 
@@ -229,6 +229,14 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             if rank:
                 asset.order = rank
                 asset.save(update_fields=['order'])
+
+    @admin.action(description='Set to Hedge', permissions=['change'])
+    def set_to_hedge(self, request, queryset):
+        queryset.update(hedge=True)
+
+    @admin.action(description='Set to Not Hedge', permissions=['change'])
+    def set_to_not_hedge(self, request, queryset):
+        queryset.update(hedge=False)
 
 
 @admin.register(FeedbackCategory)
@@ -925,7 +933,7 @@ class PrizeAdmin(AdvancedAdmin):
 class CoinCategoryAdmin(SimpleHistoryAdmin):
     list_display = ('name', 'title', 'get_coin_count', 'order')
     list_editable = ('order',)
-    exclude = ('coins',)
+    exclude = ('_description_html',)
 
     @admin.display(description="Count")
     def get_coin_count(self, coin_category: CoinCategory):
@@ -1381,7 +1389,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'account', 'symbol', 'side', 'status', 'leverage', 'get_equity', 'amount',
                     'get_liquidation_price', 'get_average_price', 'get_orders', 'get_trades')
     readonly_fields = ('account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'average_price', 'side',
-                       'liquidation_price', 'status', 'leverage', 'equity', 'group_id')
+                       'liquidation_price', 'leverage', 'equity', 'group_id')
     list_filter = ('side', 'symbol', 'status')
     search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
     actions = ('convert_dust_close', )

@@ -197,10 +197,6 @@ class MissionDigestSerializer(serializers.ModelSerializer):
 class MissionJourneySerializer(serializers.ModelSerializer):
     digests = MissionDigestSerializer(many=True)
 
-    def get_logo(self, asset: MissionJourney):
-        if asset.logo:
-            return asset.logo.url
-
     class Meta:
         model = MissionJourney
         fields = ('name', 'title', 'description', 'logo', 'digests')
