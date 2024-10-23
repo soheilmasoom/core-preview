@@ -3,6 +3,24 @@
 from django.db import migrations, models
 
 
+def populate_receiver_account(apps, schema_editor):
+    Transfer = apps.get_model('ledger', 'Transfer')
+    DepositAddress = apps.get_model('ledger', 'DepositAddress')
+
+    transfers_query_set = Transfer.objects.filter(
+        source='internal',
+        receiver_account__isnull=True
+    )
+
+    transfers_to_update = []
+    for transfer in transfers_query_set:
+        transfer.receiver_account_id = DepositAddress.objects.filter(address=transfer.out_address).first().address_key.account_id
+        transfers_to_update.append(transfer)
+
+    if transfers_to_update:
+        Transfer.objects.bulk_update(transfers_to_update, ['receiver_account_id'])
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,6 +28,11 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(
+            code=populate_receiver_account,
+            reverse_code=migrations.RunPython.noop
+        ),
+
         migrations.AlterField(
             model_name='trx',
             name='scope',
@@ -21,6 +44,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='transfer',
-            constraint=models.CheckConstraint(check=models.Q(('receiver_account__isnull', False), ('source', 'self'), _connector='OR'), name='check_ledger_transfer_receiver_account_not_null'),
+            constraint=models.CheckConstraint(check=models.Q(('receiver_account__isnull', False), models.Q(('source__in', ['internal', 'internal_account']), _negated=True), _connector='OR'), name='check_ledger_transfer_receiver_account_not_null'),
         ),
     ]

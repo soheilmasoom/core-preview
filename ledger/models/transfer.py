@@ -364,7 +364,7 @@ class Transfer(models.Model):
                 name='check_ledger_transfer_network_not_null'
             ),
             CheckConstraint(
-                check=Q(receiver_account__isnull=False) | Q(source='self'),
+                check=Q(receiver_account__isnull=False) | ~Q(source__in=['internal', 'internal_account']),
                 name='check_ledger_transfer_receiver_account_not_null'
             ),
             UniqueConstraint(
