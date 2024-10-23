@@ -1386,7 +1386,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'account', 'symbol', 'side', 'status', 'leverage', 'get_equity', 'amount',
                     'get_liquidation_price', 'get_average_price', 'get_orders', 'get_trades')
     readonly_fields = ('account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'average_price', 'side',
-                       'liquidation_price', 'status', 'leverage', 'equity', 'group_id')
+                       'liquidation_price', 'leverage', 'equity', 'group_id')
     list_filter = ('side', 'symbol', 'status')
     search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
     actions = ('convert_dust_close', )
