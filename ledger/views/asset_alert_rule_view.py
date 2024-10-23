@@ -85,7 +85,6 @@ class AssetAlertRuleViewSet(viewsets.ModelViewSet):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
     def get_object(self):
         alert_rule = get_object_or_404(AssetAlertRule, pk=self.kwargs['rule_pk'], asset_alert_id=self.kwargs['asset_alert_pk'], asset_alert__user=self.request.user)
         return alert_rule
