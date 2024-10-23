@@ -32,8 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 class AssetListSerializer(serializers.ModelSerializer):
-    logo = serializers.SerializerMethodField()
-
     balance = serializers.SerializerMethodField()
     balance_irt = serializers.SerializerMethodField()
     balance_usdt = serializers.SerializerMethodField()
@@ -145,10 +143,6 @@ class AssetListSerializer(serializers.ModelSerializer):
 
     def get_can_withdraw(self, asset: Asset):
         return asset.symbol in self.context['withdraw_enable_coins']
-
-    def get_logo(self, asset: Asset):
-        if asset.logo:
-            return asset.logo.url
 
     def get_original_symbol(self, asset: Asset):
         return asset.get_original_symbol()

@@ -2,20 +2,20 @@ import logging
 from datetime import timedelta
 
 from decouple import config
+from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
-from django.conf import settings
 
 from accounts.authentication import WidgetAccessToken
 from accounts.models import User
 from accounts.models.phone_verification import VerificationCode
 from accounts.throttle import BurstRateThrottle
-from accounts.validators import mobile_number_validator, national_card_code_validator
+from accounts.validators import national_card_code_validator
 from ledger.widget.widget import Widget
-from .signup_view import SignupSerializer, InitiateSignupView
+from .signup_view import InitiateSignupView
 from ..utils.signup import create_traffic_source, set_missions_to_user
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,9 @@ class WidgetSignupSerializer(serializers.Serializer):
 
             utm = validated_data.get('utm') or {}
             create_traffic_source(self.context['request'], user, utm)
-            set_missions_to_user(user)
+
+            promotion = validated_data.get('promotion', '')
+            set_missions_to_user(user, promotion=promotion)
 
             return user
 
