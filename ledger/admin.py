@@ -91,7 +91,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_filter = ('enable', 'trend', 'spread_category', 'coincategory', 'otc_status')
     list_editable = ('order', )
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
-    ordering = ('-enable', '-pin_to_top', '-trend', 'order')
+    ordering = ('-enable', '-pin_to_top', '-trend', 'otc_status', 'order')
     actions = ('setup_asset', 'update_rank_by_cmc', 'set_to_hedge', 'set_to_not_hedge')
     readonly_fields = ('distribution_factor',)
     inlines = (CoinCategoryInline, AssetVariantInline)
