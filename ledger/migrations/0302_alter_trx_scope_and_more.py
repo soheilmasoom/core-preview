@@ -7,9 +7,9 @@ def populate_receiver_account(apps, schema_editor):
     Transfer = apps.get_model('ledger', 'Transfer')
     DepositAddress = apps.get_model('ledger', 'DepositAddress')
 
-    internal_account_transfers = Transfer.objects.filter(
-        source__in=['internal_account']
-    ).delete()
+    # internal_account_transfers = Transfer.objects.filter(
+    #     source__in=['internal_account']
+    # ).delete()
 
     transfers_query_set = Transfer.objects.filter(
         source__in=['internal'],
