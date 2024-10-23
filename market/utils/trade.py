@@ -135,6 +135,9 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
                                (floored_asset_balance == 0)) and trade_info.loan_type != BORROW)
 
         if is_position_closed:
+            orders = Order.open_objects.filter(position=position).exclude(group_id=trade_info.group_id)
+            Order.cancel_orders(orders)
+
             logger.info(f"Closing position:{position.id}")
             position.convert_dust(pipeline)
 

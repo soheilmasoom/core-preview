@@ -151,7 +151,10 @@ class ShortIsolatedMarginTestCase(TestCase):
         assertion(negetive_wallets, Decimal('0'))
         assertion(mp.status, MarginPosition.CLOSED)
 
+
         if liquidate:
+            self.assertFalse(Order.objects.filter(status=Order.NEW, position=mp).exists())
+
             self.assertEqual(MarginPosition.objects.filter(account=account, symbol=symbol, status__in=[MarginPosition.OPEN, MarginPosition.INIT]).count(), 0)
             self.assert_position_pnl(mp)
             received = Trx.objects.filter(receiver=mp.base_wallet, scope=Trx.MARGIN_INSURANCE).aggregate(s=Sum('amount'))['s'] or 0
@@ -667,6 +670,38 @@ class ShortIsolatedMarginTestCase(TestCase):
                       price=position.liquidation_price)
             new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT,
                       price=position.liquidation_price)
+
+        self.print_wallets(self.account)
+
+        self.print_wallets(self.account)
+        self.assert_liquidation(self.account, self.btcusdt)
+
+
+    def test_short_sell_13(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT * 2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+        self.place_order(amount=loan_amount/2, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=False)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount/2, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+        position = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+
+        self.place_order(amount=loan_amount/5, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE + 100, is_open_position=True)
+        self.place_order(amount=loan_amount/5, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE + 100, is_open_position=True)
+        self.place_order(amount=abs(position.asset_wallet.balance), side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=False)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount/2, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+
+
 
         self.print_wallets(self.account)
 
