@@ -9,14 +9,13 @@ PRICE_CHANGE_ALERT_TYPES = [
     ("lt", "Less Than"),
 ]
 
+ALERT_DEACTIVE_REASON_CHOICES = [
+    ('user', 'user'),
+    ('trigger', 'trigger'),
+]
 class AssetAlertRule(models.Model):
     MAX_ALERT_RULE_COUNT = 10
     USER, TRIGGER = 'user', 'trigger'
-
-    ALERT_DEACTIVE_REASON_CHOICES = [
-        (USER, USER),
-        (TRIGGER, TRIGGER),
-    ]
 
     created = models.DateTimeField(auto_now_add=True)
     asset_alert = models.ForeignKey(to='AssetAlert', on_delete=models.CASCADE)
