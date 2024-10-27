@@ -9,10 +9,6 @@ PRICE_CHANGE_ALERT_TYPES = [
     ("lt", "Less Than"),
 ]
 
-ALERT_DEACTIVE_REASON_CHOICES = [
-    ('user', 'user'),
-    ('trigger', 'trigger'),
-]
 class AssetAlertRule(models.Model):
     MAX_ALERT_RULE_COUNT = 10
     USER, TRIGGER = 'user', 'trigger'
@@ -25,7 +21,6 @@ class AssetAlertRule(models.Model):
     active = models.BooleanField(default=True)
     type = models.CharField(max_length=8, choices=PRICE_CHANGE_ALERT_TYPES)
     description = models.TextField(verbose_name='توضیحات', blank=True)
-    deactive_reason = models.CharField(max_length=8, choices=ALERT_DEACTIVE_REASON_CHOICES, blank=True)
 
     def __str__(self):
         return f'{self.asset_alert.user.username} - {self.asset_alert.asset}-{self.base_asset} @ {self.trigger_price}'

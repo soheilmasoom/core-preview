@@ -2,14 +2,14 @@ from rest_framework import permissions
 from rest_framework import serializers
 from ledger.models.asset import Asset
 from ledger.models.asset_alert import AssetAlert
-from ledger.models.asset_alert_rule import ALERT_DEACTIVE_REASON_CHOICES, PRICE_CHANGE_ALERT_TYPES, AssetAlertRule
+from ledger.models.asset_alert_rule import PRICE_CHANGE_ALERT_TYPES, AssetAlertRule
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import viewsets
 
-from ledger.utils.precision import decimal_to_str, floor_precision, get_presentation_amount
+from ledger.utils.precision import get_presentation_amount
 
 
 class AlertRuleUpdateSerializer(serializers.ModelSerializer):
@@ -29,10 +29,8 @@ class AlertRuleUpdateSerializer(serializers.ModelSerializer):
         if is_active is not None:
             if is_active and not alert_rule.active:
                 alert_rule.active = True
-                alert_rule.deactive_reason = ""
             elif not is_active and alert_rule.active:
                 alert_rule.active = False
-                alert_rule.deactive_reason = AssetAlertRule.USER
 
         if new_type:
             alert_rule.type = new_type
@@ -40,7 +38,7 @@ class AlertRuleUpdateSerializer(serializers.ModelSerializer):
         if new_trigger_price is not None:
             alert_rule.trigger_price = new_trigger_price
 
-        alert_rule.save(update_fields=['active', 'deactive_reason', 'is_triggered', 'type', 'trigger_price'])
+        alert_rule.save(update_fields=['active', 'is_triggered', 'type', 'trigger_price'])
         return alert_rule
 
 
