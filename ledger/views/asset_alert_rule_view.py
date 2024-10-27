@@ -48,7 +48,6 @@ class AssetAlertRuleSerializer(serializers.ModelSerializer):
     description = serializers.CharField(required=False)
     remaining_alerts = serializers.SerializerMethodField()
     base_asset = serializers.CharField(required=True)
-    trigger_price = serializers.SerializerMethodField()
 
     class Meta:
         model = AssetAlertRule
@@ -59,9 +58,10 @@ class AssetAlertRuleSerializer(serializers.ModelSerializer):
         asset_alert_id = obj.asset_alert.id
         return AssetAlertRule.get_remaining_alert_rule_count(user, asset_alert_id)
 
-    def get_trigger_price(self, obj):
-        return get_presentation_amount(obj.trigger_price)
-
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['trigger_price'] = get_presentation_amount(instance.trigger_price)
+        return representation
 
 class AssetAlertRuleViewSet(viewsets.ModelViewSet):
     serializer_class = AssetAlertRuleSerializer
