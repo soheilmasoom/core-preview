@@ -97,7 +97,10 @@ class AssetAlertRuleViewSet(viewsets.ModelViewSet):
 
         if serializer.is_valid():
             serializer.save()
-            message = 'هشدار قیمت فعال شد.' if serializer.validated_data['active'] else 'هشدار قیمت غیرفعال شد.'
+            if 'active' in serializer.validated_data:
+                message = 'هشدار قیمت فعال شد.' if serializer.validated_data['active'] else 'هشدار قیمت غیرفعال شد.'
+            else:
+                message = 'هشدار قیمت به روز رسانی شد.'
             return Response({'detail': message}, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
