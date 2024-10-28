@@ -2,6 +2,7 @@ from accounts.authentication import SetPasswordAccessToken
 from accounts.models.user import User
 from datetime import timedelta
 
+
 class Widget:
     NEW_USER, VERIFIED_USER, UNVERIFIED_USER = 'n', 'v', 'u'
 
