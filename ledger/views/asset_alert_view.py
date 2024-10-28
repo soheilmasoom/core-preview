@@ -131,7 +131,7 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         FCMTopicSubscription.objects.create(
             user=user,
             topic=topic,
-            action='subscribe'
+            action=FCMTopicSubscription.SUBSCRIBE
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -164,7 +164,7 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
             FCMTopicSubscription.objects.create(
                 user=user,
                 topic=topic,
-                action='unsubscribe'
+                action=FCMTopicSubscription.UNSUBSCRIBE
             )
             logger.info(f"destroy {topic}, {user}")
             if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):

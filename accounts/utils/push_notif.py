@@ -44,7 +44,8 @@ def _get_access_token() -> AccessToken:
 
     return _access_token
 
-def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription, user: User, topic: str, action: str, token: str = None):
+
+def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription, user: User, topic: str, action: str):
     from accounts.models import FirebaseToken
 
     tokens = list(FirebaseToken.objects.filter(user=user).values_list('token', flat=True))
@@ -53,11 +54,12 @@ def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription,
         return False
 
     access_token = _get_access_token()
-    url = (
-        'https://iid.googleapis.com/iid/v1:batchAdd'
-        if action == 'subscribe'
-        else 'https://iid.googleapis.com/iid/v1:batchRemove'
-    )
+    if action == FCMTopicSubscription.SUBSCRIBE:
+        url = 'https://iid.googleapis.com/iid/v1:batchAdd'
+    elif action == FCMTopicSubscription.UNSUBSCRIBE:
+        url = 'https://iid.googleapis.com/iid/v1:batchRemove'
+    else:
+        raise NotImplementedError
 
     resp = requests.post(
         url=url,
@@ -76,6 +78,7 @@ def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription,
         resp_json = resp.json()
     except ValueError:
         resp_json = None
+
     not_found_tokens = []
     if resp.ok and resp_json and 'results' in resp_json:
         for idx, result in enumerate(resp_json['results']):
@@ -95,8 +98,10 @@ def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription,
         logger.warning(
             f'Failed to {action} user {user} to topic: {topic} Response: {resp.text}-{resp}'
         )
+
     if not_found_tokens:
         FirebaseToken.objects.filter(token__in=not_found_tokens).delete()
+
     return False
 
 
