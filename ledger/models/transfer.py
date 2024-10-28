@@ -149,30 +149,31 @@ class Transfer(models.Model):
             )
 
     @classmethod
-    def get_withdraw_source(cls, receiver_user: Union['User', None], network: Union['Network', None], address: str, memo: str):
-        if network:
-            queryset = DepositAddress.objects.filter(address=address)
-
-            if network.deposit_need_memo and memo:
-                queryset = queryset.filter(address_key__memo=memo)
-
-            if not queryset.exists() or (network.deposit_need_memo and not memo):
-                return WithdrawSources.SELF
-        if receiver_user:
-            return WithdrawSources.INTERNAL_ACCOUNT
-        else:
-            return WithdrawSources.INTERNAL
-
-    @classmethod
     def new_withdraw(cls, wallet: Wallet, amount: Decimal, address: str, memo: str = '',
-                    whitelist: bool = False, network: Union['Network', None] = None, receiver_user: Union['User', None] = None):
+                     whitelist: bool = False, network: Union['Network', None] = None,
+                     receiver_user: Union['User', None] = None):
 
         assert wallet.asset.symbol != Asset.IRT
         assert wallet.account.is_ordinary_user()
         wallet.has_balance(amount, raise_exception=True, check_system_wallets=True)
 
         group_id = uuid4()
-        withdraw_source = Transfer.get_withdraw_source(receiver_user, network, address, memo)
+
+        if receiver_user:
+            withdraw_source = WithdrawSources.INTERNAL_ACCOUNT
+
+        elif network:
+            queryset = DepositAddress.objects.filter(address=address)
+
+            if network.deposit_need_memo and memo:
+                queryset = queryset.filter(address_key__memo=memo)
+
+            if not queryset.exists() or (network.deposit_need_memo and not memo):
+                withdraw_source = WithdrawSources.SELF
+            else:
+                withdraw_source = WithdrawSources.INTERNAL
+        else:
+            raise NotImplementedError
 
         price_irt = get_last_price(wallet.asset.symbol + Asset.IRT) or 0
         price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
