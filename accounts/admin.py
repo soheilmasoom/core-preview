@@ -1143,6 +1143,6 @@ class SpamPhoneAdmin(admin.ModelAdmin):
 
 @admin.register(FCMTopicSubscription)
 class FCMTopicSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'action', 'status', 'topic',)
+    list_display = ('created', 'user', 'action', 'status', 'topic',)
     search_fields = ('action', 'user__phone')
     list_filter = ('status', 'action')
