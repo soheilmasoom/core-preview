@@ -133,7 +133,7 @@ class SectionAdmin(SimpleHistoryAdmin):
 
 
 class FAQTabularInline(admin.TabularInline):
-    fields = ('question_text', 'answer_text', 'title', 'link', 'type')
+    fields = ('title', 'answer', 'link')
     readonly_fields = ('get_id', )
     model = FAQ
     extra = 1
