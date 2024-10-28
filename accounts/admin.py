@@ -1146,3 +1146,4 @@ class FCMTopicSubscriptionAdmin(admin.ModelAdmin):
     list_display = ('created', 'user', 'action', 'status', 'topic',)
     search_fields = ('action', 'user__phone')
     list_filter = ('status', 'action')
+    readonly_fields = ('user',)
