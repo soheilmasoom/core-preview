@@ -6,7 +6,7 @@ class FAQCategory(models.Model):
     QA = 'qa'
     FAQ_TYPES = [
         (LINK, 'Link'),
-        (QA, 'qa'),
+        (QA, 'QA'),
     ]
 
     title = models.CharField(max_length=255)
