@@ -23,6 +23,7 @@ TASK_MULTIPLIER = 1
 if settings.DEBUG_OR_TESTING_OR_STAGING:
     TASK_MULTIPLIER = 5
 
+
 app.conf.beat_schedule = {
     'price_alert': {
         'task': 'ledger.tasks.alert.send_price_notifications',
@@ -328,7 +329,7 @@ app.conf.beat_schedule = {
         'task': 'accounts.tasks.notification.manage_user_topic_subscription_task',
         'schedule': crontab(minute=5),
         'options': {
-            'queue': 'celery',
+            'queue': 'notif-manager',
             'expires': 3600
         },
     },
@@ -341,7 +342,6 @@ app.conf.beat_schedule = {
         }
     },
 }
-
 
 if 'marketing' in settings.INSTALLED_APPS:
     app.conf.beat_schedule.update({
