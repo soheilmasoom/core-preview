@@ -86,9 +86,9 @@ def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription,
                 error = result['error']
                 if error == 'NOT_FOUND':
                     not_found_tokens.append(tokens[idx])
-                    logger.warning(f'Token not found: {tokens[idx]}')
+                    logger.info(f'Token not found: {tokens[idx]}')
                 else:
-                    logger.warning(f'Error for token {tokens[idx]}: {error}')
+                    logger.info(f'Error for token {tokens[idx]}: {error}')
             else:
                 logger.info(f'Successfully {action} user {user} topic: {topic}')
                 fcm_topic_subscription.status = DONE
