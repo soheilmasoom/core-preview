@@ -7,6 +7,6 @@ from .debt import auto_clear_debts
 from .otc import accept_pending_otc_trades, handle_limit_otc_request
 from .distribution import update_distribution_factors
 from .coins_info import populate_coins_info
-from .alert import send_price_notifications
+from .alert import send_price_notifications, check_conditional_price_alerts
 from .withdraw import update_withdraws
 from .network import check_network_schedules

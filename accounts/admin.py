@@ -17,11 +17,11 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 from jalali_date.admin import ModelAdminJalaliMixin
 from simple_history.admin import SimpleHistoryAdmin
 
+from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object, admin_page_anchor
 from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationCode, \
     UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
     AttributionTracker, AppConfig, SpamPhone
 from accounts.models import UserComment, TrafficSource, Referral
-from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object, admin_page_anchor
 from financial.models.bank_card import BankCard, BankAccount
 from financial.models.payment import Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
@@ -31,7 +31,7 @@ from ledger.models import AddressKey
 from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx, MarginLeverage, MarginPosition
 from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.external_price import BUY
-from ledger.utils.fields import PENDING, DONE
+from ledger.utils.fields import PENDING, DONE, CANCELED
 from ledger.utils.precision import humanize_number
 from ledger.utils.report import export_transactions
 from market.models import Trade, ReferralTrx, Order
@@ -39,6 +39,7 @@ from stake.models import StakeRequest
 from .admin_guard import M
 from .admin_guard.admin import AdvancedAdmin
 from .models import User, Account, Notification, UserAuthRequest, Company, LevelGrants
+from .models.fcm_topic_subscription import FCMTopicSubscription
 from .models.login_activity import LoginActivity
 from .models.sms_notification import SmsNotification
 from .models.user_feature_perm import UserFeaturePerm
@@ -181,6 +182,15 @@ class ConsultationAdmin(admin.ModelAdmin):
     readonly_fields = ('created', 'user')
     list_filter = ('status',)
     search_fields = ('user__phone', 'user__email',)
+    actions = ('cancel_consultation', 'done_consultation',)
+
+    @admin.action(description='تغیر به لغو شده', permissions=['change'])
+    def cancel_consultation(self, request, queryset):
+        queryset.objects.update(status=CANCELED)
+
+    @admin.action(description='تغییر به انجام شده', permissions=['change'])
+    def done_consultation(self, request, queryset):
+        queryset.objects.update(status=DONE)
 
     @admin.display(description='description')
     def get_description(self, consultation: Consultation):
@@ -225,6 +235,7 @@ class BaseChangeAdmin(admin.ModelAdmin):
 class Forget2FAAdmin(BaseChangeAdmin):
     list_display = ('created', 'status', 'get_username',)
     readonly_fields = ('created', 'status', 'user', 'selfie_image',)
+    search_fields = ('user__phone', )
 
     @admin.display(description='user')
     def get_username(self, forget_2fa: Forget2FA):
@@ -237,6 +248,7 @@ class Forget2FAAdmin(BaseChangeAdmin):
 class ChangePhoneAdmin(BaseChangeAdmin):
     list_display = ('created', 'status', 'get_username', 'new_phone')
     readonly_fields = ('created', 'status', 'user', 'new_phone', 'selfie_image',)
+    search_fields = ('user__phone', )
 
     @admin.display(description='user')
     def get_username(self, change_phone: ChangePhone):
@@ -1129,3 +1141,6 @@ class SpamPhoneAdmin(admin.ModelAdmin):
     search_fields = ('phone', )
 
 
+@admin.register(FCMTopicSubscription)
+class FCMTopicSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'action', 'status', 'topic',)

@@ -7,6 +7,8 @@ from rest_framework.generics import CreateAPIView, get_object_or_404
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from market.models import PairSymbol
+from ledger.utils.precision import floor_precision, get_precision
 
 from accounts.models import Account, LoginActivity, SystemConfig
 from accounts.permissions import can_trade
@@ -16,7 +18,7 @@ from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecre
 from ledger.models import OTCRequest, Asset, OTCTrade, Wallet
 from ledger.models.asset import InvalidAmount
 from ledger.models.otc_trade import TokenExpired
-from ledger.utils.external_price import BUY, SIDE_VERBOSE
+from ledger.utils.external_price import BUY, SIDE_VERBOSE, SELL
 from ledger.utils.fields import get_serializer_amount_field
 from ledger.utils.otc import get_trading_pair
 from ledger.utils.precision import get_symbol_presentation_amount, get_symbol_presentation_price
@@ -178,6 +180,16 @@ class OTCRequestSerializer(serializers.ModelSerializer):
 
         if not from_amount and not to_amount or (from_amount and to_amount):
             raise ValidationError('دقیقا یکی از مقادیر از و به باید وارد شود.')
+
+        pair = get_trading_pair(attrs['from_asset'], attrs['to_asset'], from_amount, to_amount)
+
+        symbol = PairSymbol.objects.get(asset=pair.coin, base_asset=pair.base)
+        if pair.side == BUY:
+            if (from_amount and get_precision(from_amount) > Asset.PRECISION) or (to_amount and get_precision(to_amount) > symbol.step_size):
+                raise ValidationError('اعشار درست وارد نشده است.')
+        elif pair.side == SELL:
+            if (from_amount and get_precision(from_amount) > symbol.step_size) or (to_amount and get_precision(to_amount) > Asset.PRECISION):
+                raise ValidationError('اعشار درست وارد نشده است.')
 
         return attrs
 
