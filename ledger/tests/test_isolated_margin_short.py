@@ -49,13 +49,13 @@ class ShortIsolatedMarginTestCase(TestCase):
 
         self.btc = Asset.get('BTC')
 
-        self.usdt.get_wallet(self.account).airdrop(TO_TRANSFER_USDT * 1000000000000000)
+        self.usdt.get_wallet(self.account).airdrop(TO_TRANSFER_USDT * 3)
 
-        self.usdt.get_wallet(self.account2).airdrop(TO_TRANSFER_USDT * 1000000000000000)
-        self.btc.get_wallet(self.account2).airdrop(TO_TRANSFER_USDT * 1000000000000000)
+        self.usdt.get_wallet(self.account2).airdrop(TO_TRANSFER_USDT * 30)
+        self.btc.get_wallet(self.account2).airdrop(TO_TRANSFER_USDT * 30)
 
-        self.usdt.get_wallet(self.account3).airdrop(TO_TRANSFER_USDT * 1000000000000000)
-        self.btc.get_wallet(self.account3).airdrop(TO_TRANSFER_USDT * 1000000000000000)
+        self.usdt.get_wallet(self.account3).airdrop(TO_TRANSFER_USDT * 30)
+        self.btc.get_wallet(self.account3).airdrop(TO_TRANSFER_USDT * 30)
 
         self.client = Client()
         self.client.force_login(self.user)
