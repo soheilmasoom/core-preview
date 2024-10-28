@@ -1424,14 +1424,14 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
 
     @admin.action(description='convert dust and close', permissions=['change'])
     def convert_dust_close(self, request, queryset):
-        self.convert_duct(queryset, False)
+        self.convert_dust(queryset, False)
 
 
     @admin.action(description='convert dust and close', permissions=['change'])
     def force_convert_dust_close(self, request, queryset):
-        self.convert_duct(queryset, True)
+        self.convert_dust(queryset, True)
 
-    def convert_duct(self, queryset, force):
+    def convert_dust(self, queryset, force):
         positions = []
         group_id = uuid4()
 
