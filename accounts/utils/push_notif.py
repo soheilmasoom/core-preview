@@ -48,7 +48,7 @@ def _get_access_token() -> AccessToken:
 def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription, user: User, topic: str, action: str):
     from accounts.models import FirebaseToken
 
-    tokens = list(FirebaseToken.objects.filter(user=user).values_list('token', flat=True))
+    tokens = list(FirebaseToken.objects.filter(user=user, native_app=False).values_list('token', flat=True))
     if not tokens:
         logger.info(f'No tokens found for user: {user}')
         return False
@@ -108,7 +108,7 @@ def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription,
 def send_push_notif_to_user(user: User, title: str, body: str, image: str = None, link: str = None):
     from accounts.models import FirebaseToken
 
-    for firebase_token in FirebaseToken.objects.filter(user=user):
+    for firebase_token in FirebaseToken.objects.filter(user=user, native_app=False):
         send_push_notif(title, body, firebase_token.token, image, link)
 
 
