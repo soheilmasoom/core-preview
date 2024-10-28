@@ -481,7 +481,7 @@ class MarginPosition(models.Model):
         if free > 0:
             price = get_depth_price(
                 self.asset_wallet.asset.symbol + self.base_wallet.asset.symbol,
-                side=SELL,
+                side=BUY,
                 amount=free
             )
 
@@ -513,7 +513,7 @@ class MarginPosition(models.Model):
         elif free < 0:
             price = get_depth_price(
                 self.asset_wallet.asset.symbol + self.base_wallet.asset.symbol,
-                side=BUY,
+                side=SELL,
                 amount=-free
             )
 
