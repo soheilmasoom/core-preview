@@ -180,4 +180,4 @@ class GuidAdmin(SimpleHistoryAdmin):
 
 @admin.register(FAQ)
 class FAQAdmin(admin.ModelAdmin):
-    list_display = ('category', 'question_text', 'answer_text', 'created',)
+    list_display = ('category', 'title', 'answer', 'created',)

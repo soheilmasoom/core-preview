@@ -149,7 +149,7 @@ class Transfer(models.Model):
             )
 
     @classmethod
-    def get_withdraw_source(cls, receiver_user, network, address, memo):
+    def get_withdraw_source(cls, receiver_user: Union['User', None], network: Union['Network', None], address: str, memo: str):
         if network:
             queryset = DepositAddress.objects.filter(address=address)
 
