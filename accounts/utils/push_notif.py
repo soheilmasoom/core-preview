@@ -9,7 +9,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 from accounts.models import User
 from accounts.models.fcm_topic_subscription import FCMTopicSubscription
-from ledger.utils.fields import DONE
+from ledger.utils.fields import DONE, CANCELED
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +45,18 @@ def _get_access_token() -> AccessToken:
     return _access_token
 
 
-def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription, user: User, topic: str, action: str):
+def manage_user_topic_subscription(subscription: FCMTopicSubscription):
     from accounts.models import FirebaseToken
+    user = subscription.user
+    action = subscription.action
+    topic = subscription.topic
 
     tokens = list(FirebaseToken.objects.filter(user=user, native_app=False).values_list('token', flat=True))
     if not tokens:
-        logger.info(f'No tokens found for user: {user}')
-        return False
+        subscription.status = DONE
+        subscription.description = 'No tokens found'
+        subscription.save(update_fields=['status', 'description'])
+        return
 
     access_token = _get_access_token()
     if action == FCMTopicSubscription.SUBSCRIBE:
@@ -74,30 +79,32 @@ def manage_user_topic_subscription(fcm_topic_subscription: FCMTopicSubscription,
         },
     )
 
-    try:
-        resp_json = resp.json()
-    except ValueError:
-        resp_json = None
+    resp_json = resp.json()
+
+    if not resp.ok:
+        subscription.description = resp_json
+        subscription.save(update_fields=['description'])
+        return
 
     not_found_tokens = []
-    if resp.ok and resp_json and 'results' in resp_json:
-        for idx, result in enumerate(resp_json['results']):
-            if 'error' in result:
-                error = result['error']
-                if error == 'NOT_FOUND':
-                    not_found_tokens.append(tokens[idx])
-                    logger.info(f'Token not found: {tokens[idx]}')
-                else:
-                    logger.info(f'Error for token {tokens[idx]}: {error}')
+    for idx, result in enumerate(resp_json['results']):
+        if 'error' in result:
+            error = result['error']
+
+            if error == 'NOT_FOUND':
+                not_found_tokens.append(tokens[idx])
+                logger.info(f'Token not found: {tokens[idx]}')
             else:
-                logger.info(f'Successfully {action} user {user} topic: {topic}')
-                fcm_topic_subscription.status = DONE
-                fcm_topic_subscription.save(update_fields=['status'])
-                return
-    else:
-        logger.warning(
-            f'Failed to {action} user {user} to topic: {topic} Response: {resp.text}-{resp}'
-        )
+                logger.info(f'Error for token {tokens[idx]}: {error}')
+                subscription.status = CANCELED
+                subscription.description = resp_json
+                subscription.save(update_fields=['status', 'description'])
+
+        else:
+            subscription.status = DONE
+            subscription.description = f'Subscribed {len(tokens)} tokens'
+            subscription.save(update_fields=['status'])
+            return
 
     if not_found_tokens:
         FirebaseToken.objects.filter(token__in=not_found_tokens).delete()
