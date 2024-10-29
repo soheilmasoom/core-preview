@@ -74,6 +74,7 @@ def trigger_topic_subscriptions(pending_tokens: PendingTokens):
         return False
 
     to_delete_tokens = []
+    invalid_tokens = []
 
     for idx, result in enumerate(resp_json['results']):
         token = tokens[idx]
@@ -84,7 +85,7 @@ def trigger_topic_subscriptions(pending_tokens: PendingTokens):
             logger.info(f'Error subscribing token {token} to {pending_tokens.topic} {error}')
 
             if error in ['NOT_FOUND', 'INVALID_ARGUMENT', 'PERMISSION_DENIED']:
-                to_delete_tokens.append(token)
+                invalid_tokens.append(token)
                 FirebaseToken.objects.filter(token=token).update(active=False, error=error)
 
         else:
@@ -93,6 +94,8 @@ def trigger_topic_subscriptions(pending_tokens: PendingTokens):
     if to_delete_tokens:
         pending_tokens.tokens = to_delete_tokens
         fcm_topic_manager.remove_pending_tokens(pending_tokens)
+
+    fcm_topic_manager.cleanup_tokens(invalid_tokens)
 
     return True
 
