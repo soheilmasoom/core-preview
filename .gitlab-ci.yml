@@ -12,7 +12,7 @@ raastin_build:
     - export IMAGE="registry.hamdocker.ir/raastin/core"
     - 'darkube build --push -t $IMAGE:$CI_COMMIT_SHORT_SHA -t $IMAGE:$CI_COMMIT_REF_SLUG'
   retry:
-    max: 5
+    max: 2
 
   stage: build
   tags:
@@ -37,7 +37,7 @@ deploy_staging:
       --app-id ${STAGING_SOCKET_SYNCHRONIZER_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
       --job-id "${CI_JOB_ID}"'
   retry:
-    max: 5
+    max: 2
 
   stage: deploy
   tags:
@@ -75,7 +75,7 @@ arzplus_deploy_production:
       --job-id "${CI_JOB_ID}"'
 
   retry:
-    max: 5
+    max: 2
 
   stage: deploy
   tags:
@@ -113,7 +113,7 @@ raastin_deploy_production:
       --job-id "${CI_JOB_ID}"'
 
   retry:
-    max: 5
+    max: 2
 
   stage: deploy
   tags:
@@ -152,7 +152,7 @@ tgju_deploy_production:
 #      --job-id "${CI_JOB_ID}"'
 
   retry:
-    max: 5
+    max: 2
 
   stage: deploy
   tags:
@@ -175,7 +175,7 @@ deploy_gold:
 #      --app-id ${GOLD_CELERY_WORKERS_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
 #      --job-id "${CI_JOB_ID}"'
   retry:
-    max: 5
+    max: 2
 
   stage: deploy
   tags:
