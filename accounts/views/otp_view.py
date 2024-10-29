@@ -5,6 +5,7 @@ from rest_framework.generics import CreateAPIView
 from accounts.models import User
 from accounts.throttle import SustainedRateThrottle, BurstRateThrottle
 from accounts.models.phone_verification import VerificationCode
+from django.conf import settings
 
 
 class VerifyOTPSerializer(serializers.ModelSerializer):
@@ -31,6 +32,11 @@ class VerifyOTPSerializer(serializers.ModelSerializer):
         if scope == VerificationCode.SCOPE_VERIFY_PHONE and User.objects.filter(phone=phone).exists():
             raise ValidationError({'scope': 'شما با این شماره موبایل قبلا ثبت نام کرده‌اید. لطفا از قسمت ورود، وارد شوید.'})
 
+        if scope == VerificationCode.SCOPE_FORGET_PASSWORD and not otp_code.user:
+            raise ValidationError({
+                'scope': 'شما حساب کاربری فعالی ندارید. برای استفاده از {} لطفا ثبت‌نام کنید.'.format(settings.BRAND)
+            })
+
         return otp_code
 
     class Meta:
@@ -51,7 +57,6 @@ class VerifyOTPView(CreateAPIView):
 
 
 class OTPSerializer(serializers.ModelSerializer):
-
     new_phone = serializers.CharField(required=False)
 
     def create(self, validated_data):
@@ -76,7 +81,7 @@ class OTPSerializer(serializers.ModelSerializer):
         if not phone:
             raise ValidationError('امکان ارسال کد وجود ندارد.')
 
-        VerificationCode.send_otp_code(phone=phone, scope=scope, user=user)
+        VerificationCode.send_otp_code(request=self.context['request'], phone=phone, scope=scope, user=user)
 
         return {}
 

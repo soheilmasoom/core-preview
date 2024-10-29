@@ -3,8 +3,7 @@ from django.db import models
 from accounts.models import Account
 from ledger.models import Network
 from ledger.models.address_key import AddressKey
-from ledger.requester.address_requester import AddressRequester
-from ledger.requester.architecture_requester import get_network_architecture
+from ledger.utils.blocklink import get_blocklink_requester
 
 
 class DepositAddress(models.Model):
@@ -18,12 +17,13 @@ class DepositAddress(models.Model):
 
     @classmethod
     def get_deposit_address(cls, account: Account, network: Network):
-        architecture = get_network_architecture(network.symbol)
+        requester = get_blocklink_requester()
+        architecture = requester.get_network_arch(network.symbol)
 
         address_key = AddressKey.objects.filter(account=account, architecture=architecture, deleted=False).first()
 
         if not address_key:
-            address_dict = AddressRequester().create_wallet(account, architecture)
+            address_dict = requester.create_wallet(account, architecture).data
 
             address_key, _ = AddressKey.objects.get_or_create(
                 account=account,
@@ -47,9 +47,9 @@ class DepositAddress(models.Model):
 
         return deposit_address
 
-    def update_transaction_history(self):
-        from ledger.requester.trx_history_updater import UpdateTrxHistory
-        UpdateTrxHistory().update_history(deposit_address=self)
-
     class Meta:
         unique_together = ('address_key', 'network', 'address')
+
+        permissions = [
+            ("list_depositaddress", "Can list deposit address"),
+        ]

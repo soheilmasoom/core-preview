@@ -17,8 +17,8 @@ DEBUG = config('DEBUG', cast=bool, default=False)
 STAGING = config('STAGING', cast=bool, default=False)
 TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
 
-BLOCKLINK_TOKEN = config('BLOCKLINK_TOKEN')
-BLOCKLINK_BASE_URL = config('BLOCKLINK_BASE_URL', default='https://blocklink.raastin.com')
+BACKOFFICE_TOKEN = config('BACKOFFICE_TOKEN', default="")
+BACKOFFICE_BASE_URL = config('BACKOFFICE_BASE_URL', default="")
 
 DEBUG_OR_TESTING = DEBUG or TESTING
 DEBUG_OR_TESTING_OR_STAGING = DEBUG or TESTING or STAGING
@@ -31,7 +31,8 @@ CELERY_TASK_ALWAYS_EAGER = config('CELERY_ALWAYS_EAGER', default=False)
 
 KAFKA_HOST_URL = config('KAFKA_HOST_URL', default='')
 
-# Application definition
+BRAND_EN = config('BRAND_EN', default='')
+BRAND = config('BRAND', default='')
 
 INSTALLED_APPS = [
     'admin_interface',
@@ -66,12 +67,17 @@ INSTALLED_APPS = [
     'stake',
     'gamify',
     'health',
-    'marketing',
+    'search',
 
     'tinymce',
     'import_export',
     'django_quill',
 ]
+
+if BRAND_EN.lower() == 'raastin':
+    INSTALLED_APPS.extend([
+        'marketing',
+    ])
 
 
 MIDDLEWARE = [
@@ -163,6 +169,7 @@ MARKET_CACHE_LOCATION = LOCAL_REDIS_URL + '/3'
 METRICS_CACHE_LOCATION = LOCAL_REDIS_URL + '/4'
 
 PRICE_CACHE_LOCATION = config('PRICE_CACHE_LOCATION', default='redis://127.0.0.1:6379/2')
+MASTER_PRICE_CACHE_LOCATION = config('MASTER_PRICE_CACHE_LOCATION', default=None)
 SOCKET_SERVER_CACHE_LOCATION = config('SOCKET_SERVER_CACHE_LOCATION', default='redis://127.0.0.1:6379')
 
 # Password validation
@@ -212,28 +219,33 @@ STATICFILES_DIRS = [
 MEDIA_URL = config('MEDIA_URL', default='/media/')
 MEDIA_ROOT = config('MEDIA_ROOT', default=os.path.join(BASE_DIR, 'media/'))
 
-if not DEBUG_OR_TESTING:
+MINIO_ENDPOINT = config('MINIO_STORAGE_ENDPOINT', default='')
+
+if MINIO_ENDPOINT:
     INSTALLED_APPS.append('django_minio_backend')
 
     DEFAULT_FILE_STORAGE = "django_minio_backend.models.MinioBackend"
     STATICFILES_STORAGE = "django_minio_backend.models.MinioBackendStatic"
 
-    MINIO_ENDPOINT = config('MINIO_STORAGE_ENDPOINT')
     MINIO_ACCESS_KEY = config('MINIO_STORAGE_ACCESS_KEY')
     MINIO_SECRET_KEY = config('MINIO_STORAGE_SECRET_KEY')
     MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = True
     MINIO_USE_HTTPS = False
 
-    MINIO_PRIVATE_BUCKETS = [
-        'core-media',
-    ]
-    MINIO_PUBLIC_BUCKETS = [
-        'core-static',
-    ]
-
-MINIO_EXTERNAL_ENDPOINT = config('MINIO_CDN_ENDPOINT')
+MINIO_PUBLIC_MEDIA_FILES_BUCKET = 'core-media-public'
 MINIO_MEDIA_FILES_BUCKET = 'core-media'
 MINIO_STATIC_FILES_BUCKET = 'core-static'
+
+MINIO_PRIVATE_BUCKETS = [
+    MINIO_MEDIA_FILES_BUCKET,
+]
+
+MINIO_PUBLIC_BUCKETS = [
+    MINIO_STATIC_FILES_BUCKET,
+    MINIO_PUBLIC_MEDIA_FILES_BUCKET
+]
+
+MINIO_EXTERNAL_ENDPOINT = config('MINIO_CDN_ENDPOINT')
 
 MINIO_STORAGE_STATIC_URL = f'https://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_STATIC_FILES_BUCKET}'
 MINIO_STORAGE_MEDIA_URL = f'https://{MINIO_EXTERNAL_ENDPOINT}/{MINIO_MEDIA_FILES_BUCKET}'
@@ -272,8 +284,9 @@ REST_FRAMEWORK = {
 
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
+        'accounts.authentication.CustomJWTAuthentication',
         # 'rest_framework.authentication.TokenAuthentication',
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
 
     'DEFAULT_PERMISSION_CLASSES': [
@@ -282,12 +295,10 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
 
     'DEFAULT_THROTTLE_RATES': {
-        'burst': '5/min',
-        'sustained': '50/day',
-        # 'burst_api': '40/min',
-        # 'sustained_api': '20000/day',
-        'burst_api': '200/min',
-        'sustained_api': '200000/day',
+        'auth_burst': '50/min',
+        'auth_sustained': '500/day',
+        'api_burst': '60/min',
+        'api_sustained': '10000/day',  # only for custom token
     },
     'EXCEPTION_HANDLER': 'accounts.throttle.custom_exception_handler'
 }
@@ -300,7 +311,7 @@ if config('JWT_PRIVATE_KEY', None):
         'ALGORITHM': 'RS256',
         'SIGNING_KEY': config('JWT_PRIVATE_KEY', default=''),
         'VERIFYING_KEY': config('JWT_PUBLIC_KEY', default=''),
-        'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+        'REFRESH_TOKEN_LIFETIME': timedelta(days=3),
     }
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -369,16 +380,13 @@ JALALI_DATE_DEFAULTS = {
     },
 }
 
-SYSTEM_ACCOUNT_ID = config('SYSTEM_ACCOUNT_ID', default=1)
-OTC_ACCOUNT_ID = config('OTC_ACCOUNT', cast=int)
-RANDOM_TRADER_ACCOUNT_ID = config('BOT_RANDOM_TRADER_ACCOUNT_ID', default=None)
+SYSTEM_ACCOUNT_ID = config('SYSTEM_ACCOUNT_ID', default=1, cast=int)
+OTC_ACCOUNT_ID = config('OTC_ACCOUNT', cast=int, default=1)
 MARKET_MAKER_ACCOUNT_ID = config('MARKET_MAKER_ACCOUNT_ID', cast=int, default=0)
 TRADER_ACCOUNT_ID = config('TRADER_ACCOUNT_ID', cast=int, default=0)
-MARGIN_INSURANCE_ACCOUNT = config('MARGIN_INSURANCE_ACCOUNT', cast=int, default=None)
+MARGIN_INSURANCE_ACCOUNT = config('MARGIN_INSURANCE_ACCOUNT', cast=int, default=0)
 MARGIN_POOL_ACCOUNT = config('MARGIN_POOL_ACCOUNT', cast=int, default=0)
-
-BRAND_EN = config('BRAND_EN', default='')
-BRAND = config('BRAND', default='')
+REVERT_HELPER_ACCOUNT = config('REVERT_HELPER_ACCOUNT', cast=int, default=0)
 
 OTP_TOTP_ISSUER = BRAND_EN
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000
@@ -391,4 +399,5 @@ TINYMCE_JS_URL = os.path.join(MINIO_STORAGE_STATIC_URL, "tinymce/tinymce.min.js"
 
 EXCLUSIVE_SMS_NUMBER = config('EXCLUSIVE_SMS_NUMBER', default=None)
 
-LOGIN_URL = PANEL_URL + '/auth/login'
+LOGIN_URL = PANEL_URL + '/auth/login/'
+LOGIN_REDIRECT_URL = '/admin/'

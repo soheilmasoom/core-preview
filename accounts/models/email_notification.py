@@ -34,6 +34,9 @@ class EmailNotification(models.Model):
 
     @classmethod
     def send_by_template(cls, recipient: User, template: str, context: dict = None, check_spam: bool = False):
+        if not recipient.email:
+            return
+
         email_info = load_email_template(template, context)
 
         if check_spam and cls.is_spam(recipient, email_info.title):

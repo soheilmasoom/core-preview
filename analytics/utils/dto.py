@@ -11,7 +11,7 @@ class BaseEvent:
     created: datetime
     user_id: [int, None]
     event_id: uuid
-    login_activity_id: int = ''
+    login_activity_id: int = None
 
     def serialize(self):
         pass
@@ -248,8 +248,6 @@ class WalletEvent(BaseEvent):
     coin: str
     market: str
     balance: Decimal
-    expiration: datetime
-    credit: Decimal
 
     def serialize(self):
         return {
@@ -263,8 +261,6 @@ class WalletEvent(BaseEvent):
             'coin': self.coin,
             'market': self.market,
             'balance': float(self.balance),
-            'expiration': self.expiration.isoformat() if self.expiration else None,
-            'credit': float(self.credit),
         }
 
 

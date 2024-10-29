@@ -42,7 +42,7 @@ class SymbolSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PairSymbol
-        fields = ('name', 'asset', 'base_asset', 'taker_fee', 'maker_fee', 'tick_size', 'step_size',
+        fields = ('id', 'name', 'asset', 'base_asset', 'taker_fee', 'maker_fee', 'tick_size', 'step_size',
                   'min_trade_quantity', 'max_trade_quantity', 'enable', 'bookmark', 'margin_enable', 'strategy_enable',)
 
 
@@ -56,8 +56,10 @@ class SymbolBriefStatsSerializer(serializers.ModelSerializer):
     maker_fee = serializers.SerializerMethodField()
     taker_fee = serializers.SerializerMethodField()
 
+    max_leverage = serializers.SerializerMethodField()
+
     def __init__(self, *args, **kwargs):
-        super(SymbolBriefStatsSerializer, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.prices_data_dic = self.context.get('prices')
         if not self.prices_data_dic:
@@ -104,12 +106,18 @@ class SymbolBriefStatsSerializer(serializers.ModelSerializer):
 
     def get_taker_fee(self, pair_symbol: PairSymbol):
         return '0.002'
-    
+
+    def get_max_leverage(self, pair_symbol: PairSymbol):
+        if pair_symbol.margin_enable:
+            return self.context['system_config'].max_margin_leverage
+        else:
+            return 1
+
     class Meta:
         model = PairSymbol
         fields = ('name', 'asset', 'base_asset', 'enable', 'price', 'change_percent', 'bookmark', 'margin_enable',
                   'strategy_enable',  'taker_fee', 'maker_fee', 'tick_size', 'step_size', 'min_trade_quantity',
-                  'max_trade_quantity')
+                  'max_trade_quantity', 'max_leverage')
 
 
 class SymbolStatsSerializer(SymbolBriefStatsSerializer):

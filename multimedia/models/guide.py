@@ -1,0 +1,39 @@
+from django.db import models
+from simple_history.models import HistoricalRecords
+
+from multimedia.storage import PublicMediaStorage
+
+
+class GuideGroup(models.Model):
+    history = HistoricalRecords()
+
+    title = models.CharField(max_length=256)
+    slug = models.SlugField(max_length=256, unique=True, db_index=True)
+
+    def __str__(self):
+        return self.slug
+
+    class Meta:
+        verbose_name = 'دسته راهنما'
+        verbose_name_plural = 'دسته راهنما‌ها'
+
+
+class Guide(models.Model):
+    history = HistoricalRecords()
+
+    title = models.CharField(max_length=256)
+    image = models.ImageField(upload_to='multimedia/guide/', null=True, blank=True, storage=PublicMediaStorage())
+    description = models.TextField(blank=True)
+    link = models.URLField(blank=True)
+    video = models.URLField(blank=True)
+
+    order = models.PositiveSmallIntegerField(default=0)
+    group = models.ForeignKey(GuideGroup, on_delete=models.CASCADE, related_name='guides')
+
+    class Meta:
+        ordering = ('order', 'id')
+        verbose_name = 'راهنما'
+        verbose_name_plural = 'راهنما‌ها'
+
+    def __str__(self):
+        return self.title

@@ -3,9 +3,11 @@ import logging
 from django.conf import settings
 from django.db import transaction
 
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_system_message
+from ledger.fields import WithdrawSources
 from ledger.models import Transfer
+from ledger.utils.fields import PROCESS, PENDING
 from ledger.utils.provider import get_provider_requester
 
 logger = logging.getLogger(__name__)
@@ -21,8 +23,8 @@ def handle_provider_withdraw(transfer_id: int):
         transfer = Transfer.objects.select_for_update().get(id=transfer_id)
 
         assert not transfer.deposit
-        assert transfer.source == Transfer.PROVIDER
-        assert transfer.status == transfer.PROCESSING
+        assert transfer.source == WithdrawSources.PROVIDER
+        assert transfer.status == PROCESS
 
         resp = get_provider_requester().new_withdraw(transfer)
 
@@ -32,15 +34,15 @@ def handle_provider_withdraw(transfer_id: int):
 
             return
 
-        transfer.status = transfer.PENDING
+        transfer.status = PENDING
         transfer.save(update_fields=['status'])
 
 
 def change_to_manual(transfer: Transfer):
-    if transfer.source == Transfer.MANUAL:
+    if transfer.source == WithdrawSources.MANUAL:
         return
 
-    transfer.source = Transfer.MANUAL
+    transfer.source = WithdrawSources.MANUAL
     transfer.save(update_fields=['source'])
 
     send_system_message("Manual withdraw", link=url_to_edit_object(transfer))

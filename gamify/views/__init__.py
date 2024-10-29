@@ -1,1 +1,1 @@
-from .missions_view import MissionsAPIView, ActiveMissionsAPIView, TotalVoucherAPIView
+from .missions_view import MissionsAPIView, ActiveMissionsAPIView, TotalVoucherAPIView, MissionJourneyAPIView

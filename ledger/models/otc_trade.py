@@ -1,23 +1,32 @@
 import logging
 from decimal import Decimal
+import os
 from uuid import uuid4
+
+from django.utils import timezone
+from simple_history.models import HistoricalRecords
+
+from ledger.utils.price import get_depth_price, get_price
+from accounts.models import Notification
+
 
 from django.conf import settings
 from django.db import models
 from django.db.models import F, Sum
+from ledger.utils.external_price import BUY, SELL, get_other_side
 
 from _base.settings import OTC_ACCOUNT_ID
 from accounting.models import TradeRevenue
 from accounts.models import Account, SystemConfig
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_system_message
-from ledger.exceptions import HedgeError
+from ledger.exceptions import HedgeError, SmallDepthError
 from ledger.models import OTCRequest, Trx, Wallet, Asset
 from ledger.utils.external_price import SELL, BUY
 from ledger.utils.fields import get_amount_field
 from ledger.utils.precision import floor_precision, get_symbol_presentation_price
+from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
-from market.exceptions import NegativeGapRevenue
 from market.models import Trade, PairSymbol
 from market.utils.order_utils import new_order
 from market.utils.trade import register_fee_transactions
@@ -30,8 +39,10 @@ class TokenExpired(Exception):
 
 
 class OTCTrade(models.Model):
-    PENDING, CANCELED, DONE, REVERT = 'pending', 'canceled', 'done', 'revert'
+    PENDING, CANCELED, USER_CANCELED, DONE, REVERT, EXPIRED = 'pending', 'canceled', 'user_canceled', 'done', 'revert', 'expired'
     MARKET, PROVIDER = 'm', 'p'
+
+    history = HistoricalRecords()
 
     created = models.DateTimeField(auto_now_add=True)
     otc_request = models.OneToOneField('ledger.OTCRequest', on_delete=models.PROTECT)
@@ -40,9 +51,10 @@ class OTCTrade(models.Model):
 
     status = models.CharField(
         default=PENDING,
-        max_length=8,
-        choices=[(PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE), (REVERT, REVERT)],
+        max_length=16,
+        choices=[(PENDING, PENDING), (CANCELED, CANCELED), (USER_CANCELED, USER_CANCELED), (DONE, DONE), (REVERT, REVERT), (EXPIRED, EXPIRED)],
     )
+
     execution_type = models.CharField(max_length=1, choices=((MARKET, 'market'), (PROVIDER, 'provider')))
 
     gap_revenue = get_amount_field(default=0)
@@ -80,53 +92,119 @@ class OTCTrade(models.Model):
         return 'otc-%s' % self.id
 
     @classmethod
-    def execute_trade(cls, otc_request: OTCRequest, force: bool = False) -> 'OTCTrade':
-
-        if otc_request.expired():
-            raise TokenExpired()
-
+    def handle_otc_request(cls, otc_request: OTCRequest) -> 'OTCTrade':
         account = otc_request.account
-
         from_asset = otc_request.from_asset
-
         from_wallet = from_asset.get_wallet(account, market=otc_request.market)
         amount = otc_request.get_paying_amount()
         from_wallet.has_balance(amount, raise_exception=True)
 
         with WalletPipeline() as pipeline:
+            execution_type = OTCTrade.get_fill_type(otc_request.symbol)
             otc_trade = OTCTrade.objects.create(
                 otc_request=otc_request,
-                execution_type=OTCTrade.MARKET,
+                execution_type=execution_type,
                 to_buy_amount=otc_request.amount if otc_request.side == BUY else -otc_request.amount,
-                hedged=True
+                hedged=execution_type == OTCTrade.MARKET
             )
+            pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount, reason=WalletPipeline.TRADE)
 
-            fok_success = otc_trade.try_fok_fill(pipeline)
+        if otc_request.type == OTCRequest.LIMIT:
+            return otc_trade
 
-            if not fok_success:
-                if otc_trade.otc_request.symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
-                    logger.warning('Hedge otc from market failed', extra={
-                        'otc_request_id': otc_request.id
-                    })
-                    raise HedgeError
-                otc_trade.execution_type = OTCTrade.PROVIDER
-                otc_trade.hedged = False
-                otc_trade.save(update_fields=['execution_type', 'hedged'])
-                pipeline.new_lock(key=otc_trade.group_id, wallet=from_wallet, amount=amount,
-                                  reason=WalletPipeline.TRADE)
+        return otc_trade.execute_trade()
 
-        if not fok_success:
-            otc_trade.try_provider_fill()
+    @classmethod
+    def handle_expired(cls):
+        query_set = cls.get_untriggered_otc_trade_queryset().filter(
+            otc_request__gtd__lt=timezone.now())
+        with WalletPipeline() as pipeline:
+            for otc_trade in query_set:
+                pipeline.release_lock(otc_trade.group_id)
+                otc_trade.status = OTCTrade.EXPIRED
+                otc_trade.save(update_fields=['status'])
+                symbol = otc_trade.otc_request.symbol.name
+                Notification.send(
+                    recipient=otc_trade.otc_request.account.user,
+                    title='سفارش قیمت ثابت منقضی شد',
+                    message=f'سفارش {symbol} شما منقضی شد.',
+                    link="/trade/otc/history?tab=convert-history"
+                )
 
-        return otc_trade
+    @classmethod
+    def handle_trigger_price(cls, symbol: str, side: str, current_price: Decimal):
+        def is_triggered_price(otc_request: OTCRequest) -> bool:
+            try:
+                current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
+            except SmallDepthError as e:
+                logger.info('Error in get_depth_price in limit otc', extra={
+                    'exp': e
+                })
+                return False
 
-    def try_fok_fill(self, pipeline: WalletPipeline) -> bool:
+            side = otc_request.side
+            print("handle_trigger_price:#", current_price, otc_request, otc_request.price)
+            if side == SELL and Decimal(current_price) * Decimal("0.8") < otc_request.price < Decimal(current_price):
+                return True
+            elif side == BUY and Decimal(current_price) < otc_request.price < Decimal(current_price) * Decimal("1.2"):
+                return True
+            return False
+
+        triggered = cls.get_untriggered_otc_trade_queryset().filter(
+            otc_request__symbol__name=symbol,
+            otc_request__side=side,
+            otc_request__gtd__gt=timezone.now(),
+            otc_request__price__gte=Decimal(current_price) if side == BUY else Decimal(current_price) * Decimal("0.8"),
+            otc_request__price__lte=Decimal(current_price) * Decimal("1.2") if side == BUY else Decimal(current_price)
+        )
+
+        triggered_otc_trades = list(triggered)
+        for triggered_otc_trade in triggered_otc_trades:
+            if is_triggered_price(triggered_otc_trade.otc_request):
+                triggered_otc_trade.execute_trade()
+
+    @classmethod
+    def get_untriggered_otc_trade_queryset(cls):
+        result = OTCTrade.objects.filter(otc_request__type=OTCRequest.LIMIT, status=OTCTrade.PENDING).select_related('otc_request')
+        print("untriggered_otc_trade:#",list(result))
+        return result
+
+    @classmethod
+    def get_fill_type(cls, symbol: PairSymbol):
+        if symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
+            return cls.MARKET
+        else:
+            return cls.PROVIDER
+
+    def execute_trade(self) -> 'OTCTrade':
+        if self.otc_request.type == OTCRequest.MARKET and self.otc_request.expired():
+            self.reject()
+            raise TokenExpired()
+
+        if self.execution_type == self.MARKET:
+            try:
+                self.try_fok_fill()
+            except Exception as exp:
+                logger.exception('Error in hedging market otc request')
+                self.reject()
+                raise
+        else:
+            try:
+                self.hedge_with_provider()
+            except HedgeError:
+                logger.exception('Error in hedging provider otc request')
+                self.reject()
+                raise
+
+        return self
+
+    def try_fok_fill(self):
         assert self.execution_type == self.MARKET
 
         symbol = self.otc_request.symbol
-        if symbol.enable and SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
-            from market.models import Order
+        from market.models import Order
 
+        with WalletPipeline() as pipeline:
             fok_order = new_order(
                 pipeline=pipeline,
                 symbol=symbol,
@@ -141,53 +219,51 @@ class OTCTrade(models.Model):
 
             self.order_id = fok_order.id
 
-            if fok_order.status == Order.FILLED:
-                trades_base_sum = Trade.objects.filter(order_id=fok_order.id).aggregate(
-                    sum=Sum(F('amount') * F('price'))
-                )['sum'] or 0
+            if fok_order.status != Order.FILLED:
+                raise HedgeError
 
-                otc_base_amount = self.otc_request.amount * self.otc_request.price
-                self.gap_revenue = (otc_base_amount - trades_base_sum) * self.otc_request.base_usdt_price
-                if self.otc_request.side == SELL:
-                    self.gap_revenue = -self.gap_revenue
+            trades_base_sum = Trade.objects.filter(order_id=fok_order.id).aggregate(
+                sum=Sum(F('amount') * F('price'))
+            )['sum'] or 0
 
-                self.save(update_fields=['order_id', 'gap_revenue'])
-                self.accept(pipeline)
+            otc_base_amount = self.otc_request.amount * self.otc_request.price
+            self.gap_revenue = (otc_base_amount - trades_base_sum) * self.otc_request.base_usdt_price
+            if self.otc_request.side == SELL:
+                self.gap_revenue = -self.gap_revenue
 
-                TradeRevenue.new(
-                    user_trade=self.otc_request,
-                    group_id=self.group_id,
-                    source=TradeRevenue.OTC_MARKET,
-                    hedge_key=str(fok_order.id),
-                ).save()
+            self.save(update_fields=['order_id', 'gap_revenue'])
+            self.accept(pipeline)
 
-                return True
-            else:
-                self.save(update_fields=['order_id'])
+            TradeRevenue.new(
+                user_trade=self.otc_request,
+                group_id=self.group_id,
+                source=TradeRevenue.OTC_MARKET,
+                hedge_key=str(fok_order.id),
+            ).save()
 
-        return False
-
-    def try_provider_fill(self):
-
-        if self.otc_request.account.is_ordinary_user():
-            try:
-                self.hedge_with_provider()
-            except (HedgeError, NegativeGapRevenue):
-                logger.exception('Error in hedging otc request')
-                self.cancel()
-                raise
-
-    def cancel(self, ):
+    def reject(self, is_user_canceled=False):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
+            otc_trade = OTCTrade.objects.select_for_update().get(id=self.id)
+
+            if otc_trade.status != self.PENDING:
+                return
+
             pipeline.release_lock(self.group_id)
-            self.change_status(self.CANCELED)
+            if is_user_canceled:
+                otc_trade.change_status(self.USER_CANCELED)
+            else:
+                otc_trade.change_status(self.CANCELED)
 
     def accept(self, pipeline: WalletPipeline):
-        if self.execution_type == self.PROVIDER:
-            pipeline.release_lock(self.group_id)
+        otc_trade = OTCTrade.objects.select_for_update().get(id=self.id)
 
-        self.change_status(self.DONE)
-        self.create_ledger(pipeline)
+        if otc_trade.status != self.PENDING:
+            return
+
+        pipeline.release_lock(self.group_id)
+
+        otc_trade.change_status(self.DONE)
+        otc_trade.create_ledger(pipeline)
 
         register_fee_transactions(
             pipeline=pipeline,
@@ -214,6 +290,14 @@ class OTCTrade(models.Model):
             send_system_message(
                 message=f"New unhedged trade: {req.side} {amount_present} {req.symbol.asset} ({round(req.usdt_value, 1)}$)",
                 link=url_to_edit_object(self)
+            )
+        if self.otc_request.type == OTCRequest.LIMIT:
+            symbol = self.otc_request.symbol.name
+            Notification.send(
+                recipient=self.otc_request.account.user,
+                title='سفارش قیمت ثابت شما انجام شد',
+                message=f'سفارش {symbol} شما انجام شد.',
+                link="/trade/otc/history?tab=convert-history"
             )
 
     def get_pending_hedge_trades(self):
@@ -294,27 +378,15 @@ class OTCTrade(models.Model):
         with WalletPipeline() as pipeline:
             self.status = self.REVERT
             self.save(update_fields=['status'])
-
-            for trx in Trx.objects.filter(group_id=self.group_id):
-                if trx.receiver.has_balance(trx.amount):
-                    pipeline.new_trx(
-                        sender=trx.receiver,
-                        receiver=trx.sender,
-                        amount=trx.amount,
-                        group_id=trx.group_id,
-                        scope=Trx.REVERT
-                    )
-                else:
-                    pipeline.new_trx(
-                        sender=trx.receiver.asset.get_wallet(trx.receiver.account, market=Wallet.DEBT),
-                        receiver=trx.sender,
-                        amount=trx.amount,
-                        group_id=trx.group_id,
-                        scope=Trx.REVERT
-                    )
+            revert_trx_group(pipeline, self.group_id)
 
             from market.models import Trade
             Trade.objects.filter(group_id=self.group_id).update(status=Trade.REVERT)
 
     def __str__(self):
         return '%s [%s]' % (self.otc_request, self.status)
+
+    class Meta:
+        permissions = [
+            ("list_otctrade", "Can list otc trade"),
+        ]

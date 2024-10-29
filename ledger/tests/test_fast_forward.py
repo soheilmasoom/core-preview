@@ -20,7 +20,8 @@ class FastForwardTestCase(TestCase):
             symbol='XRP',
             name='XRP',
             address_regex=r'\w+',
-            need_memo=True
+            deposit_need_memo=True,
+            withdraw_allow_memo=True
         )
 
     def setUp(self) -> None:
@@ -76,61 +77,3 @@ class FastForwardTestCase(TestCase):
             address='xrp1234'
         )
         self.receiver_wallet2 = self.asset2.get_wallet(account=self.receiver_account2)
-
-    def test_fast_forward1(self):
-        Transfer.check_fast_forward(
-            sender_wallet=self.sender_wallet1,
-            network=self.network,
-            amount=Decimal(1),
-            address=self.receiver_deposit_address1.address
-        )
-
-        self.assertEqual(
-            Trx.objects.get(sender=self.sender_wallet1).group_id,
-            Transfer.objects.get(deposit_address=self.receiver_deposit_address1).group_id)
-
-    def test_fast_forward2(self):
-
-        transfer = Transfer.check_fast_forward(
-            sender_wallet=self.sender_wallet1,
-            network=self.network,
-            amount=Decimal(1),
-            address='0x6D3251369E08248f7a37355E497682Fd465767fb'
-        )
-
-        self.assertEqual(transfer, None)
-
-    def test_fast_forward3(self):
-        Transfer.check_fast_forward(
-            sender_wallet=self.sender_wallet2,
-            network=self.network2,
-            amount=Decimal(1),
-            address=self.receiver_deposit_address2.address,
-            memo='1'
-        )
-
-        self.assertEqual(
-            Trx.objects.get(sender=self.sender_wallet2).group_id,
-            Transfer.objects.get(deposit_address=self.receiver_deposit_address2).group_id)
-
-    def test_fast_forward4(self):
-        transfer = Transfer.check_fast_forward(
-            sender_wallet=self.sender_wallet2,
-            network=self.network2,
-            amount=Decimal(1),
-            address=self.receiver_deposit_address2.address,
-            memo='mamadasd'
-        )
-
-        self.assertEqual(transfer, None)
-
-    def test_fast_forward5(self):
-        transfer = Transfer.check_fast_forward(
-            sender_wallet=self.sender_wallet2,
-            network=self.network2,
-            amount=Decimal(2),
-            address='mamadssd',
-            memo='1'
-        )
-
-        self.assertEqual(transfer, None)

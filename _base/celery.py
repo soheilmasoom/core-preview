@@ -23,6 +23,7 @@ TASK_MULTIPLIER = 1
 if settings.DEBUG_OR_TESTING_OR_STAGING:
     TASK_MULTIPLIER = 5
 
+
 app.conf.beat_schedule = {
     'price_alert': {
         'task': 'ledger.tasks.alert.send_price_notifications',
@@ -48,14 +49,14 @@ app.conf.beat_schedule = {
             'expires': 60 * TASK_MULTIPLIER
         },
     },
-    'update_provider_withdraw': {
-        'task': 'ledger.tasks.withdraw.update_provider_withdraw',
-        'schedule': 10 * TASK_MULTIPLIER,
-        'options': {
-            'queue': 'transfer',
-            'expires': 10 * TASK_MULTIPLIER
-        },
-    },
+    # 'update_provider_withdraw': {
+    #     'task': 'ledger.tasks.withdraw.update_provider_withdraw',
+    #     'schedule': 10 * TASK_MULTIPLIER,
+    #     'options': {
+    #         'queue': 'transfer',
+    #         'expires': 10 * TASK_MULTIPLIER
+    #     },
+    # },
 
     'update_withdraws': {
         'task': 'ledger.tasks.withdraw.update_withdraws',
@@ -110,6 +111,24 @@ app.conf.beat_schedule = {
         },
     },
 
+    'limit_otc_requests': {
+        'task': 'ledger.tasks.otc.handle_limit_otc_request',
+        'schedule': 30,
+        'options': {
+            'queue': 'celery',
+            'expires': 30
+        },
+    },
+
+    'check_maker_order_price': {
+        'task': 'market.tasks.order.check_maker_order_price',
+        'schedule': 30,
+        'options': {
+            'queue': 'celery',
+            'expires': 30
+        },
+    },
+
     'collect_margin_interest': {
         'task': 'ledger.tasks.margin.collect_margin_interest',
         'schedule': crontab(hour='4,12,20', minute=30),
@@ -118,6 +137,16 @@ app.conf.beat_schedule = {
             'expires': 3600
         },
     },
+
+    'terminate_positions': {
+        'task': 'ledger.tasks.margin.terminate_positions',
+        'schedule': 20 * TASK_MULTIPLIER,
+        'options': {
+            'queue': 'margin',
+            'expires': 20 * TASK_MULTIPLIER
+        },
+    },
+
     'alert_risky_position': {
         'task': 'ledger.tasks.margin.alert_risky_position',
         'schedule': 20 * TASK_MULTIPLIER,
@@ -126,6 +155,7 @@ app.conf.beat_schedule = {
             'expires': 20 * TASK_MULTIPLIER
         },
     },
+
     'check_position_health': {
         'task': 'ledger.tasks.margin.check_position_health',
         'schedule': 600 * TASK_MULTIPLIER,
@@ -173,10 +203,10 @@ app.conf.beat_schedule = {
 
     'handle_missing_payment_ids': {
         'task': 'financial.tasks.gateway.handle_missing_payment_ids',
-        'schedule': 600 * TASK_MULTIPLIER,
+        'schedule': 30 * TASK_MULTIPLIER,
         'options': {
             'queue': 'finance',
-            'expires': 600 * TASK_MULTIPLIER
+            'expires': 30 * TASK_MULTIPLIER
         },
     },
 
@@ -185,17 +215,6 @@ app.conf.beat_schedule = {
         'schedule': crontab(hour=20, minute=30),
         'options': {
             'queue': 'history',
-        }
-    },
-
-    'fill_ads_reports': {
-        'task': 'marketing.tasks.fill_ads_reports',
-        # 'schedule': crontab(hour=20, minute=31),
-        'schedule': 600,
-        'options': {
-            'queue': 'marketing',
-            # 'expires': 3600 * TASK_MULTIPLIER
-            'expires': 300 * TASK_MULTIPLIER
         }
     },
 
@@ -247,7 +266,7 @@ app.conf.beat_schedule = {
         'schedule': 5 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 5 * TASK_MULTIPLIER
+            'expires': 60 * TASK_MULTIPLIER
         },
     },
     'process_bulk_notifications': {
@@ -263,7 +282,7 @@ app.conf.beat_schedule = {
         'schedule': 10 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 10 * TASK_MULTIPLIER
+            'expires': 60 * TASK_MULTIPLIER
         },
     },
     'send_email_notifications': {
@@ -271,7 +290,14 @@ app.conf.beat_schedule = {
         'schedule': 10 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 10 * TASK_MULTIPLIER
+            'expires': 60 * TASK_MULTIPLIER
+        },
+    },
+    'ban_credit_deposits': {
+        'task': 'accounts.tasks.fraud.ban_credit_deposit_of_free_riders',
+        'schedule': crontab(hour=0, minute=30),
+        'options': {
+            'queue': 'celery',
         },
     },
 
@@ -291,5 +317,40 @@ app.conf.beat_schedule = {
             'expires': 60
         }
     },
-
+    'check_conditional_price_alerts': {
+        'task': 'ledger.tasks.alert.check_conditional_price_alerts',
+        'schedule': crontab(minute=5),
+        'options': {
+            'queue': 'celery',
+            'expires': 3600
+        },
+    },
+    'manage_user_topic_subscription': {
+        'task': 'accounts.tasks.notification.manage_user_topic_subscription_task',
+        'schedule': crontab(minute=5),
+        'options': {
+            'queue': 'notif-manager',
+            'expires': 3600
+        },
+    },
+    'network_schedules': {
+        'task': 'ledger.tasks.network.check_network_schedules',
+        'schedule': crontab(minute='30'),
+        'options': {
+            'queue': 'celery',
+            'expires': 3 * 3600
+        }
+    },
 }
+
+if 'marketing' in settings.INSTALLED_APPS:
+    app.conf.beat_schedule.update({
+        'fill_ads_reports': {
+            'task': 'marketing.tasks.fill_ads_reports',
+            'schedule': crontab(hour=22, minute=0),
+            'options': {
+                'queue': 'marketing',
+                'expires': 3600 * TASK_MULTIPLIER
+            }
+        },
+    })

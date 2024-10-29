@@ -1,26 +1,44 @@
 import django_filters
 
 from ledger.models import OTCTrade, OTCRequest
+from ledger.utils.precision import get_presentation_amount
 from market.serializers.trade_serializer import AccountTradeSerializer
 from market.views import AccountTradeHistoryView
 from rest_framework import serializers
+from django.db.models import Q
+from ledger.utils.external_price import BUY
 
 
 class OTCFilter(django_filters.FilterSet):
     coin = django_filters.CharFilter(field_name='symbol__asset__symbol', lookup_expr='iexact')
+    created_after = django_filters.DateTimeFilter(field_name='created', lookup_expr='gte')
+    created = django_filters.IsoDateTimeFromToRangeFilter()
 
     class Meta:
         model = OTCRequest
-        fields = ('coin', 'side')
+        fields = ('coin', 'side', 'created_after', 'type', 'otctrade__status')
 
 
 class OTCRequestSerializer(AccountTradeSerializer):
     from_asset = serializers.CharField(source='from_asset.symbol')
     to_asset = serializers.CharField(source='to_asset.symbol')
+    otc_trade_status = serializers.CharField(source='otctrade.status')
+    from_amount = serializers.SerializerMethodField()
+    to_amount = serializers.SerializerMethodField()
+
+    def get_from_amount(self, otc: OTCRequest):
+        return get_presentation_amount(
+            otc.amount * otc.price if otc.side == BUY else otc.amount
+        )
+
+    def get_to_amount(self, otc: OTCRequest):
+        return get_presentation_amount(
+            otc.amount if otc.side == BUY else otc.amount * otc.price
+        )
 
     class Meta(AccountTradeSerializer.Meta):
         model = OTCRequest
-        fields = (*AccountTradeSerializer.Meta.fields, 'from_asset', 'to_asset')
+        fields = (*AccountTradeSerializer.Meta.fields, 'from_asset', 'to_asset', 'from_amount', 'to_amount', 'otc_trade_status', 'otctrade', 'type', 'gtd')
         ref_name = 'OTCHistoryRequestSerializer'  # Unique name
 
 
@@ -29,11 +47,11 @@ class OTCHistoryView(AccountTradeHistoryView):
     serializer_class = OTCRequestSerializer
 
     def get_queryset(self):
-
         if getattr(self, 'swagger_fake_view', False):
             return OTCRequest.objects.none()
 
         return OTCRequest.objects.filter(
-            otctrade__status=OTCTrade.DONE,
+            ~Q(otctrade=None),
+            otctrade__status__in=[OTCTrade.DONE, OTCTrade.PENDING, OTCTrade.USER_CANCELED, OTCTrade.EXPIRED],
             account=self.request.user.get_account(),
         ).select_related('symbol', 'symbol__asset', 'symbol__base_asset').order_by('-created')

@@ -4,7 +4,7 @@ from django.db import models
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
-from accounts.utils.admin import url_to_admin_list
+from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.utils.telegram import send_system_message
 from accounts.utils.validation import timedelta_message
 from health.alert import ALERTS
@@ -19,6 +19,8 @@ class AlertType(models.Model):
     type = models.CharField(max_length=32, choices=[(t, t) for t in ALERTS])
     warning_threshold = get_amount_field(default=0)
     error_threshold = get_amount_field(default=0)
+
+    alert_on_same_status = models.BooleanField(default=False)
 
     def get_status(self) -> Status:
         alert_class = ALERTS[self.type]  # type: Type[BaseAlertHandler]
@@ -52,7 +54,7 @@ class AlertType(models.Model):
         if old:
             assert self == old.alert_type
 
-            if old.status == new.status:
+            if not self.alert_on_same_status and old.status == new.status:
                 return
 
         emojis = {Status.OK: '🟢', Status.WARNING: '🟠', Status.ERROR: '🔴'}

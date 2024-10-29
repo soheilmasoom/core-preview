@@ -6,8 +6,9 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import SystemConfig
-from ledger.models import Asset, Wallet, MarginPosition
+from ledger.models import Asset, Wallet, MarginPosition, MarginTransfer, Trx, MarginHistoryModel
 from ledger.utils.external_price import SELL, BUY, SHORT, LONG
+from ledger.utils.precision import floor_precision
 from ledger.utils.test import new_account, set_price
 from ledger.utils.wallet_pipeline import WalletPipeline
 from market.models import PairSymbol
@@ -47,6 +48,11 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         self.user3.margin_quiz_pass_date = timezone.now()
         self.user3.save()
 
+        self.account_m = new_account()
+        self.user_m = self.account_m.user
+        self.user_m.show_margin = True
+        self.user_m.margin_quiz_pass_date = timezone.now()
+        self.user_m.save()
         self.usdt = Asset.get(Asset.USDT)
 
         self.btc = Asset.get('BTC')
@@ -56,11 +62,19 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         self.usdt.get_wallet(self.account2).airdrop(TO_TRANSFER_USDT * 30)
         self.btc.get_wallet(self.account2).airdrop(TO_TRANSFER_USDT * 30)
 
+        self.usdt.get_wallet(self.account_m).airdrop(TO_TRANSFER_USDT * 30)
+        self.btc.get_wallet(self.account_m).airdrop(TO_TRANSFER_USDT * 30)
+
         self.usdt.get_wallet(self.account3).airdrop(TO_TRANSFER_USDT * 30)
         self.btc.get_wallet(self.account3).airdrop(TO_TRANSFER_USDT * 30)
 
         self.client = Client()
         self.client.force_login(self.user)
+        self.set_leverage(Decimal('3'), client=self.client)
+
+        self.client_m = Client()
+        self.client_m.force_login(self.user_m)
+        self.set_leverage(Decimal('3'), client=self.client_m)
 
         set_price(self.usdt, USDT_IRT_PRICE)
         set_price(self.btc, int(BTC_USDT_PRICE))
@@ -76,12 +90,13 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         self.usdt.enable = True
         self.usdt.save()
 
-    def transfer_usdt_api(self, amount, type: str = 'sm', check_status=201):
-        resp = self.client.post('/api/v1/margin/transfer/', {
+    def transfer_usdt_api(self, amount, type: str = 'sm', check_status=201, client=None, id=''):
+        resp = (client or self.client).post('/api/v1/margin/transfer/', {
             'amount': amount,
             'type': type,
             'coin': 'USDT',
-            'symbol': 'BTCUSDT'
+            'symbol': 'BTCUSDT',
+            'id': id
         })
         print(resp.json())
         self.assertEqual(resp.status_code, check_status)
@@ -114,9 +129,10 @@ class LeveragedIsolatedMarginTestCase(TestCase):
 
         print("/////////////////////////////////////////////////////")
 
-    def place_order(self, amount, price, side, symbol='BTCUSDT', market='spot', fill_type='limit', is_open_position=False, check_status=201):
+    def place_order(self, amount, price, side, symbol='BTCUSDT', market='spot', fill_type='limit',
+                    is_open_position=False, check_status=201, client=None):
         print('place order')
-        resp = self.client.post('/api/v1/market/orders/', {
+        resp = (client or self.client).post('/api/v1/market/orders/', {
             'symbol': symbol,
             'side': side,
             'price': price,
@@ -127,15 +143,18 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         })
         print(resp.json())
         self.assertEqual(resp.status_code, check_status)
+        return resp.json()
 
-    def set_leverage(self, leverage: Decimal, check_status=200):
-        resp = self.client.post('/api/v2/margin/leverage/', data={
+    def set_leverage(self, leverage: Decimal, check_status=200, client=None):
+        resp = (client or self.client).post('/api/v2/margin/leverage/', data={
             'leverage': leverage,
         })
         print(resp.json())
         self.assertEqual(resp.status_code, check_status)
 
-    def assert_liquidation(self, account, symbol, is_liquidate=True):
+    def assert_liquidation(self, account, symbol, liquidate=True):
+        self.assertEqual(MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).count(), 1)
+
         mp = MarginPosition.objects.filter(account=account, symbol=symbol).first()
 
         negetive_wallets = Wallet.objects.filter(
@@ -145,14 +164,24 @@ class LeveragedIsolatedMarginTestCase(TestCase):
             variant__isnull=False,
         ).count()
 
-        if is_liquidate:
-            assertion = self.assertEqual
-        else:
-            assertion = self.assertNotEqual
-
+        assertion = self.assertEqual if liquidate else self.assertNotEqual
         assertion(negetive_wallets, Decimal('0'))
         assertion(mp.status, MarginPosition.CLOSED)
 
+        if liquidate:
+            received = Trx.objects.filter(receiver=mp.base_wallet, scope=Trx.MARGIN_INSURANCE).aggregate(s=Sum('amount'))['s'] or 0
+            sent = Trx.objects.filter(sender=mp.base_wallet, scope=Trx.MARGIN_INSURANCE).aggregate(s=Sum('amount'))['s'] or 0
+            self.assertEqual(received - sent, 0)
+            if received - sent == 0:
+                self.assertEqual(MarginHistoryModel.objects.filter(position=mp, type=MarginHistoryModel.INSURANCE_FEE, amount__gt=0).count(), 0)
+
+    def close_position(self, id, check_status=200, client=None):
+        print('close position')
+        resp = (client or self.client).post('/api/v2/margin/close/', {
+            'id': id,
+        })
+        print(resp.json())
+        self.assertEqual(resp.status_code, check_status)
 
     def test_short_sell_3x(self):
         self.transfer_usdt_api(TO_TRANSFER_USDT / 2)
@@ -248,3 +277,107 @@ class LeveragedIsolatedMarginTestCase(TestCase):
         print('mp', mp.debt_amount, mp.total_balance, mp.liquidation_price, mp.side)
         self.assertEqual(mp.debt_amount, loan_amount * (leverage - 1) * BTC_USDT_PRICE)
         self.assertEqual(mp.side, LONG)
+
+    def test_long_liquidate_short_close(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT)
+        self.transfer_usdt_api(TO_TRANSFER_USDT, client=self.client_m)
+
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True)  # long
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE)
+
+        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True, client=self.client_m)  # Short
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=loan_amount, market=Wallet.SPOT,
+                      price=BTC_USDT_PRICE)
+
+        long_position = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+
+        lp_liquidation_price = floor_precision(long_position.liquidation_price, 2)
+        print(';;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;')
+        self.print_wallets(self.account)
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=lp_liquidation_price - 1,
+                         client=self.client_m)
+        print(';;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;')
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount, market=Wallet.SPOT,
+                      price=lp_liquidation_price)
+            new_order(pipeline, self.btcusdt, self.account3, side=BUY, amount=loan_amount, market=Wallet.SPOT,
+                      price=lp_liquidation_price)
+
+        self.assert_liquidation(account=self.account, symbol=self.btcusdt, liquidate=True)
+        self.assert_liquidation(account=self.account_m, symbol=self.btcusdt, liquidate=True)
+
+    def test_long_open_short_open(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT)
+        self.transfer_usdt_api(TO_TRANSFER_USDT, client=self.client_m)
+
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE
+        self.print_wallets(self.account)
+
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True)  # long
+
+        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         is_open_position=True, client=self.client_m)  # Short
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+        self.assertEqual(mp.status, MarginPosition.OPEN)
+        self.assertEqual(mp.side, LONG)
+
+        mp_m = MarginPosition.objects.filter(account=self.account_m, symbol=self.btcusdt).first()
+        self.assertEqual(mp_m.status, MarginPosition.OPEN)
+        self.assertEqual(mp_m.side, SHORT)
+
+        self.print_wallets(self.account_m)
+
+        self.place_order(amount=loan_amount, side=SELL, market=Wallet.MARGIN, price=BTC_USDT_PRICE)  # long
+
+        self.place_order(amount=loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE,
+                         client=self.client_m)  # Short
+
+        self.print_wallets(self.account)
+        self.print_wallets(self.account_m)
+
+        self.assert_liquidation(self.account, symbol=self.btcusdt)
+
+    def test_long_pnl(self):
+        self.transfer_usdt_api(TO_TRANSFER_USDT / 2)
+        loan_amount = TO_TRANSFER_USDT / BTC_USDT_PRICE / 2
+        self.set_leverage(Decimal('3'))
+
+        self.print_wallets(self.account)
+        self.place_order(amount=3 * loan_amount, side=BUY, market=Wallet.MARGIN, price=BTC_USDT_PRICE, is_open_position=True)
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=3 * loan_amount, market=Wallet.SPOT, price=BTC_USDT_PRICE)
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+
+        initial_pnl = mp.base_total_balance + mp.base_debt_amount - mp.equity
+        print('pnl calculation', mp.base_total_balance , mp.base_debt_amount , mp.equity, initial_pnl)
+
+        self.transfer_usdt_api(TO_TRANSFER_USDT * 2)
+        amount = floor_precision((mp.base_total_balance + mp.base_debt_amount), 6)
+        self.transfer_usdt_api(amount - 1, type=MarginTransfer.MARGIN_TO_POSITION, id=mp.id)
+
+        mp.refresh_from_db()
+        pnl = mp.base_total_balance + mp.base_debt_amount - mp.equity
+
+        print('pnl calculation', mp.base_total_balance, mp.base_debt_amount, mp.equity, pnl)
+        self.assertEqual(initial_pnl, pnl)
+
+        self.transfer_usdt_api(24, type=MarginTransfer.POSITION_TO_MARGIN, id=mp.id)
+
+        mp.refresh_from_db()
+        pnl = mp.base_total_balance + mp.base_debt_amount - mp.equity
+
+        print('pnl calculation', mp.base_total_balance, mp.base_debt_amount, mp.equity, pnl)
+        self.assertEqual(initial_pnl, pnl)

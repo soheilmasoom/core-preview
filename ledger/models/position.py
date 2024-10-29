@@ -5,29 +5,31 @@ from decimal import Decimal
 from uuid import UUID
 
 from decouple import config
+from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import UniqueConstraint, Q, Sum
+from simple_history.models import HistoricalRecords
 
 from _base.settings import SYSTEM_ACCOUNT_ID
 from accounts.models import Account, SystemConfig
-from ledger.models import Trx
-from ledger.utils.external_price import SHORT, LONG, BUY, SELL, get_other_side
+from ledger.models import Trx, Wallet
+from ledger.utils.external_price import SHORT, LONG, BUY, SELL, IRT, USDT
 from ledger.utils.fields import get_amount_field
+from ledger.utils.margin import alert_system_insurance_trx
 from ledger.utils.precision import floor_precision, ceil_precision
-from ledger.utils.price import get_depth_price, get_base_depth_price, get_price
+from ledger.utils.price import get_price
 from market.models import PairSymbol
 
 logger = logging.getLogger(__name__)
 
-MARGIN_INSURANCE_ACCOUNT = config('MARGIN_INSURANCE_ACCOUNT', cast=int)
-MARGIN_POOL_ACCOUNT = config('MARGIN_POOL_ACCOUNT', cast=int)
-
 
 class MarginPosition(models.Model):
-    OPEN, CLOSED, TERMINATING = 'open', 'closed', 'terminating'
+    history = HistoricalRecords()
+
+    INIT, OPEN, CLOSED, TERMINATING = 'init', 'open', 'closed', 'terminating'
     STATUS_LIST = [OPEN, CLOSED, TERMINATING]
-    STATUS_CHOICES = [(OPEN, OPEN), (CLOSED, CLOSED), (TERMINATING, TERMINATING)]
+    STATUS_CHOICES = [(INIT, INIT), (OPEN, OPEN), (CLOSED, CLOSED), (TERMINATING, TERMINATING)]
     SIDE_CHOICES = [(LONG, LONG), (SHORT, SHORT)]
 
     created = models.DateTimeField(auto_now_add=True)
@@ -42,7 +44,7 @@ class MarginPosition(models.Model):
     average_price = get_amount_field(default=0)
     liquidation_price = get_amount_field(null=True)
     side = models.CharField(max_length=8, choices=SIDE_CHOICES)
-    status = models.CharField(default=OPEN, max_length=12, choices=STATUS_CHOICES)
+    status = models.CharField(default=INIT, max_length=12, choices=STATUS_CHOICES)
     leverage = models.PositiveSmallIntegerField()
     alert_mode = models.BooleanField(default=False, db_index=True)
 
@@ -137,29 +139,33 @@ class MarginPosition(models.Model):
             else:
                 raise NotImplementedError
         else:
-            self.liquidation_price = None
+            if debt_amount <= Decimal('0'):
+                self.liquidate(pipeline, refresh=False)
+            else:
+                self.liquidation_price = None
 
     def rebalance(self, pipeline, price: Decimal = None):
         from ledger.models import Wallet
 
-        debt_amount = self.debt_amount - pipeline.get_wallet_balance_diff(self.loan_wallet.id)
-        total_balance = self.total_balance + pipeline.get_wallet_balance_diff(self.margin_wallet.id)
+        traded_debt_amount = self.debt_amount - pipeline.get_wallet_balance_diff(self.loan_wallet.id)
+        traded_total_balance = self.total_balance + pipeline.get_wallet_balance_diff(self.margin_wallet.id)
 
-        if total_balance and debt_amount:
+        if traded_total_balance:
             if self.side == SHORT:
-                liquidation_price = total_balance / debt_amount * self.get_ratio()
-                ratio = Decimal(1 - self.liquidation_price / liquidation_price)
-                amount = total_balance * ratio
+                total_balance = self.liquidation_price * traded_debt_amount / self.get_ratio()
+                amount = abs(traded_total_balance - total_balance)
             elif self.side == LONG:
-                liquidation_price = debt_amount / total_balance * self.get_ratio()
-                ratio = Decimal(self.liquidation_price / liquidation_price - 1)
-                amount = debt_amount * ratio
+                debt_amount = self.liquidation_price * traded_total_balance / self.get_ratio()
+                amount = abs(traded_debt_amount - debt_amount)
             else:
                 return
         else:
             return
 
         if amount > Decimal('0'):
+            logger.info(f"Rebalance Position:{self.id}, debt_amount:{traded_debt_amount},"
+                        f" total_balance:{traded_total_balance}, previous liquidation_price:{self.liquidation_price}")
+
             group_id = uuid.uuid4()
             pipeline.new_trx(
                 sender=self.base_wallet,
@@ -169,10 +175,10 @@ class MarginPosition(models.Model):
                 scope=Trx.MARGIN_TRANSFER
             )
 
-            self.create_transfer_equity_history(amount=amount, total_balance=total_balance, debt_amount=debt_amount,
-                                                group_id=group_id, price=price)
+            self.create_transfer_equity_history(pipeline=pipeline, amount=amount, total_balance=traded_total_balance,
+                                                debt_amount=traded_debt_amount, group_id=group_id, price=price)
 
-    def create_transfer_equity_history(self, amount, total_balance, debt_amount, group_id, price: Decimal = None):
+    def create_transfer_equity_history(self, pipeline, amount, total_balance, debt_amount, group_id, price: Decimal = None):
 
         if not price:
             price = self.symbol.last_trade_price
@@ -191,15 +197,18 @@ class MarginPosition(models.Model):
 
         realized_pnl = amount - to_transfer_equity
 
-        self.create_history(
-            asset=self.symbol.base_asset,
-            amount=realized_pnl,
-            group_id=group_id,
-            type=MarginHistoryModel.PNL
-        )
+        if realized_pnl:
+            self.create_history(
+                asset=self.symbol.base_asset,
+                amount=realized_pnl,
+                group_id=group_id,
+                type=MarginHistoryModel.PNL
+            )
 
-        self.equity -= to_transfer_equity
-        self.save(update_fields=['equity'])
+        pipeline.add_position_equity(self, -to_transfer_equity)
+
+        # self.equity -= to_transfer_equity
+        # self.save(update_fields=['equity'])
 
     @classmethod
     def get_by(cls, symbol: PairSymbol, account: Account, order_side: str, is_open_position: bool):
@@ -214,14 +223,15 @@ class MarginPosition(models.Model):
         position = cls.objects.filter(
             account=account,
             symbol=symbol,
-            status__in=[cls.OPEN, cls.TERMINATING],
+            status__in=[cls.INIT, cls.OPEN, cls.TERMINATING],
             side=position_side
         ).first()
 
         if position:
             return position
         else:
-            group_id = uuid.uuid5(uuid.NAMESPACE_X500, f'{account.id}-{symbol.name}-{position_side}')
+            # group_id = uuid.uuid5(uuid.NAMESPACE_X500, f'{account.id}-{symbol.name}-{position_side}')
+            group_id = uuid.uuid4()
 
             margin_leverage, _ = MarginLeverage.objects.get_or_create(
                 account=account,
@@ -233,7 +243,7 @@ class MarginPosition(models.Model):
             return cls.objects.create(
                 account=account,
                 symbol=symbol,
-                status=cls.OPEN,
+                status=cls.INIT,
                 group_id=group_id,
                 base_wallet=symbol.base_asset.get_wallet(account, Wallet.MARGIN, group_id),
                 asset_wallet=symbol.asset.get_wallet(account, Wallet.MARGIN, group_id),
@@ -242,20 +252,24 @@ class MarginPosition(models.Model):
             )
 
     def get_insurance_wallet(self):
-        return self.symbol.base_asset.get_wallet(account=MARGIN_INSURANCE_ACCOUNT)
+        return self.symbol.base_asset.get_wallet(account=settings.MARGIN_INSURANCE_ACCOUNT)
 
     def get_margin_pool_wallet(self):
-        return self.loan_wallet.asset.get_wallet(account=Account.objects.get(id=MARGIN_POOL_ACCOUNT))
+        return self.loan_wallet.asset.get_wallet(account=settings.MARGIN_POOL_ACCOUNT)
 
     def get_interest_rate(self):
         return self.loan_wallet.asset.margin_interest_fee
 
-    def liquidate(self, pipeline, charge_insurance: bool = True):
+    def liquidate(self, pipeline, charge_insurance: bool = True, refresh: bool = True):
+        if refresh:
+            self.refresh_from_db()  # to handle double position liquidation
+
         if self.status != self.OPEN:
             return
 
-        self.status = self.TERMINATING
-        self.save(update_fields=['status'])
+        if charge_insurance:
+            self.status = self.TERMINATING
+            self.save(update_fields=['status'])
 
         from market.utils.order_utils import Order, new_order
         from ledger.models import Trx, Wallet
@@ -266,24 +280,21 @@ class MarginPosition(models.Model):
 
         to_close_amount = ceil_precision((self.debt_amount - loan_wallet_balance_diff)
                                          / (1 - self.symbol.get_fee_rate(self.account, is_maker=False)), self.symbol.step_size)
+        to_close_amount = max(to_close_amount, Decimal('0'))
+
         if self.side == SHORT:
             side = BUY
-            price = get_depth_price(
-                symbol=self.symbol.name,
-                side=get_other_side(side),
-                amount=to_close_amount,
-                depth_check=False
-            )
         else:
             side = SELL
-            price = get_base_depth_price(
-                symbol=self.symbol.name,
-                side=get_other_side(side),
-                amount=to_close_amount,
-                depth_check=False
-            )
 
-        free_amount = floor_precision(self.margin_wallet.get_free(), self.symbol.step_size)
+        price = Order.get_market_price(self.symbol, Order.get_opposite_side(side))
+        if side == BUY:
+            price = max(price * Decimal('1.03'), self.liquidation_price * Decimal('1.1'))
+        else:
+            price = min(price * Decimal('0.97'), self.liquidation_price * Decimal('0.9'))
+
+        free_amount = (floor_precision(self.margin_wallet.get_free(), self.symbol.step_size) +
+                       pipeline.get_wallet_free_balance_diff(self.margin_wallet.id))
 
         if self.side == SHORT:
             free_amount /= price
@@ -292,15 +303,23 @@ class MarginPosition(models.Model):
         else:
             raise NotImplementedError
 
-        loss_amount = Decimal('0')
         group_id = uuid.uuid4()
 
-        if self.side == SHORT:
-            loss_amount = (to_close_amount - free_amount) * Decimal('1.05') * price
-            if loss_amount > 0:
-                if not charge_insurance:
-                    logger.warning(f"Position:{self.id} charged in close mode !!!")
+        loss_amount = (to_close_amount - free_amount) * Decimal('1.05') * price
 
+        if self.side == SHORT:
+            to_close_amount = ceil_precision(to_close_amount, self.symbol.step_size)
+        else:
+            to_close_amount = floor_precision(free_amount, self.symbol.step_size)
+
+        liquidation_order = None
+        logger.info(f'Position:{self.id} liquidate amount:{to_close_amount} price:{price} side:{side} '
+                    f'to_close_amount:{to_close_amount} free_amount:{free_amount} loss_amount:{loss_amount} '
+                    f'charge_insurance:{charge_insurance}')
+
+        is_liquidation_order_filled = False
+        if to_close_amount > 0:
+            if loss_amount > 0:
                 pipeline.new_trx(
                     sender=self.get_insurance_wallet(),
                     receiver=self.base_wallet,
@@ -308,93 +327,92 @@ class MarginPosition(models.Model):
                     scope=Trx.MARGIN_INSURANCE,
                     group_id=group_id,
                 )
-                to_close_amount = ceil_precision(to_close_amount, self.symbol.step_size)
-        else:
-            to_close_amount = floor_precision(free_amount, self.symbol.step_size)
 
-        liquidation_order = None
-        if to_close_amount > 0:
+            price = floor_precision(price, self.symbol.step_size)
+
             liquidation_order = new_order(
                 pipeline=pipeline,
                 symbol=self.symbol,
                 account=self.account,
                 amount=to_close_amount,
-                fill_type=Order.MARKET,
+                fill_type=Order.IOC,
                 side=side,
                 market=Wallet.MARGIN,
                 variant=self.group_id,
                 pass_min_notional=True,
                 order_type=Order.LIQUIDATION if charge_insurance else Order.ORDINARY,
                 parent_lock_group_id=group_id,
-                margin_position=self
+                margin_position=self,
+                price=price
             )
+            liquidation_order.refresh_from_db()
+            is_liquidation_order_filled = liquidation_order.filled_amount == liquidation_order.amount and liquidation_order.status == Order.FILLED
+            if not is_liquidation_order_filled:
+                logger.info(f'position:{self.id} terminate position due to partial fill, '
+                            f'{liquidation_order.filled_amount}/{liquidation_order.amount}')
 
-        self.base_wallet.refresh_from_db()
-        remaining_base_asset = self.base_wallet.balance + pipeline.get_wallet_balance_diff(self.base_wallet.id)
+                self.status = self.TERMINATING
+                self.save(update_fields=['status'])
 
-        charged_amount = 0
-        if self.side == SHORT:
-            if remaining_base_asset > 0 and loss_amount > 0:
-                pipeline.new_trx(
-                    self.base_wallet,
-                    self.get_insurance_wallet(),
-                    min(loss_amount, remaining_base_asset),
-                    Trx.MARGIN_INSURANCE,
-                    group_id,
-                )
-                charged_amount = min(loss_amount, remaining_base_asset) - loss_amount
-        else:
-            if remaining_base_asset < 0:
-                pipeline.new_trx(
-                    sender=self.get_insurance_wallet(),
-                    receiver=self.base_wallet,
-                    amount=-remaining_base_asset,
-                    scope=Trx.MARGIN_INSURANCE,
-                    group_id=group_id,
-                )
-                charged_amount = -remaining_base_asset
-
-        if charged_amount != 0:
-            self.create_history(
-                asset=self.symbol.base_asset,
-                amount=charged_amount,
-                group_id=group_id,
-                type=MarginHistoryModel.INSURANCE_FEE
-            )
-
-        if liquidation_order:
+        if liquidation_order and is_liquidation_order_filled:
             liquidation_order.refresh_from_db()
 
             if liquidation_order.filled_amount >= to_close_amount:
                 self.amount = 0
                 self.status = self.CLOSED
             else:
+
                 filled_amount = liquidation_order.filled_amount if self.side == SHORT else liquidation_order.filled_amount * liquidation_order.price
-                self.amount = max(self.debt_amount - filled_amount, Decimal('0'))
-                logger.warning(f'Position:{self.id} doesnt close in Liquidation Process Due to Order'
-                               f' filled amount{liquidation_order.filled_amount}/{self.debt_amount}')
+
+                loan_wallet = self.loan_wallet
+                debt_amount = -loan_wallet.balance + pipeline.get_wallet_balance_diff(loan_wallet.id)
+
+                self.amount = max(debt_amount - filled_amount, Decimal('0'))
+
+                if not charge_insurance:
+                    logger.warning(f'Position:{self.id} doesnt close in Liquidation Process Due to Order'
+                                   f' filled amount{filled_amount}/{debt_amount}')
 
             if liquidation_order.filled_amount == 0 and liquidation_order.status == Order.CANCELED:
                 self.status = self.OPEN
-                logger.warning(f"Position:{self.id} liquidation order:{liquidation_order.id} didnt fill")
+                logger.warning(f"Position:{self.id} closing order:{liquidation_order.id} didnt fill")
         else:
             self.amount = 0
             self.status = self.CLOSED
 
         self.save(update_fields=['amount', 'status'])
         self.set_liquidation_price(pipeline)
+
+        received_fund = pipeline._trxs.get((self.get_insurance_wallet(), self.base_wallet, Trx.MARGIN_INSURANCE, group_id))
+        received_fund = (received_fund and received_fund.amount) or 0
+
+        sent_fund = pipeline._trxs.get((self.base_wallet, self.get_insurance_wallet(), Trx.MARGIN_INSURANCE, group_id))
+        sent_fund = (sent_fund and sent_fund.amount) or 0
+
+        diff = received_fund - sent_fund
+        if diff:
+            self.create_history(
+                asset=self.symbol.base_asset,
+                amount=diff,
+                group_id=group_id,
+                type=MarginHistoryModel.INSURANCE_FEE
+            )
+            alert_system_insurance_trx(position=self, amount=diff)
+
         if charge_insurance:
             from ledger.utils.margin import alert_liquidate
             alert_liquidate(self)
 
     @classmethod
     def check_for_liquidation(cls, order, min_price, max_price, pipeline):
+        exclude_q = Q(id=order.position.id) if order.position else Q()
+
         to_liquid_short_positions = cls.objects.filter(
             side=SHORT,
             status=cls.OPEN,
             symbol=order.symbol,
             liquidation_price__lte=max_price,
-        ).order_by('liquidation_price')
+        ).exclude(exclude_q).order_by('liquidation_price')
 
         for position in to_liquid_short_positions:
             position.liquidate(pipeline)
@@ -404,7 +422,7 @@ class MarginPosition(models.Model):
             status=cls.OPEN,
             symbol=order.symbol,
             liquidation_price__gte=min_price,
-        ).order_by('liquidation_price')
+        ).exclude(exclude_q).order_by('liquidation_price')
 
         for position in to_liquid_long_positions:
             position.liquidate(pipeline)
@@ -439,7 +457,9 @@ class MarginPosition(models.Model):
 
     def convert_dust(self, pipeline):
         group_id = uuid.uuid4()
+
         self.asset_wallet.refresh_from_db()
+        self.base_wallet.refresh_from_db()
 
         price = get_price(
             self.asset_wallet.asset.symbol + self.base_wallet.asset.symbol,
@@ -447,9 +467,16 @@ class MarginPosition(models.Model):
         )
 
         if price is None:
+            logger.warning(f'Failed to convert dust position:{self.id} due to None Price')
             return
 
-        free = self.asset_wallet.get_free() + pipeline.get_wallet_balance_diff(self.asset_wallet.id)
+        free = self.asset_wallet.balance + pipeline.get_wallet_balance_diff(self.asset_wallet.id)
+
+        value = abs(free) * price
+        if ((self.base_wallet.asset.symbol == IRT and value > 1_000_000) or
+                (self.base_wallet.asset.symbol == USDT and value > 20)):
+            logger.warning(f'Failed to convert dust position:{self.id} due to VALUE:{value}')
+            return
 
         if free > 0:
             pipeline.new_trx(
@@ -457,7 +484,7 @@ class MarginPosition(models.Model):
                 receiver=self.asset_wallet.asset.get_wallet(SYSTEM_ACCOUNT_ID),
                 amount=free,
                 group_id=group_id,
-                scope=Trx.DUST
+                scope=Trx.MARGIN_CONVERT
             )
 
             pipeline.new_trx(
@@ -465,15 +492,78 @@ class MarginPosition(models.Model):
                 receiver=self.base_wallet,
                 amount=price * free,
                 group_id=group_id,
-                scope=Trx.DUST,
+                scope=Trx.MARGIN_CONVERT,
+            )
+
+            MarginHistoryModel.objects.create(
+                asset=self.asset_wallet.asset,
+                amount=free,
+                group_id=group_id,
+                type=MarginHistoryModel.CONVERT,
+                account=self.account,
+                position=self
+            )
+
+        elif free < 0:
+            free_base = self.base_wallet.balance + pipeline.get_wallet_balance_diff(self.base_wallet.id)
+            amount = min(free_base/price, -free)
+
+            pipeline.new_trx(
+                sender=self.base_wallet,
+                receiver=self.base_wallet.asset.get_wallet(SYSTEM_ACCOUNT_ID),
+                amount=amount * price,
+                group_id=group_id,
+                scope=Trx.MARGIN_CONVERT
+            )
+
+            pipeline.new_trx(
+                sender=self.asset_wallet.asset.get_wallet(SYSTEM_ACCOUNT_ID),
+                receiver=self.asset_wallet,
+                amount=amount,
+                group_id=group_id,
+                scope=Trx.MARGIN_CONVERT,
             )
 
             MarginHistoryModel.objects.create(
                 asset=self.base_wallet.asset,
-                amount=free,
+                amount=amount,
                 group_id=group_id,
-                type=MarginHistoryModel.DUST,
-                account=self.account
+                type=MarginHistoryModel.CONVERT,
+                account=self.account,
+                position=self
+            )
+
+    def close(self, amount=None):
+        from market.models import Order
+        from market.utils.order_utils import new_order
+        from ledger.utils.wallet_pipeline import WalletPipeline
+
+        queryset = Order.objects.filter(
+            status=Order.NEW,
+            account=self.account,
+            symbol=self.symbol,
+            wallet__market=self.asset_wallet.MARGIN
+        )
+        Order.cancel_orders(queryset)
+
+        amount = amount or abs(self.asset_wallet.balance)
+        if self.side == SHORT:
+            amount *= Decimal('1.003')
+
+        with WalletPipeline() as pipeline:
+            new_order(
+                pipeline=pipeline,
+                symbol=self.symbol,
+                account=self.account,
+                amount=amount,
+                fill_type=Order.MARKET,
+                side=BUY if self.side == SHORT else SELL,
+                market=Wallet.MARGIN,
+                variant=self.group_id,
+                pass_min_notional=True,
+                order_type=Order.FAST_CLOSE,
+                parent_lock_group_id=uuid.uuid4(),
+                margin_position=self
             )
 
 
@@ -498,17 +588,17 @@ class MarginPositionTradeInfo:
 
 
 class MarginHistoryModel(models.Model):
-    PNL, TRANSFER, POSITION_TRANSFER, TRADE_FEE, INTEREST_FEE, INSURANCE_FEE, DUST = 'pnl', 'transfer', 'p_transfer', 'trade_fee', 'int_fee', 'ins_fee', 'dust'
+    PNL, TRANSFER, POSITION_TRANSFER, TRADE_FEE, INTEREST_FEE, INSURANCE_FEE, CONVERT = 'pnl', 'transfer', 'p_transfer', 'trade_fee', 'int_fee', 'ins_fee', 'convert'
     type_list = [PNL, TRANSFER, TRADE_FEE, INTEREST_FEE, INSURANCE_FEE]
 
     created = models.DateTimeField(auto_now_add=True)
-    position = models.ForeignKey('ledger.MarginPosition', on_delete=models.CASCADE, null=True)
+    position = models.ForeignKey('ledger.MarginPosition', on_delete=models.CASCADE, null=True, blank=True)
     account = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
     asset = models.ForeignKey('ledger.Asset', on_delete=models.CASCADE)
-    amount = get_amount_field()
+    amount = get_amount_field(validators=())
     type = models.CharField(
         choices=[(PNL, PNL), (TRANSFER, TRANSFER), (TRADE_FEE, TRADE_FEE), (INTEREST_FEE, INTEREST_FEE),
-                 (INSURANCE_FEE, INSURANCE_FEE), (POSITION_TRANSFER, POSITION_TRANSFER), (DUST, DUST)],
+                 (INSURANCE_FEE, INSURANCE_FEE), (POSITION_TRANSFER, POSITION_TRANSFER), (CONVERT, CONVERT)],
         max_length=12
     )
     group_id = models.UUIDField()

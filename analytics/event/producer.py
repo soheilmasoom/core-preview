@@ -2,6 +2,7 @@ import json
 import logging
 
 from confluent_kafka import Producer, KafkaException
+from decouple import config
 from django.conf import settings
 
 from analytics.models import EventTracker
@@ -44,8 +45,10 @@ class KafkaProducer:
         if not settings.KAFKA_HOST_URL:
             return
 
+        crm_kafka_topic_name = config('CRM_KAFKA_TOPIC_NAME')
+
         try:
-            self.producer.produce('crm', data.encode('utf-8'), callback=delivery_report)
+            self.producer.produce(crm_kafka_topic_name, data.encode('utf-8'), callback=delivery_report)
             self.producer.poll(0)
 
             handle_event_tracker(data=event.serialize(), instance=instance)

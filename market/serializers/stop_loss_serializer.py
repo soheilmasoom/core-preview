@@ -70,7 +70,7 @@ class StopLossSerializer(OrderSerializer):
     def validate(self, attrs):
         if attrs.get('market') == Wallet.MARGIN:
             raise ValidationError(_('در بازار تعهدی امکان سفارش oco وجود ندارد'))
-        return super(OrderSerializer, self).validate(attrs)
+        return super(StopLossSerializer, self).validate(attrs)
 
     class Meta:
         model = StopLoss

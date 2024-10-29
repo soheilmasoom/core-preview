@@ -36,7 +36,7 @@ def get_crypto_withdraw_irt_value(user: User):
         wallet__account__user=user,
         created__gte=timezone.now() - timedelta(days=1)
     ).exclude(
-        status=Transfer.CANCELED
+        status=CANCELED
     ).values('wallet__asset__symbol').annotate(
         amount=Sum('amount')
     ).values_list('wallet__asset__symbol', 'amount')
@@ -56,11 +56,6 @@ def user_reached_fiat_withdraw_limit(user: User, irt_value) -> bool:
     today_user_fiat_withdraw = get_fiat_withdraw_irt_value(user)
     max_daily_fiat_withdraw = LevelGrants.get_max_daily_fiat_withdraw(user)
     return today_user_fiat_withdraw + irt_value > max_daily_fiat_withdraw
-
-
-def user_reached_crypto_withdraw_limit(user: User, irt_value) -> bool:
-    ceil = LevelGrants.get_max_daily_crypto_withdraw(user)
-    return get_crypto_withdraw_irt_value(user) + irt_value > ceil
 
 
 def time_in_range(start, end, time):

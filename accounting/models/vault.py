@@ -14,13 +14,14 @@ from ledger.utils.fields import get_amount_field
 class VaultData:
     coin: str
     balance: Decimal
+    free: Decimal
     value_usdt: Decimal
     value_irt: Decimal
 
 
 class Vault(models.Model):
-    TYPES = PROVIDER, GATEWAY, HOT_WALLET, COLD_WALLET, BANK, MANUAL = \
-        'provider', 'gateway', 'hw', 'cw', 'bank', 'manual'
+    TYPES = PROVIDER, GATEWAY, HOT_WALLET, COLD_WALLET, BANK, APP, MANUAL = \
+        'provider', 'gateway', 'hw', 'cw', 'bank', 'app', 'manual'
     MARKETS = SPOT, FUTURES = 'spot', 'futures'
 
     history = HistoricalRecords()
@@ -36,6 +37,9 @@ class Vault(models.Model):
     real_value = get_amount_field(default=Decimal())
 
     expected_max_value = models.PositiveIntegerField(null=True, blank=True)
+    should_be_updated = models.BooleanField(default=True)
+
+    extra = models.JSONField(null=True, blank=True)
 
     def __str__(self):
         return '%s %s %s' % (self.type, self.name, self.market)
@@ -53,6 +57,7 @@ class Vault(models.Model):
                 defaults={
                     'updated': now,
                     'balance': vd.balance,
+                    'free': vd.free,
                     'value_usdt': vd.value_usdt,
                     'value_irt': vd.value_irt
                 }
@@ -96,6 +101,7 @@ class VaultItem(models.Model):
     vault = models.ForeignKey(Vault, on_delete=models.CASCADE)
     coin = models.CharField(max_length=32, db_index=True)
     balance = get_amount_field(validators=())
+    free = get_amount_field(validators=())
     value_usdt = get_amount_field(validators=(), default=0)
     value_irt = get_amount_field(validators=(), default=0)
 

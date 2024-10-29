@@ -6,10 +6,13 @@ from django.utils import timezone
 
 from accounting.models import Vault, Account
 from accounting.models.vault import VaultData, AssetPrice, VaultItem, ReservedAsset
+from accounts.tasks.send_sms import get_kavenegar_client
+from accounts.verifiers.utils import ServerError
 from financial.models import Gateway
 from financial.utils.withdraw import FiatWithdraw
+from ledger.exceptions import FetchError
 from ledger.models import Asset
-from ledger.requester.internal_assets_requester import get_internal_asset_deposits
+from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.price import USDT_IRT, get_symbol_parts
 from ledger.utils.provider import get_provider_requester
 
@@ -58,8 +61,13 @@ def update_provider_vaults(now: datetime, prices: dict):
 
             balances = balances_data['balances']
             real_value = balances_data['real_value'] and Decimal(balances_data['real_value'])
+            extra_info = balances_data.get('extra')
 
-            if not balances:
+            if vault.extra != extra_info:
+                vault.extra = extra_info
+                vault.save(update_fields=['extra'])
+
+            if balances is None:
                 continue
 
             for coin, balance in balances.items():
@@ -69,6 +77,7 @@ def update_provider_vaults(now: datetime, prices: dict):
                     VaultData(
                         coin=coin,
                         balance=balance,
+                        free=balance,
                         value_usdt=balance * prices.get(coin + Asset.USDT, 0),
                         value_irt=balance * prices.get(coin + Asset.IRT, 0)
                     )
@@ -78,40 +87,51 @@ def update_provider_vaults(now: datetime, prices: dict):
 
 
 def update_hot_wallet_vault(now: datetime, prices: dict):
-    logger.info('updating hotwallet vaults')
+    try:
+        data = get_blocklink_requester().get_assets()
+    except FetchError:
+        logger.info('updating hot wallet vaults ignored due to fetch error')
+        return
 
-    data = get_internal_asset_deposits()
-
-    vault, _ = Vault.objects.get_or_create(
-        type=Vault.HOT_WALLET,
-        market=Vault.SPOT,
-        key='main',
-
-        defaults={
-            'name': 'main',
-            'updated': now,
-        }
-    )
-
-    vault_data = []
-
-    for coin, amount in data.items():
-
-        vault_data.append(
-            VaultData(
-                coin=coin,
-                balance=amount,
-                value_usdt=amount * prices.get(coin + Asset.USDT, 0),
-                value_irt=amount * prices.get(coin + Asset.IRT, 0),
-            )
+    for network, asset_data in data.items():
+        vault, _ = Vault.objects.get_or_create(
+            type=Vault.HOT_WALLET,
+            market=Vault.SPOT,
+            key=network,
+            defaults={
+                'name': f'HW/{network}',
+                'updated': now,
+            }
         )
 
-    vault.update_vault_all_items(now, vault_data)
+        vault_data = []
+
+        assets = Asset.objects.filter(enable=True).exclude(original_symbol='')
+        symbol_per_asset = {a.original_symbol: a for a in assets}
+
+        for coin, amount_info in asset_data.items():
+            amount, free = amount_info['amount'], amount_info['free']
+
+            asset = symbol_per_asset.get(coin)  # type: Asset
+            if asset:
+                coin = asset.symbol
+                amount /= asset.get_coin_multiplier()
+                free /= asset.get_coin_multiplier()
+
+            vault_data.append(
+                VaultData(
+                    coin=coin,
+                    balance=amount,
+                    free=free,
+                    value_usdt=amount * prices.get(coin + Asset.USDT, 0),
+                    value_irt=amount * prices.get(coin + Asset.IRT, 0),
+                )
+            )
+
+        vault.update_vault_all_items(now, vault_data)
 
 
 def update_gateway_vaults(now: datetime, prices: dict):
-    logger.info('updating gateway vaults')
-
     for gateway in Gateway.objects.exclude(withdraw_api_secret_encrypted=''):
         vault, _ = Vault.objects.get_or_create(
             type=Vault.GATEWAY,
@@ -123,20 +143,24 @@ def update_gateway_vaults(now: datetime, prices: dict):
             }
         )
 
-        try:
-            handler = FiatWithdraw.get_withdraw_channel(gateway)
-            amount = handler.get_total_wallet_irt_value()
+        handler = FiatWithdraw.get_withdraw_channel(gateway)
 
-            vault.update_vault_all_items(now, [
-                VaultData(
-                    coin=Asset.IRT,
-                    balance=amount,
-                    value_usdt=amount / prices[USDT_IRT],
-                    value_irt=amount
-                )
-            ])
-        except:
-            pass
+        try:
+            wallet = handler.get_wallet_data()
+        except (ServerError, TimeoutError):
+            continue
+
+        balance = Decimal(wallet.balance)
+
+        vault.update_vault_all_items(now, [
+            VaultData(
+                coin=Asset.IRT,
+                balance=balance,
+                free=Decimal(wallet.free),
+                value_usdt=balance / prices[USDT_IRT],
+                value_irt=balance
+            )
+        ])
 
 
 def update_cold_wallet_vaults(now: datetime, prices: dict):
@@ -144,7 +168,7 @@ def update_cold_wallet_vaults(now: datetime, prices: dict):
 
     for vault_item in VaultItem.objects.filter(vault__type__in=(Vault.COLD_WALLET, Vault.MANUAL)):
         vault_item.value_usdt = vault_item.balance * prices.get(vault_item.coin + Asset.USDT, 0)
-        vault_item.value_irt = vault_item.value_usdt * prices.get(vault_item.coin + Asset.IRT, 0)
+        vault_item.value_irt = vault_item.balance * prices.get(vault_item.coin + Asset.IRT, 0)
         vault_item.save(update_fields=['value_usdt', 'value_irt'])
 
     for vault in Vault.objects.filter(type__in=(Vault.COLD_WALLET, Vault.MANUAL)):
@@ -170,6 +194,7 @@ def update_bank_vaults(now: datetime, prices: dict):
             VaultData(
                 coin=Asset.IRT,
                 balance=amount,
+                free=amount,
                 value_usdt=amount / prices[USDT_IRT],
                 value_irt=amount
             )
@@ -213,3 +238,31 @@ def update_asset_prices(now: datetime, prices: dict):
         asset.updated = now
 
     AssetPrice.objects.bulk_update(existing_assets, ['price', 'updated'])
+
+
+def update_service_vaults(now: datetime, prices: dict):
+    providers = {
+        'kavenegar.com': get_kavenegar_vault_updates
+    }
+
+    for vault in Vault.objects.filter(type=Vault.APP).exclude(key=''):
+        provider = providers.get(vault.key)
+        if not provider:
+            continue
+
+        vault.update_vault_all_items(now, provider(prices))
+
+
+def get_kavenegar_vault_updates(prices: dict):
+    client = get_kavenegar_client()
+    balance = client.account_info()['remaincredit'] // 10
+
+    return [
+        VaultData(
+            coin=Asset.IRT,
+            balance=balance,
+            free=balance,
+            value_usdt=balance / prices[USDT_IRT],
+            value_irt=balance
+        )
+    ]

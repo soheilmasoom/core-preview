@@ -1,8 +1,10 @@
 import math
+from decimal import Decimal
 
+from accounts.models import SystemConfig
 from ledger.models import Asset
+from ledger.utils.precision import log10_round
 from ledger.utils.price import get_last_price
-from market.consts import OTC_MIN_HARD_FIAT_VALUE
 from market.models import PairSymbol
 
 
@@ -20,20 +22,24 @@ def create_symbols_for_asset(asset: Asset):
 
     price_irt = get_last_price(asset.symbol + Asset.IRT)
 
-    step_size = min(max(math.ceil(math.log10(price_irt / OTC_MIN_HARD_FIAT_VALUE)), 0), 8)
+    config = SystemConfig.get_system_config()
+
+    step_size = min(max(math.ceil(math.log10(price_irt / config.min_otc_irt)), 0), 8)
 
     for base_asset in base_assets:
         price = get_last_price(asset.symbol + base_asset.symbol)
-
         tick_size = min(max(math.ceil(-math.log10(price)) + 3, 0), 8)
 
-        PairSymbol.objects.update_or_create(
+        if base_asset.symbol != Asset.USDT:
+            price = get_last_price(asset.symbol + Asset.USDT)
+
+        PairSymbol.objects.get_or_create(
             asset=asset, base_asset=base_asset, defaults={
                 'name': f'{asset.symbol}{base_asset.symbol}',
                 'tick_size': tick_size,
                 'step_size': step_size,
-                'min_trade_quantity': 1,
-                'max_trade_quantity': 1e8,
+                'min_trade_quantity': log10_round(Decimal('0.01') / price, floor=True),
+                'max_trade_quantity': log10_round(Decimal(10_000) / price, floor=False),
             }
         )
 

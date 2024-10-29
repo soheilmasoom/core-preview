@@ -2,11 +2,9 @@ from decouple import config
 from django.core.exceptions import ValidationError
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from rest_framework import serializers
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import RetrieveAPIView, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import User, CustomToken, SystemConfig
 from accounts.models import VerificationCode, Company
@@ -23,6 +21,7 @@ class UserFeatureSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     show_staking = serializers.SerializerMethodField()
+    show_margin = serializers.SerializerMethodField()
     show_strategy_bot = serializers.SerializerMethodField()
     is_2fa_active = serializers.SerializerMethodField()
     is_consultation_available = serializers.SerializerMethodField()
@@ -52,6 +51,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_show_strategy_bot(self, user: User):
         return user.show_strategy_bot or config('STRATEGY_ENABLE', cast=bool, default=False)
+
+    def get_show_margin(self, user: User):
+        return user.is_margin_active()
 
     class Meta:
         model = User
@@ -157,7 +159,6 @@ class AuthTokenDestroySerializer(serializers.Serializer):
 
 
 class CreateAuthToken(APIView):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
     serializer_class = AuthTokenSerializer
 
     def get(self, request):

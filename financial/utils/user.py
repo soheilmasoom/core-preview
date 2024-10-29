@@ -6,13 +6,14 @@ from financial.models import Payment
 from ledger.utils.fields import DONE
 
 
-def get_today_fiat_deposits(user: User):
+def get_today_fiat_ipg_deposits(user: User):
     today = timezone.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
 
     return Payment.objects.filter(
         user=user,
         created__gte=today,
-        status=DONE
+        status=DONE,
+        paymentrequest__isnull=False
     ).aggregate(
         total=Sum('amount')
     )['total'] or 0

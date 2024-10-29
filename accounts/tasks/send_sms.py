@@ -15,42 +15,41 @@ SMS_IR_TOKEN_KEY = 'sms-ir-token'
 
 
 def send_message_by_kavenegar(phone: str, template: str, token: str, send_type: str = 'sms'):
-    if settings.DEBUG_OR_TESTING_OR_STAGING:
+    if not phone or settings.DEBUG_OR_TESTING_OR_STAGING:
         return
 
-    api_key = config('KAVENEGAR_KEY')
+    client = get_kavenegar_client()
 
     try:
-        api = KavenegarAPI(apikey=api_key)
-        params = {
+        client.verify_lookup({
             'receptor': phone,
             'template': template,
             'type': send_type,
             'token': token,
-        }
-
-        api.verify_lookup(params)
+        })
     except (APIException, HTTPException) as e:
         logger.exception("Failed to send sms by kavenegar")
 
 
-def send_kavenegar_exclusive_sms(phone: str, content: str):
-    if settings.DEBUG_OR_TESTING_OR_STAGING or not settings.EXCLUSIVE_SMS_NUMBER:
-        return
-
+def get_kavenegar_client() -> KavenegarAPI:
     api_key = config('KAVENEGAR_KEY')
-    api = KavenegarAPI(apikey=api_key)
+    return KavenegarAPI(apikey=api_key)
+
+
+def send_kavenegar_exclusive_sms(phone: str, content: str):
+    if not phone or settings.DEBUG_OR_TESTING_OR_STAGING or not settings.EXCLUSIVE_SMS_NUMBER:
+        return True
+
+    client = get_kavenegar_client()
 
     message = content + '\nلغو= 11'
 
     try:
-        params = {
+        client.sms_send({
             'receptor': phone,
             'message': message,
             'sender': settings.EXCLUSIVE_SMS_NUMBER,
-        }
-
-        api.sms_send(params)
+        })
         return True
     except (APIException, HTTPException) as e:
         logger.exception("Failed to send sms by kavenegar")

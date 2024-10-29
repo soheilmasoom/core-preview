@@ -13,11 +13,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from ledger.models import Asset, Wallet, NetworkAsset, CoinCategory
+from ledger.models import Asset, NetworkAsset, CoinCategory, TokenDelist
 from ledger.models.asset import AssetSerializerMini
 from ledger.utils.coins_info import get_coins_info
 from ledger.utils.external_price import SELL
-from ledger.utils.fields import get_irt_market_asset_symbols
+from ledger.utils.fields import get_irt_market_asset_symbols, get_irt_margin_enable_coins
 from ledger.utils.precision import get_symbol_presentation_price, get_presentation_amount
 from ledger.utils.price import get_prices, get_coins_symbols, get_price
 from ledger.utils.provider import CoinInfo
@@ -44,11 +44,16 @@ class AssetSerializerBuilder(AssetSerializerMini):
     min_withdraw_amount = serializers.SerializerMethodField()
     min_withdraw_fee = serializers.SerializerMethodField()
     market_irt_enable = serializers.SerializerMethodField()
+    margin_enable = serializers.SerializerMethodField()
 
     can_deposit = serializers.SerializerMethodField()
     can_withdraw = serializers.SerializerMethodField()
 
     description = serializers.SerializerMethodField()
+    trading_view_symbol = serializers.SerializerMethodField()
+    delisted_at = serializers.SerializerMethodField()
+
+    rebranded_to = AssetSerializerMini()
 
     class Meta:
         model = Asset
@@ -57,8 +62,8 @@ class AssetSerializerBuilder(AssetSerializerMini):
     def get_market_irt_enable(self, asset: Asset):
         return asset.symbol in self.context['enable_irt_market_list']
 
-    def get_bookmark_assets(self, asset: Asset):
-        return asset.id in self.context['bookmark_assets']
+    def get_margin_enable(self, asset: Asset):
+        return asset.symbol in self.context['irt_margin_coins']
 
     def get_cap(self, asset) -> CoinInfo:
         return self.context['cap_info'].get(asset.symbol, CoinInfo())
@@ -134,20 +139,41 @@ class AssetSerializerBuilder(AssetSerializerMini):
         if content:
             return content.get_html()
 
+    def get_delisted_at(self, asset: Asset):
+        if asset.enable:
+            return None
+
+        delist = TokenDelist.objects.filter(asset=asset).order_by('id').last()
+
+        if delist:
+            return delist.delist_at
+
+    def get_trading_view_symbol(self, asset: Asset):
+        if asset.symbol == 'IRT':
+            return ""
+        if asset.trading_view_symbol:
+            return asset.trading_view_symbol
+        else:
+            base = 'USD' if asset.symbol == 'USDT' else 'USDT'
+            return (asset.original_symbol or asset.symbol) + base
+
     @classmethod
     def create_serializer(cls,  prices: bool = True, extra_info: bool = True):
         fields = AssetSerializerMini.Meta.fields
         new_fields = []
 
         if prices:
-            new_fields = ['price_usdt', 'price_irt', 'trend_url', 'change_24h', 'volume_24h', 'market_irt_enable']
+            new_fields = [
+                'price_usdt', 'price_irt', 'trend_url', 'change_24h', 'volume_24h', 'market_irt_enable',
+                'margin_enable',
+            ]
 
         if extra_info:
             new_fields = [
                 'price_usdt', 'price_irt', 'change_1h', 'change_24h', 'change_7d',
                 'cmc_rank', 'market_cap', 'volume_24h', 'circulating_supply', 'high_24h',
                 'low_24h', 'trend_url', 'min_withdraw_amount', 'min_withdraw_fee', 'can_deposit', 'can_withdraw',
-                'market_irt_enable', 'description',
+                'market_irt_enable', 'trading_view_symbol', 'description', 'rebranded_to', 'delisted_at'
             ]
 
         class Serializer(cls):
@@ -158,23 +184,17 @@ class AssetSerializerBuilder(AssetSerializerMini):
         return Serializer
 
 
-@method_decorator(cache_page(10), name='dispatch')
+@method_decorator(cache_page(30), name='dispatch')
 class AssetsViewSet(ModelViewSet):
-
     authentication_classes = ()
     permission_classes = ()
     filter_backends = [DjangoFilterBackend]
 
     def get_serializer_context(self):
-
         ctx = super().get_serializer_context()
 
-        if self.request.user.is_authenticated:
-            ctx['bookmark_assets'] = set(self.request.user.get_account().bookmark_assets.values_list('id', flat=True))
-        else:
-            ctx['bookmark_assets'] = set()
-
         ctx['enable_irt_market_list'] = get_irt_market_asset_symbols()
+        ctx['irt_margin_coins'] = get_irt_margin_enable_coins()
 
         if self.get_options('prices') or self.get_options('extra_info'):
             coins = list(self.get_queryset().values_list('symbol', flat=True))
@@ -184,14 +204,17 @@ class AssetsViewSet(ModelViewSet):
         return ctx
 
     def get_options(self, key: str):
+        name = self.request.query_params.get('name')
+
         options = {
-            'coin': self.request.query_params.get('coin') == '1',
+            'all': self.request.query_params.get('all') == '1',
+            'coin': self.request.query_params.get('coin'),
             'prices': self.request.query_params.get('prices') == '1',
             'trend': self.request.query_params.get('trend') == '1',
-            'extra_info': self.request.query_params.get('extra_info') == '1',
+            'extra_info': name and self.request.query_params.get('extra_info') == '1',
             'market': self.request.query_params.get('market'),
             'category': self.request.query_params.get('category'),
-            'name': self.request.query_params.get('name'),
+            'name': name,
             'can_deposit': self.request.query_params.get('can_deposit') == '1',
             'can_withdraw': self.request.query_params.get('can_withdraw') == '1',
             'is_base': self.request.query_params.get('is_base') == '1',
@@ -207,8 +230,11 @@ class AssetsViewSet(ModelViewSet):
         )
 
     def get_queryset(self):
-        if self.get_options('extra_info') and not self.get_options('active'):
+        hide_coming_soon = True
+
+        if (self.get_options('all') or self.get_options('extra_info')) and not self.get_options('active'):
             queryset = Asset.objects.filter(Q(enable=True) | Q(price_page=True))
+            hide_coming_soon = False
         else:
             queryset = Asset.live_objects.all()
 
@@ -216,10 +242,19 @@ class AssetsViewSet(ModelViewSet):
             category_name = self.get_options('category')
 
             if category_name == 'new-coins':
-                queryset = queryset.order_by(F('publish_date').desc(nulls_last=True))[:100]
+                queryset = queryset.exclude(otc_status=Asset.COMING_SOON).order_by(F('publish_date').desc(nulls_last=True))[:100]
+                hide_coming_soon = False
+
+            elif category_name == 'coming-soon':
+                queryset = queryset.filter(otc_status=Asset.COMING_SOON).order_by('publish_date')
+                hide_coming_soon = False
+
             else:
                 category = get_object_or_404(CoinCategory, name=category_name)
                 queryset = queryset.filter(coincategory=category)
+
+        if hide_coming_soon:
+            queryset = queryset.exclude(otc_status=Asset.COMING_SOON)
 
         if self.get_options('is_base'):
             queryset = queryset.filter(symbol__in=(Asset.IRT, Asset.USDT))
@@ -228,10 +263,20 @@ class AssetsViewSet(ModelViewSet):
             queryset = queryset.filter(trend=True)
 
         if self.get_options('coin'):
-            queryset = queryset.exclude(symbol=Asset.IRT)
+            coin = self.get_options('coin')
+
+            if coin == '1':
+                queryset = queryset.exclude(symbol=Asset.IRT)
+            else:
+                queryset = queryset.filter(symbol=coin)
 
         if self.get_options('name'):
-            queryset = queryset.filter(name=self.get_options('name'))
+            qs = queryset.filter(name=self.get_options('name'))
+
+            if not qs:
+                qs = queryset.filter(variants__name=self.get_options('name'))
+
+            queryset = qs
 
         if self.get_options('can_deposit'):
             queryset = queryset.filter(
@@ -277,7 +322,7 @@ class AssetOverviewAPIView(APIView):
             asset_info['market_irt_enable'] = coin in get_irt_market_asset_symbols()
             asset_info.update(AssetSerializerMini(Asset.get(symbol=coin)).data)
 
-    def get(self, request):
+    def get_coins(self):
         limit = int(self.request.query_params.get('limit', default=3))
 
         coins = set(Asset.live_objects.filter(
@@ -308,11 +353,36 @@ class AssetOverviewAPIView(APIView):
         newest = list(map(coin_info_to_dict, map(lambda coin: caps_dict[coin], newest_coin_symbols)))
         AssetOverviewAPIView.set_price(newest)
 
-        return Response({
+        return {
             'high_volume': high_volume,
             'high_24h_change': high_24h_change,
             'newest': newest
-        })
+        }
+
+    def get(self, request):
+        return Response(self.get_coins())
+
+
+class AssetOverviewAPIV2View(AssetOverviewAPIView):
+    def get(self, request):
+        coins = self.get_coins()
+
+        data = []
+
+        headers = {
+            'high_volume': 'بیشترین سود',
+            'high_24h_change': 'بیشترین حجم',
+            'newest': 'جدیدترین'
+        }
+
+        for category, coin_list in coins.items():
+            data.append({
+                'category': category,
+                'coins': coin_list,
+                'title': headers.get(category, '')
+            })
+
+        return Response(data)
 
 
 class MarginAssetInterestSerializer(AssetSerializerMini):

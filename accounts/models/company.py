@@ -1,10 +1,12 @@
 import json
 
 from django.db import models, transaction
+from simple_history.models import HistoricalRecords
 
 from accounts.utils.similarity import clean_persian_name
 from accounts.validators import company_national_id_validator
 from accounts.models import User
+from accounts.verifiers.utils import ServerError
 from ledger.utils.fields import get_verify_status_field, REJECTED, VERIFIED
 
 import logging
@@ -13,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class Company(models.Model):
+    history = HistoricalRecords()
+
     name = models.CharField(blank=True, max_length=128)
     address = models.TextField(blank=True)
     postal_code = models.CharField(blank=True, max_length=128)
@@ -35,7 +39,6 @@ class Company(models.Model):
     status = get_verify_status_field()
 
     def verify_and_fetch_company_data(self, retry: int = 2):
-        from accounts.verifiers.finotech import ServerError
         from accounts.verifiers.zibal import ZibalRequester
         requester = ZibalRequester(user=self.user)
         try:
@@ -62,21 +65,25 @@ class Company(models.Model):
                 logger.info('Retrying company information fetching..')
                 return self.verify_and_fetch_company_data(retry - 1)
 
-    def accept(self):
+    def accept(self, verifier: User):
         from accounts.models import EmailNotification, Notification
 
         with transaction.atomic():
             self.status = VERIFIED
-            self.user.level = 4
             self.save(update_fields=['status'])
-            self.user.save(update_fields=['level'])
-            EmailNotification.objects.create(
-                recipient=self.user,
-                title='تایید درخواست',
-                content='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.',
-                content_html='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.'
-            )
-            Notification.objects.create(
+
+            self.user.level = User.LEVEL4
+            self.user.verifier = verifier
+            self.user.save(update_fields=['level', 'verifier'])
+
+            if self.user.email:
+                EmailNotification.objects.create(
+                    recipient=self.user,
+                    title='تایید درخواست',
+                    content='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.',
+                    content_html='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.'
+                )
+            Notification.send(
                 recipient=self.user,
                 title='تایید درخواست',
                 message='درخواست ثبت نام حساب حقوقی با موفقیت تایید شد.'
@@ -88,13 +95,14 @@ class Company(models.Model):
         with transaction.atomic():
             self.status = REJECTED
             self.save(update_fields=['status'])
-            EmailNotification.objects.create(
-                recipient=self.user,
-                title='رد درخواست',
-                content='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.',
-                content_html='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.'
-            )
-            Notification.objects.create(
+            if self.user.email:
+                EmailNotification.objects.create(
+                    recipient=self.user,
+                    title='رد درخواست',
+                    content='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.',
+                    content_html='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.'
+                )
+            Notification.send(
                 recipient=self.user,
                 title='رد درخواست',
                 message='درخواست ثبت نام حساب حقوقی رد شد. لطفا برای دریافت اطلاعات بیشتر با پشتیبان تماس بگیرید.'

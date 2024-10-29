@@ -8,6 +8,9 @@ whitespace_regex = re.compile(r"\s+")
 
 
 def clean_persian_name(name: str):
+    if not name:
+        return name
+
     mapping = {
         'ك': 'ک',
         'ي': 'ی',

@@ -6,7 +6,6 @@ from django.db import models
 from django.db.models import CheckConstraint, Q, F, UniqueConstraint
 
 from ledger.exceptions import InsufficientBalance, InsufficientDebt
-from ledger.utils.external_price import SELL
 from ledger.utils.fields import get_amount_field, get_group_id_field
 from ledger.utils.wallet_pipeline import WalletPipeline
 
@@ -73,6 +72,10 @@ class Wallet(models.Model):
             ),
         ]
 
+        permissions = [
+            ("list_wallet", "Can list wallet"),
+        ]
+
     def get_free(self) -> Decimal:
         return self.balance - self.locked
 
@@ -104,8 +107,8 @@ class Wallet(models.Model):
         assert self.market in Wallet.NEGATIVE_MARKETS
         return self.balance < 0
 
-    def airdrop(self, amount: Decimal, i_am_sure: bool = False):
-        assert settings.DEBUG_OR_TESTING or i_am_sure
+    def airdrop(self, amount: Decimal):
+        assert settings.DEBUG_OR_TESTING
         from accounts.models import Account
 
         from ledger.models import Trx

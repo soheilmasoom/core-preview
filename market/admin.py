@@ -3,6 +3,7 @@ from django.contrib.admin import SimpleListFilter
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
+from accounts.admin_guard.admin import AdvancedAdmin
 from ledger.models import Asset, MarginPosition
 from ledger.utils.precision import get_presentation_amount
 from market.models import Order, Trade, PairSymbol, CancelRequest, ReferralTrx, StopLoss, OCO
@@ -102,11 +103,13 @@ class OrderPositionFilter(admin.SimpleListFilter):
 
 
 @admin.register(Order)
-class OrderAdmin(admin.ModelAdmin):
-    list_display = ('created', 'created_at_millis', 'type', 'symbol', 'side', 'fill_type', 'status', 'price', 'amount')
-    list_filter = (TypeFilter, UserFilter, OrderPositionFilter, 'side', 'fill_type', 'status', 'symbol')
+class OrderAdmin(AdvancedAdmin):
+    list_display = ('created', 'created_at_millis', 'symbol', 'account', 'side', 'fill_type', 'status', 'price', 'amount')
+    list_filter = (TypeFilter, UserFilter, 'side', 'fill_type', 'status', 'symbol')
     readonly_fields = ('wallet', 'symbol', 'account', 'stop_loss', 'login_activity', 'position')
     actions = ('cancel_order', )
+
+    list_permission_exclude_filters = ('id', 'user')
 
     def created_at_millis(self, instance):
         created = instance.created.astimezone()
@@ -150,13 +153,15 @@ class TradePositionFilter(admin.SimpleListFilter):
 
 
 @admin.register(Trade)
-class TradeAdmin(admin.ModelAdmin):
-    list_display = ('created', 'created_at_millis', 'account', 'symbol', 'side', 'price', 'is_maker', 'amount', 'fee_amount',
-                    'fee_revenue', 'get_value_irt', 'get_value_usdt')
-    list_filter = ('trade_source', UserTradeFilter, TradePositionFilter, 'symbol')
+class TradeAdmin(AdvancedAdmin):
+    list_display = ('created', 'created_at_millis', 'account', 'symbol', 'side', 'price', 'is_maker', 'market',
+                    'amount', 'fee_amount', 'fee_revenue', 'get_value_irt', 'get_value_usdt')
+    list_filter = ('trade_source', UserTradeFilter, 'symbol', 'market')
     readonly_fields = ('symbol', 'order_id', 'account', 'login_activity', 'group_id', 'position')
     search_fields = ('symbol__name', )
     actions = ('revert', )
+
+    list_permission_exclude_filters = ('id', 'user')
 
     def created_at_millis(self, instance):
         created = instance.created.astimezone()
@@ -188,12 +193,19 @@ class ReferralTrxAdmin(admin.ModelAdmin):
 class StopLossAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_masked_wallet', 'symbol', 'fill_type', 'amount', 'filled_amount', 'trigger_price', 'price', 'side')
     readonly_fields = ('wallet', 'symbol', 'group_id', 'login_activity')
+    search_fields = ('wallet__account__user__phone', 'symbol__name')
+    actions = ('cancel',)
 
     @admin.display(description='wallet')
     def get_masked_wallet(self, stop_loss: StopLoss):
         return mark_safe(
             f'<span dir="ltr">{stop_loss.wallet}</span>'
         )
+
+    @admin.action(description='Cancel', permissions=['change'])
+    def cancel(self, request, queryset):
+        for stop_loss in queryset:
+            stop_loss.delete()
 
 
 @admin.register(OCO)

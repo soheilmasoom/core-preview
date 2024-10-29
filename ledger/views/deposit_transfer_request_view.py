@@ -2,22 +2,27 @@ import logging
 from decimal import Decimal
 
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.utils import timezone
+from django.db.models import Q
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import CreateAPIView, get_object_or_404
 
 from accounts.authentication import CustomTokenAuthentication
-from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset
+from accounts.admin_guard.html_tags import url_to_admin_list
+from accounts.utils.telegram import send_system_message
+from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset, DepositRecoveryRequest
 from ledger.models.transfer import Transfer
-from ledger.requester.architecture_requester import get_network_architecture
+from ledger.utils.blocklink import get_blocklink_requester
+from ledger.utils.fields import PENDING, DONE, CANCELED, INIT
+from ledger.utils.fraud import verify_crypto_deposit
 from ledger.utils.price import get_last_price
-from ledger.utils.wallet_pipeline import WalletPipeline
+from ledger.utils.str import truncate_str
 
 logger = logging.getLogger(__name__)
 
 
 class DepositSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(allow_null=True)
     network = serializers.CharField(max_length=16, write_only=True)
     sender_address = serializers.CharField(max_length=256, write_only=True)
     receiver_address = serializers.CharField(max_length=256, write_only=True)
@@ -26,7 +31,8 @@ class DepositSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transfer
-        fields = ['status', 'amount', 'trx_hash', 'network', 'sender_address', 'receiver_address', 'coin', 'memo']
+        fields = ['status', 'amount', 'trx_hash', 'network', 'sender_address', 'receiver_address', 'coin', 'memo', 'id',
+                  'block_number', 'last_block_number']
 
     def create(self, validated_data):
         network_symbol = validated_data.get('network')
@@ -34,8 +40,58 @@ class DepositSerializer(serializers.ModelSerializer):
         receiver_address = validated_data.get('receiver_address')
         network = Network.objects.get(symbol=network_symbol)
         memo = validated_data.get('memo') or ''
+        status = validated_data.get('status')
+        trx_hash = validated_data.get('trx_hash')
+        block_number = validated_data.get('block_number')
+        last_block_number = validated_data.get('last_block_number')
+        coin = validated_data.get('coin')
 
-        need_memo = network.need_memo
+        asset = Asset.objects.filter(symbol=coin).first()
+        coin_mult = 1
+
+        if not asset and coin:
+            asset = Asset.objects.filter(original_symbol=coin).first()
+
+            if asset:
+                coin_mult = asset.get_coin_multiplier()
+
+        need_memo = network.deposit_need_memo
+
+        q = Q()
+        if need_memo:
+            q = Q(memo=memo)
+        else:
+            memo = ''
+
+        address_key = AddressKey.objects.filter(
+            q,
+            address=receiver_address,
+            architecture=get_blocklink_requester().get_network_arch(network),
+            deleted=False
+        ).first()
+
+        requester_id = validated_data.get('id')
+
+        if need_memo and (not memo or not address_key):
+            if status == DONE and requester_id:
+                DepositRecoveryRequest.objects.get_or_create(
+                    blocklink_id=validated_data.get('id'),
+                    defaults={
+                        'asset': asset,
+                        'network': network,
+                        'memo': truncate_str(memo, 64),
+                        'trx_hash': trx_hash,
+                        'amount': Decimal(validated_data.get('amount')) / coin_mult,
+                        'receiver_address': receiver_address,
+                        'scope': DepositRecoveryRequest.SYSTEM,
+                    }
+                )
+                raise ValidationError({'address_key': 'Recovery created'})
+            else:
+                raise ValidationError({'address_key': 'Not Found'})
+
+        if not address_key:
+            raise NotFound
 
         if (need_memo and not memo) or (not need_memo and memo):
             raise ValidationError({'memo': 'null memo for memo networks error'})
@@ -50,14 +106,6 @@ class DepositSerializer(serializers.ModelSerializer):
             raise ValidationError({'receiver_address': 'old deposit address not supported'})
 
         if not deposit_address:
-            address_key = get_object_or_404(
-                AddressKey,
-                address=receiver_address,
-                architecture=get_network_architecture(network),
-                deleted=False,
-                memo=memo
-            )
-
             deposit_address, _ = DepositAddress.objects.get_or_create(
                 address=receiver_address,
                 network=network,
@@ -65,17 +113,6 @@ class DepositSerializer(serializers.ModelSerializer):
                     'address_key': address_key
                 }
             )
-
-        coin = validated_data.get('coin')
-
-        asset = Asset.objects.filter(symbol=coin).first()
-        coin_mult = 1
-
-        if not asset and coin:
-            asset = Asset.objects.filter(original_symbol=coin).first()
-
-            if asset:
-                coin_mult = asset.get_coin_multiplier()
 
         if not asset:
             logger.warning('invalid coin for deposit', extra={'coin': coin})
@@ -85,52 +122,35 @@ class DepositSerializer(serializers.ModelSerializer):
 
         network_asset = get_object_or_404(NetworkAsset, asset=asset, network=network)
 
-        if not network_asset.can_deposit_enabled():
+        if not network_asset.can_deposit_enabled(check_provider=False):
             raise ValidationError({'deposit_enable': 'false'})
 
-        status = validated_data.get('status')
-
-        if status not in (Transfer.PENDING, Transfer.DONE, Transfer.CANCELED):
+        if status not in (PENDING, DONE, CANCELED):
             raise ValidationError({'status': 'invalid status %s' % status})
 
-        prev_transfer = Transfer.objects.filter(
+        transfer = Transfer.objects.filter(
             network=network,
-            trx_hash=validated_data.get('trx_hash'),
-            deposit=True
+            trx_hash=trx_hash,
+            deposit=True,
+            deposit_address=deposit_address
         ).order_by('-created').first()
 
         valid_transitions = [
-            (Transfer.PENDING, Transfer.DONE),
-            (Transfer.PENDING, Transfer.CANCELED),
+            (PENDING, DONE),
+            (PENDING, CANCELED),
         ]
 
-        if prev_transfer:
-            if prev_transfer.status == status:
-                return prev_transfer
+        if transfer:
+            if transfer.status == status:
+                transfer.block_number = block_number
+                transfer.last_block_number = last_block_number
+                transfer.save(update_fields=['last_block_number', 'block_number'])
+                return transfer
 
-            if (prev_transfer.status, status) not in valid_transitions:
+            if (transfer.status, status) not in valid_transitions:
                 raise ValidationError({
-                    'status': 'invalid status transition (%s -> %s)' % (prev_transfer.status, status)
+                    'status': 'invalid status transition (%s -> %s)' % (transfer.status, status)
                 })
-
-            with WalletPipeline() as pipeline:
-                prev_transfer.status = status
-
-                if status in (Transfer.CANCELED, Transfer.DONE):
-                    prev_transfer.finished_datetime = timezone.now()
-
-                prev_transfer.save(update_fields=['status', 'finished_datetime'])
-
-                if status == Transfer.DONE:
-                    prev_transfer.build_trx(pipeline)
-
-                    user = prev_transfer.wallet.account.user
-                    user.first_crypto_deposit_date = timezone.now()
-                    user.save(update_fields=['first_crypto_deposit_date'])
-
-            prev_transfer.alert_user()
-
-            return prev_transfer
 
         else:
             amount = Decimal(validated_data.get('amount')) / coin_mult
@@ -145,39 +165,45 @@ class DepositSerializer(serializers.ModelSerializer):
             price_usdt = get_last_price(asset.symbol + Asset.USDT)
             price_irt = get_last_price(asset.symbol + Asset.IRT)
 
-            with WalletPipeline() as pipeline:
-                transfer, _ = Transfer.objects.get_or_create(
-                    deposit=True,
-                    trx_hash=validated_data.get('trx_hash'),
-                    network=network,
-                    wallet=wallet,
-                    deposit_address=deposit_address,
-                    out_address=sender_address,
-                    defaults={
-                        'amount': amount,
-                        'usdt_value': amount * price_usdt,
-                        'irt_value': amount * price_irt,
-                        'memo': memo
-                    }
-                )
+            transfer, _ = Transfer.objects.get_or_create(
+                deposit=True,
+                trx_hash=validated_data.get('trx_hash'),
+                network=network,
+                wallet=wallet,
+                deposit_address=deposit_address,
+                out_address=sender_address,
+                defaults={
+                    'amount': amount,
+                    'usdt_value': amount * price_usdt,
+                    'irt_value': amount * price_irt,
+                    'memo': memo,
+                    'block_number': block_number,
+                    'last_block_number': last_block_number,
+                }
+            )
 
-                transfer.status = status
+        description = ''
 
-                if status in (Transfer.CANCELED, Transfer.DONE):
-                    transfer.finished_datetime = timezone.now()
+        if not network_asset.can_deposit_enabled():
+            status = INIT
+            description = 'init reason: provider deposit is not enable!'
 
-                transfer.save(update_fields=['status', 'finished_datetime'])
+        elif not verify_crypto_deposit(transfer):
+            status = INIT
+            description = 'init reason: crypto verify failed!'
 
-                if status == Transfer.DONE:
-                    transfer.build_trx(pipeline)
+        if status == INIT:
+            send_system_message("Verify deposit: %s" % transfer, link=url_to_admin_list(
+                transfer, {'status__exact': 'init', 'deposit': True}
+            ))
 
-                    user = transfer.wallet.account.user
-                    user.first_crypto_deposit_date = timezone.now()
-                    user.save(update_fields=['first_crypto_deposit_date'])
+        transfer.change_status(status)
 
-                transfer.alert_user()
+        if description:
+            transfer.comment = description
+            transfer.save(update_fields=['comment'])
 
-            return transfer
+        return transfer
 
 
 class DepositTransferUpdateView(CreateAPIView, UserPassesTestMixin):

@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from decimal import Decimal
 from typing import Union
@@ -11,6 +12,8 @@ from market.utils.redis import MarketStreamCache
 
 DECIMAL = 8
 
+logger = logging.getLogger(__name__)
+
 
 def sorted_flatten_dict(data: dict) -> list:
     if not data:
@@ -22,7 +25,7 @@ def sorted_flatten_dict(data: dict) -> list:
 class WalletPipeline(Atomic):
     TRADE, WITHDRAW, STAKE = 'trade', 'withdraw', 'stake'
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = True):
         super(WalletPipeline, self).__init__(using=None, savepoint=True, durable=False)
         self.verbose = verbose
 
@@ -32,12 +35,14 @@ class WalletPipeline(Atomic):
         self._wallet_locks = defaultdict(Decimal)
         self._wallet_balances = defaultdict(Decimal)
 
-        self._trxs = []
+        self._trxs = {}
 
         self._locks = {}
         self._locks_amount = defaultdict(Decimal)
 
         self._market_cache = MarketStreamCache()
+
+        self.positions = defaultdict(Decimal)
 
         return self
 
@@ -126,8 +131,11 @@ class WalletPipeline(Atomic):
                 return
 
             if amount is None:
-                self._locks_amount[key] = -lock.amount
-                self._wallet_locks[lock.wallet_id] = -lock.amount
+                released_lock = self._locks_amount.get(key, 0)
+                to_release_lock = lock.amount + released_lock
+
+                self._locks_amount[key] -= to_release_lock
+                self._wallet_locks[lock.wallet_id] -= to_release_lock
             else:
                 self._locks_amount[key] -= amount
                 self._wallet_locks[lock.wallet_id] -= amount
@@ -144,19 +152,27 @@ class WalletPipeline(Atomic):
         if sender.account.is_system() and receiver.account.is_system():
             return
 
-        self._trxs.append(Trx(
-            sender=sender,
-            receiver=receiver,
-            amount=amount,
-            scope=scope,
-            group_id=group_id
-        ))
+        key = (sender, receiver, scope, group_id)
+
+        if key not in self._trxs:
+            self._trxs[key] = Trx(
+                sender=sender,
+                receiver=receiver,
+                amount=amount,
+                scope=scope,
+                group_id=group_id
+            )
+        else:
+            self._trxs[key].amount += amount
 
         sender.balance -= amount
         receiver.balance += amount
 
         self._wallet_balances[sender.id] -= amount
         self._wallet_balances[receiver.id] += amount
+
+    def add_position_equity(self, position, amount):
+        self.positions[position.id] += amount
 
     def _build_wallet_updates(self) -> dict:
         balances = sorted_flatten_dict(self._wallet_balances)
@@ -190,10 +206,10 @@ class WalletPipeline(Atomic):
 
     def _execute(self):
         if self.verbose:
-            print('wallet_update', self._build_wallet_updates())
-            print('lock_update', self._build_lock_updates())
-            print('new locks count', len(self._locks))
-            print('new trxs', len(self._trxs))
+            logger.info(f'wallet_update: {self._build_wallet_updates()}')
+            logger.info(f'lock_update: {self._build_lock_updates()}')
+            logger.info(f'new locks: {self._locks}')
+            logger.info(f'new trxs len: {len(self._trxs)}')
 
         from ledger.models import Wallet, BalanceLock, Trx
 
@@ -204,10 +220,13 @@ class WalletPipeline(Atomic):
             Wallet.objects.filter(id=wallet_id).update(**wallet_update)
 
         if self._trxs:
-            Trx.objects.bulk_create(self._trxs)
+            Trx.objects.bulk_create(self._trxs.values())
 
         if self._locks:
             BalanceLock.objects.bulk_create(list(self._locks.values()))
 
-        self._market_cache.execute()
+        for id, equity in self.positions.items():
+            from ledger.models import MarginPosition
+            MarginPosition.objects.filter(id=id).update(equity=F('equity') + equity)
 
+        self._market_cache.execute()

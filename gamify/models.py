@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from django.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 
 from accounts.models import Notification, Account, User
 from ledger.models import Prize, Asset
@@ -11,33 +12,46 @@ from ledger.utils.fields import get_amount_field, get_created_field
 from ledger.utils.precision import humanize_number
 from ledger.utils.price import get_last_price
 from ledger.utils.wallet_pipeline import WalletPipeline
+from multimedia.storage import PublicMediaStorage
 
 logger = logging.getLogger(__name__)
 
 
 class MissionJourney(models.Model):
-    name = models.CharField(max_length=64)
-    active = models.BooleanField(default=False)
-    promotion = models.CharField(max_length=8, unique=True, choices=[(p, p) for p in User.PROMOTIONS])
+    name = models.CharField(max_length=64, unique=True)
 
-    default = models.BooleanField(default=True)
+    active = models.BooleanField(default=True)
+    default = models.BooleanField(default=False)
+
+    title = models.CharField(max_length=1024, blank=True)
+    description = models.CharField(max_length=1024, blank=True)
+    logo = models.ImageField(blank=True, null=True, storage=PublicMediaStorage(), upload_to='missions/logo/')
 
     def __str__(self):
         return self.name
 
     @classmethod
-    def get_journey(cls, account: Account) -> 'MissionJourney':
-        journey = MissionJourney.objects.filter(promotion=account.user.promotion, active=True).first()
+    def get_by_promotion(cls, promotion: str) -> 'MissionJourney':
+        journey = MissionJourney.objects.filter(name=promotion, active=True).first()
         if not journey:
-            default_journey = MissionJourney.objects.filter(active=True, default=True).first()
-            return default_journey
-        else:
-            return journey
+            journey = MissionJourney.objects.filter(active=True, default=True).first()
 
-    def get_active_mission(self, account: Account):
-        for mission in self.missiontemplate_set.filter(active=True):
-            if not mission.finished(account):
-                return mission
+        return journey
+
+    def save(self, *args, **kwargs):
+        self.name = slugify(self.name)
+        super(MissionJourney, self).save(*args, **kwargs)
+
+
+class MissionDigest(models.Model):
+    journey = models.ForeignKey(MissionJourney, on_delete=models.CASCADE, related_name='digests')
+    order = models.PositiveSmallIntegerField(default=0)
+
+    title = models.CharField(max_length=1024, blank=True)
+    description = models.CharField(max_length=1024, blank=True)
+
+    class Meta:
+        ordering = ('order', 'id')
 
 
 class MissionTemplate(models.Model):
@@ -64,7 +78,7 @@ class MissionTemplate(models.Model):
                 return task
 
     class Meta:
-        ordering = ('order', )
+        ordering = ('order', 'id')
 
     def __str__(self):
         return self.name
@@ -186,20 +200,13 @@ class Achievement(models.Model):
 
 
 class Task(models.Model):
-    VERIFY_LEVEL2 = 'verify_level2'
-    DEPOSIT = 'deposit'
-    TRADE = 'trade'
-    WEEKLY_TRADE = 'weekly_trade'
-    REFERRAL = 'referral'
-    SET_EMAIL = 'set_email'
-
-    SCOPE_CHOICES = ((VERIFY_LEVEL2, VERIFY_LEVEL2), (DEPOSIT, DEPOSIT), (TRADE, TRADE), (REFERRAL, REFERRAL),
-                    (SET_EMAIL, SET_EMAIL), (WEEKLY_TRADE, WEEKLY_TRADE))
+    TYPES = VERIFY_LEVEL2, DEPOSIT, DEPOSIT_FROM_NOW, TRADE, TRADE_FROM_NOW, REFERRAL, SET_EMAIL = \
+        'verify_level2', 'deposit', 'deposit_from_now', 'trade', 'weekly_trade', 'referral', 'set_email'
 
     BOOL, NUMBER = 'bool', 'number'
 
     mission = models.ForeignKey(MissionTemplate, on_delete=models.CASCADE)
-    scope = models.CharField(max_length=16, choices=SCOPE_CHOICES)
+    scope = models.CharField(max_length=16, choices=[(s, s) for s in TYPES])
 
     order = models.PositiveSmallIntegerField(default=0)
     type = models.CharField(max_length=8, default=NUMBER, choices=((BOOL, BOOL), (NUMBER, NUMBER)))

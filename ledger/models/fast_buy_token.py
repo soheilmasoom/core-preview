@@ -2,8 +2,10 @@ import logging
 from decimal import Decimal
 
 from django.db import models
+from uuid import uuid4
 
 from accounts.models import Notification
+from accounts.models.sms_notification import SmsNotification
 from ledger.models import OTCRequest, Asset, Wallet, OTCTrade
 from ledger.utils.fields import DONE
 from ledger.utils.fields import get_amount_field
@@ -14,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 class FastBuyToken(models.Model):
     PROCESS, DEPOSIT, DONE = 'process', 'deposit', 'done'
-    MIN_ADMISSIBLE_VALUE = 300_000
 
     CHOICE_STATUS = ((PROCESS, PROCESS), (DEPOSIT, DEPOSIT), (DONE, DONE))
 
@@ -36,10 +37,9 @@ class FastBuyToken(models.Model):
 
     @property
     def user(self):
-        return self.payment_request.bank_card.user
+        return self.payment_request.user
 
     def create_otc_for_fast_buy_token(self, payment):
-
         self.status = FastBuyToken.DEPOSIT
         self.save(update_fields=['status'])
         if payment.status == DONE:
@@ -48,7 +48,8 @@ class FastBuyToken(models.Model):
                 from_asset=Asset.get('IRT'),
                 to_asset=self.asset,
                 from_amount=payment.amount,
-                market=Wallet.SPOT
+                market=Wallet.SPOT,
+                order_type=OTCRequest.MARKET
             )
             otc_request.login_activity = self.payment_request.login_activity
             otc_request.save(update_fields=['login_activity'])
@@ -57,7 +58,7 @@ class FastBuyToken(models.Model):
             self.save(update_fields=['otc_request'])
 
             try:
-                otc_trade = OTCTrade.execute_trade(otc_request)
+                otc_trade = OTCTrade.handle_otc_request(otc_request)
                 self.status = FastBuyToken.DONE
                 self.save(update_fields=['status'])
 
@@ -67,7 +68,14 @@ class FastBuyToken(models.Model):
                     message='خرید {} {} با موفقیت انجام شد.'.format(humanize_number(otc_request.amount), self.asset.name_fa),
                     level=Notification.SUCCESS
                 )
+                if payment.card_pan:
+                    SmsNotification.objects.create(
+                    recipient=self.user,
+                    content='خرید {} {} با موفقیت انجام شد.'.format(humanize_number(otc_request.amount), self.asset.name_fa)
+                    )
+
                 return otc_trade
+
             except Exception as exp:
                 logger.exception('Error in create otc_trade for fast_buy', extra={
                     'exp': exp

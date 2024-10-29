@@ -4,10 +4,9 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.authentication import CustomTokenAuthentication
-from accounts.models import User
+from accounts.authentication import CustomJWTAuthentication, CustomTokenAuthentication
+from accounts.models import User, SystemConfig
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from market.models import PairSymbol
 from market.serializers import BookMarkPairSymbolSerializer
@@ -25,7 +24,7 @@ class SymbolFilter(django_filters.FilterSet):
 
 
 class SymbolListAPIView(ListAPIView):
-    authentication_classes = (SessionAuthentication, CustomTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, CustomTokenAuthentication, CustomJWTAuthentication)
     permission_classes = ()
     filter_backends = [DjangoFilterBackend]
     filter_class = SymbolFilter
@@ -57,6 +56,7 @@ class SymbolListAPIView(ListAPIView):
             ctx['bookmarks'] = []
 
         ctx['prices'] = get_symbol_prices()
+        ctx['system_config'] = SystemConfig.get_system_config()
 
         return ctx
 

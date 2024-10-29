@@ -2,13 +2,12 @@ import logging
 
 from django.db import transaction
 from django.http import HttpResponseBadRequest
-from django.shortcuts import get_object_or_404
 from django.views.generic import TemplateView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import LoginActivity
-from financial.models import PaymentRequest, Payment, Gateway
+from financial.models import Gateway
+from financial.utils.ipg import get_active_payment_request_by_authority
 from financial.utils.payment_id_client import get_payment_id_client
 from ledger.utils.fields import CANCELED, PENDING
 
@@ -25,15 +24,20 @@ class JibitCallbackView(TemplateView):
         if status not in ('SUCCESSFUL', 'FAILED'):
             return HttpResponseBadRequest('Invalid data')
 
-        payment_request = get_object_or_404(PaymentRequest, authority=authority)
+        payment_request = get_active_payment_request_by_authority(authority, Gateway.JIBIT)
+
         payment = getattr(payment_request, 'payment', None)
 
         if not payment:
             with transaction.atomic():
-                payment = payment_request.get_or_create_payment()
+                payment = payment_request.get_or_create_payment(
+                    card_pan=request.POST.get('payerMaskedCardNumber', '')
+                )
 
         if payment.status == PENDING:
             if status == 'FAILED':
+                logger.info(f'Jibit deposit (payment={payment.id}) canceled due to failed status')
+
                 payment.status = CANCELED
                 payment.save()
             else:

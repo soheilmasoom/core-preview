@@ -3,16 +3,16 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.viewsets import ModelViewSet
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.authentication import CustomTokenAuthentication
+from accounts.authentication import CustomJWTAuthentication, CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from ledger.models import Transfer
+from ledger.utils.fields import INIT
 from ledger.views.transfer_history_view import TransferSerializer
 
 
 class WithdrawViewSet(ModelViewSet):
-    authentication_classes = (SessionAuthentication, CustomTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, CustomTokenAuthentication, CustomJWTAuthentication)
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
     serializer_class = TransferSerializer
@@ -22,7 +22,7 @@ class WithdrawViewSet(ModelViewSet):
     filterset_fields = ['status']
 
     def perform_destroy(self, transfer: Transfer):
-        if transfer.status != Transfer.INIT and not transfer.in_freeze_time():
+        if transfer.status != INIT and not transfer.in_freeze_time():
             raise ValidationError({'status': 'زمان لازم برای لغو برداشت تمام شده است.'})
 
         transfer.reject()

@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 
 from django.db import models
 
@@ -45,21 +46,21 @@ class BaseTrade(models.Model):
 
     def get_paying_amount(self):
         if self.side == BUY:
-            return self.amount * self.price
+            return str(self.amount * self.price)
         else:
-            return self.amount
+            return str(self.amount)
 
     def get_receiving_amount(self):
         if self.side == SELL:
-            return self.amount * self.price
+            return str(self.amount * self.price)
         else:
-            return self.amount
+            return str(self.amount)
 
     def get_net_receiving_amount(self):
-        return self.get_receiving_amount() - self.fee_amount
+        return str(Decimal(self.get_receiving_amount()) - Decimal(self.fee_amount))
 
     def get_net_receiving_value(self):
-        return self.usdt_value - self.fee_usdt_value
+        return str(self.usdt_value - self.fee_usdt_value)
 
     class Meta:
         abstract = True

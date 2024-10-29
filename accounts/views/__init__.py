@@ -12,7 +12,6 @@ from .dashboard import dashboard
 from .change_password_view import ChangePasswordView
 from .quiz_passed_view import QuizPassedView
 from .email_verify_view import EmailOTPVerifyView, EmailVerifyView
-from .on_boarding_flow import OnBoardingFlowStatus
 from .change_phone import InitiateChangePhone, ChangePhoneView
 from .change_phone_before_verify import ChangePhoneBeforeVerifyView
 
@@ -36,3 +35,7 @@ from .user_statistics_view import UserStatisticsView
 from .consultation_view import ConsultationView
 
 from .company_verify_view import RegisterDocuments
+from .system_config_view import SystemConfigView
+from .signup_widget_view import SignupWidgetView, InitiateSignupWidgetView
+from .user_widget_view import UserWidgetView
+from .set_password import SetPasswordView

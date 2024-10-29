@@ -76,7 +76,7 @@ class Order(models.Model):
     LIMIT, MARKET = 'limit', 'market'
     FILL_TYPE_CHOICES = [(LIMIT, LIMIT), (MARKET, MARKET)]
 
-    TIME_IN_FORCE_OPTIONS = GTC, FOK, IOC = None, 'FOK', 'IOC'
+    TIME_IN_FORCE_OPTIONS = GTC, FOK, IOC, ME_IOC = None, 'FOK', 'IOC', 'ME_IOC'
 
     NEW, CANCELED, FILLED = 'new', 'canceled', 'filled'
     STATUS_CHOICES = [(NEW, NEW), (CANCELED, CANCELED), (FILLED, FILLED)]
@@ -85,8 +85,10 @@ class Order(models.Model):
     BOT = 'bot'
     ORDINARY = None
     LIQUIDATION = 'liquid'
+    FAST_CLOSE = 'f_close'
 
-    TYPE_CHOICES = ((DEPTH, 'depth'), (BOT, 'bot'), (ORDINARY, 'ordinary'), (LIQUIDATION, LIQUIDATION))
+    TYPE_CHOICES = ((DEPTH, 'depth'), (BOT, 'bot'), (ORDINARY, 'ordinary'), (LIQUIDATION, LIQUIDATION),
+                    (FAST_CLOSE, 'fast_close'))
 
     type = models.CharField(
         max_length=8,
@@ -118,10 +120,10 @@ class Order(models.Model):
     position = models.ForeignKey(to='ledger.MarginPosition', on_delete=models.CASCADE, null=True)
 
     time_in_force = models.CharField(
-        max_length=4,
+        max_length=6,
         blank=True,
         null=True,
-        choices=[(GTC, 'GTC'), (FOK, 'FOK'), (IOC, 'IOC')]
+        choices=[(GTC, 'GTC'), (FOK, 'FOK'), (IOC, 'IOC'), (ME_IOC, 'ME_IOC')]
     )
     login_activity = models.ForeignKey('accounts.LoginActivity', on_delete=models.SET_NULL, null=True, blank=True)
 
@@ -158,6 +160,10 @@ class Order(models.Model):
             ),
         ]
 
+        permissions = [
+            ("list_order", "Can list order"),
+        ]
+
     objects = models.Manager()
     open_objects = OpenOrderManager()
 
@@ -180,33 +186,52 @@ class Order(models.Model):
             order.save(update_fields=['status'])
             pipeline.release_lock(key=order.group_id)
 
+            position = order.position
+            from ledger.models import MarginPosition
+            if position and position.status == MarginPosition.INIT and not Order.open_objects.filter(position=position).exists():
+                position.status = MarginPosition.CLOSED
+                position.save(update_fields=['status'])
+
             pipeline.add_market_cache_data(self.symbol, [order], side=order.side, canceled=True)
 
     @classmethod
     def bulk_cancel_simple_orders(cls, to_cancel_orders: QuerySet):
-        orders = to_cancel_orders.filter(oco__isnull=True, status=cls.NEW)
+        orders = list(to_cancel_orders.filter(oco__isnull=True, status=cls.NEW).values('id', 'symbol_id'))
 
-        canceled_orders = []
         with WalletPipeline() as pipeline:  # type: WalletPipeline
-            PairSymbol.objects.select_for_update().filter(id=orders.values_list('symbol_id', flat=True))
-            order_queryset = Order.objects.filter(id__in=orders.values_list('id', flat=True))
+            list(PairSymbol.objects.select_for_update().filter(id__in=[o['symbol_id'] for o in orders]))
+            orders = Order.open_objects.filter(id__in=[o['id'] for o in orders]).only('group_id', 'id')  # to sync with symbol lock
 
-            for order in order_queryset:
-                order.status = cls.CANCELED
+            ids = []
+            for order in orders:
+                ids.append(order.id)
                 pipeline.release_lock(key=order.group_id)
-
                 pipeline.add_market_cache_data(order.symbol, [order], side=order.side, canceled=True)
 
-            Order.objects.bulk_update(order_queryset, ['status'])
-            canceled_orders = order_queryset
+            orders.update(status=cls.CANCELED)
 
-        return canceled_orders
+            from market.models import CancelRequest
+
+            cancel_requests = []
+            ids = set(ids).difference(set(CancelRequest.objects.filter(order_id__in=ids).values_list('order_id', flat=True)))
+
+            for _id in ids:
+                cancel_requests.append(
+                    CancelRequest(order_id=_id)
+                )
+            CancelRequest.objects.bulk_create(cancel_requests)
 
     @property
     def base_wallet(self):
-        return self.symbol.base_asset.get_wallet(
-            account=self.wallet.account, market=self.wallet.market, variant=self.wallet.variant
-        )
+        _base_wallet = getattr(self, '_base_wallet', None)
+
+        if not _base_wallet:
+            _base_wallet = self.symbol.base_asset.get_wallet(
+                account=self.wallet.account, market=self.wallet.market, variant=self.wallet.variant
+            )
+            setattr(self, '_base_wallet', _base_wallet)
+
+        return _base_wallet
 
     @property
     def unfilled_amount(self):
@@ -268,7 +293,7 @@ class Order(models.Model):
 
     def get_position_leverage(self):
         if self.wallet.market == Wallet.MARGIN:
-            return self.symbol.get_margin_position(self.account, self.side, self.is_open_position).leverage
+            return self.position.leverage
         return None
 
     def handle_oco_updates(self, pipeline):
@@ -380,7 +405,7 @@ class Order(models.Model):
         logger.info(log_prefix + f'make match finished fetching matching orders {len(matching_orders)} {timezone.now()}')
 
         if not matching_orders:
-            if (self.fill_type == Order.MARKET or self.time_in_force == self.IOC) and self.status == Order.NEW:
+            if (self.fill_type == Order.MARKET or self.time_in_force in [self.IOC, self.ME_IOC]) and self.status == Order.NEW:
                 self.status = Order.CANCELED
                 pipeline.release_lock(self.group_id)
                 self.save(update_fields=['status'])
@@ -394,8 +419,12 @@ class Order(models.Model):
         oco_orders = [self] if self.oco else []
 
         total_matched = 0
+        trade_pair_list = []
 
         for maker_order in matching_orders:
+            if self.time_in_force == self.ME_IOC and maker_order.account != self.account:
+                break
+
             trade_price = maker_order.price
 
             match_amount = min(maker_order.unfilled_amount, unfilled_amount)
@@ -422,6 +451,7 @@ class Order(models.Model):
                 trade_source=Trade.MARKET,
                 group_id=uuid4()
             )
+            trade_pair_list.append(trades_pair)
 
             if not maker_order.wallet.account.is_system():
                 Notification.send(
@@ -437,7 +467,7 @@ class Order(models.Model):
             self.release_lock(pipeline, match_amount)
             maker_order.release_lock(pipeline, match_amount)
 
-            register_transactions(pipeline, pair=trades_pair)
+            register_transactions(pipeline, pair=trades_pair, trade_pair_list=trade_pair_list)
 
             trades.extend(trades_pair.trades)
 
@@ -473,7 +503,7 @@ class Order(models.Model):
                 )
             )
 
-        if (self.fill_type == Order.MARKET or self.time_in_force == self.IOC) and self.status == Order.NEW:
+        if (self.fill_type == Order.MARKET or self.time_in_force in [self.IOC, self.ME_IOC]) and self.status == Order.NEW:
             self.status = Order.CANCELED
             pipeline.release_lock(self.group_id)
             self.save(update_fields=['status'])
@@ -631,34 +661,42 @@ class Order(models.Model):
                 reverse=True
             )
 
-            if trades[0].account_id != hedger_account_id:
-                for t in trades:
-                    trade_revenues.append(
-                        TradeRevenue.new(
-                            user_trade=t,
-                            group_id=t.group_id,
-                            source=TradeRevenue.USER,
-                            hedge_key='',
-                            ignore_trade_value=any_proxy or (t == maker_trade)
+            any_non_system_trade = bool(
+                {maker_trade.account_id, taker_trade.account_id} -
+                {settings.TRADER_ACCOUNT_ID, settings.MARKET_MAKER_ACCOUNT_ID}
+            )
+
+            if any_non_system_trade:
+                if trades[0].account_id != hedger_account_id:
+                    for t in trades:
+                        trade_revenues.append(
+                            TradeRevenue.new(
+                                user_trade=t,
+                                group_id=t.group_id,
+                                source=TradeRevenue.USER,
+                                hedge_key='',
+                                ignore_trade_value=any_proxy or (t == maker_trade),
+                                position=t.position
+                            )
                         )
-                    )
 
-            elif trades[0].account_id != trades[1].account_id:
-                if hedger_prefix:
-                    taker = trades[1] if trades[0].is_maker else trades[0]
-                    hedge_key = f'{hedger_prefix}-{taker.id}'
-                else:
-                    hedge_key = ''
+                elif trades[0].account_id != trades[1].account_id:
+                    if hedger_prefix:
+                        # taker = trades[1] if trades[0].is_maker else trades[0]
+                        hedge_key = f'{hedger_prefix}-{trades[0].id}'
+                    else:
+                        hedge_key = ''
 
-                trade = trades[1]
+                    trade = trades[1]
 
-                trade_revenues.append(TradeRevenue.new(
-                    user_trade=trade,
-                    group_id=trade.group_id,
-                    source=TradeRevenue.MAKER if trades[0].is_maker else TradeRevenue.TAKER,
-                    hedge_key=hedge_key,
-                    ignore_trade_value=any_proxy
-                ))
+                    trade_revenues.append(TradeRevenue.new(
+                        user_trade=trade,
+                        group_id=trade.group_id,
+                        source=TradeRevenue.MAKER if trades[0].is_maker else TradeRevenue.TAKER,
+                        hedge_key=hedge_key,
+                        ignore_trade_value=any_proxy,
+                        position=trade.position
+                    ))
 
         if trade_revenues:
             TradeRevenue.objects.bulk_create(trade_revenues)

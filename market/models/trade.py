@@ -10,6 +10,7 @@ from django.utils import timezone
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import get_group_id_field
 from ledger.utils.precision import floor_precision, decimal_to_str
+from ledger.utils.revert import revert_trx_group_via_revert_helper
 from market.models import BaseTrade
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,10 @@ class Trade(BaseTrade):
                 price__gte=0,
                 fee_amount__gte=0,
             ), name='check_market_trade_amounts', ),
+        ]
+
+        permissions = [
+            ("list_trade", "Can list trade"),
         ]
 
     def __str__(self):
@@ -153,26 +158,8 @@ class Trade(BaseTrade):
 
     def revert(self):
         from ledger.utils.wallet_pipeline import WalletPipeline
-        from ledger.models import Trx, Wallet
 
         with WalletPipeline() as pipeline:
             self.status = self.REVERT
             self.save(update_fields=['status'])
-
-            for trx in Trx.objects.filter(group_id=self.group_id):
-                if trx.receiver.has_balance(trx.amount):
-                    pipeline.new_trx(
-                        sender=trx.receiver,
-                        receiver=trx.sender,
-                        amount=trx.amount,
-                        group_id=trx.group_id,
-                        scope=Trx.REVERT
-                    )
-                else:
-                    pipeline.new_trx(
-                        sender=trx.receiver.asset.get_wallet(trx.receiver.account, market=Wallet.DEBT),
-                        receiver=trx.sender,
-                        amount=trx.amount,
-                        group_id=trx.group_id,
-                        scope=Trx.REVERT
-                    )
+            revert_trx_group_via_revert_helper(pipeline, self.account, self.group_id)

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 import django_filters
@@ -5,16 +6,15 @@ from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.generics import CreateAPIView, get_object_or_404, RetrieveAPIView
+from rest_framework.generics import CreateAPIView, get_object_or_404
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from accounts.authentication import CustomJWTAuthentication, TradeTokenAuthentication, CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
-from accounts.authentication import TradeTokenAuthentication, CustomTokenAuthentication
 from accounts.views.jwt_views import DelegatedAccountMixin, user_has_delegate_permission
 from ledger.models.wallet import ReserveWallet
 from market.models import Order, CancelRequest, PairSymbol, OCO
@@ -25,6 +25,7 @@ from market.serializers.order_serializer import OrderIDSerializer, OrderSerializ
 from market.serializers.order_stoploss_serializer import OrderStopLossSerializer
 from market.serializers.stop_loss_serializer import StopLossSerializer
 
+logger = logging.getLogger(__name__)
 
 class OrderFilter(django_filters.FilterSet):
     symbol = django_filters.CharFilter(field_name='symbol__name', lookup_expr='iexact')
@@ -51,7 +52,7 @@ class OrderViewSet(mixins.CreateModelMixin,
                    mixins.ListModelMixin,
                    GenericViewSet,
                    DelegatedAccountMixin):
-    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, CustomJWTAuthentication)
     pagination_class = LimitOffsetPagination
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
@@ -104,7 +105,7 @@ class OrderViewSet(mixins.CreateModelMixin,
 
 
 class OpenOrderListAPIView(APIView):
-    authentication_classes = (SessionAuthentication, CustomTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, CustomTokenAuthentication, CustomJWTAuthentication)
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
     def get(self, request, *args, **kwargs):
@@ -131,7 +132,7 @@ class OpenOrderListAPIView(APIView):
                 exclude_filters['wallet__variant__in'] = reserved_variants
 
         open_orders = Order.open_objects.filter(
-            wallet__account=account, stop_loss__isnull=True, **filters
+            account=account, stop_loss__isnull=True, **filters
         ).exclude(**exclude_filters).select_related('symbol', 'wallet', )
 
         open_stop_losses = StopLoss.open_objects.filter(
@@ -159,7 +160,7 @@ class OpenOrderListAPIView(APIView):
 
 
 class CancelOrderAPIView(CreateAPIView, DelegatedAccountMixin):
-    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, CustomJWTAuthentication)
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
     serializer_class = CancelRequestSerializer
@@ -174,7 +175,7 @@ class CancelOrderAPIView(CreateAPIView, DelegatedAccountMixin):
 
 
 class BulkCancelOrderAPIView(APIView):
-    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, JWTAuthentication)
+    authentication_classes = (SessionAuthentication, TradeTokenAuthentication, CustomJWTAuthentication)
     throttle_classes = [BursAPIRateThrottle, SustainedAPIRateThrottle]
 
     def post(self, request):
@@ -185,23 +186,25 @@ class BulkCancelOrderAPIView(APIView):
 
         q = Q()
         if order_ids:
-            q = q & Q(id__in=order_ids)
+            q = q | Q(id__in=order_ids)
 
         if client_order_id_list:
-            q = q & Q(client_order_id__in=client_order_id_list)
+            q = q | Q(client_order_id__in=client_order_id_list)
 
-        canceled_orders = []
-        if order_ids:
-            to_cancel_orders = Order.objects.filter(q, account=request.user.get_account(), status=Order.NEW)
-            canceled_orders = Order.bulk_cancel_simple_orders(to_cancel_orders=to_cancel_orders)
+        try:
+            if q:
+                to_cancel_orders = Order.open_objects.filter(q, account=request.user.get_account())
+                Order.bulk_cancel_simple_orders(to_cancel_orders=to_cancel_orders)
+        except Exception as e:
+            logger.exception(f'failed bulk cancel order due to {e}', extra={
+                'e': e
+            })
+            return Response({"Error": 'خطایی رخ داد.'}, 400)
 
-        return Response({
-            "cancelled_orders":  canceled_orders.values_list('id', flat=True) if canceled_orders else []
-        }, 200)
+        return Response({'status': 'done'}, status=200)
 
 
 class StopLossViewSet(ModelViewSet, DelegatedAccountMixin):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
     permission_classes = (IsAuthenticated,)
     pagination_class = LimitOffsetPagination
 
@@ -223,7 +226,6 @@ class StopLossViewSet(ModelViewSet, DelegatedAccountMixin):
 
 
 class OCOViewSet(ModelViewSet, DelegatedAccountMixin):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
     permission_classes = (IsAuthenticated,)
     pagination_class = LimitOffsetPagination
 

@@ -3,34 +3,36 @@ import logging
 from django.conf import settings
 from django.template import loader
 
-from accounts.models import User
-from accounts.utils.admin import url_to_edit_object
+from accounts.models import User, Notification
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.similarity import name_similarity
 from accounts.utils.similarity import split_names
 from accounts.utils.telegram import send_support_message
-from accounts.verifiers.utils import *
-from accounts.verifiers.zibal import ZibalRequester
 from accounts.verifiers.jibit import JibitRequester
+from accounts.verifiers.utils import *
 from financial.models import BankCard, BankAccount
 
 logger = logging.getLogger(__name__)
 
 
-def send_shahkar_rejection_message(user, resp):
+def send_shahkar_rejection_message(user):
     from accounts.tasks.send_sms import send_kavenegar_exclusive_sms
+
+    Notification.send(
+        recipient=user,
+        title='مالکیت سیم‌کارت',
+        message="کاربر گرامی، مالکیت سیم‌کارت شما جهت ارتقا به سطح 3 تایید نشد.",
+        link="/account/verification/advanced"
+    )
+
     context = {
         'brand': settings.BRAND,
     }
     content = loader.render_to_string(
         'accounts/notif/sms/shahkar_rejection_message.txt',
-        context=context)
+        context=context
+    )
     send_kavenegar_exclusive_sms(phone=user.phone, content=content)
-    logger.info(f'user: {user.id} mobile number and national code did not match', extra={
-        'user': user,
-        'resp': resp.data,
-        'phone': user.phone,
-        'national_code': user.national_code
-    })
 
 
 def shahkar_check(user: User, phone: str, national_code: str) -> Union[bool, None]:
@@ -38,10 +40,10 @@ def shahkar_check(user: User, phone: str, national_code: str) -> Union[bool, Non
     resp = requester.matching(phone_number=phone, national_code=national_code)
     if resp.success:
         if not resp.data.is_matched:
-            send_shahkar_rejection_message(user, resp)
+            send_shahkar_rejection_message(user)
         return resp.data.is_matched
     elif resp.data.code == 'INVALID_DATA':
-        send_shahkar_rejection_message(user, resp)
+        send_shahkar_rejection_message(user)
         return False
     else:
         logger.warning('shahkar not succeeded', extra={
@@ -168,9 +170,7 @@ def verify_bank_card(bank_card: BankCard, retry: int = 2) -> Union[bool, None]:
 
     if BankCard.live_objects.filter(card_pan=bank_card.card_pan, verified=True).exclude(id=bank_card.id).exists():
         logger.info('rejecting bank card because of duplication')
-        bank_card.reject_reason = BankCard.DUPLICATED
-        bank_card.verified = False
-        bank_card.save(update_fields=['reject_reason', 'verified'])
+        bank_card.reject(BankCard.DUPLICATED)
         return False
 
     requester = JibitRequester(bank_card.user)
@@ -182,21 +182,21 @@ def verify_bank_card(bank_card: BankCard, retry: int = 2) -> Union[bool, None]:
         if resp.success:
             update_bank_card_info(bank_card, data)
 
-            verified = name_similarity(bank_card.user.get_legal_name(), bank_card.owner_name)
+            if bank_card.user.ban_deposit_with_credit_bank_cards and bank_card.type in BankCard.CREDIT_FAMILY_TYPES:
+                bank_card.reject(BankCard.CREDIT_CARD)
+                return False
 
-            bank_card.verified = verified
+            else:
+                verified = name_similarity(bank_card.user.get_legal_name(), bank_card.owner_name)
+                if not verified:
+                    bank_card.reject(BankCard.NAME_MISMATCH)
+                else:
+                    bank_card.accept()
 
-            if not verified:
-                bank_card.reject_reason = 'name.mismatch'
-
-            bank_card.save(update_fields=['verified'])
-
-            return verified
+                return verified
 
         elif data.code == 'INVALID_DATA':
-            bank_card.verified = False
-            bank_card.reject_reason = data.code
-            bank_card.save(update_fields=['verified', 'reject_reason'])
+            bank_card.reject(data.code)
 
             return False
         else:
@@ -264,7 +264,7 @@ def verify_bank_account(bank_account: BankAccount, retry: int = 2) -> Union[bool
 
     verified = False
 
-    if len(owners) >= 1:
+    if bank_account.deposit_status == BankAccount.ACTIVE and len(owners) >= 1:
         owner = owners[0]
         owner_full_name = owner['firstName'] + ' ' + owner['lastName']
         verified = name_similarity(owner_full_name, user.get_legal_name())
@@ -285,9 +285,7 @@ def verify_bank_card_by_national_code(bank_card: BankCard, retry: int = 2) -> Un
 
     if BankCard.live_objects.filter(card_pan=bank_card.card_pan, verified=True).exclude(id=bank_card.id).exists():
         logger.info('rejecting bank card because of duplication')
-        bank_card.reject_reason = BankCard.DUPLICATED
-        bank_card.verified = False
-        bank_card.save(update_fields=['reject_reason', 'verified'])
+        bank_card.reject(BankCard.DUPLICATED)
         user.change_status(User.REJECTED)
         return False
 

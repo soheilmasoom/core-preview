@@ -25,18 +25,14 @@ class ManualTransaction(models.Model):
 
     allow_debt = models.BooleanField(default=False)
 
-    def save(self, *args, **kwargs):
-        old = self.id and ManualTransaction.objects.get(id=self.id)
-
-        if old and old.status == DONE and self.status != DONE:
+    def change_status(self, status: str):
+        if self.status == DONE and status != DONE:
             return
 
         with WalletPipeline() as pipeline:  # type: WalletPipeline
-            super(ManualTransaction, self).save(*args, **kwargs)
-
             amount = self.amount
 
-            if (not old or old.status != DONE) and self.status == DONE:
+            if self.status != DONE and status == DONE:
                 sender, receiver = self.wallet.asset.get_wallet(Account.system()), self.wallet
 
                 if self.type == self.WITHDRAW:
@@ -63,3 +59,6 @@ class ManualTransaction(models.Model):
                     scope=Trx.MANUAL,
                     amount=amount
                 )
+
+            self.status = status
+            self.save(update_fields=['status'])

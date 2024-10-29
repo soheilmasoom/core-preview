@@ -1,30 +1,34 @@
+import random
+import string
 import uuid
+from datetime import timedelta
 from decimal import Decimal
+from enum import Enum
 from typing import Union
 from uuid import uuid4
-from datetime import timedelta
-from enum import Enum
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, UserManager
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import Q, UniqueConstraint, Sum
+from django.db.models import Q, Sum
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from simple_history.models import HistoricalRecords
 from django_otp.plugins.otp_totp.models import TOTPDevice
+from simple_history.models import HistoricalRecords
 
+from accounts.admin_guard.html_tags import url_to_edit_object
+from accounts.models import Notification, Account, SystemConfig
 from accounts.models.user_feature_perm import UserFeaturePerm
-from analytics.event.producer import get_kafka_producer
-from accounts.models import Notification, Account
-from accounts.utils.admin import url_to_edit_object
-from analytics.utils.dto import UserEvent
+from accounts.utils.mask import get_masked_phone
 from accounts.utils.telegram import send_support_message
 from accounts.utils.validation import PHONE_MAX_LENGTH
 from accounts.validators import mobile_number_validator, national_card_code_validator, telephone_number_validator
-from accounts.utils.mask import get_masked_phone
+from analytics.event.producer import get_kafka_producer
+from analytics.utils.dto import UserEvent
+from ledger.utils.fields import DONE
 
 
 class CustomUserManager(UserManager):
@@ -44,8 +48,6 @@ class User(AbstractUser):
     LEVEL4 = 4
 
     INIT, PENDING, REJECTED, VERIFIED = 'init', 'pending', 'rejected', 'verified'
-
-    PROMOTIONS = SHIB, VOUCHER, PEPE = 'true', 'voucher', 'pepe'
 
     USERNAME_FIELD = 'phone'
 
@@ -97,6 +99,7 @@ class User(AbstractUser):
             (LEVEL1, 'level 1'), (LEVEL2, 'level 2'), (LEVEL3, 'level 3'), (LEVEL4, 'level 4'),
         ),
         verbose_name='سطح',
+        db_index=True
     )
 
     verify_status = models.CharField(
@@ -135,7 +138,7 @@ class User(AbstractUser):
     telephone_verified = models.BooleanField(null=True, blank=True, verbose_name='تاییدیه شماره تلفن')
 
     selfie_image_verified = models.BooleanField(null=True, blank=True, verbose_name='تاییدیه عکس سلفی')
-    selfie_image_verifier = models.ForeignKey(
+    verifier = models.ForeignKey(
         to='accounts.User',
         on_delete=models.SET_NULL,
         null=True,
@@ -143,11 +146,15 @@ class User(AbstractUser):
         verbose_name='تایید کننده عکس سلفی'
     )
 
-    archived = models.BooleanField(default=False, verbose_name='بایگانی')
+    archived = models.BooleanField(
+        db_index=True,
+        default=False,
+        verbose_name='بایگانی'
+    )
 
     margin_quiz_pass_date = models.DateTimeField(null=True, blank=True)
 
-    show_margin = models.BooleanField(default=True, verbose_name='امکان مشاهده حساب تعهدی')
+    show_margin = models.BooleanField(default=False, verbose_name='امکان مشاهده حساب تعهدی')
     show_strategy_bot = models.BooleanField(default=True, verbose_name='امکان مشاهده ربات')
     show_community = models.BooleanField(default=False, verbose_name='امکان مشاهده کامیونیتی')
     show_staking = models.BooleanField(default=True, verbose_name='امکان مشاهده سرمایه‌گذاری')
@@ -164,7 +171,7 @@ class User(AbstractUser):
         choices=((1, 1), (2, 2), (3, 3), (5, 5), (10, 10), (20, 20), (40, 40))
     )
 
-    promotion = models.CharField(max_length=256, blank=True, choices=[(p, p) for p in PROMOTIONS])
+    mission_journey = models.ForeignKey('gamify.MissionJourney', null=True, blank=True, on_delete=models.SET_NULL)
 
     custom_crypto_withdraw_ceil = models.PositiveBigIntegerField(null=True, blank=True)
     custom_fiat_withdraw_ceil = models.PositiveBigIntegerField(null=True, blank=True)
@@ -173,6 +180,8 @@ class User(AbstractUser):
 
     suspended_until = models.DateTimeField(null=True, blank=True, verbose_name='زمان تعلیق شدن کاربر')
     suspension_reason = models.CharField(max_length=128, blank=True, null=True)
+
+    ban_deposit_with_credit_bank_cards = models.BooleanField(default=False)
 
     def __str__(self):
         name = get_masked_phone(self.username)
@@ -198,6 +207,22 @@ class User(AbstractUser):
 
         device = TOTPDevice.objects.filter(user=self, confirmed=True).first()
         return device.verify_token(totp)
+
+    def archive_registered_phone(self):
+        account = self.get_account()
+
+        errors = []
+        if self.level == User.LEVEL1:
+            if account.has_zero_balance():
+                self.username = self.username + "#" + ''.join(random.choices(string.ascii_lowercase, k=4))
+                self.phone = None
+                self.save(update_fields=['phone', 'username'])
+            else:
+                errors.append("موجودی کاربر صفر نیست")
+        else:
+            errors.append("کاربر سطح یک نیست")
+        if errors:
+            raise ValidationError(errors)
 
     def get_account(self) -> Account:
         if not self.id or self.is_anonymous:
@@ -247,8 +272,8 @@ class User(AbstractUser):
         return self.bankcard_set.filter(kyc=True).first()
 
     def get_verify_weight(self) -> int:
-        from accounts.models import FinotechRequest
-        return FinotechRequest.objects.filter(
+        from accounts.models import UserAuthRequest
+        return UserAuthRequest.objects.filter(
             user=self,
             search_key__isnull=False
         ).exclude(search_key='').aggregate(w=Sum('weight'))['w'] or 0
@@ -268,6 +293,8 @@ class User(AbstractUser):
         permissions = [
             ("can_generate_notification", "Can Generate All Kind Of Notification"),
             ("manage_users", "Manage Users Info"),
+            ("list_user", "Can list user"),
+            ("can_view_user_selfie", "Can view user selfie"),
         ]
 
     def change_status(self, status: str, reason: str = ''):
@@ -372,9 +399,9 @@ class User(AbstractUser):
 
         from accounts.models import LoginActivity
         if old and old.password != self.password:
-            for login_Activity in (LoginActivity.objects.filter(user=self)
+            for login_activity in (LoginActivity.objects.filter(user=self)  # todo: maybe error prone
                     .exclude(refresh_token__isnull=True, session__isnull=True)):
-                login_Activity.destroy()
+                login_activity.destroy()
 
         if self.level == self.LEVEL2 and self.verify_status == self.PENDING:
             if self.national_code_phone_verified and self.selfie_image_verified:
@@ -419,9 +446,43 @@ class User(AbstractUser):
         else:
             return self.get_full_name()
 
+    def get_fiat_deposits(self) -> int:
+        from financial.models import Payment
+
+        return Payment.objects.filter(user=self, status=DONE).aggregate(s=Sum('amount'))['s'] or 0
+
+    def is_margin_active(self) -> bool:
+        if SystemConfig.get_system_config().show_margin:
+            return True
+
+        return self.show_margin
+
+    def ban_deposit_by_credit_cards(self):
+        with transaction.atomic():
+            if not self.ban_deposit_with_credit_bank_cards:
+                Notification.send(
+                    recipient=self,
+                    title='غیر فعال شدن واریز با کارت‌های هدیه و مجازی',
+                    message='در راستای افزایش امنیت حساب کاربری شما، واریز با کارت‌های هدیه و مجازی غیر فعال شد. توجه داشته باشید که همچنان می‌توانید با کارت‌های اعتباری از طریق درگاه پرداخت، حساب خود را شارژ نمایید.'
+                )
+
+            self.ban_deposit_with_credit_bank_cards = True
+            self.save(update_fields=['ban_deposit_with_credit_bank_cards'])
+
+            from financial.models import BankCard
+
+            cards = BankCard.objects.filter(user=self, verified=True, deleted=False)
+
+            for card in cards.filter(type__in=BankCard.CREDIT_FAMILY_TYPES):
+                card.reject(BankCard.CREDIT_CARD)
+
+            for card in cards.filter(type=''):
+                card.verified = None
+                card.save(update_fields=['verified'])
+
 
 @receiver(post_save, sender=User)
-def handle_user_save(sender, instance, created, **kwargs):
+def handle_user_save(sender, instance: User, created, **kwargs):
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return
 
@@ -438,6 +499,11 @@ def handle_user_save(sender, instance, created, **kwargs):
     if referrer:
         referrer_id = referrer.id
 
+    if not instance.mission_journey:
+        promotion = ''
+    else:
+        promotion = instance.mission_journey.name
+
     event = UserEvent(
         user_id=instance.id,
         first_name=instance.first_name,
@@ -451,7 +517,7 @@ def handle_user_save(sender, instance, created, **kwargs):
         birth_date=instance.birth_date,
         can_withdraw=instance.can_withdraw,
         can_trade=instance.can_trade,
-        promotion=instance.promotion,
+        promotion=promotion,
         chat_uuid=instance.chat_uuid,
         verify_status=instance.verify_status,
         reject_reason=instance.reject_reason,
@@ -481,6 +547,9 @@ class LevelGrants(models.Model):
     max_daily_fiat_withdraw = models.PositiveBigIntegerField(null=True, blank=True, default=0)
 
     max_daily_fiat_deposit = models.PositiveBigIntegerField(null=True, blank=True, default=None)
+
+    class Meta:
+        verbose_name_plural = "Level Grants"
 
     @classmethod
     def get_level_grants(cls, level: int) -> 'LevelGrants':

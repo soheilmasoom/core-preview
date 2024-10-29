@@ -19,7 +19,7 @@ from ledger.models import MarginTransfer, Asset, Wallet, MarginPosition, MarginL
 from ledger.models.asset import CoinField, AssetSerializerMini
 from ledger.models.margin import SymbolField
 from ledger.models.position import MarginHistoryModel
-from ledger.utils.external_price import LONG
+from ledger.utils.external_price import LONG, USDT
 from ledger.utils.fields import get_serializer_amount_field
 from ledger.utils.margin import check_margin_view_permission
 from ledger.utils.precision import floor_precision, get_presentation_amount, get_margin_coin_presentation_balance
@@ -98,50 +98,28 @@ class MarginTransferSerializer(serializers.ModelSerializer):
     asset = AssetSerializerMini(read_only=True)
     id = serializers.IntegerField(write_only=True, required=False)
 
-    def create(self, validated_data):
+    def validate(self, attrs):
         user = self.context['request'].user
-
-        symbol = validated_data.get('position_symbol')
+        symbol = attrs.get('position_symbol')
         check_margin_view_permission(user.get_account(), symbol)
 
-        return super(MarginTransferSerializer, self).create(validated_data)
-
-    def validate(self, attrs):
         if attrs['asset'] not in Asset.objects.filter(symbol__in=[Asset.IRT, Asset.USDT]):
             raise ValidationError({'asset': 'فقط میتوانید ریال و تتر انتقال دهید.'})
 
-        if attrs['type'] not in [MarginTransfer.SPOT_TO_MARGIN, MarginTransfer.MARGIN_TO_SPOT] and not attrs.get('position_symbol'):
-            raise ValidationError({'position_symbol': 'بازار را وارد کنید'})
-
-        if attrs['type'] == MarginTransfer.SPOT_TO_MARGIN:
-            if not self.context['request'].user.show_margin:
-                raise ValidationError('Dont Have allow to Transfer Margin')
-
-            user_total_equity = MarginPosition.objects.filter(
-                account=self.context['request'].user.get_account(),
-                status__in=[MarginPosition.TERMINATING, MarginPosition.OPEN],
-                symbol__base_asset=attrs.get('asset')
-            ).annotate(base_asset_value=F('asset_wallet__balance') * F('symbol__last_trade_price')).\
-                aggregate(total_equity=Sum('base_asset_value') + Sum('base_wallet__balance'))['total_equity'] or 0
-
-            base = attrs.get('asset').symbol
-            sys_config = SystemConfig.get_system_config()
-
-            if (base == Asset.USDT and user_total_equity >= sys_config.total_user_margin_usdt_base) or \
-                    (base == Asset.IRT and user_total_equity >= sys_config.total_user_margin_irt_base):
-                raise ValidationError('Cant place margin order Due to reach total Equity limit')
+        if attrs['type'] not in [MarginTransfer.SPOT_TO_MARGIN, MarginTransfer.MARGIN_TO_SPOT] and not symbol:
+            raise ValidationError({'symbol': 'بازار را وارد کنید'})
 
         if attrs['type'] in [MarginTransfer.POSITION_TO_MARGIN, MarginTransfer.MARGIN_TO_POSITION]:
-            if attrs['position_symbol'].base_asset != attrs['asset']:
-                asset = attrs['position_symbol'].base_asset.name_fa
+            if symbol.base_asset != attrs['asset']:
+                asset = symbol.base_asset.name_fa
                 raise ValidationError({'asset': f'فقط میتوانید {asset} انتقال دهید.'})
 
             if not attrs.get('id'):
                 raise ValidationError({'id': 'id موقعیت را وارد کنید'})
 
             position = MarginPosition.objects.filter(
-                account=self.context['request'].user.get_account(),
-                symbol=attrs['position_symbol'],
+                account=user.get_account(),
+                symbol=symbol,
                 status__in=[MarginPosition.OPEN],
                 id=attrs.pop('id')
             ).first()
@@ -201,15 +179,41 @@ class MarginPositionInfoView(APIView):
 
         margin_leverage, _ = MarginLeverage.objects.get_or_create(account=account)
 
+        user_total_equity = MarginPosition.objects.filter(
+            account=account,
+            status__in=[MarginPosition.TERMINATING, MarginPosition.OPEN],
+            symbol__base_asset=symbol_model.base_asset
+        ).annotate(base_asset_value=F('asset_wallet__balance') * F('symbol__last_trade_price')).\
+            aggregate(total_equity=Sum('base_asset_value') + Sum('base_wallet__balance'))['total_equity'] or 0
+
+        sys_config = SystemConfig.get_system_config()
+
+        if symbol_model.base_asset.symbol == USDT:
+            user_available_equity = sys_config.total_user_margin_usdt_base - user_total_equity
+        else:
+            user_available_equity = sys_config.total_user_margin_irt_base - user_total_equity
+
+        user_available_equity = max(0, user_available_equity * Decimal('0.99'))
+
+        max_buy = min(free * margin_leverage.leverage, user_available_equity)
+
+        max_sell = 0
+        if symbol_model.last_trade_price:
+            max_sell = max_buy / symbol_model.last_trade_price
+
         data = {
-            'max_buy_volume': free * margin_leverage.leverage,
-            'max_sell_volume': free * margin_leverage.leverage / symbol_model.last_trade_price
+            'max_buy_volume': max_buy,
+            'max_sell_volume': max_sell,
         }
 
-        data["max_buy_volume"] = get_margin_coin_presentation_balance(symbol_model.base_asset.symbol,
-                                                               max(Decimal('0'), data['max_buy_volume']) * Decimal('0.99'))
-        data["max_sell_volume"] = get_margin_coin_presentation_balance(symbol_model.asset.symbol,
-                                                                max(Decimal('0'), data['max_sell_volume']) * Decimal('0.99'))
+        data["max_buy_volume"] = get_margin_coin_presentation_balance(
+            symbol_model.base_asset.symbol, max(Decimal('0'), data['max_buy_volume']) * Decimal('0.99')
+        )
+
+        data["max_sell_volume"] = get_margin_coin_presentation_balance(
+            symbol_model.asset.symbol, max(Decimal('0'), data['max_sell_volume']) * Decimal('0.99')
+        )
+
         return Response(data)
 
 
@@ -257,7 +261,7 @@ class MarginPositionHistoryView(ListAPIView):
 class LeverageViewSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
-        max_leverage = SystemConfig.get_system_config().max_margin_leverage
+        max_leverage = self.context['request'].user.get_account().get_max_margin_leverage()
 
         if not 1 <= Decimal(attrs.get('leverage')) <= max_leverage:
             raise ValidationError(f'ضریب باید عددی صحیحی بین 1 و {max_leverage} باشد.')
@@ -271,7 +275,7 @@ class LeverageViewSerializer(serializers.ModelSerializer):
 
 class MarginLeverageView(APIView):
     def post(self, request):
-        serializer = LeverageViewSerializer(data=request.data)
+        serializer = LeverageViewSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         data = serializer.data
 
@@ -286,10 +290,9 @@ class MarginLeverageView(APIView):
 
     def get(self, request):
         margin_leverage, _ = MarginLeverage.objects.get_or_create(account=request.user.account)
-        sys_config = SystemConfig.get_system_config()
 
         return Response({
             "leverage": margin_leverage.leverage,
-            "max_leverage": sys_config.max_margin_leverage
+            "max_leverage": request.user.get_account().get_max_margin_leverage()
         }, 200)
 

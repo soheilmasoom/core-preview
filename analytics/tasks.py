@@ -78,7 +78,7 @@ def trigger_users_event(threshold=1000):
         id__gt=tracker.last_id
     ).order_by('id')[:threshold]
 
-    for user in user_list:
+    for user in user_list:  # type: User
         if not hasattr(user, 'account'):
             account = user.get_account()
         else:
@@ -97,7 +97,7 @@ def trigger_users_event(threshold=1000):
             birth_date=user.birth_date,
             can_withdraw=user.can_withdraw,
             can_trade=user.can_trade,
-            promotion=user.promotion,
+            promotion=user.mission_journey.name,
             chat_uuid=user.chat_uuid,
             verify_status=user.verify_status,
             reject_reason=user.reject_reason,
@@ -110,7 +110,7 @@ def trigger_users_event(threshold=1000):
 def trigger_transfer_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.TRANSFER)
     transfer_list = Transfer.objects.filter(
-        id__gt=tracker.last_id, status=Transfer.DONE
+        id__gt=tracker.last_id, status=DONE
     ).order_by('id')[:threshold]
 
     for transfer in transfer_list:
@@ -136,7 +136,7 @@ def trigger_fiat_transfer_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.FIAT_WITHDRAW)
     fiat_transfer_list = FiatWithdrawRequest.objects.filter(
         id__gt=tracker.last_id,
-        status=FiatWithdrawRequest.DONE
+        status=DONE
     ).order_by('id')[:threshold]
 
     for fiat_transfer in fiat_transfer_list:
@@ -301,7 +301,7 @@ def trigger_prize_event(threshold=1000):
 def trigger_stake_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.STAKING)
     stake_request_list = StakeRequest.objects.filter(
-        id__gt=tracker.last_id, status=Transfer.DONE
+        id__gt=tracker.last_id, status=DONE
     ).order_by('id')[:threshold]
 
     for stake_request in stake_request_list:
@@ -344,6 +344,8 @@ def trigger_wallet_event(threshold=1000):
     wallet_list = Wallet.objects.filter(
         id__gt=tracker.last_id,
         account__user__isnull=False
+    ).exclude(
+        market=Wallet.VOUCHER
     ).order_by('id')[:threshold]
 
     for wallet in wallet_list:
@@ -353,8 +355,6 @@ def trigger_wallet_event(threshold=1000):
             event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(wallet.id) + WalletEvent.type),
             id=wallet.id,
             balance=wallet.balance,
-            expiration=wallet.expiration,
-            credit=wallet.credit,
             coin=wallet.asset.symbol,
             market=wallet.market
         )
@@ -365,6 +365,13 @@ def trigger_transaction_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.TRANSACTION)
     trx_list = Trx.objects.filter(
         id__gt=tracker.last_id
+    ).exclude(
+        sender__market=Wallet.VOUCHER
+    ).exclude(
+        receiver__market=Wallet.VOUCHER
+    ).exclude(
+        sender__account__type__isnull=False,
+        receiver__account__type__isnull=False,
     ).order_by('id')[:threshold]
 
     for trx in trx_list:

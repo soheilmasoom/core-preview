@@ -26,7 +26,11 @@ class CancelRequestSerializer(serializers.ModelSerializer):
         login_activity = LoginActivity.from_request(request)
         try:
             with transaction.atomic():
-                req, created = CancelRequest.objects.get_or_create(order_id=order.id, login_activity=login_activity)
+                req, created = CancelRequest.objects.get_or_create(
+                    order_id=order.id,
+                    defaults={'login_activity': login_activity}
+                )
+
                 if created:
                     order.cancel()
         except Exception as e:
@@ -80,7 +84,7 @@ class CancelRequestSerializer(serializers.ModelSerializer):
             else:
                 order_filter = {'client_order_id': client_order_id}
             order = Order.open_objects.filter(
-                wallet__account=self.context['account'],
+                account=self.context['account'],
                 **order_filter
             ).first()
             if not order or order.stop_loss:

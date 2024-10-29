@@ -4,7 +4,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, get_object_or_404, ListAPIView
 from rest_framework.pagination import LimitOffsetPagination
 
-from accounts.models import LoginActivity
+from accounts.models import LoginActivity, SystemConfig
 from accounts.permissions import IsBasicVerified
 from financial.models import BankCard, PaymentRequest, Payment
 from financial.models.bank_card import BankCardSerializer
@@ -21,18 +21,33 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
         return payment_request.get_gateway().get_initial_redirect_url(payment_request)
 
     def create(self, validated_data):
+        is_bank_card_required = validated_data.get('is_bank_card_required', True)
         amount = validated_data['amount']
-        card_pan = validated_data['card_pan']
         source = validated_data.get('source', PaymentRequest.DESKTOP)
-
         user = self.context['request'].user
-        bank_card = get_object_or_404(BankCard, card_pan=card_pan, user=user, verified=True, deleted=False)
 
-        if not bank_card.verified:
-            raise ValidationError({'card_pan': 'شماره کارت تایید نشده است.'})
+        bank_card = None
+        if is_bank_card_required:
+            card_pan = validated_data['card_pan']
+            bank_card = get_object_or_404(BankCard, card_pan=card_pan, user=user, verified=True, deleted=False)
+
+            if not bank_card.verified:
+                raise ValidationError({'card_pan': 'شماره کارت تایید نشده است.'})
 
         from financial.models import Gateway
-        gateway = Gateway.get_active_deposit(user, amount=amount)
+        is_for_widget = not is_bank_card_required
+        gateway = Gateway.get_active_deposit(user, amount=amount, is_for_widget=is_for_widget)
+
+        if not gateway:
+            raise ValidationError('در حال حاضر امکان واریز وجود ندارد.')
+
+        suspended = gateway.suspended
+
+        if not suspended and SystemConfig.get_system_config().limit_ipg_to_users_without_payment:
+            suspended = user.get_fiat_deposits() < 1_000_000
+
+        if suspended:
+            raise ValidationError('در حال حاضر امکان واریز ریال، فقط به صورت شناسه واریز وجود دارد. برای استفاده از این امکان از نسخه وب صرافی استفاده کنید.')
 
         if amount < gateway.min_deposit_amount:
             raise ValidationError('حداقل میزان واریز {} تومان است.'.format(humanize_number(gateway.min_deposit_amount)))
@@ -43,7 +58,7 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
         login_activity = LoginActivity.from_request(self.context['request'])
 
         try:
-            payment_request = gateway.create_payment_request(bank_card=bank_card, amount=amount, source=source)
+            payment_request = gateway.create_payment_request(user=user, amount=amount, source=source, bank_card=bank_card)
             payment_request.login_activity = login_activity
             payment_request.save(update_fields=['login_activity'])
 

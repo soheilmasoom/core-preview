@@ -1,4 +1,4 @@
-from .info_views import MarketInfoView
+from .info_views import MarketIRTInfoView, MarketUSDTInfoView
 from .order_views import (OrderViewSet, CancelOrderAPIView, StopLossViewSet, OpenOrderListAPIView, OCOViewSet,
                           BulkCancelOrderAPIView)
 from .order_book import OrderBookAPIView

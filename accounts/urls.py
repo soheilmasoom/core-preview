@@ -26,6 +26,10 @@ urlpatterns = [
     path('signup/init/', views.InitiateSignupView.as_view()),
     path('signup/', views.SignupView.as_view()),
 
+    path('widget/signup/init/', views.InitiateSignupWidgetView.as_view()),
+    path('widget/signup/', views.SignupWidgetView.as_view()),
+    path('widget/user/', views.UserWidgetView.as_view()),
+
     path('otp/verify/', views.VerifyOTPView.as_view()),
     path('otp/send/', views.SendOTPView.as_view()),
 
@@ -34,6 +38,7 @@ urlpatterns = [
 
     path('forget/init/', views.InitiateForgetPasswordView.as_view()),
     path('forget/', views.ForgetPasswordView.as_view()),
+    path('password/set/', views.SetPasswordView.as_view()),
 
     path('verify/basic/', views.BasicInfoVerificationViewSet.as_view({
         'get': 'retrieve',
@@ -65,8 +70,6 @@ urlpatterns = [
     path('password/', views.ChangePasswordView.as_view()),
 
     path('quiz/passed/', views.QuizPassedView.as_view()),
-
-    path('user/onboarding/', views.OnBoardingFlowStatus.as_view()),
 
     path('phone/init/', views.InitiateChangePhone.as_view()),
 
@@ -117,5 +120,5 @@ urlpatterns = [
 
     path('notify/', views.NotifyView.as_view()),
 
-    path('consultation/', views.ConsultationView.as_view())
+    path('consultation/', views.ConsultationView.as_view()),
 ]

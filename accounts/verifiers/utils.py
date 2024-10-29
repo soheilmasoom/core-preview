@@ -3,7 +3,9 @@ from typing import Union
 
 from django.utils.baseconv import base64
 
-from accounts.verifiers.finotech import ServerError
+
+class ServerError(Exception):
+    pass
 
 
 @dataclass
@@ -123,9 +125,16 @@ class NationalCard:
 
 
 @dataclass
+class Request:
+    path: str
+    method: str
+    data: dict = None
+
+
+@dataclass
 class Response:
     data: Union[
-        dict, list,
+        dict, list, None,
         MatchingData,
         CardInfoData,
         IBANInfoData,
@@ -142,8 +151,12 @@ class Response:
     success: bool = True
     status_code: int = 200
 
-    def get_success_data(self):
+    def get_success_data(self, err: str = None):
         if not self.success:
-            raise ServerError
+            raise ServerError(err)
 
         return self.data
+
+    @property
+    def ok(self):
+        return 200 <= self.status_code < 400

@@ -9,8 +9,10 @@ from health.models import AlertType, AlertTrigger
 
 @admin.register(AlertType)
 class AlertTypeAdmin(admin.ModelAdmin):
-    list_display = ('type', 'get_status', 'warning_threshold', 'error_threshold')
+    list_display = ('type', 'get_status', 'warning_threshold', 'error_threshold', 'alert_on_same_status')
+    list_editable = ('alert_on_same_status', )
     readonly_fields = ('get_status', 'get_description', 'get_type_help', )
+    ordering = ('id', )
 
     @admin.display(description='status', )
     def get_status(self, alert_type: AlertType):

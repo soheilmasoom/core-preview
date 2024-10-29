@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
@@ -10,7 +11,7 @@ from django.utils import timezone
 from accounts.models import Referral, SystemConfig
 from ledger.models import Wallet, Trx, Asset
 from ledger.models.margin import REPAY, BORROW, OPEN
-from ledger.models.position import MarginHistoryModel
+from ledger.models.position import MarginHistoryModel, MarginPosition
 from ledger.utils.cache import cache_for
 from ledger.utils.external_price import BUY, SELL, LONG, SHORT
 from ledger.utils.precision import floor_precision, get_symbol_presentation_price
@@ -18,6 +19,8 @@ from ledger.utils.wallet_pipeline import WalletPipeline
 from market.models import Order, Trade, BaseTrade, PairSymbol
 from market.models import ReferralTrx
 from market.utils.price import get_symbol_prices
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -88,7 +91,7 @@ class TradesPair:
         )
 
 
-def _update_trading_positions(trading_positions, pipeline):
+def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
     from ledger.models import MarginPosition
     to_update_positions = {}
     for trade_info in trading_positions:
@@ -101,16 +104,41 @@ def _update_trading_positions(trading_positions, pipeline):
             position.average_price = (previous_amount * previous_price +
                                       short_amount * trade_info.trade_price) / position.amount
 
-        is_close_position = (trade_info.loan_type == Order.LIQUIDATION or
-                             (floor_precision(position.asset_wallet.balance +
-                                              pipeline.get_wallet_balance_diff(position.asset_wallet.id),
-                                              position.symbol.step_size) == Decimal('0') and
-                              trade_info.loan_type != BORROW)) and \
-                            floor_precision(position.loan_wallet.balance
-                                            + pipeline.get_wallet_balance_diff(position.loan_wallet.id),
-                                            position.symbol.step_size) >= Decimal('0')
+        total_match_amount = 0
+        for trade_pair in trade_pair_list:
+            total_match_amount += trade_pair.maker_trade.amount
 
-        if is_close_position:
+        position_asset_wallet = position.asset_wallet
+        position_asset_wallet.refresh_from_db()
+        is_position_live = position.liquidation_price and (
+                (position.side == SHORT and trade_info.trade_price < position.liquidation_price) or
+                (position.side == LONG and trade_info.trade_price > position.liquidation_price))
+
+        if ((trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and
+                trade_info.loan_type != Order.LIQUIDATION and
+                (total_match_amount < floor_precision(abs(position_asset_wallet.balance), position.symbol.step_size)))
+                and is_position_live):
+
+            position.rebalance(pipeline, price=trade_info.trade_price)
+
+        asset_balance = (position.asset_wallet.balance +
+                         pipeline.get_wallet_balance_diff(position.asset_wallet.id))
+
+        floored_asset_balance = floor_precision(asset_balance, position.symbol.step_size)
+
+        loan_balance = (position.loan_wallet.balance
+                        + pipeline.get_wallet_balance_diff(position.loan_wallet.id))
+
+        floored_loan_balance = floor_precision(loan_balance, position.symbol.step_size)
+
+        is_position_closed = (((floored_asset_balance > Decimal('0') and floored_loan_balance >= 0) or
+                               (floored_asset_balance == 0)) and trade_info.loan_type != BORROW)
+
+        if is_position_closed:
+            orders = Order.open_objects.filter(position=position).exclude(group_id=trade_info.group_id)
+            Order.cancel_orders(orders)
+
+            logger.info(f"Closing position:{position.id}")
             position.convert_dust(pipeline)
 
             position.status = MarginPosition.CLOSED
@@ -120,9 +148,28 @@ def _update_trading_positions(trading_positions, pipeline):
             position.base_wallet.refresh_from_db()
             remaining_balance = position.base_wallet.balance + pipeline.get_wallet_balance_diff(position.base_wallet.id)
 
+            if trade_info.loan_type == Order.LIQUIDATION:
+                sender = position.get_insurance_wallet()
+                receiver = position.base_wallet
+                scope = Trx.MARGIN_INSURANCE
+                group_id = trade_info.group_id
+
+                key = (sender, receiver, scope, group_id)
+                if key in pipeline._trxs:
+                    received_fund = pipeline._trxs[key].amount
+                    to_send_fund = min(received_fund, remaining_balance)
+                    pipeline.new_trx(
+                        sender=receiver,
+                        receiver=sender,
+                        amount=to_send_fund,
+                        scope=scope,
+                        group_id=group_id
+                    )
+                    remaining_balance -= to_send_fund
+
             insurance_fee_amount = max(Decimal('0'), remaining_balance * SystemConfig.get_system_config().insurance_fee)
             if insurance_fee_amount > Decimal(0) and trade_info.loan_type == Order.LIQUIDATION:
-                group_id=uuid4()
+                group_id = uuid4()
                 pipeline.new_trx(
                     position.base_wallet,
                     position.get_insurance_wallet(),
@@ -148,6 +195,7 @@ def _update_trading_positions(trading_positions, pipeline):
                 )
 
                 position.create_transfer_equity_history(
+                    pipeline=pipeline,
                     amount=remaining_balance,
                     debt_amount=position.debt_amount,
                     total_balance=position.total_balance,
@@ -155,10 +203,12 @@ def _update_trading_positions(trading_positions, pipeline):
                     price=trade_info.trade_price
                 )
 
-        if trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and\
-                not is_close_position:
-            position.rebalance(pipeline, price=trade_info.trade_price)
-        position.set_liquidation_price(pipeline)
+        is_position_trade_beyond_liquidation = not is_position_live and trade_info.loan_type != OPEN
+        if is_position_trade_beyond_liquidation:
+            position.liquidate(pipeline, charge_insurance=True)
+        
+        if (is_position_live or trade_info.loan_type == OPEN) and not is_position_trade_beyond_liquidation:
+            position.set_liquidation_price(pipeline)
 
         to_update_positions[position.id] = position
 
@@ -167,7 +217,7 @@ def _update_trading_positions(trading_positions, pipeline):
     )
 
 
-def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade: bool = False):
+def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade: bool = False, trade_pair_list=None):
     trading_positions = []
     if not fake_trade:
         trading_positions = _register_borrow_transaction(pipeline, pair=pair)
@@ -200,7 +250,7 @@ def register_transactions(pipeline: WalletPipeline, pair: TradesPair, fake_trade
 
     if not fake_trade:
         trading_positions.extend(_register_repay_transaction(pipeline, pair=pair))
-        _update_trading_positions(trading_positions, pipeline)
+        _update_trading_positions(trading_positions, pipeline, trade_pair_list)
 
 
 def _register_trade_transaction(pipeline: WalletPipeline, pair: TradesPair):
@@ -230,13 +280,13 @@ def _register_margin_transaction(pipeline: WalletPipeline, pair: TradesPair, loa
     trading_positions = []
     for order, trade in ((pair.maker_order, pair.maker_trade), (pair.taker_order, pair.taker_trade)):
         if order.wallet.market == Wallet.MARGIN:
-            position = order.symbol.get_margin_position(order.account, order.side, order.is_open_position)
+            position = order.position
             if position.side == LONG:
                 from ledger.utils.external_price import get_other_side
                 order_side = get_other_side(order_side)
 
             if order.side == order_side:
-                if position.side == SHORT:
+                if (position.side == SHORT and order.is_open_position) or (position.side == LONG and not order.is_open_position):
                     trade_amount = trade.amount - trade.fee_amount if order_side == BUY else trade.amount
                 else:
                     trade_amount = trade.amount - trade.fee_amount if order_side == SELL else trade.amount
@@ -262,8 +312,8 @@ def _register_margin_transaction(pipeline: WalletPipeline, pair: TradesPair, loa
                         scope=Trx.MARGIN_TRANSFER
                     )
                     position.equity += trade_value
+                    position.status = MarginPosition.OPEN
 
-                order.symbol.get_margin_position(order.account, order.side, order.is_open_position)
                 fee_amount = floor_precision(trade.fee_amount,
                                              Trade.fee_amount.field.decimal_places) if trade.fee_amount else Decimal(0)
                 trade_amount = trade.amount - fee_amount if order_side == BUY else trade.amount

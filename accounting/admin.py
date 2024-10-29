@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from simple_history.admin import SimpleHistoryAdmin
 
 from accounting.models import Account, AccountTransaction, TransactionAttachment, Vault, VaultItem, ReservedAsset, \
-    AssetPrice, TradeRevenue, PeriodicFetcher, BlocklinkIncome, BlocklinkDustCost
+    AssetPrice, TradeRevenue, PeriodicFetcher, BlocklinkIncome, BlocklinkDustCost, TempCredit
 from accounting.models.provider_income import ProviderIncome
 from gamify.utils import clone_model
 from ledger.utils.precision import humanize_number
@@ -53,10 +53,11 @@ class AccountTransactionAdmin(admin.ModelAdmin):
 
 @admin.register(Vault)
 class VaultAdmin(admin.ModelAdmin):
-    list_display = ('name', 'market', 'type', 'get_usdt', 'get_value', 'real_value', 'expected_max_value')
+    list_display = ('name', 'market', 'type', 'get_usdt', 'get_value', 'real_value', 'expected_max_value',
+                    'should_be_updated')
     ordering = ('-real_value', )
-    list_filter = ('market', 'type')
-    list_editable = ('expected_max_value', )
+    list_filter = ('market', 'type', 'should_be_updated')
+    list_editable = ('expected_max_value', 'should_be_updated')
 
     @admin.display(description='usdt')
     def get_usdt(self, vault: Vault):
@@ -73,15 +74,16 @@ class VaultAdmin(admin.ModelAdmin):
 
 
 @admin.register(VaultItem)
-class VaultItemAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ('coin', 'vault', 'balance', 'value_usdt', 'value_irt', 'expected_min_balance', 'updated')
+class VaultItemAdmin(SimpleHistoryAdmin):
+    list_display = ('coin', 'vault', 'balance', 'free', 'value_usdt', 'value_irt', 'expected_min_balance', 'updated')
     search_fields = ('coin', 'vault__name')
     list_filter = ('vault__name', 'vault__type', 'vault__market')
     ordering = ('-value_usdt', )
     readonly_fields = ('value_usdt', 'value_irt')
     list_editable = ('expected_min_balance', )
 
-    def save_model(self, request, obj, form, change):
+    def save_model(self, request, obj: VaultItem, form, change):
+        obj.updated = timezone.now()
         super(VaultItemAdmin, self).save_model(request, obj, form, change)
         obj.vault.update_real_value(timezone.now())
 
@@ -121,10 +123,10 @@ class TradeRevenueAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
     search_fields = ('group_id', 'hedge_key', 'symbol__name', )
     list_filter = (GapFilledFilter, 'symbol', 'source',)
-    readonly_fields = ('account', 'symbol', 'group_id', 'login_activity')
+    readonly_fields = ('account', 'symbol', 'group_id', 'login_activity', 'gap_revenue', 'fee_revenue')
     actions = ('zero_gap_revenue', )
 
-    @admin.action(description='Zero Gap Revenue')
+    @admin.action(description='Zero Gap Revenue', permissions=['change'])
     def zero_gap_revenue(self, request, queryset):
         queryset.filter(gap_revenue__isnull=True).update(gap_revenue=0)
 
@@ -158,3 +160,22 @@ class BlocklinkIncomeAdmin(admin.ModelAdmin):
 @admin.register(BlocklinkDustCost)
 class BlocklinkDustCostAdmin(admin.ModelAdmin):
     list_display = ('updated', 'network', 'amount', 'usdt_value',)
+
+
+@admin.register(TempCredit)
+class TempCreditAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
+    list_display = ('get_username', 'asset', 'amount', 'get_amount')
+    ordering = ('user', 'asset')
+    search_fields = ('user__phone', 'user__first_name', 'user__last_name', 'asset__symbol')
+    list_editable = ('amount', )
+    raw_id_fields = ('user', )
+
+    @admin.display(description='user', ordering='user')
+    def get_username(self, credit: TempCredit):
+        return mark_safe(
+            f'<span dir="ltr">{credit.user}</span>'
+        )
+
+    @admin.display(description='amount', ordering='amount')
+    def get_amount(self, credit: TempCredit):
+        return humanize_number(credit.amount)

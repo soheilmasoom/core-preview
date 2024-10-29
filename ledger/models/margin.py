@@ -99,6 +99,7 @@ class MarginTransfer(models.Model):
                 from ledger.models import MarginPosition
                 position = MarginPosition.objects.select_for_update().get(id=position.id)
                 pipeline_balance_diff = position.withdrawable_base_asset + position.debt_amount
+                position.equity = self.position.equity
 
             sender.has_balance(self.amount, raise_exception=True, pipeline_balance_diff=pipeline_balance_diff)
 

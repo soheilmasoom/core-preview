@@ -3,20 +3,17 @@ import math
 import time
 from datetime import datetime
 from decimal import Decimal
-from json import JSONDecodeError
 from math import log10
 from typing import List, Union
 
 import requests
 from decouple import config
 from django.conf import settings
-from django.core.cache import cache
-from urllib3.exceptions import ReadTimeoutError
 
 from accounts.verifiers.jibit import Response
 from ledger.exceptions import HedgeError
 from ledger.models import Asset, Transfer
-from ledger.utils.cache import get_cache_func_key
+from ledger.utils.base_requester import BaseRequester
 from ledger.utils.dto import MarketInfo, NetworkInfo, WithdrawStatus, CoinInfo
 from ledger.utils.external_price import SELL, BUY
 from ledger.utils.fields import DONE
@@ -32,53 +29,21 @@ SPOT, FUTURES = 'spot', 'futures'
 BINANCE, KUCOIN, MEXC = 'binance', 'kucoin', 'mexc'
 
 
-class ProviderRequester:
-    def collect_api(self, path: str, method: str = 'GET', data: dict = None, cache_timeout: int = None,
-                    timeout: float = 10) -> Response:
-        cache_key = None
-        if cache_timeout:
-            cache_key = 'provider:' + get_cache_func_key(self.__class__, path, method, data)
-            cached_result = cache.get(cache_key)
-            if cached_result is not None:
-                return Response(data=cached_result)
+class ProviderRequester(BaseRequester):
 
-        result = self._collect_api(path, method, data, timeout=timeout)
+    CACHE_PREFIX = 'provider'
 
-        if cache_timeout and result.success:
-            cache.set(cache_key, result.data, cache_timeout)
+    def get_base_url(self):
+        return config('PROVIDER_BASE_URL', default='https://provider.raastinwallet.com')
 
-        return result
+    def get_auth_token(self):
+        return config('PROVIDER_TOKEN', '')
 
-    def _collect_api(self, path: str, method: str = 'GET', data: dict = None, timeout: float = 10) -> Response:
-        if data is None:
-            data = {}
-
-        url = config('PROVIDER_BASE_URL', default='https://provider.raastin.com') + path
-
-        request_kwargs = {
-            'url': url,
-            'timeout': timeout,
-            'headers': {'Authorization': config('PROVIDER_TOKEN')},
-        }
-
-        try:
-            if method == 'GET':
-                resp = requests.get(params=data, **request_kwargs)
-            else:
-                method_prop = getattr(requests, method.lower())
-                resp = method_prop(json=data, **request_kwargs)
-        except (requests.exceptions.ConnectionError, ReadTimeoutError, requests.exceptions.Timeout):
-            raise TimeoutError
-
-        try:
-            resp_json = resp.json()
-        except JSONDecodeError:
-            resp_json = None
-
-        return Response(data=resp_json, success=resp.ok, status_code=resp.status_code)
+    def __bool__(self):
+        return bool(self.get_auth_token())
 
     def get_market_info(self, asset: Asset, side: str) -> MarketInfo:
-        data = self.collect_api('/api/v1/market/', data={'coin': asset.symbol, 'side': side}, cache_timeout=300).data
+        data = self.collect_api('/api/v1/market/', data={'coin': asset.symbol, 'side': side}, cache_timeout=60).data
         return MarketInfo(
             id=data['id'],
             coin=asset.symbol,
@@ -93,15 +58,10 @@ class ProviderRequester:
             max_quantity=data['max_quantity'],
         )
 
-    def get_spot_balance_map(self, exchange: str, market: str = 'trade') -> dict:
-        resp = self.collect_api('/api/v1/spot/balance/', data={'exchange': exchange, 'market': market})
-        if not resp.success:
-            return {}
-        return resp.data
-
     def get_futures_info(self, exchange: str) -> dict:
         resp = self.collect_api('/api/v1/futures/', timeout=30, data={'exchange': exchange})
-        return resp.data
+        if resp.ok:
+            return resp.data
 
     def get_network_info(self, coin: str, network: str = None) -> List[NetworkInfo]:
         params = {'coin': coin}
@@ -149,14 +109,18 @@ class ProviderRequester:
             buy_amount = -buy_amount
             side = SELL
 
-        round_digits = -int(log10(step_size))
+        round_digits = min(-int(log10(step_size)), 8)
 
         order_amount = round(buy_amount, round_digits)
 
-        price = get_price(
-            asset.symbol + Asset.USDT,
-            side=BUY
-        )
+        if hedge_price:
+            price = hedge_price
+        else:
+            price = get_price(
+                asset.symbol + Asset.USDT,
+                side=BUY
+            )
+
         min_notional = market_info.min_notional * Decimal('1.1')
 
         if order_amount * price < min_notional:
@@ -177,24 +141,8 @@ class ProviderRequester:
                         logger.info('ignored due to small order')
                         return
 
-        if side == BUY and market_info.base_coin == 'BUSD':
-            busd_balance = Decimal(self.get_spot_balance_map(market_info.exchange)['BUSD'])
-            needed_busd = order_amount * price
-
-            if needed_busd > busd_balance:
-                logger.info('providing busd for order')
-                to_buy_busd = max(math.ceil((needed_busd - busd_balance) * Decimal('1.01')), min_notional)
-
-                self.new_order(
-                    request_id=request_id,
-                    asset=Asset.get('BUSD'),
-                    side=BUY,
-                    amount=Decimal(to_buy_busd),
-                    scope='prv-base',
-                )
-
         if hedge_price:
-            hedge_price = floor_precision(hedge_price, -int(log10(market_info.tick_size)))
+            hedge_price = floor_precision(hedge_price, min(-int(log10(market_info.tick_size)), 8))
 
         order = self.new_order(
             request_id=request_id,
@@ -216,13 +164,14 @@ class ProviderRequester:
             'coin': asset.symbol,
             'scope': scope,
             'amount': str(amount),
-            'side': side
+            'side': side,
+            'price': price and str(price)
         }
 
-        if price:
-            data['price'] = str(price)
-
         resp = self.collect_api('/api/v1/orders/', method='POST', data=data, timeout=15)
+
+        if not resp.success:
+            logger.info('provider new order failed with status=%s and %s' % (resp.status_code, resp.data))
 
         return resp.success
 
@@ -267,7 +216,7 @@ class ProviderRequester:
         if coins:
             data['coins'] = ','.join(coins)
 
-        resp = self.collect_api('/api/v1/coins/info/', data=data, timeout=30, cache_timeout=300)
+        resp = self.collect_api('/api/v1/coins/info/', data=data, timeout=30, cache_timeout=60)
 
         if not resp.success:
             return []
@@ -345,10 +294,6 @@ class MockProviderRequester(ProviderRequester):
             max_quantity=Decimal(1000),
             min_notional=Decimal(10)
         )
-
-    def get_spot_balance_map(self, exchange: str, market: str = 'trade') -> dict:
-        self._collect_api('/')
-        return {}
 
     def get_futures_info(self, exchange: str) -> dict:
         self._collect_api('/')

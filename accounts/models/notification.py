@@ -33,7 +33,7 @@ class Notification(models.Model):
     INFO, SUCCESS, WARNING, ERROR = 'info', 'success', 'warning', 'error'
     LEVEL_CHOICES = ((INFO, INFO), (SUCCESS, SUCCESS), (WARNING, WARNING), (ERROR, ERROR))
 
-    PUSH_WAITING, PUSH_SENT = 'w', 's'
+    PUSH_WAITING, PUSH_SENT, PUSH_CANCELED = 'w', 's', 'c'
 
     CORE, NINJA, CRM = 'core', 'ninja', 'crm'
     SOURCES = ((CORE, CORE), (NINJA, NINJA), (CRM, CRM))
@@ -45,7 +45,7 @@ class Notification(models.Model):
     ORDINARY, REPLACEABLE, DIFF = 'ord', 'rep', 'dif'
     TYPE_CHOICE = ((ORDINARY, ORDINARY), (REPLACEABLE, REPLACEABLE), (DIFF, DIFF))
 
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(default=timezone.now)
     read_date = models.DateTimeField(null=True, blank=True)
 
     recipient = models.ForeignKey(to='accounts.User', on_delete=models.CASCADE)
@@ -66,7 +66,7 @@ class Notification(models.Model):
     hidden = models.BooleanField(default=False)
 
     push_status = models.CharField(
-        choices=((PUSH_WAITING, 'waiting'), (PUSH_SENT, 'sent')),
+        choices=((PUSH_WAITING, 'waiting'), (PUSH_SENT, 'sent'), (PUSH_CANCELED, 'canceled')),
         blank=True,
         max_length=1,
         db_index=True

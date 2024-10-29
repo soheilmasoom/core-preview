@@ -7,11 +7,11 @@ from django.conf import settings
 from django.db import models
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
+from simple_history.models import HistoricalRecords
 
-from _base.settings import SYSTEM_ACCOUNT_ID, OTC_ACCOUNT_ID
 from ledger.models import Wallet
-from ledger.utils.external_price import BUY, SELL
 from ledger.utils.fields import get_amount_field
+from multimedia.storage import PublicMediaStorage
 
 
 class InvalidAmount(Exception):
@@ -28,22 +28,28 @@ class Asset(models.Model):
     USDT = 'USDT'
     SHIB = 'SHIB'
 
-    ACTIVE, DISABLED = 'active', 'disabled'
+    OTC_STATUSES = ACTIVE, DISABLED, BUY, SELL, COMING_SOON = 'active', 'disabled', 'buy', 'sell', 'soon'
+    OTC_TRADE_ACTIVE_STATUSES = ACTIVE, BUY, SELL
 
     PRECISION = 8
+
+    history = HistoricalRecords()
 
     objects = models.Manager()
     live_objects = LiveAssetManager()
 
-    name = models.CharField(max_length=32, blank=True)
-    name_fa = models.CharField(max_length=32, blank=True)
-    original_name_fa = models.CharField(max_length=32, blank=True)
-
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
+    name = models.CharField(max_length=32, unique=True)
+    name_fa = models.CharField(max_length=32, blank=True)
+    original_name_fa = models.CharField(max_length=32, blank=True)
+
     symbol = models.CharField(max_length=16, unique=True, db_index=True)
     original_symbol = models.CharField(max_length=16, blank=True)
+    trading_view_symbol = models.CharField(max_length=32, blank=True)
+
+    logo = models.ImageField(blank=True, null=True, storage=PublicMediaStorage(), upload_to='coins/logo/')
 
     enable = models.BooleanField(default=False)
     order = models.SmallIntegerField(default=0, db_index=True)
@@ -51,7 +57,6 @@ class Asset(models.Model):
     trend = models.BooleanField(default=False)
     pin_to_top = models.BooleanField(default=False)
 
-    trade_enable = models.BooleanField(default=True)
     hedge = models.BooleanField(default=True)
 
     spread_category = models.ForeignKey('ledger.AssetSpreadCategory', on_delete=models.SET_NULL, null=True, blank=True)
@@ -60,11 +65,11 @@ class Asset(models.Model):
 
     otc_status = models.CharField(
         max_length=8,
-        default=ACTIVE,
-        choices=((ACTIVE, ACTIVE), (BUY, BUY), (SELL, SELL), (DISABLED, DISABLED)),
+        default=COMING_SOON,
+        choices=[(s, s) for s in OTC_STATUSES],
     )
 
-    price_page = models.BooleanField(default=False)
+    price_page = models.BooleanField(default=True)
 
     price_alert_chanel_sensitivity = get_amount_field(null=True)
 
@@ -74,8 +79,10 @@ class Asset(models.Model):
 
     margin_interest_fee = get_amount_field(default=Decimal('0.00015'))
 
+    rebranded_to = models.OneToOneField('Asset', on_delete=models.SET_NULL, null=True, blank=True)
+
     class Meta:
-        ordering = ('-pin_to_top', '-trend', 'order',)
+        ordering = ('-pin_to_top', '-trend', 'otc_status', 'order',)
 
     def __str__(self):
         return self.symbol
@@ -94,7 +101,9 @@ class Asset(models.Model):
         if isinstance(account, int):
             account_filter = {'account_id': account}
 
-            if account in (SYSTEM_ACCOUNT_ID, OTC_ACCOUNT_ID):
+            if account in (settings.SYSTEM_ACCOUNT_ID, settings.OTC_ACCOUNT_ID, settings.MARKET_MAKER_ACCOUNT_ID,
+                           settings.TRADER_ACCOUNT_ID, settings.REVERT_HELPER_ACCOUNT, settings.MARGIN_POOL_ACCOUNT,
+                           settings.MARGIN_INSURANCE_ACCOUNT):
                 account_type = Account.SYSTEM
             else:
                 account_type = Account.ORDINARY
@@ -119,6 +128,10 @@ class Asset(models.Model):
 
         return wallet
 
+    @property
+    def otc_trade_active(self) -> bool:
+        return self.otc_status in self.OTC_TRADE_ACTIVE_STATUSES
+
     @classmethod
     def get(cls, symbol: str):
         return Asset.objects.get(symbol=symbol)
@@ -142,12 +155,13 @@ class Asset(models.Model):
         else:
             return 1
 
-    @property
-    def future_symbol(self):
-        if self.symbol == 'SHIB':
-            return '1000SHIB'
-        else:
-            return self.symbol
+
+class AssetVariant(models.Model):
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='variants')
+    name = models.CharField(max_length=32, unique=True)
+
+    def __str__(self):
+        return self.name
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -159,7 +173,6 @@ class AssetSerializer(serializers.ModelSerializer):
 class AssetSerializerMini(serializers.ModelSerializer):
     precision = serializers.SerializerMethodField()
     step_size = serializers.SerializerMethodField()
-    logo = serializers.SerializerMethodField()
     original_name_fa = serializers.SerializerMethodField()
     original_symbol = serializers.SerializerMethodField()
 
@@ -169,9 +182,6 @@ class AssetSerializerMini(serializers.ModelSerializer):
     def get_step_size(self, asset: Asset):
         return Asset.PRECISION
 
-    def get_logo(self, asset: Asset):
-        return settings.MINIO_STORAGE_STATIC_URL + '/coins/%s.png' % asset.symbol
-
     def get_original_symbol(self, asset: Asset):
         return asset.get_original_symbol()
 
@@ -180,8 +190,8 @@ class AssetSerializerMini(serializers.ModelSerializer):
 
     class Meta:
         model = Asset
-        fields = ('symbol', 'precision', 'step_size', 'name', 'name_fa', 'logo', 'original_symbol',
-                  'original_name_fa')
+        fields = ('id', 'symbol', 'precision', 'step_size', 'name', 'name_fa', 'logo', 'original_symbol',
+                  'original_name_fa', 'trading_view_symbol', 'otc_status')
 
 
 class CoinField(serializers.CharField):

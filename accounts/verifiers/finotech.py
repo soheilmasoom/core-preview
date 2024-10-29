@@ -8,7 +8,7 @@ from urllib3.exceptions import ReadTimeoutError
 from decouple import config
 from decouple import config
 
-from accounts.models import FinotechRequest
+from accounts.models import UserAuthRequest
 from accounts.utils.validation import gregorian_to_jalali_date_str
 
 logger = logging.getLogger(__name__)
@@ -17,10 +17,6 @@ token_cache = caches['token']
 
 
 FINOTECH_TOKEN_KEY = 'finotech-token'
-
-
-class ServerError(Exception):
-    pass
 
 
 class FinotechRequester:
@@ -60,19 +56,19 @@ class FinotechRequester:
             return token
 
     def collect_api(self, path: str, method: str = 'GET', data: dict = None, force_renew_token: bool = False,
-                    search_key: str = None) -> dict:
+                    search_key: str = '') -> dict:
 
         if search_key:
-            request = FinotechRequest.objects.filter(
+            request = UserAuthRequest.objects.filter(
                 created__gt=timezone.now() - datetime.timedelta(days=30),
                 search_key=search_key,
-                service=FinotechRequest.FINOTECH
+                service=UserAuthRequest.FINOTECH
             ).order_by('-created').first()
 
             if request:
 
                 if request.status_code >= 500:
-                    raise ServerError
+                    raise ServerError('Finotech requester error')
 
                 if request.status_code not in (200, 201):
                     return
@@ -86,12 +82,12 @@ class FinotechRequester:
 
         url = 'https://apibeta.finnotech.ir' + path.format(clientId='raastin')
 
-        req_object = FinotechRequest.objects.create(
+        req_object = UserAuthRequest.objects.create(
             url=url,
             method=method,
             data=data,
             user=self._user,
-            service=FinotechRequest.FINOTECH
+            service=UserAuthRequest.FINOTECH
         )
 
         url += '?trackId=%s' % req_object.track_id
@@ -139,7 +135,7 @@ class FinotechRequester:
         req_object.save()
 
         if resp.status_code >= 500:
-            raise ServerError
+            raise ServerError('Finotech requester error')
 
         if not resp.ok:
             logger.error('failed to call finnotech', extra={
@@ -165,7 +161,7 @@ class FinotechRequester:
         )
 
         if not resp:
-            raise ServerError
+            raise ServerError('Finotech requester error')
 
         return resp['isValid']
 
@@ -192,7 +188,7 @@ class FinotechRequester:
         )
 
         if not resp:
-            raise ServerError
+            raise ServerError('Finotech requester error')
 
         return resp['isValid']
 

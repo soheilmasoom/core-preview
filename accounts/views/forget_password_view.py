@@ -21,12 +21,12 @@ class InitiateForgotPasswordSerializer(serializers.Serializer):
         login_phrase = validated_data['login']
         user = User.get_user_from_login(login_phrase)
 
-        if user:
-            VerificationCode.send_otp_code(user.phone, VerificationCode.SCOPE_FORGET_PASSWORD)
-        else:
-            user = AnonymousUser()
-
-        return user
+        return VerificationCode.send_otp_code(
+            self.context['request'],
+            login_phrase,
+            VerificationCode.SCOPE_FORGET_PASSWORD,
+            user=user
+        ) or {}
 
 
 class InitiateForgetPasswordView(APIView):
@@ -37,7 +37,7 @@ class InitiateForgetPasswordView(APIView):
         if request.user.is_authenticated:
             return Response({'msg': 'already logged in', 'code': codes.USER_ALREADY_LOGGED_IN})
 
-        serializer = InitiateForgotPasswordSerializer(data=request.data)
+        serializer = InitiateForgotPasswordSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         serializer.save()

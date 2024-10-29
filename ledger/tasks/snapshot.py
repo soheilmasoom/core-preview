@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from celery import shared_task
+from django.db.models import Q
 
 from ledger.models import SystemSnapshot, Asset, AssetSnapshot
 from ledger.utils.overview import AssetOverview
@@ -25,7 +26,7 @@ def create_snapshot(now: datetime, prices: dict):
         margin_insurance=overview.get_margin_insurance_balance(),
         prize=overview.get_all_prize_value(),
 
-        binance_margin_ratio=overview.get_binance_margin_ratio(),
+        binance_margin_ratio=overview.get_binance_margin_ratio() or 0,
     )
 
     assets = Asset.live_objects.all()
@@ -43,7 +44,7 @@ def create_snapshot(now: datetime, prices: dict):
             users_amount=0,
         )
 
-    for s in AssetSnapshot.objects.filter(asset__enable=True):
+    for s in AssetSnapshot.objects.filter(Q(asset__enable=True) | ~Q(total_amount=0) | ~Q(users_amount=0)):
         asset = s.asset
 
         s.updated = now

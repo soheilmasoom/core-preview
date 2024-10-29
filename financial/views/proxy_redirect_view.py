@@ -1,7 +1,8 @@
 from django.http import Http404
 from django.views.generic import TemplateView
+from rest_framework.generics import get_object_or_404
 
-from financial.models import Gateway
+from financial.models import Gateway, PaymentRequest
 
 
 class ProxyPaymentRedirectView(TemplateView):
@@ -16,6 +17,8 @@ class ProxyPaymentRedirectView(TemplateView):
         if not gateway_class or not authority:
             raise Http404
 
+        payment_request = get_object_or_404(PaymentRequest, authority=authority, gateway__type=gateway)
+
         return {
-            'url': gateway_class.get_payment_url(authority)
+            'url': gateway_class.get_payment_url(payment_request)
         }

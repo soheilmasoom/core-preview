@@ -1,6 +1,7 @@
 import logging
 from datetime import timedelta
 
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Q
@@ -30,6 +31,13 @@ class BaseChangeRequest(models.Model):
         blank=True,
         null=True
     )
+
+    @classmethod
+    def any_active_for(cls, user: User):
+        return cls.objects.filter(
+            user=user,
+            status=PENDING
+        ).exists()
 
     def accept(self):
         pass

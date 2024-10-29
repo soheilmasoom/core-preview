@@ -5,13 +5,20 @@ from django.utils import timezone
 
 from gamify import models
 from gamify.models import UserMission, Task
-from gamify.utils import clone_mission_template, check_prize_achievements
+from gamify.utils import clone_mission_template
+
+
+class MissionDigestInline(admin.TabularInline):
+    fields = ('title', 'description', 'order')
+    model = models.MissionDigest
+    extra = 1
 
 
 @admin.register(models.MissionJourney)
 class MissionJourneyAdmin(admin.ModelAdmin):
     list_display = ('name', 'active', 'default')
     list_editable = ('active', 'default')
+    inlines = [MissionDigestInline]
 
 
 @admin.register(models.Achievement)
@@ -37,8 +44,8 @@ class MissionTemplateAdmin(admin.ModelAdmin):
     list_editable = ('order', 'active')
     inlines = (TaskInline, AchievementInline)
     actions = ('clone_mission', )
-    list_filter = ('journey', )
-    ordering = ('-id', )
+    list_filter = ('journey', 'active')
+    ordering = ('journey', 'order', 'id')
 
     @admin.display(description='tasks')
     def get_tasks(self, mission: models.MissionTemplate):
@@ -46,7 +53,8 @@ class MissionTemplateAdmin(admin.ModelAdmin):
 
     @admin.action(description='Clone', permissions=['change'])
     def clone_mission(self, request, queryset):
-        for mission in queryset:
+        for mission in queryset:  # type: models.MissionTemplate
+            mission.active = False
             clone_mission_template(mission)
 
 
@@ -55,7 +63,7 @@ class UserMissionExpiredFilter(SimpleListFilter):
     parameter_name = 'expired'
 
     def lookups(self, request, model_admin):
-        return [('yes', 'بله'), ('no', 'خیر')]
+        return [('1', 'بله'), ('0', 'خیر')]
 
     def queryset(self, request, queryset):
         action = self.value()
@@ -65,7 +73,7 @@ class UserMissionExpiredFilter(SimpleListFilter):
 
         q = Q(mission__expiration__isnull=False, mission__expiration__lt=timezone.now())
 
-        if action == 'no':
+        if action == '0':
             q = ~q
 
         return queryset.filter(q)
@@ -73,10 +81,11 @@ class UserMissionExpiredFilter(SimpleListFilter):
 
 @admin.register(UserMission)
 class UserMissionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'mission', 'finished', 'expired', 'get_expiration')
+    list_display = ('created', 'user', 'mission', 'finished', 'expired', 'get_expiration')
     list_filter = ('mission', 'finished', UserMissionExpiredFilter)
     actions = ('check_achievement', )
     raw_id_fields = ('user', )
+    search_fields = ('user__phone', )
 
     @admin.display(description='expiration', ordering='mission__expiration')
     def get_expiration(self, user_mission: UserMission):

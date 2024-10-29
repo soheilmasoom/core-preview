@@ -3,8 +3,9 @@ from django.contrib.admin import SimpleListFilter
 from django.db.models import Sum
 from django.utils.safestring import mark_safe
 
+from accounts.admin_guard.admin import AdvancedAdmin
 from accounts.models import User
-from accounts.utils.admin import url_to_admin_list
+from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object
 from ledger.utils.precision import get_presentation_amount
 from .models import StakeRequest, StakeRevenue, StakeOption
 
@@ -49,15 +50,16 @@ class StakeStatusFilter(SimpleListFilter):
 
 
 @admin.register(StakeRequest)
-class StakeRequestAdmin(admin.ModelAdmin):
+class StakeRequestAdmin(AdvancedAdmin):
     list_display = ['get_stake_option_asset', 'get_stake_option_apr', 'created', 'get_amount', 'get_user', 'status',
                     'start_at', 'cancel_request_at', 'cancel_pending_at', 'end_at', 'get_stake_revenue']
     actions = ('stake_request_processing', 'stake_request_done',
                'stake_request_cancel_processing', 'stake_request_cancel_done',)
     readonly_fields = ('get_stake_option_asset', 'account', 'status', 'stake_option', 'get_amount', 'amount',
-                       'get_user', 'login_activity')
+                       'get_user', 'login_activity', 'group_id')
     list_filter = ('status', StakeStatusFilter)
     search_fields = ('account__user__phone', 'stake_option__asset__symbol')
+    list_permission_exclude_filters = ('id', 'account')
 
     def get_stake_option_asset(self, stake_request: StakeRequest):
         return stake_request.stake_option.asset
@@ -77,7 +79,7 @@ class StakeRequestAdmin(admin.ModelAdmin):
 
     def get_user(self, stake_request: StakeRequest):
         user = stake_request.account.user
-        link = url_to_admin_list(User) + '{}/change'.format(user.id)
+        link = url_to_edit_object(user)
         return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
     get_user.short_description = 'user'
 
@@ -101,7 +103,9 @@ class StakeRequestAdmin(admin.ModelAdmin):
 
     @admin.action(description='بردن به حالت لغو تکمیل شده', permissions=['view'])
     def stake_request_cancel_done(self, request, queryset):
-        queryset = queryset.filter(status__in=(StakeRequest.CANCEL_PENDING, StakeRequest.CANCEL_PROCESS))
+        queryset = queryset.filter(
+            status__in=(StakeRequest.CANCEL_PENDING, StakeRequest.CANCEL_PROCESS, StakeRequest.DONE)
+        )
         for stake_request in queryset:
             stake_request.change_status(StakeRequest.CANCEL_COMPLETE)
 
@@ -117,7 +121,7 @@ class StakeRevenueAdmin(admin.ModelAdmin):
 
     def get_user(self, stake_revenue: StakeRevenue):
         user = stake_revenue.stake_request.account.user
-        link = url_to_admin_list(User) + '{}/change'.format(user.id)
+        link = url_to_edit_object(user)
         return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
     get_user.short_description = 'user'
 

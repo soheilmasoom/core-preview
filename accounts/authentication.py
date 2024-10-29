@@ -1,15 +1,23 @@
 import logging
 
-from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
-from rest_framework import exceptions
+from rest_framework import exceptions, status
 from rest_framework.authentication import TokenAuthentication, get_authorization_header
+from rest_framework.exceptions import APIException
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.tokens import AccessToken
 
-from accounts.models import CustomToken
+from accounts.models import CustomToken, SystemConfig
 from accounts.utils.ip import get_client_ip
 
 logger = logging.getLogger(__name__)
+
+
+class TradeClosedException(APIException):
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = _('Trade closed.')
+    default_code = 'trade_error'
 
 
 class CustomTokenAuthentication(TokenAuthentication):
@@ -45,7 +53,7 @@ class CustomTokenAuthentication(TokenAuthentication):
 
         try:
             token = model.objects.select_related('user').get(
-                Q(ip_list__contains=[request_ip]) | Q(ip_list__isnull=True) | Q(ip_list=[]),
+                # Q(ip_list__contains=[request_ip]) | Q(ip_list__isnull=True) | Q(ip_list=[]),
                 key=key
             )
 
@@ -65,7 +73,7 @@ class WithdrawTokenAuthentication(CustomTokenAuthentication):
         if not auth_detail:
             return None
         user, token = auth_detail
-        if not (token.scopes and CustomToken.WITHDRAW in token.scopes):
+        if CustomToken.WITHDRAW not in token.scopes:
             msg = _('permission denied')
             raise exceptions.AuthenticationFailed(msg)
         return user, token
@@ -77,11 +85,84 @@ class TradeTokenAuthentication(CustomTokenAuthentication):
         if not auth_detail:
             return None
         user, token = auth_detail
-        if not (token.scopes and CustomToken.TRADE in token.scopes):
+        if CustomToken.TRADE not in token.scopes:
             msg = _('permission denied')
             raise exceptions.AuthenticationFailed(msg)
+
+        if request.method == 'POST':
+            if SystemConfig.get_system_config().disable_trade_with_api and not user.get_account().is_system():
+                msg = _('trade is closed')
+                raise TradeClosedException(msg)
+
         return user, token
 
 
+class CustomJWTAuthentication(JWTAuthentication):
+    def get_validated_token(self, raw_token):
+        validated_token = super().get_validated_token(raw_token)
+
+        if validated_token.get('type'):
+            raise InvalidToken("Token does not have the privilege for this request.")
+
+        return validated_token
+
+    def authenticate(self, request):
+        validated_token = self.get_valid_token(request)
+        if not validated_token:
+            return None
+
+        return self.get_user(validated_token), validated_token
+
+    def get_valid_token(self, request):
+        header = self.get_header(request)
+        if header is None:
+            return None
+
+        raw_token = self.get_raw_token(self.get_header(request))
+        if raw_token is None:
+            return None
+
+        return self.get_validated_token(raw_token)
+
+
+class WidgetJWTAuthentication(CustomJWTAuthentication):
+    token_type = 'widget'
+
+    def get_validated_token(self, raw_token):
+        validated_token = JWTAuthentication().get_validated_token(raw_token)
+
+        return validated_token
+
+    def authenticate(self, request):
+        validated_token = super().get_valid_token(request)
+        if not validated_token:
+            return None
+
+        if 'type' not in validated_token:
+            raise InvalidToken("Token missing 'type' field")
+
+        if validated_token.get('type') != self.token_type:
+            msg = _(f'Token type must be "{self.token_type}"')
+            raise exceptions.AuthenticationFailed(msg)
+
+        return self.get_user(validated_token), validated_token
+
+
+class WidgetAccessToken(AccessToken):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self['type'] = 'widget'
+
+
+class SetPasswordJWTAuthentication(WidgetJWTAuthentication):
+    token_type = 'setpass'
+
+
+class SetPasswordAccessToken(AccessToken):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self['type'] = 'setpass'
+
+
 def is_app(request):
-    return isinstance(request.successful_authenticator, JWTAuthentication)
+    return isinstance(request.successful_authenticator, CustomJWTAuthentication)

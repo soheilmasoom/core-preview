@@ -8,7 +8,8 @@ from django.utils import timezone
 from accounting.models import Vault, VaultItem
 from financial.models import FiatWithdrawRequest
 from ledger.models import Transfer, OTCTrade, Asset, SystemSnapshot, NetworkAsset
-from ledger.requester.internal_assets_requester import get_hot_wallet_balances
+from ledger.utils.blocklink import get_blocklink_requester
+from ledger.utils.fields import PENDING, PROCESS
 from ledger.utils.precision import get_presentation_amount
 
 
@@ -78,7 +79,7 @@ class UnhandledCryptoWithdrawAlert(BaseAlertHandler):
         return Transfer.objects.filter(
             deposit=False,
             accepted_datetime__isnull=False,
-            status__in=[Transfer.PROCESSING, Transfer.PENDING],
+            status__in=[PROCESS, PENDING],
             trx_hash__isnull=True,
             accepted_datetime__lt=timezone.now() - timedelta(minutes=int(threshold)),
         )
@@ -90,7 +91,7 @@ class CryptoLongConfirmationAlert(BaseAlertHandler):
 
     def get_alerting(self, threshold: Decimal):
         transfers = Transfer.objects.filter(
-            status=Transfer.PENDING,
+            status=PENDING,
             trx_hash__isnull=False,
             accepted_datetime__isnull=False,
         ).prefetch_related('network')
@@ -109,7 +110,7 @@ class UnhandledFiatWithdrawAlert(BaseAlertHandler):
 
     def get_alerting(self, threshold: Decimal):
         return FiatWithdrawRequest.objects.filter(
-            status__in=[FiatWithdrawRequest.PROCESSING],
+            status__in=[PROCESS],
             created__lt=timezone.now() - timedelta(minutes=int(threshold)),
         )
 
@@ -120,7 +121,7 @@ class LongPendingFiatWithdrawAlert(BaseAlertHandler):
 
     def get_alerting(self, threshold: Decimal):
         return FiatWithdrawRequest.objects.filter(
-            status__in=[FiatWithdrawRequest.PENDING],
+            status__in=[PENDING],
             created__lt=timezone.now() - timedelta(minutes=int(threshold)),
         )
 
@@ -186,16 +187,16 @@ class RiskyMarginRatioAlert(BaseAlertHandler):
 
 class VaultLowBaseBalanceAlert(BaseAlertHandler):
     NAME = 'vault_low_base_balance'
-    HELP = 'multiplier to VaultItem\'s expected_min_balance'
+    HELP = 'VaultItem.free < VaultItem.expected_min_balance * threshold'
 
     def get_alerting(self, threshold: Decimal) -> list:
         vault_items = VaultItem.objects.filter(
             expected_min_balance__isnull=False,
-            balance__lt=F('expected_min_balance') * threshold
+            free__lt=F('expected_min_balance') * threshold
         )
 
         return [
-            f'{vi} ({int(vi.balance)} < {int(vi.expected_min_balance * threshold)})' for vi in vault_items
+            f'{vi} ({int(vi.free)} < {int(vi.expected_min_balance * threshold)})' for vi in vault_items
         ]
 
 
@@ -219,7 +220,7 @@ class HotWalletLowBalanceAlert(BaseAlertHandler):
     HELP = 'multiplier to NetworkAsset\'s expected_hw_balance'
 
     def get_alerting(self, threshold: Decimal) -> list:
-        hw_balances = get_hot_wallet_balances()
+        hw_balances = get_blocklink_requester().get_hotwallet_balances()
 
         network_assets = NetworkAsset.objects.filter(expected_hw_balance__gt=0).prefetch_related('asset', 'network')
 
@@ -231,4 +232,21 @@ class HotWalletLowBalanceAlert(BaseAlertHandler):
         return [
             f'{ns} ({get_presentation_amount(hw_balances.get((ns.asset.symbol, ns.network.symbol), 0))} < {get_presentation_amount(ns.expected_hw_balance * threshold)})'
             for ns in network_assets
+        ]
+
+
+class VaultUpdateAlert(BaseAlertHandler):
+    NAME = 'vault_update_alert'
+    HELP = 'time passed from now in minutes'
+
+    def get_alerting(self, threshold: Decimal) -> list:
+        now = timezone.now()
+
+        vaults = Vault.objects.filter(
+            should_be_updated=True,
+            updated__lt=now - timedelta(minutes=int(threshold))
+        )
+
+        return [
+            f'{v} (updated: {v.updated})' for v in vaults
         ]

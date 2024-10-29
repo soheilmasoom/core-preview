@@ -3,15 +3,12 @@ import uuid
 from decimal import Decimal
 
 from celery import shared_task
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 
-from accounts.models import Account, Notification, EmailNotification
-from accounts.tasks import send_message_by_kavenegar
-from accounts.utils.admin import url_to_edit_object
-from accounts.utils.telegram import send_support_message
-from ledger.margin.margin_info import MARGIN_CALL_ML_THRESHOLD, LIQUIDATION_ML_THRESHOLD, \
-    MARGIN_CALL_ML_ALERTING_RESOLVE_THRESHOLD, get_bulk_margin_info
+from accounts.models import Account, Notification, EmailNotification, SystemConfig
+from ledger.margin.margin_info import MARGIN_CALL_ML_THRESHOLD, MARGIN_CALL_ML_ALERTING_RESOLVE_THRESHOLD, \
+    get_bulk_margin_info
 from ledger.models import Wallet, MarginPosition, Trx
 from ledger.models.position import MarginHistoryModel
 from ledger.utils.external_price import SHORT, LONG
@@ -35,7 +32,6 @@ def check_margin_level():
 
         if not account.margin_alerting and margin_level <= MARGIN_CALL_ML_THRESHOLD:
             logger.warning('Send MARGIN_CALL_ML_THRESHOLD for account = %d' % account.id)
-            warn_risky_level(account, margin_level)
 
             if status == 0:
                 status = 1
@@ -46,29 +42,6 @@ def check_margin_level():
             Account.objects.filter(id=account.id).update(margin_alerting=False)
 
     return status
-
-
-def warn_risky_level(account: Account, margin_level: Decimal):
-    user = account.user
-
-    Notification.send(
-        recipient=user,
-        title='حساب تعهدی شما در آستانه‌ی تسویه خودکار است.',
-        message='لطفا در اسرع وقت نسبت به افزایش دارایی تتری یا کاهش بدهی‌هایتان اقدام کنید. ',
-        level=Notification.ERROR
-    )
-
-    link = url_to_edit_object(account)
-    send_support_message(
-        message='Margin account is going to liquidate. (level = %s)' % round(margin_level, 3),
-        link=link
-    )
-
-    send_message_by_kavenegar(
-        phone=user.phone,
-        template='alert-margin-liquidation',
-        token='تعهدی'
-    )
 
 
 def alert_liquidation(account: Account):
@@ -115,52 +88,56 @@ def collect_margin_interest():
                         account=position.account
                     )
                 )
-                position.rebalance(pipeline)
                 position.set_liquidation_price(pipeline)
 
         MarginHistoryModel.objects.bulk_create(interest_history)
 
-    to_liquid_short_positions = MarginPosition.objects.filter(
-        side=SHORT,
+    to_liquid_positions = MarginPosition.objects.filter(
+        Q(
+            side=SHORT,
+            liquidation_price__lte=F('symbol__last_trade_price')
+        ) |
+        Q(
+            side=LONG,
+            liquidation_price__gte=F('symbol__last_trade_price')
+        ),
         status=MarginPosition.OPEN,
-        liquidation_price__lte=F('symbol__last_trade_price'),
     ).order_by('liquidation_price')
 
-    for position in to_liquid_short_positions:
-        position.liquidate(pipeline)
+    with WalletPipeline() as pipeline:
+        for position in to_liquid_positions:
+            position.liquidate(pipeline)
 
-    to_liquid_long_positions = MarginPosition.objects.filter(
-        side=LONG,
-        status=MarginPosition.OPEN,
-        liquidation_price__gte=F('symbol__last_trade_price'),
-    ).order_by('liquidation_price')
 
-    for position in to_liquid_long_positions:
-        position.liquidate(pipeline)
+@shared_task(queue='margin')
+def terminate_positions():
+    sys = SystemConfig.get_system_config()
+    for position in MarginPosition.objects.filter(
+            status=MarginPosition.OPEN,
+            liquidation_price__isnull=False,
+            created__lte=timezone.now() - sys.position_deadline
+    ):
+        position.close()
 
 
 @shared_task(queue='margin')
 def alert_risky_position():
-    queryset = MarginPosition.objects.filter(alert_mode=False, liquidation_price__isnull=False)
+    queryset = MarginPosition.objects.filter(status=MarginPosition.OPEN, alert_mode=False, liquidation_price__isnull=False)
 
-    alert_position_warning(queryset.filter(side=SHORT, base_wallet__balance__lte=F('asset_wallet__balance') * F('symbol__last_trade_price') * Decimal('1.15')))
-    alert_position_warning(queryset.filter(side=LONG, base_wallet__balance__gte=F('asset_wallet__balance') * F('symbol__last_trade_price') / Decimal('1.15')))
+    alert_position_warning(queryset.filter(side=SHORT, liquidation_price__lte=F('symbol__last_trade_price') * Decimal('1.15')))
+    alert_position_warning(queryset.filter(side=LONG, liquidation_price__gte=F('symbol__last_trade_price') / Decimal('1.15')))
 
     queryset = MarginPosition.objects.filter(alert_mode=True)
 
-    queryset.filter(side=SHORT,
-                    base_wallet__balance__gte=F('asset_wallet__balance') * F('symbol__last_trade_price') * Decimal('1.2'))\
-        .update(alert_mode=False)
+    queryset.filter(side=SHORT, liquidation_price__gte=F('symbol__last_trade_price') * Decimal('1.2')).update(alert_mode=False)
 
-    queryset.filter(side=LONG,
-                    base_wallet__balance__lte=F('asset_wallet__balance') * F('symbol__last_trade_price') / Decimal('1.2'))\
-        .update(alert_mode=False)
+    queryset.filter(side=LONG, liquidation_price__lte=F('symbol__last_trade_price') / Decimal('1.2')).update(alert_mode=False)
 
 
 @shared_task(queue='margin')
 def check_position_health():
-    for position in MarginPosition.objects.filter(status=MarginPosition.OPEN) \
-            .prefetch_related('asset_wallet', 'base_wallet', 'symbol'):
+    for position in (MarginPosition.objects.filter(status=MarginPosition.OPEN)
+            .exclude(trade__isnull=True).prefetch_related('asset_wallet', 'base_wallet', 'symbol')):
         margin = position.base_debt_amount + position.base_total_balance
         if margin < 0:
             logger.warning(f"Position{position.id} margin:{margin} is negative !!!")

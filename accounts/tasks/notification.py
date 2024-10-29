@@ -1,8 +1,11 @@
 import logging
+from datetime import timedelta
 
 from celery import shared_task
+from django.utils import timezone
 
 from accounts.models import Notification, BulkNotification, User, EmailNotification
+from accounts.models.fcm_topic_subscription import FCMTopicSubscription
 from accounts.models.sms_notification import SmsNotification
 from accounts.tasks.send_sms import send_kavenegar_exclusive_sms
 from accounts.utils.email import send_email, EmailInfo
@@ -14,6 +17,13 @@ logger = logging.getLogger(__name__)
 
 @shared_task(queue='notif-manager')
 def send_notifications_push():
+    Notification.objects.filter(
+        push_status=Notification.PUSH_WAITING,
+        created__lt=timezone.now() - timedelta(hours=1)
+    ).update(
+        push_status=Notification.PUSH_CANCELED
+    )
+
     for notif in Notification.objects.filter(push_status=Notification.PUSH_WAITING).order_by('id')[:100]:
         send_push_notif_to_user(
             user=notif.recipient,
@@ -60,8 +70,7 @@ def process_bulk_notifications():
 
 @shared_task(queue='notif-manager')
 def send_sms_notifications():
-    for notif in SmsNotification.objects.filter(sent=False).order_by('id')[:100]:
-
+    for notif in SmsNotification.objects.filter(sent=False).order_by('id')[:1000]:
         resp = send_kavenegar_exclusive_sms(
             phone=notif.recipient.phone,
             content=notif.content
@@ -74,7 +83,7 @@ def send_sms_notifications():
 
 @shared_task(queue='notif-manager')
 def send_email_notifications():
-    for email_notif in EmailNotification.objects.filter(sent=False):
+    for email_notif in EmailNotification.objects.filter(sent=False).order_by('id'):
         if not email_notif.recipient.email:
             email_notif.sent = True
             email_notif.save(update_fields=['sent'])
@@ -90,3 +99,16 @@ def send_email_notifications():
         if send_email(email_notif.recipient.email, email_info):
             email_notif.sent = True
             email_notif.save(update_fields=['sent'])
+
+
+@shared_task(queue='notif-manager')
+def manage_user_topic_subscription_task():
+    from accounts.utils.push_notif import manage_user_topic_subscription
+
+    for subscription in FCMTopicSubscription.objects.filter(status=PENDING).order_by('id')[:100]:
+        manage_user_topic_subscription(
+            fcm_topic_subscription=subscription,
+            user=subscription.user,
+            topic=subscription.topic,
+            action=subscription.action,
+        )

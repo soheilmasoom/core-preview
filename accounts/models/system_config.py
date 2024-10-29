@@ -1,23 +1,36 @@
+from datetime import timedelta
+from enum import Enum
+
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from ledger.utils.fields import get_amount_field
 
 from decimal import Decimal
 
+PERCENT_VALIDATORS = (MinValueValidator(0), MaxValueValidator(100))
+
 
 class SystemConfig(models.Model):
+    history = HistoricalRecords()
+
+    TRANSFER_STATUS = ALLOW, BAN, BAN_CRYPTO, BAN_FIAT = 'allow', 'ban', 'ban_crypto', 'ban_fiat'
+
+    name = models.CharField(max_length=32)
     active = models.BooleanField()
     is_consultation_available = models.BooleanField(default=False)
 
     withdraw_fee_min = models.SmallIntegerField(default=1000)
     withdraw_fee_max = models.SmallIntegerField(default=5000)
-    withdraw_fee_percent = get_amount_field(default=Decimal('5'))
+    withdraw_fee_percent = get_amount_field(default=Decimal('5'), validators=PERCENT_VALIDATORS)
+    withdraw_fee_percent_after_max = get_amount_field(default=Decimal('1'), validators=PERCENT_VALIDATORS)
 
     hedge_irt_by_internal_market = models.BooleanField(default=False)
     hedge_coin_otc_from_internal_market = models.BooleanField(default=True)
 
     max_margin_leverage = models.SmallIntegerField(default=5)
-    default_margin_leverage = models.SmallIntegerField(default=3)
+    default_margin_leverage = models.SmallIntegerField(default=1)
 
     total_margin_usdt_base = get_amount_field(default=Decimal('10_000'))
     total_margin_irt_base = get_amount_field(default=Decimal('500_000_000'))
@@ -25,6 +38,45 @@ class SystemConfig(models.Model):
     total_user_margin_irt_base = get_amount_field(default=Decimal('500_000_000'))
     liquidation_level = get_amount_field(default=Decimal('1.1'))
     insurance_fee = get_amount_field(default=Decimal('0.02'))
+    position_deadline = models.DurationField(default=timedelta(days=30))
+
+    open_pay_id_to_all = models.BooleanField(default=False)
+
+    limit_ipg_to_users_without_payment = models.BooleanField(default=False)
+
+    withdraw_status = models.CharField(max_length=16, choices=[(s, s) for s in TRANSFER_STATUS], default=ALLOW)
+    deposit_status = models.CharField(max_length=16, choices=[(s, s) for s in TRANSFER_STATUS], default=ALLOW)
+
+    default_max_allowed_coin_network_daily_deposit_value = models.PositiveSmallIntegerField(default=300)
+
+    fiat_daily_auto_verify_limit = models.PositiveIntegerField(default=200_000_000)
+
+    market_maker_emergency_brake = models.BooleanField(default=False)
+
+    dust_convert_threshold = models.PositiveIntegerField(default=100_000, validators=[MaxValueValidator(1000_000)])
+
+    show_margin = models.BooleanField(default=False)
+
+    disable_trade_with_api = models.BooleanField(default=False)
+
+    disable_new_positions = models.BooleanField(default=False)
+
+    convert_dust_retry_hours_limit = models.PositiveIntegerField(default=12)
+
+    enable_otc_limit = models.BooleanField(default=True)
+
+    strategy_enable = models.BooleanField(default=True)
+
+    min_fast_buy_irt = models.PositiveIntegerField(default=50_000)
+    max_fast_buy_irt = models.PositiveIntegerField(default=25_000_000)
+
+    min_otc_irt = models.PositiveIntegerField(default=10_000)
+    max_otc_irt = models.PositiveIntegerField(default=1_000_000_000)
+
+    check_national_code_for_widget = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
 
     @classmethod
     def get_system_config(cls) -> 'SystemConfig':

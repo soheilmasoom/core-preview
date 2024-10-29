@@ -1,3 +1,4 @@
+import logging
 import math
 from dataclasses import dataclass
 from datetime import timedelta
@@ -5,13 +6,19 @@ from decimal import Decimal
 from random import randint
 from celery import shared_task
 from django.core.cache import cache
-from django.utils import timezone
 
+from django.utils import timezone
 from accounts.models import Notification, User
 from ledger.models import CoinCategory, AssetAlert, BulkAssetAlert, AlertTrigger, Asset
+from ledger.models.asset_alert_rule import AssetAlertRule
 from ledger.utils.external_price import BUY
 from ledger.utils.precision import get_symbol_presentation_price
 from ledger.utils.price import USDT_IRT, get_prices, get_symbol_parts, get_coins_symbols
+from accounts.utils.push_notif import send_push_notif
+from accounts.utils.push_notif import send_push_notif_to_user
+
+logger = logging.getLogger(__name__)
+
 
 CACHE_PREFIX = 'asset_alert'
 
@@ -47,9 +54,9 @@ class AlertData:
         return (self.user, self.asset) == (other.user, other.asset)
 
 
-def get_current_prices() -> dict:
+def get_current_prices(only_base=Asset.USDT) -> dict:
     coins = list(Asset.objects.values_list('symbol', flat=True))
-    symbols = get_coins_symbols(coins, only_base=Asset.USDT)
+    symbols = get_coins_symbols(coins, only_base=only_base)
     symbols.append(USDT_IRT)
 
     return get_prices(symbols, side=BUY)
@@ -80,12 +87,15 @@ def send_notifications(asset_alerts, altered_coins):
                        f' درصد {change_status} پیدا کرد و به {new_price} {base_coin} رسید.')
         else:
             message = f'قیمت {alert.asset.name_fa} به {new_price} {base_coin} رسید.'
-        Notification.send(
-            recipient=alert.user,
-            title=title,
-            message=message,
-            link=f'/price/{alert.asset.name}'
-        )
+
+        assets = {alert_data.asset for alert_data in asset_alerts}
+        for asset in assets:
+            send_push_notif(
+                title=title,
+                body=message,
+                link=f'/price/{asset.name}',
+                topic=f"price_alerts_{asset.symbol.lower()}"
+            )
 
 
 def process_chanel_change(asset: Asset, current_chanel: int) -> bool:
@@ -202,7 +212,7 @@ def get_asset_alert_list(altered_coins: dict) -> set:
     for asset_alert in AssetAlert.objects.filter(
         asset__symbol__in=altered_coins.keys(),
         user__is_price_notif_on=True,
-    ):
+    ).exclude(asset__otc_status=Asset.COMING_SOON):
         asset_alerts.add(
             AlertData(
                 user=asset_alert.user,
@@ -275,3 +285,35 @@ def send_price_notifications():
             is_chanel_changed=True,
             is_triggered=True
         ).delete()
+
+
+@shared_task(queue="notif-manager")
+def check_conditional_price_alerts():
+    usdt_current_prices = get_current_prices(only_base=Asset.USDT)
+    irt_current_prices = get_current_prices(only_base=Asset.IRT)
+    active_alerts = AssetAlertRule.objects.filter(active=True, is_triggered=False)
+
+    for alert in active_alerts:
+        if alert.base_asset.symbol == Asset.USDT:
+            asset_price = usdt_current_prices.get(alert.asset.symbol)
+        else:
+            asset_price = irt_current_prices.get(alert.asset.symbol)
+        trigger_price = alert.trigger_price
+
+        if not asset_price or not trigger_price:
+            continue
+
+        if alert.type == 'gt' and asset_price > trigger_price:
+            alert.is_triggered = True
+        elif alert.type == 'lt' and asset_price < trigger_price:
+            alert.is_triggered = True
+
+        if alert.is_triggered:
+            alert.save(update_fields=['is_triggered'])
+
+            Notification.send(
+                recipient=alert.user,
+                title=f"هشدار قیمت: {alert.asset.symbol}",
+                message=f"هشدار قیمت برای ارز {alert.asset.symbol} در قیمت {trigger_price} صادر شد.",
+                link=f'/price/{alert.asset.name}'
+            )

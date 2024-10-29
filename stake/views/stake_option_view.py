@@ -1,4 +1,4 @@
-from django.db.models import Sum, Max
+from django.db.models import Sum, Max, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers
 from rest_framework.generics import ListAPIView
@@ -29,7 +29,7 @@ class StakeOptionSerializer(serializers.ModelSerializer):
         if 'filled' not in self.context:
             return
 
-        return self.context['filled'].get(stake_option.id, 0) / stake_option.total_cap * 100
+        return min(max(round(self.context['filled'].get(stake_option.id, 0) / stake_option.total_cap * 100, 2), 0), 100)
 
     def get_apr(self, stake_option: StakeOption):
         return get_presentation_amount(stake_option.apr)
@@ -94,10 +94,18 @@ class StakeOptionGroupedSerializer(serializers.Serializer):
         return AssetSerializerMini(instance=asset).data
 
     def get_variants(self, asset: Asset):
+        q = Q(enable=True)
+        type = self.context['request'].GET.get('type')
+        if type:
+            q &= Q(type=type)
+
         serialized_options = [
             StakeOptionSerializerMini(instance=option, context=self.context).data
-            for option in asset.stakeoption_set.filter(enable=True).order_by('-apr')
+            for option in asset.stakeoption_set.filter(q).order_by('-apr')
         ]
+
+        serialized_options.sort(key=lambda option: (option['enable'], option['apr']), reverse=True)
+
         return serialized_options
 
     def get_min_apr(self, asset: Asset):
@@ -112,7 +120,7 @@ class StakeOptionAPIView(ListAPIView):
     permission_classes = []
 
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['landing', 'type']
+    filterset_fields = ['landing']
 
     serializer_class = StakeOptionSerializer
     queryset = StakeOption.objects.filter(enable=True).order_by('-apr')
@@ -139,10 +147,14 @@ class StakeOptionGroupedAPIView(StakeOptionAPIView):
     serializer_class = StakeOptionGroupedSerializer
 
     def get_queryset(self):
+        q = Q(enable=True, stakeoption__enable=True)
+        type = self.request.GET.get('type')
+        if type:
+            q &= Q(stakeoption__type=type)
+
         return sorted(
             Asset.objects.filter(
-                enable=True,
-                stakeoption__enable=True
+                q
             ).prefetch_related('stakeoption_set').order_by('id', '-stakeoption__apr').distinct('id'),
             key=lambda asset: -asset.stakeoption_set.aggregate(max_apr=Max('apr'))['max_apr']
         )

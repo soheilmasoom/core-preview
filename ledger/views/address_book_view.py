@@ -1,5 +1,6 @@
 import re
 
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
@@ -28,24 +29,29 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
         account = user.get_account()
         name = attrs['name']
         address = attrs['address']
-        network = get_object_or_404(Network, symbol=attrs['network'])
+        network = get_object_or_404(Network, symbol=attrs['network'], can_withdraw=True)
         sms_code = attrs.get('sms_code', '')
         totp = attrs.get('totp', '')
+        memo = attrs.get('memo', '')
 
         if attrs['coin']:
             asset = get_object_or_404(Asset, symbol=attrs['coin'])
+            get_object_or_404(NetworkAsset, network=network, asset=asset, can_withdraw=True)
         else:
             asset = None
 
         if not re.match(network.address_regex, address):
             raise ValidationError('آدرس به فرمت درستی وارد نشده است.')
 
+        if memo and not re.match(network.memo_regex, memo):
+            raise ValidationError(f'{network.memo_title_fa} به فرمت درستی وارد نشده است.')
+
         if not AddressBook.is_address_used_in_24h(address):
             sms_verification_code = VerificationCode.get_by_code(sms_code, user.phone,
                                                                  VerificationCode.SCOPE_ADDRESS_BOOK,
                                                                  user)
             if not sms_verification_code:
-                raise ValidationError({'code': 'کد پیامک  نامعتبر است.'})
+                raise ValidationError({'sms_code': 'کد پیامک  نامعتبر است.'})
 
             if not user.is_2fa_valid(totp):
                 raise ValidationError({'totp': 'شناسه ‌دوعاملی صحیح نمی‌باشد.'})
@@ -56,6 +62,8 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
             'asset': asset,
             'name': name,
             'address': address,
+            'memo': memo,
+            'whitelist': attrs.get('whitelist', False),
         }
 
     def get_network_info(self, address_book: AddressBook):
@@ -70,7 +78,7 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
         model = AddressBook
         fields = (
             'id', 'name', 'account', 'network', 'asset', 'coin', 'address', 'deleted', 'network_info', 'sms_code',
-            'totp')
+            'totp', 'whitelist', 'memo')
 
 
 class AddressBookDestroySerializer(serializers.Serializer):
@@ -80,8 +88,10 @@ class AddressBookDestroySerializer(serializers.Serializer):
     def validate(self, data):
         user = self.context['request'].user
         sms_code = data.get('sms_code')
-        verification_code = VerificationCode.get_by_code(sms_code, user.phone, VerificationCode.SCOPE_ADDRESS_BOOK,
-                                                         user)
+        verification_code = VerificationCode.get_by_code(
+            sms_code, user.phone, VerificationCode.SCOPE_ADDRESS_BOOK, user
+        )
+
         if not verification_code:
             raise ValidationError({'code': 'کد پیامک  نامعتبر است.'})
         verification_code.set_code_used()
@@ -91,26 +101,82 @@ class AddressBookDestroySerializer(serializers.Serializer):
         return data
 
 
+class AddressBookUpdateSerializer(serializers.ModelSerializer):
+    sms_code = serializers.CharField(write_only=True)
+    totp = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
+
+    def validate(self, data):
+        sms_code = data.pop('sms_code', None)
+        totp = data.pop('totp', None)
+
+        if not data:
+            raise ValidationError('داده‌ای برای به روز‌رسانی ارسال نشده است.')
+
+        if not (set(data) <= {'whitelist', 'name'}):
+            raise ValidationError('امکان به روز‌رسانی این فیلد‌ها وجود ندارد.')
+
+        if data.get('whitelist') is True:
+            user = self.context['request'].user
+
+            verification_code = VerificationCode.get_by_code(
+                sms_code, user.phone, VerificationCode.SCOPE_ADDRESS_BOOK, user
+            )
+
+            if not verification_code:
+                raise ValidationError({'sms_code': 'کد پیامک  نامعتبر است.'})
+
+            if not user.is_2fa_valid(totp):
+                raise ValidationError({'totp': 'شناسه‌ دوعاملی صحیح نمی‌باشد.'})
+
+            verification_code.set_code_used()
+
+        return data
+
+    class Meta:
+        model = AddressBook
+        fields = ('id', 'name', 'sms_code', 'totp', 'whitelist')
+
+
 class AddressBookView(ModelViewSet):
     serializer_class = AddressBookCreateSerializer
 
     pagination_class = LimitOffsetPagination
 
+    def get_serializer_class(self):
+        if self.action == 'partial_update':
+            return AddressBookUpdateSerializer
+        else:
+            return AddressBookCreateSerializer
+
     def get_queryset(self):
         query_params = self.request.query_params
-        address_books = AddressBook.objects.filter(deleted=False, account=self.request.user.get_account()).order_by(
-            '-id')
+        address_books = AddressBook.objects.filter(
+            deleted=False,
+            account=self.request.user.get_account()
+        ).order_by('-id')
 
         if 'coin' in query_params:
-            address_books = address_books.filter(asset__symbol=query_params['coin'])
+            coin = query_params['coin']
+            asset = get_object_or_404(Asset, symbol=coin)
 
-        if 'type' in query_params:
-            if query_params['type'] == 'standard':
-                address_books = address_books.filter(asset__isnull=False)
-            elif query_params['type'] == 'universal':
-                address_books = address_books.filter(asset__isnull=True)
-            else:
-                address_books = address_books
+            can_withdraw_networks = list(NetworkAsset.objects.filter(
+                asset=asset,
+                can_withdraw=True,
+                network__can_withdraw=True
+            ).values_list('network', flat=True))
+
+            address_books = address_books.filter(
+                Q(asset=asset) | Q(asset__isnull=True),
+                network_id__in=can_withdraw_networks
+            )
+
+        if query_params.get('general') in ['0', '1']:
+            general = query_params['general'] == '1'
+            address_books = address_books.filter(asset__isnull=general)
+
+        if query_params.get('whitelist') in ['0', '1']:
+            whitelist = query_params['whitelist'] == '1'
+            address_books = address_books.filter(whitelist=whitelist)
 
         return address_books
 

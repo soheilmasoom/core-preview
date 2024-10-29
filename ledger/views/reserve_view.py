@@ -54,7 +54,7 @@ class RefundWalletSerializer(serializers.Serializer):
         try:
             from market.models import Order
             with transaction.atomic():
-                Order.cancel_orders(Order.open_objects.filter(wallet__account=account, wallet__variant=variant))
+                Order.cancel_orders(Order.open_objects.filter(account=account, wallet__variant=variant))
                 return reserve_wallet.refund()
         except InsufficientBalance:
             raise ValidationError(_('Insufficient Balance'))

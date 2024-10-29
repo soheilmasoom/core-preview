@@ -12,12 +12,13 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import User, Company, TrafficSource, Referral
+from accounts.models import User, Company, Referral
 from accounts.models.phone_verification import VerificationCode
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
-from accounts.utils.ip import get_client_ip
 from accounts.utils.login import set_login_activity
+from accounts.utils.signup import create_traffic_source, set_missions_to_user
 from accounts.validators import mobile_number_validator, password_validator, company_national_id_validator
+from analytics.utils.yandex import send_yandex_event
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class InitiateSignupSerializer(serializers.Serializer):
 class InitiateSignupView(APIView):
     permission_classes = []
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
+    scope = VerificationCode.SCOPE_VERIFY_PHONE
 
     def post(self, request):
         if settings.DEBUG_OR_TESTING_OR_STAGING:
@@ -37,21 +39,18 @@ class InitiateSignupView(APIView):
             if req_origin in config('SIGNUP_CLOSED_DOMAINS', cast=Csv(), default=''):
                 raise ValidationError('امکان ثبت‌نام وجود ندارد.')
 
-        if request.user.is_authenticated:
+        if request.user.is_authenticated and self.scope == VerificationCode.SCOPE_VERIFY_PHONE:
             return Response({'msg': 'already logged in', 'code': 1})
 
         serializer = InitiateSignupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         phone = serializer.validated_data['phone']
-
-        VerificationCode.send_otp_code(phone, VerificationCode.SCOPE_VERIFY_PHONE)
-
+        VerificationCode.send_otp_code(request, phone, self.scope)
         return Response({'msg': 'otp sent', 'code': 0})
 
 
 class SignupSerializer(serializers.Serializer):
-    id = serializers.CharField(read_only=True)
     token = serializers.UUIDField(write_only=True, required=True)
     password = serializers.CharField(required=True, write_only=True, validators=[password_validator])
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
@@ -83,21 +82,16 @@ class SignupSerializer(serializers.Serializer):
         validate_password(password=password)
 
         phone = otp_code.phone
-        promotion = validated_data.get('promotion') or ''
+        promotion = validated_data.get('promotion', '')
 
         with transaction.atomic():
-
             user = User.objects.create_user(
                 username=phone,
                 phone=phone,
-                promotion=promotion
             )
 
             if company_national_id:
                 Company.objects.create(national_id=company_national_id, user=user)
-
-            if not config('ENABLE_MARGIN_SHOW_TO_ALL', cast=bool, default=True):
-                user.show_margin = False
 
             if config('SHOW_NINJA_TO_ALL', cast=bool, default=False):
                 user.show_community = True
@@ -117,73 +111,13 @@ class SignupSerializer(serializers.Serializer):
 
         utm = validated_data.get('utm') or {}
 
-        self.create_traffic_source(user, utm)
+        request = self.context['request']
+        create_traffic_source(request, user, utm)
+        set_missions_to_user(user, promotion)
 
-        self.set_missions_to_user(user)
+        send_yandex_event(user, 'sign_up', {'id': user.id})
 
         return user
-
-    def create_traffic_source(self, user, utm: dict):
-        utm_source = utm.get('utm_source', '')[:256]
-
-        if not utm_source:
-            return
-
-        utm_medium = utm.get('utm_medium', '')[:256]
-        utm_campaign = utm.get('utm_campaign', '')[:256]
-        utm_content = utm.get('utm_content', '')[:256]
-        utm_term = utm.get('utm_term', '')[:256]
-        gps_adid = utm.get('gps_adid', '')[:256]
-
-        if utm_source == 'pwa_app':
-            if utm_term.startswith('gclid'):
-                utm_medium = 'google_ads'
-            elif 'google-play' in utm_term and 'organic' in utm_term:
-                utm_medium = 'organic'
-                utm_content = 'google_play'
-            elif not gps_adid:
-                utm_medium = 'organic'
-            else:
-                from accounts.models import Attribution
-
-                attribution = Attribution.objects.filter(gps_adid=gps_adid).order_by('created').last()
-
-                if not attribution or not attribution.tracker_code:
-                    utm_medium = 'organic'
-                else:
-                    utm_medium = attribution.network_name
-                    utm_campaign = attribution.campaign_name
-                    utm_content = attribution.adgroup_name
-                    utm_term = attribution.creative_name
-
-        TrafficSource.objects.create(
-            user=user,
-            utm_source=utm_source,
-            utm_medium=utm_medium,
-            utm_campaign=utm_campaign,
-            utm_content=utm_content,
-            utm_term=utm_term,
-            gps_adid=gps_adid,
-            ip=get_client_ip(self.context['request']),
-            user_agent=self.context['request'].META['HTTP_USER_AGENT'][:256],
-        )
-
-    def set_missions_to_user(self, user):
-        from gamify.models import MissionJourney, MissionTemplate, UserMission
-
-        try:
-            account = user.get_account()
-            journey = MissionJourney.get_journey(account)
-
-            missions = []
-            for mission_template in MissionTemplate.objects.filter(journey=journey, active=True):
-                missions.append(UserMission(user=user, mission=mission_template))
-
-            if missions:
-                UserMission.objects.bulk_create(missions)
-
-        except Exception as e:
-            logger.warning(f'Failed to set missions to user={user.id} due to={str(e)}')
 
 
 class SignupView(CreateAPIView):
@@ -194,8 +128,11 @@ class SignupView(CreateAPIView):
     def perform_create(self, serializer):
         user = serializer.save()
         login(self.request, user)
-        set_login_activity(
-            request=self.request,
-            user=user,
-            is_sign_up=True,
-        )
+        try:
+            set_login_activity(
+                request=self.request,
+                user=user,
+                is_sign_up=True,
+            )
+        except ValueError:
+            logger.exception('Error in setting login activity for signup')

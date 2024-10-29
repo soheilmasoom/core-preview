@@ -10,8 +10,10 @@ from rest_framework import serializers
 from ledger.utils.cache import cache_for
 from ledger.utils.precision import normalize_fraction, AMOUNT_PRECISION
 
-PROCESS, PENDING, CANCELED, DONE = 'process', 'pending', 'canceled', 'done'
+PROCESS, PENDING, CANCELED, DONE, REFUND = 'process', 'pending', 'canceled', 'done', 'refund'
 INIT, REJECTED, VERIFIED = 'init', 'rejected', 'verified'
+
+STATUS_CHOICES = (INIT, INIT), (PROCESS, PROCESS), (PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE)
 
 
 def get_amount_field(default: Union[Decimal, int] = None, max_digits: int = None, decimal_places: int = None,
@@ -47,13 +49,17 @@ def get_status_field(default=PENDING):
     return models.CharField(
         default=default,
         max_length=8,
-        choices=[(PROCESS, 'در حال پردازش'), (PENDING, 'در انتظار تایید'), (CANCELED, 'لغو شده'), (DONE, 'انجام شده')]
+        db_index=True,
+        choices=[
+            (INIT, INIT), (PROCESS, PROCESS), (PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE),
+            (REFUND, REFUND)
+        ]
     )
 
 
 def get_verify_status_field(default=INIT):
     return models.CharField(
-        default=INIT,
+        default=default,
         max_length=8,
         choices=[(INIT, 'init'), (PENDING, 'pending'), (REJECTED, 'rejected'), (VERIFIED, 'verified')]
     )
@@ -90,7 +96,18 @@ class SerializerDecimalField(serializers.DecimalField):
 def get_irt_market_asset_symbols():
     from market.models import PairSymbol
     from ledger.models import Asset
-    return set(PairSymbol.objects.select_related('base_asset').filter(
+    return set(PairSymbol.objects.filter(
         enable=True,
         base_asset__symbol=Asset.IRT
+    ).values_list('asset__symbol', flat=True))
+
+
+@cache_for(time=600)
+def get_irt_margin_enable_coins():
+    from market.models import PairSymbol
+    from ledger.models import Asset
+    return set(PairSymbol.objects.filter(
+        enable=True,
+        base_asset__symbol=Asset.IRT,
+        margin_enable=True
     ).values_list('asset__symbol', flat=True))

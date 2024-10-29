@@ -1,14 +1,12 @@
 from decimal import Decimal
 
 import django_filters
-from django.db.models import Min, Max
+from django.db.models import Min, Max, F, Q
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import ListAPIView, get_object_or_404
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.authentication import CustomTokenAuthentication
 from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
@@ -27,7 +25,6 @@ class AccountTradeFilter(django_filters.FilterSet):
 
 
 class AccountTradeHistoryView(ListAPIView):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
     pagination_class = LimitOffsetPagination
     serializer_class = AccountTradeSerializer
 
@@ -117,22 +114,45 @@ class TradePairsHistoryView(ListAPIView):
 
         min_id = self.request.query_params.get('from_id')
         id_filter = {'id__gt': min_id} if min_id else {}
-        return Trade.objects.filter(
-            account=self.request.user.account,
+        filter_self = self.request.query_params.get('self', False)
+
+        qs = Trade.objects.filter(
             **id_filter
-        ).prefetch_related('symbol').order_by('id')
+        )
+        if filter_self:
+            account_id = self.request.user.account.id
+
+            group_ids = set(qs.values('group_id').annotate(
+                maker_account_id=Min('account_id'),
+                taker_account_id=Max('account_id'),
+            ).exclude(
+                maker_account_id=F('taker_account_id')
+            ).filter(
+                Q(maker_account_id=account_id) |
+                Q(taker_account_id=account_id)
+            ).values_list('group_id', flat=True))
+            qs = qs.filter(group_id__in=group_ids)
+
+        return qs.filter(account=self.request.user.account).prefetch_related('symbol').order_by('id')
 
     def list(self, request, *args, **kwargs):
         min_id = self.request.query_params.get('from_id')
+        filter_self = self.request.query_params.get('self', False)
+
         id_filter = {'id__gt': min_id} if min_id else {}
         qs = self.get_queryset()
-        maker_taker_mapping = {
-            t['group_id']: (t['maker_order_id'], t['taker_order_id']) for t in
-            Trade.objects.filter(group_id__in=qs.values_list('group_id', flat=True), **id_filter).values(
-                'group_id').annotate(
-                maker_order_id=Min('order_id'), taker_order_id=Max('order_id')
-            )
-        }
+
+        mapping_qs = Trade.objects.filter(group_id__in=qs.values_list('group_id', flat=True), **id_filter).values(
+            'group_id').annotate(
+            maker_order_id=Min('order_id'), taker_order_id=Max('order_id'),
+            maker_account_id=Min('account_id'), taker_account_id=Max('account_id')
+        )
+
+        if filter_self:
+            mapping_qs = mapping_qs.exclude(maker_account_id=F('taker_account_id'))
+
+        maker_taker_mapping = {t['group_id']: (t['maker_order_id'], t['taker_order_id']) for t in mapping_qs}
+
         all_order_ids = set(sum(maker_taker_mapping.values(), ()))
         client_order_id_mapping = {o.id: o.client_order_id for o in Order.objects.filter(id__in=all_order_ids)}
         serializer = TradePairSerializer(qs, context={

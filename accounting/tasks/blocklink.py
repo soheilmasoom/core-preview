@@ -5,8 +5,9 @@ from celery import shared_task
 from django.db.models import Sum, F
 
 from accounting.models import PeriodicFetcher, BlocklinkIncome, BlocklinkDustCost
-from accounting.requester.blocklink_income import blocklink_income_request
+from ledger.exceptions import FetchError
 from ledger.models import Transfer, Asset
+from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.precision import is_zero_by_precision
 from ledger.utils.price import get_last_price
 
@@ -27,9 +28,13 @@ def blocklink_income_fetcher(start: datetime, end: datetime):
         total = item['total']
         data_dict[network_symbol + '/' + coin] = {'total': total}
 
-    resp = blocklink_income_request(start=start, end=end)
+    requester = get_blocklink_requester()
 
-    for key, value in resp.items():
+    resp = requester.get_income(start=start, end=end)
+    if not resp.ok:
+        raise FetchError
+
+    for key, value in resp.data.items():
         total = 0
 
         if key in data_dict.keys():
@@ -52,23 +57,33 @@ def blocklink_income_fetcher(start: datetime, end: datetime):
         dust_cost = Decimal(data.get('dust_cost', 0))
 
         if not is_zero_by_precision(fee_amount + fee_income):
+            if price:
+                fee_cost = price * fee_amount
+            else:
+                fee_cost = 0
+
             BlocklinkIncome.objects.get_or_create(
                 start=start,
                 network=network,
                 coin=coin,
                 defaults={
                     'real_fee_amount': fee_amount,
-                    'fee_cost': price * fee_amount,
+                    'fee_cost': fee_cost,
                     'fee_income': fee_income
                 }
             )
+
+        if price:
+            dust_value = dust_cost * price
+        else:
+            dust_value = 0
 
         BlocklinkDustCost.objects.update_or_create(
             network=network,
             defaults={
                 'coin': coin,
                 'amount': dust_cost,
-                'usdt_value': dust_cost * price
+                'usdt_value': dust_value
             }
         )
 
@@ -80,4 +95,3 @@ def fill_blocklink_incomes():
         fetcher=blocklink_income_fetcher,
         interval=timedelta(hours=1)
     )
-

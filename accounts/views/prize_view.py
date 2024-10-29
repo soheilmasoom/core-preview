@@ -1,8 +1,6 @@
 from rest_framework import serializers
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.viewsets import ModelViewSet
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from ledger.models import Prize
 from ledger.models.asset import AssetSerializerMini
@@ -53,7 +51,6 @@ class PrizeSerializer(serializers.ModelSerializer):
 
 
 class PrizeView(ModelViewSet):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
     serializer_class = PrizeSerializer
     pagination_class = LimitOffsetPagination
 

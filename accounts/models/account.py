@@ -3,7 +3,7 @@ from typing import Union
 
 from django.conf import settings
 from django.db import models
-from django.db.models import UniqueConstraint, Q
+from django.db.models import UniqueConstraint, Q, Sum
 from django.utils import timezone
 
 from ledger.utils.external_price import BUY
@@ -48,13 +48,21 @@ class Account(models.Model):
 
     custom_maker_fee = get_amount_field(null=True)
     custom_taker_fee = get_amount_field(null=True)
+    custom_max_margin_leverage = models.SmallIntegerField(null=True, blank=True)
+
+    increase_fiat_withdraw_fee = models.BooleanField(default=False)
 
     def is_system(self) -> bool:
         return self.type == self.SYSTEM
 
     def is_ordinary_user(self) -> bool:
-        # be careful about new market maker account, should be ordinary if dont want to hedge in Core 
+        # be careful about new market maker account, should be ordinary if dont want to hedge in Core
         return not bool(self.type)
+
+    def get_max_margin_leverage(self):
+        from accounts.models import SystemConfig
+        sys_config = SystemConfig.get_system_config()
+        return self.custom_max_margin_leverage or sys_config.max_margin_leverage
 
     @classmethod
     def system(cls) -> 'Account':
@@ -96,20 +104,27 @@ class Account(models.Model):
         else:
             return str(self.user)
 
-    def get_total_balance_usdt(self, market: str, side: str):
+    def get_total_balance_usdt(self):
         from ledger.models import Wallet, Asset
         from ledger.utils.price import get_last_price
 
-        wallets = Wallet.objects.filter(account=self, market=market).exclude(asset__symbol=Asset.IRT).prefetch_related('asset')
+        wallets = dict(Wallet.objects.filter(
+            account=self
+        ).exclude(
+            balance=0
+        ).exclude(
+            market=Wallet.VOUCHER
+        ).values('asset__symbol').annotate(
+            amount=Sum('balance')
+        ).values_list('asset__symbol', 'amount'))
 
         total = Decimal('0')
 
-        for wallet in wallets:
-            price = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
-            balance = wallet.balance * price
+        for coin, balance in wallets.items():
+            price = get_last_price(coin + Asset.USDT) or 0
+            balance = balance * price
 
-            if balance:
-                total += balance
+            total += balance
 
         return total
 
@@ -158,10 +173,6 @@ class Account(models.Model):
     def get_invited_count(self):
         return int(Account.objects.filter(referred_by__owner=self).count())
 
-    def airdrop(self, asset, amount: Union[Decimal, int]):
-        wallet = asset.get_wallet(self)
-        wallet.airdrop(amount)
-
     @classmethod
     def get_for(cls, user):
         if not user.id or user.is_anonymous:
@@ -170,6 +181,12 @@ class Account(models.Model):
             account, _ = Account.objects.get_or_create(user=user)
             return account
 
+    def has_zero_balance(self) -> bool:
+        from ledger.models.wallet import Wallet
+        return not Wallet.objects.filter(
+                ~Q(balance=Decimal(0)),
+                account=self,
+                ).exists()
     class Meta:
         constraints = [
             UniqueConstraint(

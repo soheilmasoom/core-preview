@@ -13,7 +13,7 @@ from accounts.models import LoginActivity
 from accounts.permissions import can_trade
 from ledger.exceptions import InsufficientBalance, SmallDepthError
 from ledger.models import Wallet, Asset, MarginLeverage
-from ledger.utils.external_price import IRT, BUY, SELL, LONG, SHORT
+from ledger.utils.external_price import IRT
 from ledger.utils.margin import check_margin_view_permission, check_margin_order
 from ledger.utils.precision import floor_precision, get_precision, humanize_number, get_presentation_amount, \
     decimal_to_str
@@ -113,7 +113,7 @@ class OrderSerializer(serializers.ModelSerializer):
         except SmallDepthError:
             raise ValidationError('در حال حاضر امکان سفارش‌گذاری وجود ندارد.')
         except Exception as e:
-            logger.error('failed placing order', extra={'exp': e, 'order': validated_data})
+            logger.exception('failed placing order', extra={'exp': e, 'order': validated_data})
             if settings.DEBUG_OR_TESTING_OR_STAGING:
                 raise e
             raise APIException(_('Could not place order'))

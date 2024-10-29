@@ -8,13 +8,13 @@ from accounts.models import User
 
 
 class StakeOption(models.Model):
-    DEFI, STAKE, BOT = 'defi', 'stake', 'bot'
+    DEFI, POOL, BOT = 'defi', 'pool', 'bot'
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
     apr = models.DecimalField(max_digits=6, decimal_places=3, blank=True)
     type = models.CharField(
         default=DEFI,
         max_length=6,
-        choices=[(DEFI, DEFI), (STAKE, STAKE), (BOT, BOT)]
+        choices=[(DEFI, DEFI), (POOL, POOL), (BOT, BOT)]
     )
 
     user_max_amount = get_amount_field()
@@ -45,7 +45,7 @@ class StakeOption(models.Model):
 
     def get_filled_cap_percent(self):
 
-        return (1 - self.get_free_cap_amount() / self.total_cap) * 100
+        return min(max((1 - self.get_free_cap_amount() / self.total_cap) * 100, 0), 100)
 
     def get_free_amount_per_user(self, user: User):
         from stake.models import StakeRequest

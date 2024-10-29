@@ -1,29 +1,38 @@
+from typing import Union
 import requests
 from django.conf import settings
 from django.urls import reverse
 from decouple import config
+from accounts.models.user import User
 
 from financial.models import Gateway, BankCard, PaymentRequest, Payment
 from financial.models.gateway import GatewayFailed
 from ledger.utils.fields import DONE, CANCELED
 from ledger.utils.wallet_pipeline import WalletPipeline
+from rest_framework.exceptions import NotFound
 
 
 class PaydotirGateway(Gateway):
     BASE_URL = 'https://pay.ir'
 
-    def create_payment_request(self, bank_card: BankCard, amount: int, source: str) -> PaymentRequest:
+    def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         base_url = config('PAYMENT_PROXY_HOST_URL', default='') or settings.HOST_URL
 
-        resp = requests.post(
-            self.BASE_URL + '/pg/send',
-            json={
+        payload = {
                 'api': self.merchant_id,
                 'amount': amount * 10,
                 'description': 'افزایش اعتبار',
                 'redirect': base_url + reverse('finance:paydotir-callback'),
-                'validCardNumber': bank_card.card_pan
-            },
+        }
+
+        if bank_card:
+            payload['validCardNumber'] = bank_card.card_pan
+        else:
+            raise NotImplementedError
+
+        resp = requests.post(
+            self.BASE_URL + '/pg/send',
+            json=payload,
             timeout=30,
         )
 
@@ -38,6 +47,7 @@ class PaydotirGateway(Gateway):
         authority = resp.json()['token']
 
         return PaymentRequest.objects.create(
+            user=user,
             bank_card=bank_card,
             amount=amount,
             gateway=self,
@@ -57,8 +67,8 @@ class PaydotirGateway(Gateway):
             )
 
     @classmethod
-    def get_payment_url(cls, authority: str):
-        return 'https://pay.ir/pg/{}'.format(authority)
+    def get_payment_url(cls, payment_request: PaymentRequest):
+        return 'https://pay.ir/pg/{}'.format(payment_request.authority)
 
     def _verify(self, payment: Payment):
         payment_request = payment.paymentrequest

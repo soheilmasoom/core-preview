@@ -6,13 +6,14 @@ from ledger.models import CoinCategory
 
 class CoinCategorySerializer(serializers.ModelSerializer):
     header = serializers.SerializerMethodField()
+    description = serializers.CharField(source='_description_html')
 
     def get_header(self, category: CoinCategory):
         return category.header or 'قیمت لحظه‌ای ارز‌های دیجیتال'
 
     class Meta:
         model = CoinCategory
-        fields = ('name', 'title', 'description', 'header')
+        fields = ('name', 'title', 'description', 'header', 'meta_description')
 
 
 class CoinCategoryListView(ListAPIView):

@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from accounts.models import Account, User, EmailNotification
 from accounts.tasks import send_message_by_kavenegar
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_support_message
 from ledger.models import Wallet, Trx
 from ledger.utils.fields import get_group_id_field, get_amount_field
@@ -76,7 +76,7 @@ class StakeRequest(models.Model):
             (self.PENDING, self.DONE), (self.PENDING, self.CANCEL_PROCESS),
             (self.DONE, self.CANCEL_PROCESS),
             (self.PROCESS, self.CANCEL_PENDING), (self.PENDING, self.CANCEL_PENDING), (self.CANCEL_PROCESS, self.CANCEL_PENDING),
-            (self.CANCEL_PENDING, self.CANCEL_COMPLETE), (self.CANCEL_PROCESS, self.CANCEL_COMPLETE),
+            (self.DONE, self.CANCEL_COMPLETE), (self.CANCEL_PENDING, self.CANCEL_COMPLETE), (self.CANCEL_PROCESS, self.CANCEL_COMPLETE),
             (self.DONE, self.FINISHED),
         ]
 
@@ -94,7 +94,7 @@ class StakeRequest(models.Model):
             setattr(self, updating_field, timezone.now())
 
         if new_status == self.CANCEL_COMPLETE and \
-                old_status in [self.PROCESS, self.CANCEL_PROCESS, self.CANCEL_PENDING]:
+                old_status in [self.PROCESS, self.CANCEL_PROCESS, self.CANCEL_PENDING, self.DONE]:
 
             spot_wallet = asset.get_wallet(account)
             stake_wallet = asset.get_wallet(account=account, market=Wallet.STAKE)
@@ -174,3 +174,8 @@ class StakeRequest(models.Model):
         else:
             self.status = new_status
             self.save()
+
+    class Meta:
+        permissions = [
+            ("list_stakerequest", "Can list stake request"),
+        ]

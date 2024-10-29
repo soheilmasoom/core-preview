@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import LoginActivity
-from accounts.utils.admin import url_to_edit_object
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_support_message
 from ledger.models import Wallet, Trx
 from ledger.utils.precision import get_presentation_amount, floor_precision
@@ -42,6 +42,9 @@ class StakeRequestSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         asset = stake_option.asset
         wallet = asset.get_wallet(user.get_account())
+
+        if amount <= 0:
+            raise ValidationError('مقدار وارد شده باید بزرگتر از صفر باشد.')
 
         if not stake_option.enable:
             raise ValidationError('امکان استفاده از این گزینه در حال حاضر وجود ندارد.')

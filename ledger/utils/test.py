@@ -1,17 +1,22 @@
+from uuid import uuid4
+
 from django.conf import settings
 
-from ledger.utils.wallet_pipeline import WalletPipeline
+from accounting.models import TradeRevenue
 
 if settings.DEBUG_OR_TESTING:
     import random
     import time
 
     from accounts.models import Account, User, VerificationCode
-    from ledger.utils.external_price import price_redis
-    from ledger.models import Asset, AddressBook, Network, NetworkAsset
+    from ledger.utils.external_price import get_price_redis
+    from ledger.models import Asset, AddressBook, Network, NetworkAsset, Wallet
     from financial.models import BankCard, Gateway
     from market.models import PairSymbol
     from market.utils.order_utils import new_order
+    from ledger.utils.wallet_pipeline import WalletPipeline
+    from ledger.models import OTCRequest
+    from decimal import Decimal
 
 
     def get_rand_int():
@@ -38,16 +43,14 @@ if settings.DEBUG_OR_TESTING:
         else:
             key = 'price:' + asset.symbol.lower() + 'usdt'
 
-        price_redis.hset(name=key, mapping=mapping)
+        get_price_redis(allow_stale=True).hset(name=key, mapping=mapping)
 
         time.sleep(1)
-
 
     def set_up_user(self):
         phone = '09355913457'
         user = User.objects.create(username=phone, password='1', phone=phone)
         return user
-
 
     def generate_otp_code(user, scope) -> VerificationCode:
         otp_code = VerificationCode.objects.create(
@@ -57,7 +60,6 @@ if settings.DEBUG_OR_TESTING:
             user=user, )
         return otp_code.code
 
-
     def new_network() -> Network:
         symbol = 'BSC'
         name = 'BSC'
@@ -65,7 +67,6 @@ if settings.DEBUG_OR_TESTING:
         network = Network.objects.create(symbol=symbol, name=name, address_regex=address_regex)
 
         return network
-
 
     def new_network_asset(asset: Asset, network: Network):
 
@@ -82,11 +83,14 @@ if settings.DEBUG_OR_TESTING:
             withdraw_min=withdraw_min,
             withdraw_max=withdraw_max,
             withdraw_precision=withdraw_precision,
+            can_deposit=True,
+            can_withdraw=True,
+            hedger_withdraw_enable=True,
+            hedger_deposit_enable=True
         )
         return network_asset
 
-
-    def new_address_book(account, network, asset=None, address='123') -> AddressBook:
+    def new_address_book(account, network, asset=None, address='123', whitelist: bool = False) -> AddressBook:
         name = 'test'
         address = address
         account = account
@@ -94,7 +98,7 @@ if settings.DEBUG_OR_TESTING:
         if asset:
             asset = Asset.get(asset)
         address_book = AddressBook.objects.create(name=name, address=address, account=account, network=network,
-                                                  asset=asset)
+                                                  asset=asset, whitelist=whitelist)
         return address_book
 
     def new_bankcard(user) -> BankCard:
@@ -116,3 +120,28 @@ if settings.DEBUG_OR_TESTING:
                     amount=d[1],
                     side=side
                 )
+
+    def new_otc_request(account: Account = None):
+        if not account:
+            account = new_account()
+
+        from_asset = Asset.get(Asset.IRT)
+        from_amount = Decimal(1000000)
+
+        from_asset.get_wallet(account).airdrop(from_amount)
+
+        return OTCRequest.new_trade(
+            account=account,
+            from_asset=from_asset,
+            to_asset=Asset.get(Asset.USDT),
+            from_amount=from_amount,
+            market=Wallet.SPOT,
+            order_type=OTCRequest.MARKET,
+        )
+
+    def new_trade_revenue(account: Account = None):
+        return TradeRevenue.new(
+            user_trade=new_otc_request(account),
+            group_id=uuid4(),
+            source=TradeRevenue.OTC_MARKET,
+        ).save()

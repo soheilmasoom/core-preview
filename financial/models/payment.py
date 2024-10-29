@@ -9,49 +9,74 @@ from django.dispatch import receiver
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.utils import timezone
+from simple_history.models import HistoricalRecords
+from django.contrib.auth import authenticate
 
+from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.models import Account, EmailNotification
 from accounts.models import Notification
+from accounts.utils.telegram import send_system_message
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
 from ledger.models import Trx, Asset
-from ledger.utils.fields import DONE
+from ledger.utils.fields import DONE, REFUND, INIT
 from ledger.utils.fields import get_group_id_field, get_status_field
+from ledger.utils.fraud import verify_fiat_deposit
 from ledger.utils.precision import humanize_number, get_presentation_amount
 from ledger.utils.price import get_last_price, USDT_IRT
+from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
+from ledger.widget.widget import Widget
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PaymentRequest(models.Model):
+
+    history = HistoricalRecords()
 
     APP, DESKTOP = 'app', 'desktop'
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
     gateway = models.ForeignKey('financial.Gateway', on_delete=models.PROTECT)
-    bank_card = models.ForeignKey('financial.BankCard', on_delete=models.PROTECT)
+    bank_card = models.ForeignKey('financial.BankCard', on_delete=models.PROTECT, null=True, blank=True)
     amount = models.PositiveIntegerField()
     fee = models.PositiveIntegerField()
 
     source = models.CharField(max_length=16, choices=((APP, APP), (DESKTOP, DESKTOP)), default=DESKTOP)
 
     authority = models.CharField(max_length=64, blank=True, db_index=True, null=True)
+    token = models.CharField(max_length=256, blank=True)
+
     login_activity = models.ForeignKey('accounts.LoginActivity', on_delete=models.SET_NULL, null=True, blank=True)
 
     group_id = get_group_id_field()
     payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.SET_NULL)
 
+    details = models.TextField(blank=True)
+
+    user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
+
     def get_gateway(self):
         return self.gateway.get_concrete_gateway()
 
-    def get_or_create_payment(self):
+    @property
+    def rial_amount(self):
+        return (self.fee + self.amount) * 10
+
+    def get_or_create_payment(self, **kwargs) -> 'Payment':
         with transaction.atomic():
             payment, created = Payment.objects.get_or_create(
                 group_id=self.group_id,
                 defaults={
-                    'user': self.bank_card.user,
+                    'user': self.user,
                     'amount': self.amount,
-                    'fee': self.fee
+                    'fee': self.fee,
+                    'source': Payment.IPG,
+                    **kwargs
                 }
             )
             if created:
@@ -63,21 +88,32 @@ class PaymentRequest(models.Model):
     class Meta:
         unique_together = [('authority', 'gateway')]
 
+        permissions = [
+            ("list_paymentrequest", "Can list payment request"),
+        ]
+
     def __str__(self):
-        return '%s %s' % (self.gateway, self.bank_card)
+        return '%s %s %s' % (self.gateway, self.bank_card, self.user)
 
 
 class Payment(models.Model):
+    history = HistoricalRecords()
+
     SUCCESS_URL = '/checkout/success'
     FAIL_URL = '/checkout/fail'
     SUCCESS_PAYMENT_FAIL_FAST_BUY = '/checkout/fail_trade'
 
+    WIDGET_SUCCESS_SET_PASSWORD_URL = '/auth/set-password'
+    WIDGET_SUCCESS_LOGIN_URL = '/auth/login'
+
     DESCRIPTION_SIZE = 256
+
+    SOURCES = IPG, PAY_ID, MANUAL = 'ipg', 'pay_id', 'manual'
 
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     modified = models.DateTimeField(auto_now=True)
 
-    group_id = get_group_id_field(default=None, unique=True)
+    group_id = get_group_id_field(unique=True)
 
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
 
@@ -86,19 +122,22 @@ class Payment(models.Model):
 
     status = get_status_field()
 
-    ref_id = models.CharField(null=True, blank=True, max_length=256)
+    ref_id = models.CharField(blank=True, max_length=256)
     ref_status = models.SmallIntegerField(null=True, blank=True)
 
     description = models.CharField(max_length=DESCRIPTION_SIZE, blank=True)
 
+    source = models.CharField(max_length=16, choices=[(s, s) for s in SOURCES], db_index=True)
+    card_pan = models.CharField(max_length=32, blank=True)
+
     def __str__(self):
-        return f'{self.amount} IRT to {self.user}'
+        return f'{humanize_number(self.amount)} IRT to {self.user} ({self.status})'
 
     def alert_payment(self):
         user = self.user
         title = 'واریز وجه با موفقیت انجام شد'
         payment_amount = humanize_number(get_presentation_amount(Decimal(self.amount)))
-        description = 'مبلغ {} تومان به حساب شما واریز شد'.format(payment_amount)
+        description = 'مبلغ {} تومان به حساب شما واریز شد.'.format(payment_amount)
 
         Notification.send(
             recipient=user,
@@ -118,7 +157,15 @@ class Payment(models.Model):
             }
         )
 
-    def accept(self, pipeline: WalletPipeline, ref_id: int = None):
+    def accept(self, pipeline: WalletPipeline, ref_id: int = '', system_verify: bool = True):
+        if system_verify and not verify_fiat_deposit(self):
+            send_system_message("Verify deposit: %s" % self, link=url_to_admin_list(self, {'status': 'init'}))
+
+            self.status = INIT
+            self.ref_id = ref_id
+            self.save(update_fields=['status', 'ref_id'])
+            return
+
         asset = Asset.get(Asset.IRT)
         user = self.user
         account = user.get_account()
@@ -144,21 +191,49 @@ class Payment(models.Model):
 
         self.alert_payment()
 
+    def refund(self):
+        with WalletPipeline() as pipeline:
+            payment = Payment.objects.select_for_update().get(id=self.id)
+            if payment.status != DONE:
+                return
+
+            revert_trx_group(pipeline, payment.group_id)
+
+            payment.status = REFUND
+            payment.save(update_fields=['status'])
+
     def get_redirect_url(self) -> str:
         from ledger.models import FastBuyToken
 
         source = self.paymentrequest.source
         desktop = PaymentRequest.DESKTOP
         fast_by_token = FastBuyToken.objects.filter(payment_request=self.paymentrequest).last()
+        is_from_widget = False if self.paymentrequest.bank_card else True
 
         if source == desktop:
-            if self.status == DONE:
-                if fast_by_token and fast_by_token.status != FastBuyToken.DONE:
-                    return settings.PANEL_URL + self.SUCCESS_PAYMENT_FAIL_FAST_BUY
+            if is_from_widget:
+                if self.status == DONE:
+                    status = 'fail' if fast_by_token and fast_by_token.status != FastBuyToken.DONE else 'done'
+                    url = settings.PANEL_URL + self.WIDGET_SUCCESS_LOGIN_URL + "?buy=" + status
+
+                    if not self.user.has_usable_password():
+                        token = Widget.generate_set_password_token(self.paymentrequest.user)
+                        self.user.national_code_verified = True
+                        self.user.save(update_fields=['national_code_verified'])
+                        url = settings.PANEL_URL + self.WIDGET_SUCCESS_SET_PASSWORD_URL + "?buy=" + status + "&token=" + token
+
+                    return url
                 else:
-                    return settings.PANEL_URL + self.SUCCESS_URL
+                    return settings.PANEL_URL + self.FAIL_URL
             else:
-                return settings.PANEL_URL + self.FAIL_URL
+                if self.status == DONE:
+                    if fast_by_token and fast_by_token.status != FastBuyToken.DONE:
+                        return settings.PANEL_URL + self.SUCCESS_PAYMENT_FAIL_FAST_BUY
+                    else:
+                        return settings.PANEL_URL + self.SUCCESS_URL
+                else:
+                    return settings.PANEL_URL + self.FAIL_URL
+
         else:
             if self.status == DONE:
                 if fast_by_token and fast_by_token.status != FastBuyToken.DONE:
@@ -180,6 +255,10 @@ class Payment(models.Model):
 
     class Meta:
         constraints = [
+        ]
+
+        permissions = [
+            ("list_payment", "Can list payment"),
         ]
 
 

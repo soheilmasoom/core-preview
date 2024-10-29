@@ -3,12 +3,10 @@ from decimal import Decimal
 
 from django.db.models import F, Sum
 from django.utils import timezone
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from ledger.models import Wallet
 from ledger.models.asset import Asset
@@ -20,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 class StakeOverviewAPIView(APIView):
-    authentication_classes = (SessionAuthentication, JWTAuthentication)
     permission_classes = (IsAuthenticated,)
 
     @staticmethod
