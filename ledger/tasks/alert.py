@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
 from random import randint
+from typing import Set, Dict
+
 from celery import shared_task
 from django.core.cache import cache
 
@@ -62,8 +64,10 @@ def get_current_prices(only_base=Asset.USDT) -> dict:
     return get_prices(symbols, side=BUY)
 
 
-def send_notifications(asset_alerts, altered_coins):
+def send_notifications(asset_alerts: Set[AlertData], altered_coins: Dict[str, list]):
     for alert in asset_alerts:
+        asset = alert.asset
+
         is_usdt_based = alert.asset.symbol != Asset.USDT
         base_coin = 'تتر' if is_usdt_based else 'تومان'
         new_price, old_price, interval, is_chanel_changed = altered_coins[alert.asset.symbol]
@@ -88,14 +92,12 @@ def send_notifications(asset_alerts, altered_coins):
         else:
             message = f'قیمت {alert.asset.name_fa} به {new_price} {base_coin} رسید.'
 
-        assets = {alert_data.asset for alert_data in asset_alerts}
-        for asset in assets:
-            send_push_notif(
-                title=title,
-                body=message,
-                link=f'/price/{asset.name}',
-                topic=f"price_alerts_{asset.symbol.lower()}"
-            )
+        send_push_notif(
+            title=title,
+            body=message,
+            link=f'/price/{asset.name}',
+            topic=AssetAlert.get_default_rule_push_topic(asset)
+        )
 
 
 def process_chanel_change(asset: Asset, current_chanel: int) -> bool:
@@ -138,7 +140,7 @@ def process_ratio_change(asset: Asset, interval) -> bool:
 
 
 def get_altered_coins(past_cycle_prices: dict, current_cycle: dict, current_cycle_count: int,
-                      interval: str) -> dict:
+                      interval: str) -> Dict[str, list]:
     if not past_cycle_prices:
         return {}
 
@@ -200,7 +202,7 @@ def get_past_cycle_by_number(cycle_number: int):
     return cache.get(key)
 
 
-def get_asset_alert_list(altered_coins: dict) -> set:
+def get_asset_alert_list(altered_coins: dict) -> Set[AlertData]:
     asset_alerts = set()
     all_assets = Asset.live_objects.filter(symbol__in=altered_coins.keys())
     all_categories = CoinCategory.objects.all()

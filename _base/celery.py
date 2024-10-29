@@ -325,7 +325,7 @@ app.conf.beat_schedule = {
             'expires': 3600
         },
     },
-    # 'manage_user_topic_subscription': {
+    # 'trigger_fcm_topic_subscriptions': {
     #     'task': 'accounts.tasks.notification.manage_user_topic_subscription_task',
     #     'schedule': crontab(minute=5),
     #     'options': {
