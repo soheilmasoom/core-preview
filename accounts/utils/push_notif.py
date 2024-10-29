@@ -124,7 +124,7 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         body['token'] = token
 
     if topic:
-        body['topic'] = f"/topics/{topic}"
+        body['topic'] = topic
 
     if link:
         body['webpush'] = {
@@ -146,12 +146,6 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         },
         timeout=30,
     )
-    logger.info(f"fcm-resp--{resp}--{body}")
-
-    if not resp.ok:
-        logger.info(f"fcm-resp--{body}")
-        logger.info(f"fcm-resp--{resp.status_code}")
-        logger.info(f"fcm-resp--{resp.json()}")
 
     if resp.status_code == 404:
         from accounts.models import FirebaseToken
