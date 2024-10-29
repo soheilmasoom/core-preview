@@ -1427,7 +1427,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         self.convert_dust(queryset, False)
 
 
-    @admin.action(description='convert dust and close', permissions=['change'])
+    @admin.action(description='force convert dust and close', permissions=['change'])
     def force_convert_dust_close(self, request, queryset):
         self.convert_dust(queryset, True)
 
