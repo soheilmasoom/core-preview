@@ -184,13 +184,13 @@ class ConsultationAdmin(admin.ModelAdmin):
     search_fields = ('user__phone', 'user__email',)
     actions = ('cancel_consultation', 'done_consultation',)
 
-    @admin.action(description='تغیر به لغو شده', permissions=['change'])
+    @admin.action(description='Reject', permissions=['change'])
     def cancel_consultation(self, request, queryset):
-        queryset.objects.update(status=CANCELED)
+        queryset.filter(status=PENDING).update(status=CANCELED)
 
-    @admin.action(description='تغییر به انجام شده', permissions=['change'])
+    @admin.action(description='Accept', permissions=['change'])
     def done_consultation(self, request, queryset):
-        queryset.objects.update(status=DONE)
+        queryset.filter(status=PENDING).update(status=DONE)
 
     @admin.display(description='description')
     def get_description(self, consultation: Consultation):
@@ -1146,3 +1146,4 @@ class FCMTopicSubscriptionAdmin(admin.ModelAdmin):
     list_display = ('created', 'user', 'action', 'status', 'topic',)
     search_fields = ('action', 'user__phone')
     list_filter = ('status', 'action')
+    readonly_fields = ('user',)

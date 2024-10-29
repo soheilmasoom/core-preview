@@ -106,9 +106,4 @@ def manage_user_topic_subscription_task():
     from accounts.utils.push_notif import manage_user_topic_subscription
 
     for subscription in FCMTopicSubscription.objects.filter(status=PENDING).order_by('id')[:100]:
-        manage_user_topic_subscription(
-            fcm_topic_subscription=subscription,
-            user=subscription.user,
-            topic=subscription.topic,
-            action=subscription.action,
-        )
+        manage_user_topic_subscription(subscription)

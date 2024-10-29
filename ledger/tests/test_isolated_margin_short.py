@@ -700,9 +700,6 @@ class ShortIsolatedMarginTestCase(TestCase):
         with WalletPipeline() as pipeline:
             new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=loan_amount/2, market=Wallet.SPOT, price=BTC_USDT_PRICE)
 
-
-
-
         self.print_wallets(self.account)
 
         self.print_wallets(self.account)
