@@ -1392,7 +1392,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
                        'liquidation_price', 'leverage', 'equity', 'group_id')
     list_filter = ('side', 'symbol', 'status')
     search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
-    actions = ('convert_dust_close', )
+    actions = ('convert_dust_close', 'force_convert_dust_close')
 
     @admin.display(description='Orders')
     def get_orders(self, obj):
@@ -1424,12 +1424,20 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
 
     @admin.action(description='convert dust and close', permissions=['change'])
     def convert_dust_close(self, request, queryset):
+        self.convert_dust(queryset, False)
+
+
+    @admin.action(description='convert dust and close', permissions=['change'])
+    def force_convert_dust_close(self, request, queryset):
+        self.convert_dust(queryset, True)
+
+    def convert_dust(self, queryset, force):
         positions = []
         group_id = uuid4()
 
         with WalletPipeline() as pipeline:
             for position in queryset:
-                position.convert_dust(pipeline)
+                position.convert_dust(pipeline, force=force)
 
                 isolated = position.base_wallet
                 isolated.refresh_from_db()
