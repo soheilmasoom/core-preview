@@ -13,5 +13,7 @@ class FCMTopicSubscription(models.Model):
     action = models.CharField(max_length=50, choices=[(a, a) for a in ACTIONS])
     status = get_status_field()
 
+    description = models.TextField(blank=True)
+
     def __str__(self):
         return f"{self.user.username} - {self.topic} - {self.status}"
