@@ -145,7 +145,8 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
             instance.delete()
             user = self.request.user
             topic = AssetAlert.get_default_rule_push_topic(instance.asset)
-            fcm_topic_manager.unsubscribe(topic, list(user.fcm_tokens.values_list('token', flat=True)))
+            tokens = list(user.fcm_tokens.filter(active=True).values_list('token', flat=True))
+            fcm_topic_manager.unsubscribe(topic, tokens)
 
             if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
                 user.is_price_notif_on = False
@@ -155,7 +156,8 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
         asset_alert = serializer.save(user=self.request.user)  # type: AssetAlert
 
         topic = AssetAlert.get_default_rule_push_topic(asset_alert.asset)
-        fcm_topic_manager.subscribe(topic, list(asset_alert.user.fcm_tokens.values_list('token', flat=True)))
+        tokens = list(asset_alert.user.fcm_tokens.filter(active=True).values_list('token', flat=True))
+        fcm_topic_manager.subscribe(topic, tokens)
 
     def get_queryset(self):
         coin = self.request.query_params.get('coin')
