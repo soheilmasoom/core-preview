@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from accounts.models.firebase_token import FirebaseToken
 from accounts.utils.fcm_topic import fcm_topic_manager
 from accounts.utils.ip import get_client_ip
+from accounts.utils.price_alert import subscribe_token_to_alert
 from ledger.models import AssetAlert
 
 
@@ -41,7 +42,7 @@ class FirebaseTokenView(APIView):
             else:
                 return Response({'msg': 'change user of token impossible'})
         else:
-            FirebaseToken.objects.create(
+            firebase_token = FirebaseToken.objects.create(
                 token=token,
                 user=user,
                 ip=ip,
@@ -49,8 +50,6 @@ class FirebaseTokenView(APIView):
                 native_app=serializer.validated_data.get('source') == 'app'
             )
 
-            for asset_alert in user.asset_alerts.all():  # type: AssetAlert
-                topic = AssetAlert.get_default_rule_push_topic(asset_alert.asset)
-                fcm_topic_manager.subscribe(topic, [token])
+            subscribe_token_to_alert(firebase_token)
 
             return Response({'msg': 'token create'})
