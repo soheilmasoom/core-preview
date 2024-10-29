@@ -3,7 +3,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models.firebase_token import FirebaseToken
+from accounts.utils.fcm_topic import fcm_topic_manager
 from accounts.utils.ip import get_client_ip
+from ledger.models import AssetAlert
 
 
 class FirebaseTokenSerializer(serializers.ModelSerializer):
@@ -46,4 +48,9 @@ class FirebaseTokenView(APIView):
                 user_agent=user_agent,
                 native_app=serializer.validated_data.get('source') == 'app'
             )
+
+            for asset_alert in user.asset_alerts.all():  # type: AssetAlert
+                topic = AssetAlert.get_default_rule_push_topic(asset_alert.asset)
+                fcm_topic_manager.subscribe(topic, [token])
+
             return Response({'msg': 'token create'})

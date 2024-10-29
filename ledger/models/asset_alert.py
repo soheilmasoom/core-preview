@@ -46,8 +46,10 @@ BASE_ALERT_PACKAGE = ["USDT", "BTC", "ETH", "SHIB", "DOGE"]
 
 
 class AssetAlert(models.Model):
+    MAX_ASSET_ALERTS_PER_USER = 1000
+
     created = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='asset_alerts')
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
 
     @classmethod
