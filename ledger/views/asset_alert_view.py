@@ -35,7 +35,7 @@ class AssetAlertCreateSerializer(serializers.ModelSerializer):
         if asset.is_cash():
             raise ValidationError({'asset': 'ارزدیجیتال انتخاب شده نباید تومان باشد.'})
 
-        if AssetAlert.objects.filter(user=user).count() > AssetAlert.MAX_ASSET_ALERTS_PER_USER:
+        if AssetAlert.objects.filter(user=user).count() >= AssetAlert.MAX_ASSET_ALERTS_PER_USER:
             raise ValidationError('شما حداکثر 1000 تا ارز دیجیتال را می‌توانید تحت نظر قرار دهید.')
 
         return data
