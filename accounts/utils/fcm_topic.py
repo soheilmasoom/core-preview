@@ -18,8 +18,6 @@ class PendingTokens:
 
 
 class FcmTopicManger:
-    DIRTY_TOPIC_KEYS = 'fcm:topics:dirty'
-
     def __init__(self):
         self.redis = Redis.from_url(settings.FCM_CACHE_LOCATION, decode_responses=True)
 
@@ -66,14 +64,11 @@ class FcmTopicManger:
 
         key = self._get_topic_key(topic, action)
 
-        self.redis.sadd(self.DIRTY_TOPIC_KEYS, key)
         self.redis.sadd(key, *tokens)
 
         reverse_action = PendingTokens.SUBSCRIBE if action == PendingTokens.UNSUBSCRIBE else PendingTokens.UNSUBSCRIBE
         reverse_key = self._get_topic_key(topic, reverse_action)
         self.redis.srem(reverse_key, *tokens)
-        if self.redis.scard(reverse_key) == 0:
-            self.redis.srem(self.DIRTY_TOPIC_KEYS, reverse_key)
 
     def _remove(self, topic: str, action: str, tokens: List[str]):
         if not tokens:
@@ -82,11 +77,12 @@ class FcmTopicManger:
         key = self._get_topic_key(topic=topic, action=action)
         self.redis.srem(key, *tokens)
 
-        if self.redis.scard(key) == 0:
-            self.redis.srem(self.DIRTY_TOPIC_KEYS, key)
-
     def _get_a_dirty_key(self) -> Union[str, None]:
-        return self.redis.srandmember(self.DIRTY_TOPIC_KEYS)
+        keys = self.redis.keys('fcm:*')
+        if not keys:
+            return
+
+        return keys[0]
 
 
 fcm_topic_manager = FcmTopicManger()
