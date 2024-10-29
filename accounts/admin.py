@@ -1034,9 +1034,9 @@ class LoginActivityAdmin(admin.ModelAdmin):
 
 @admin.register(FirebaseToken)
 class FirebaseTokenAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ['user', 'ip', 'native_app']
+    list_display = ['user', 'active', 'ip', 'native_app']
     readonly_fields = ('created', 'user')
-    list_filter = ('native_app', )
+    list_filter = ('active', 'native_app', )
     search_fields = ('user__phone', 'token')
 
 

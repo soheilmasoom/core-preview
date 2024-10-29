@@ -37,9 +37,11 @@ class FcmTopicManger:
         self._add(topic=topic, action=PendingTokens.UNSUBSCRIBE, tokens=tokens)
 
     def get_pending_tokens(self) -> Union[PendingTokens, None]:
-        key = self._get_a_dirty_key()
-        if not key:
+        keys = self._get_keys()
+        if not keys:
             return
+
+        key = keys[0]
 
         topic, action = self._get_topic_action_from_key(key)
 
@@ -57,6 +59,13 @@ class FcmTopicManger:
             action=pending_tokens.action,
             tokens=pending_tokens.tokens
         )
+
+    def cleanup_tokens(self, tokens: List[str]):
+        if not tokens:
+            return
+
+        for key in self._get_keys():
+            self.redis.srem(key, *tokens)
 
     def _add(self, topic: str, action: str, tokens: List[str]):
         if not tokens:
@@ -77,12 +86,8 @@ class FcmTopicManger:
         key = self._get_topic_key(topic=topic, action=action)
         self.redis.srem(key, *tokens)
 
-    def _get_a_dirty_key(self) -> Union[str, None]:
-        keys = self.redis.keys('fcm:*')
-        if not keys:
-            return
-
-        return keys[0]
+    def _get_keys(self) -> List[str]:
+        return self.redis.keys('fcm:*')
 
 
 fcm_topic_manager = FcmTopicManger()
