@@ -39,7 +39,6 @@ from stake.models import StakeRequest
 from .admin_guard import M
 from .admin_guard.admin import AdvancedAdmin
 from .models import User, Account, Notification, UserAuthRequest, Company, LevelGrants
-from .models.fcm_topic_subscription import FCMTopicSubscription
 from .models.login_activity import LoginActivity
 from .models.sms_notification import SmsNotification
 from .models.user_feature_perm import UserFeaturePerm
@@ -1139,11 +1138,3 @@ class LevelGrantsAdmin(admin.ModelAdmin):
 class SpamPhoneAdmin(admin.ModelAdmin):
     list_display = ('created', 'phone')
     search_fields = ('phone', )
-
-
-@admin.register(FCMTopicSubscription)
-class FCMTopicSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ('created', 'user', 'action', 'status', 'topic',)
-    search_fields = ('action', 'user__phone')
-    list_filter = ('status', 'action')
-    readonly_fields = ('user',)

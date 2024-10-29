@@ -1,15 +1,16 @@
 import logging
+import time
 from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
 
 from accounts.models import Notification, BulkNotification, User, EmailNotification
-from accounts.models.fcm_topic_subscription import FCMTopicSubscription
 from accounts.models.sms_notification import SmsNotification
 from accounts.tasks.send_sms import send_kavenegar_exclusive_sms
 from accounts.utils.email import send_email, EmailInfo
-from accounts.utils.push_notif import send_push_notif_to_user
+from accounts.utils.fcm_topic import fcm_topic_manager
+from accounts.utils.push_notif import send_push_notif_to_user, trigger_topic_subscriptions
 from ledger.utils.fields import PENDING, DONE
 
 logger = logging.getLogger(__name__)
@@ -102,8 +103,11 @@ def send_email_notifications():
 
 
 @shared_task(queue='notif-manager')
-def manage_user_topic_subscription_task():
-    from accounts.utils.push_notif import manage_user_topic_subscription
+def trigger_fcm_topic_subscriptions():
+    for i in range(10):
+        pending_tokens = fcm_topic_manager.get_pending_tokens()
 
-    for subscription in FCMTopicSubscription.objects.filter(status=PENDING).order_by('id')[:100]:
-        manage_user_topic_subscription(subscription)
+        if not pending_tokens:
+            return
+
+        trigger_topic_subscriptions(pending_tokens)
