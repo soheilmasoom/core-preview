@@ -9,8 +9,8 @@ from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.response import Response
 
 from accounts.models import User
-
-from accounts.utils.fcm_topic import fcm_topic_manager
+from accounts.utils.price_alert import subscribe_alert, unsubscribe_alert, subscribe_user_to_alerts, \
+    unsubscribe_user_to_alerts
 from ledger.models import AssetAlert, BulkAssetAlert, Asset
 from ledger.models.asset import AssetSerializerMini, CoinField
 from ledger.models.asset_alert import BASE_ALERT_PACKAGE
@@ -143,10 +143,9 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance: AssetAlert):
         with transaction.atomic():
             instance.delete()
+            unsubscribe_alert(instance)
+
             user = self.request.user
-            topic = AssetAlert.get_default_rule_push_topic(instance.asset)
-            tokens = list(user.fcm_tokens.filter(active=True).values_list('token', flat=True))
-            fcm_topic_manager.unsubscribe(topic, tokens)
 
             if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
                 user.is_price_notif_on = False
@@ -154,10 +153,7 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         asset_alert = serializer.save(user=self.request.user)  # type: AssetAlert
-
-        topic = AssetAlert.get_default_rule_push_topic(asset_alert.asset)
-        tokens = list(asset_alert.user.fcm_tokens.filter(active=True).values_list('token', flat=True))
-        fcm_topic_manager.subscribe(topic, tokens)
+        subscribe_alert(asset_alert)
 
     def get_queryset(self):
         coin = self.request.query_params.get('coin')
@@ -213,12 +209,21 @@ class PriceNotifSwitchView(RetrieveUpdateAPIView):
         return self.request.user
 
     def perform_update(self, serializer):
-        with transaction.atomic():
-            serializer.save()
-            user = self.request.user
-            if not AssetAlert.objects.filter(user=user).exists():
+        user = serializer.instance
+        prev_state = user.is_price_notif_on
+        serializer.save()
+        new_state = user.is_price_notif_on
+
+        if prev_state != new_state:
+            if new_state and not AssetAlert.objects.filter(user=user).exists():
                 for asset in Asset.objects.filter(symbol__in=BASE_ALERT_PACKAGE):
-                    AssetAlert.objects.create(
+                    asset_alert = AssetAlert.objects.create(
                         user=user,
                         asset=asset
                     )
+                    subscribe_alert(asset_alert)
+
+            elif new_state:
+                subscribe_user_to_alerts(user)
+            else:
+                unsubscribe_user_to_alerts(user)

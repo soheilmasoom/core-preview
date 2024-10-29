@@ -8,16 +8,15 @@ from typing import Set, Dict
 
 from celery import shared_task
 from django.core.cache import cache
-
 from django.utils import timezone
+
 from accounts.models import Notification, User
+from accounts.utils.push_notif import send_push_notif
 from ledger.models import CoinCategory, AssetAlert, BulkAssetAlert, AlertTrigger, Asset
 from ledger.models.asset_alert_rule import AssetAlertRule
 from ledger.utils.external_price import BUY
 from ledger.utils.precision import get_symbol_presentation_price
 from ledger.utils.price import USDT_IRT, get_prices, get_symbol_parts, get_coins_symbols
-from accounts.utils.push_notif import send_push_notif
-from accounts.utils.push_notif import send_push_notif_to_user
 
 logger = logging.getLogger(__name__)
 
