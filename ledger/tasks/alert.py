@@ -91,12 +91,12 @@ def send_notifications(asset_alerts: Set[AlertData], altered_coins: Dict[str, li
         else:
             message = f'قیمت {alert.asset.name_fa} به {new_price} {base_coin} رسید.'
 
-        send_push_notif(
-            title=title,
-            body=message,
-            link=f'/price/{asset.name}',
-            topic=AssetAlert.get_default_rule_push_topic(asset)
-        )
+        # send_push_notif(
+        #     title=title,
+        #     body=message,
+        #     link=f'/price/{asset.name}',
+        #     topic=AssetAlert.get_default_rule_push_topic(asset)
+        # )
 
 
 def process_chanel_change(asset: Asset, current_chanel: int) -> bool:
