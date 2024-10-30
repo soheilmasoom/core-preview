@@ -142,8 +142,8 @@ class AssetAlertViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance: AssetAlert):
         with transaction.atomic():
-            instance.delete()
             unsubscribe_alert(instance)
+            instance.delete()
 
             user = self.request.user
 
