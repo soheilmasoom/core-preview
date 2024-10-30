@@ -7,9 +7,8 @@ import requests
 from decouple import config
 from oauth2client.service_account import ServiceAccountCredentials
 
-from accounts.models import User
-from accounts.models.fcm_topic_subscription import FCMTopicSubscription
-from ledger.utils.fields import DONE, CANCELED
+from accounts.models import User, FirebaseToken
+from accounts.utils.fcm_topic import PendingTokens, fcm_topic_manager
 
 logger = logging.getLogger(__name__)
 
@@ -45,26 +44,15 @@ def _get_access_token() -> AccessToken:
     return _access_token
 
 
-def manage_user_topic_subscription(subscription: FCMTopicSubscription):
-    from accounts.models import FirebaseToken
-    user = subscription.user
-    action = subscription.action
-    topic = subscription.topic
-
-    tokens = list(FirebaseToken.objects.filter(user=user, native_app=False).values_list('token', flat=True))
-    if not tokens:
-        subscription.status = DONE
-        subscription.description = 'No tokens found'
-        subscription.save(update_fields=['status', 'description'])
-        return
-
+def trigger_topic_subscriptions(pending_tokens: PendingTokens):
     access_token = _get_access_token()
-    if action == FCMTopicSubscription.SUBSCRIBE:
+
+    if pending_tokens.action == pending_tokens.SUBSCRIBE:
         url = 'https://iid.googleapis.com/iid/v1:batchAdd'
-    elif action == FCMTopicSubscription.UNSUBSCRIBE:
-        url = 'https://iid.googleapis.com/iid/v1:batchRemove'
     else:
-        raise NotImplementedError
+        url = 'https://iid.googleapis.com/iid/v1:batchRemove'
+
+    tokens = pending_tokens.tokens
 
     resp = requests.post(
         url=url,
@@ -74,48 +62,48 @@ def manage_user_topic_subscription(subscription: FCMTopicSubscription):
             "access_token_auth": "true",
         },
         json={
-            'to': f'/topics/{topic}',
-            'registration_tokens': tokens,
+            'to': f'/topics/{pending_tokens.topic}',
+            'registration_tokens': pending_tokens.tokens,
         },
     )
 
     resp_json = resp.json()
 
     if not resp.ok:
-        subscription.description = resp_json
-        subscription.save(update_fields=['description'])
-        return
+        logger.info(f"Unable to trigger subscription for {pending_tokens.action}/{pending_tokens.topic}")
+        return False
 
-    not_found_tokens = []
+    to_delete_tokens = []
+    invalid_tokens = []
+
     for idx, result in enumerate(resp_json['results']):
+        token = tokens[idx]
+
         if 'error' in result:
             error = result['error']
 
-            if error == 'NOT_FOUND':
-                not_found_tokens.append(tokens[idx])
-                logger.info(f'Token not found: {tokens[idx]}')
-            else:
-                logger.info(f'Error for token {tokens[idx]}: {error}')
-                subscription.status = CANCELED
-                subscription.description = resp_json
-                subscription.save(update_fields=['status', 'description'])
+            logger.info(f'Error subscribing token {token} to {pending_tokens.topic} {error}')
+
+            if error in ['NOT_FOUND', 'INVALID_ARGUMENT', 'PERMISSION_DENIED']:
+                invalid_tokens.append(token)
+                FirebaseToken.objects.filter(token=token).update(active=False, error=error)
 
         else:
-            subscription.status = DONE
-            subscription.description = f'Subscribed {len(tokens)} tokens'
-            subscription.save(update_fields=['status'])
-            return
+            to_delete_tokens.append(token)
 
-    if not_found_tokens:
-        FirebaseToken.objects.filter(token__in=not_found_tokens).delete()
+    if to_delete_tokens:
+        pending_tokens.tokens = to_delete_tokens
+        fcm_topic_manager.remove_pending_tokens(pending_tokens)
 
-    return False
+    fcm_topic_manager.cleanup_tokens(invalid_tokens)
+
+    return True
 
 
 def send_push_notif_to_user(user: User, title: str, body: str, image: str = None, link: str = None):
     from accounts.models import FirebaseToken
 
-    for firebase_token in FirebaseToken.objects.filter(user=user, native_app=False):
+    for firebase_token in FirebaseToken.live_objects.filter(user=user):
         send_push_notif(title, body, firebase_token.token, image, link)
 
 
@@ -136,7 +124,7 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         body['token'] = token
 
     if topic:
-        body['topic'] = f"/topics/{topic}"
+        body['topic'] = topic
 
     if link:
         body['webpush'] = {
@@ -158,18 +146,12 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         },
         timeout=30,
     )
-    logger.info(f"fcm-resp--{resp}--{body}")
-
-    if not resp.ok:
-        logger.info(f"fcm-resp--{body}")
-        logger.info(f"fcm-resp--{resp.status_code}")
-        logger.info(f"fcm-resp--{resp.json()}")
 
     if resp.status_code == 404:
         from accounts.models import FirebaseToken
         data = resp.json()
-
-        if data['error']['status'] == 'NOT_FOUND':
-            FirebaseToken.objects.filter(token=token).delete()
+        error = data['error']['status']
+        if error in ['NOT_FOUND', 'INVALID_ARGUMENT', 'PERMISSION_DENIED']:
+            FirebaseToken.live_objects.filter(token=token).update(active=False, error=error)
 
     return resp.ok

@@ -18,7 +18,7 @@ from accounts.models import SystemConfig
 from ledger.models import Wallet
 from ledger.models.asset import Asset
 from ledger.models.balance_lock import BalanceLock
-from ledger.utils.external_price import BUY, SELL, SIDE_VERBOSE
+from ledger.utils.external_price import SIDE_VERBOSE, SHORT, BUY, SELL
 from ledger.utils.fields import get_amount_field, get_group_id_field
 from ledger.utils.precision import floor_precision, decimal_to_str
 from ledger.utils.wallet_pipeline import WalletPipeline
@@ -342,10 +342,25 @@ class Order(models.Model):
             if free_amount > Decimal('0.95') * lock_amount:
                 lock_amount = min(lock_amount, free_amount)
 
+        margin_locked_amount = 0
+        if self.position and not is_open_position and self.wallet.market == Wallet.MARGIN:
+            if self.side == BUY:
+                q = Sum(F('amount') * F('price') - F('filled_amount') * F('price'))
+            else:
+                q = Sum(F('amount') - F('filled_amount'))
+
+            margin_locked_amount = Order.open_objects.filter(
+                position=self.position,
+                side=self.side
+            ).exclude(id=self.id).annotate(
+                unfilled_amount=q
+            ).aggregate(sum=Sum('unfilled_amount'))['sum'] or 0
+
         to_lock_wallet.has_balance(
             lock_amount,
             raise_exception=True,
-            pipeline_balance_diff=pipeline.get_wallet_free_balance_diff(to_lock_wallet.id)
+            pipeline_balance_diff=pipeline.get_wallet_free_balance_diff(to_lock_wallet.id),
+            margin_locked_amount=margin_locked_amount
         )
 
         pipeline.new_lock(key=self.group_id, wallet=to_lock_wallet, amount=lock_amount, reason=WalletPipeline.TRADE)
