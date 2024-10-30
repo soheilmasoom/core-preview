@@ -26,6 +26,9 @@ def unsubscribe_user_to_alerts(user: User):
 
 
 def subscribe_token_to_alert(token: FirebaseToken):
+    if not token.user:
+        return
+
     for asset_alert in token.user.asset_alerts.all():  # type: AssetAlert
         topic = AssetAlert.get_default_rule_push_topic(asset_alert.asset)
         fcm_topic_manager.subscribe(topic, [token])
