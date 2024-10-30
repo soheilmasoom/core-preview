@@ -103,11 +103,12 @@ def send_email_notifications():
 
 
 @shared_task(queue='notif-manager')
-def trigger_fcm_topic_subscriptions():
-    for i in range(10):
+def trigger_fcm_topic_subscriptions(iterations: int = 1000):
+    for i in range(iterations):
         pending_tokens = fcm_topic_manager.get_pending_tokens()
 
         if not pending_tokens:
             return
 
         trigger_topic_subscriptions(pending_tokens)
+        time.sleep(0.1)
