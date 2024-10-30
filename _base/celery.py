@@ -325,14 +325,14 @@ app.conf.beat_schedule = {
             'expires': 3600
         },
     },
-    # 'trigger_fcm_topic_subscriptions': {
-    #     'task': 'accounts.tasks.notification.manage_user_topic_subscription_task',
-    #     'schedule': crontab(minute=5),
-    #     'options': {
-    #         'queue': 'notif-manager',
-    #         'expires': 3600
-    #     },
-    # },
+    'trigger_fcm_topic_subscriptions': {
+        'task': 'accounts.tasks.notification.trigger_fcm_topic_subscriptions',
+        'schedule': crontab(minute=5),
+        'options': {
+            'queue': 'notif-manager',
+            'expires': 3600
+        },
+    },
     'network_schedules': {
         'task': 'ledger.tasks.network.check_network_schedules',
         'schedule': crontab(minute='30'),
