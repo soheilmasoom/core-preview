@@ -81,6 +81,8 @@ class Asset(models.Model):
 
     rebranded_to = models.OneToOneField('Asset', on_delete=models.SET_NULL, null=True, blank=True)
 
+    default_price_alert = models.BooleanField(default=False, db_index=True)
+
     class Meta:
         ordering = ('-pin_to_top', '-trend', 'otc_status', 'order',)
 

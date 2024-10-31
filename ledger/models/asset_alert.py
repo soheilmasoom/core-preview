@@ -24,25 +24,15 @@ class AlertTrigger(models.Model):
 
     INTERVAL_VERBOSE_MAP = dict(INTERVAL_CHOICES)
 
-    created = models.DateTimeField(auto_now_add=True)
+    TRIGGERS = TRIGGER_PRICE_RATIO, TRIGGER_CHANNEL_CHANGE = 'ratio', 'channel'
+
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
-    price = get_amount_field()
-    chanel = models.IntegerField(default=None, null=True, blank=True)
-    is_chanel_changed = models.BooleanField(default=False)
-    change_percent = models.IntegerField(default=0)
+    trigger_type = models.CharField(max_length=8, choices=[(t, t) for t in TRIGGERS], db_index=True)
+    old_price = get_amount_field()
+    new_price = get_amount_field()
     cycle = models.PositiveIntegerField()
     interval = models.CharField(choices=INTERVAL_CHOICES, max_length=15)
-    is_triggered = models.BooleanField(default=False)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['is_triggered', 'asset', 'created'], name='alert_trigger_idx'),
-            models.Index(fields=['asset', 'is_chanel_changed', 'is_triggered'], name='chanel_change_alert_idx'),
-            models.Index(fields=['asset', 'is_triggered', 'interval', 'created'])
-        ]
-
-
-BASE_ALERT_PACKAGE = ["USDT", "BTC", "ETH", "SHIB", "DOGE"]
 
 
 class AssetAlert(models.Model):

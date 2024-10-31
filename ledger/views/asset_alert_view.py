@@ -13,7 +13,6 @@ from accounts.utils.price_alert import subscribe_alert, unsubscribe_alert, subsc
     unsubscribe_user_to_alerts
 from ledger.models import AssetAlert, BulkAssetAlert, Asset
 from ledger.models.asset import AssetSerializerMini, CoinField
-from ledger.models.asset_alert import BASE_ALERT_PACKAGE
 from ledger.utils.coins_info import get_coins_info
 from ledger.utils.dto import CoinInfo
 from ledger.utils.external_price import SELL
@@ -216,7 +215,7 @@ class PriceNotifSwitchView(RetrieveUpdateAPIView):
 
         if prev_state != new_state:
             if new_state and not AssetAlert.objects.filter(user=user).exists():
-                for asset in Asset.objects.filter(symbol__in=BASE_ALERT_PACKAGE):
+                for asset in Asset.objects.filter(default_price_alert=True):
                     asset_alert = AssetAlert.objects.create(
                         user=user,
                         asset=asset
