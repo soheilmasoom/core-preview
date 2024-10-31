@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 CACHE_PREFIX = 'asset_alert'
 
-INTERVAL_HOUR_TIME_MAP = {
+INTERVAL_FREEZE_TIME_MAP = {
     AlertTrigger.ONE_HOUR: 1,
     AlertTrigger.THREE_HOURS: 3,
     AlertTrigger.SIX_HOURS: 6,
@@ -122,23 +122,28 @@ def should_trigger_channel_change(asset: Asset, current_channel: int) -> bool:
 
 
 def should_trigger_ratio_change(asset: Asset, interval) -> bool:
-    is_sent_recently = AlertTrigger.objects.filter(
+    # Do not send two alerts for any asset in one hour!
+    recently_sent = AlertTrigger.objects.filter(
         asset=asset,
         created__gte=timezone.now() - timedelta(hours=1),
     ).exists()
 
-    if not is_sent_recently:
-        hours = INTERVAL_HOUR_TIME_MAP.get(interval, None)
-        is_interval_price_sent_recently = None
-        if hours:
-            is_interval_price_sent_recently = AlertTrigger.objects.filter(
-                asset=asset,
-                interval=interval,
-                created__gte=timezone.now() - timedelta(hours=hours)
-            ).exists()
-        return is_interval_price_sent_recently is False
-    else:
+    if recently_sent:
         return False
+
+    # Do not send two alerts for any asset in its interval
+    freeze_time = INTERVAL_FREEZE_TIME_MAP.get(interval)
+
+    if not freeze_time:
+        return True
+
+    recently_interval_sent = AlertTrigger.objects.filter(
+        asset=asset,
+        interval=interval,
+        created__gte=timezone.now() - timedelta(hours=freeze_time)
+    ).exists()
+
+    return not recently_interval_sent
 
 
 def get_altered_coins(past_cycle_prices: dict, current_cycle_prices: dict, current_cycle: int,
@@ -167,12 +172,13 @@ def get_altered_coins(past_cycle_prices: dict, current_cycle_prices: dict, curre
 
         trigger_type = None
 
-        channel_sensitivity = asset.price_alert_chanel_sensitivity
+        # channel_sensitivity = asset.price_alert_chanel_sensitivity
+        channel_sensitivity = False
         if channel_sensitivity and interval == AlertTrigger.FIVE_MIN:
             current_channel = current_price // channel_sensitivity
             past_channel = past_price // channel_sensitivity
-            is_channel_changed = current_channel != past_channel
-            if is_channel_changed and should_trigger_channel_change(asset, current_channel=current_channel):
+
+            if current_channel != past_channel and should_trigger_channel_change(asset, current_channel=current_channel):
                 trigger_type = AlertTrigger.TRIGGER_CHANNEL_CHANGE
 
         if not trigger_type:
