@@ -82,7 +82,7 @@ class HealthCheckView(APIView):
             latest_object = max(objects, key=lambda obj: obj.last_modified)
             if (latest_object and latest_object.last_modified < timezone.now() - timedelta(days=1) or
                     latest_object.size < 1024):
-                unhealthy_services.append(service + 'BACKUP_FAILED')
+                unhealthy_services.append(service + 'FAILED')
         now = timezone.now().astimezone()
         min = 8
         last_hour = 0
