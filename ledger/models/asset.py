@@ -71,7 +71,7 @@ class Asset(models.Model):
 
     price_page = models.BooleanField(default=True)
 
-    price_alert_chanel_sensitivity = get_amount_field(null=True)
+    price_alert_channel_sensitivity = get_amount_field(null=True)
 
     distribution_factor = models.FloatField(default=0)
 
