@@ -328,7 +328,10 @@ class MarginPosition(models.Model):
                     group_id=group_id,
                 )
 
-            price = floor_precision(price, self.symbol.step_size)
+            if side == SELL:
+                price = floor_precision(price, self.symbol.tick_size)
+            else:
+                price = ceil_precision(price, self.symbol.tick_size)
 
             liquidation_order = new_order(
                 pipeline=pipeline,
