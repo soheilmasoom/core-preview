@@ -830,3 +830,90 @@ class ShortIsolatedMarginTestCase(TestCase):
 
         self.print_wallets(self.account)
         self.assert_liquidation(self.account, self.btcusdt, liquidate=False)
+
+
+    def test_short_sell_15(self):
+        MarginLeverage.objects.update_or_create(
+            account=self.account,
+            defaults={
+                'leverage': Decimal('3')
+            }
+        )
+
+        self.transfer_usdt_api(TO_TRANSFER_USDT * 1000000000000000)
+
+        self.btcusdt.tick_size = 4
+        self.btcusdt.step_size = 0
+        self.btcusdt.save()
+
+        self.place_order(
+            amount=Decimal('401379.00000000'),
+            side=SELL,
+            market=Wallet.MARGIN,
+            price=Decimal('1.1190'),
+            is_open_position=True
+        )
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=Decimal('401379.00000000'),
+                      market=Wallet.SPOT, price=Decimal('1.1190'))
+
+
+
+        self.place_order(
+            amount=Decimal('12410702.00000000'),
+            side=SELL,
+            market=Wallet.MARGIN,
+            price=Decimal('1.1190'),
+            is_open_position=True
+        )
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=Decimal('12410702.00000000'),
+                      market=Wallet.SPOT, price=Decimal('1.1190'))
+
+
+        self.place_order(
+            amount=Decimal('13998105.00000000'),
+            side=SELL,
+            market=Wallet.MARGIN,
+            price=Decimal('1.1180'),
+            is_open_position=True
+        )
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=Decimal('13998105.00000000'),
+                      market=Wallet.SPOT, price=Decimal('1.1180'))
+
+            pipeline.new_trx(
+                amount=Decimal('77518.47540544998'),
+                sender=mp.asset_wallet,
+                receiver=mp.asset_wallet.asset.get_wallet(account=self.account3),
+                scope=Trx.MARGIN_INTEREST,
+                group_id=uuid4()
+            )
+
+        mp.refresh_from_db()
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=Decimal(abs(mp.asset_wallet.balance)) * 3,
+                      market=Wallet.SPOT, price=mp.liquidation_price - Decimal('0.001'))
+
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=Decimal(abs(mp.asset_wallet.balance)) * 3,
+                      market=Wallet.SPOT, price=mp.liquidation_price + Decimal('0.001'))
+
+
+        with WalletPipeline() as pipeline:
+            mp.liquidate(pipeline)
+
+        mp.refresh_from_db()
+
+        a = Order.objects.filter(position=mp).order_by('id').last()
+
+        print(a.id, a.amount, a.filled_amount, a.price, mp.liquidation_price - Decimal('0.001'), a.side)
+
+        self.print_wallets(self.account)
+
+        self.assert_liquidation(self.account, self.btcusdt)
