@@ -108,6 +108,8 @@ def send_push_notif_to_user(user: User, title: str, body: str, image: str = None
 
 
 def send_push_notif(title: str, body: str, token: str = None, image: str = None, link: str = None, topic: str = None):
+    assert topic or token
+
     notification = {
         "body": body,
         "title": title
@@ -122,8 +124,7 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
 
     if token:
         body['token'] = token
-
-    if topic:
+    else:
         body['topic'] = topic
 
     if link:
@@ -147,6 +148,13 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         timeout=30,
     )
 
+    success = resp.ok
+
+    if token:
+        logger.info(f"Sending single push notif to token={token} {'succeeded' if success else 'failed'}")
+    else:
+        logger.info(f"Sending bulk push notif to topic={topic} {'succeeded' if success else 'failed'}")
+
     if resp.status_code == 404:
         from accounts.models import FirebaseToken
         data = resp.json()
@@ -154,4 +162,4 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         if error in ['NOT_FOUND', 'INVALID_ARGUMENT', 'PERMISSION_DENIED']:
             FirebaseToken.live_objects.filter(token=token).update(active=False, error=error)
 
-    return resp.ok
+    return success

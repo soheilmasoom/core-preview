@@ -22,6 +22,15 @@ class AlertTrigger(models.Model):
         (ONE_DAY, 'یک روز')
     ]
 
+    INTERVAL_MINUTES_MAPPING = {
+        FIVE_MIN: 5,
+        ONE_HOUR: 60,
+        THREE_HOURS: 3 * 60,
+        SIX_HOURS: 6 * 60,
+        TWELVE_HOURS: 12 * 60,
+        ONE_DAY: 24 * 60
+    }
+
     INTERVAL_VERBOSE_MAP = dict(INTERVAL_CHOICES)
 
     TRIGGERS = TRIGGER_PRICE_RATIO, TRIGGER_CHANNEL_CHANGE = 'ratio', 'channel'
