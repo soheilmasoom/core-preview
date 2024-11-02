@@ -109,7 +109,7 @@ def send_push_notif_to_user(user: User, title: str, body: str, image: str = None
 
 
 def send_push_notif(title: str, body: str, token: str = None, image: str = None, link: str = None, topic: str = None,
-                    ttl: int = None):
+                    ttl: int = None, collapse_key: str = None):
 
     assert topic or token
 
@@ -139,6 +139,9 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
     if ttl:
         android_data['ttl'] = ttl
         web_push_data['headers']['TTL'] = ttl
+
+    if collapse_key:
+        android_data['collapse_key'] = collapse_key
 
     if web_push_data:
         body['webpush'] = web_push_data
