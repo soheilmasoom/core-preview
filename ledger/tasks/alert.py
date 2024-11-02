@@ -14,6 +14,7 @@ from accounts.utils.push_notif import send_push_notif
 from ledger.models import AlertTrigger, Asset, AssetAlert
 from ledger.models.asset_alert_rule import AssetAlertRule
 from ledger.utils.external_price import BUY
+from ledger.utils.precision import get_presentation_amount
 from ledger.utils.price import USDT_IRT, get_prices, get_symbol_parts, get_coins_symbols
 
 logger = logging.getLogger(__name__)
@@ -75,9 +76,11 @@ def send_notifications(alerts_data: List[AlertData]):
 
         interval_verbose = AlertTrigger.INTERVAL_VERBOSE_MAP[alert.interval]
 
+        current_price_presentation = get_presentation_amount(alert.current_price)
+
         if alert.trigger_type == AlertTrigger.TRIGGER_CHANNEL_CHANGE:
             title = f'{change_status} قیمت {asset.name_fa}'
-            message = f'قیمت {asset.name_fa} به {alert.current_price} {base_coin} رسید.'
+            message = f'قیمت {asset.name_fa} به {current_price_presentation} {base_coin} رسید.'
         else:
             if alert.interval == AlertTrigger.FIVE_MIN:
                 title = f'{change_status} ناگهانی قیمت {asset.name_fa}'
@@ -85,7 +88,7 @@ def send_notifications(alerts_data: List[AlertData]):
                 title = f'{change_status} قیمت {asset.name_fa}'
 
             message = (f'قیمت {asset.name_fa} در {interval_verbose} گذشته {percent}'
-                       f' درصد {change_status} پیدا کرد و به {alert.current_price} {base_coin} رسید.')
+                       f' درصد {change_status} پیدا کرد و به {current_price_presentation} {base_coin} رسید.')
 
         AlertTrigger.objects.create(
             asset=asset,
