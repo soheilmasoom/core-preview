@@ -22,21 +22,13 @@ logger = logging.getLogger(__name__)
 
 CACHE_PREFIX = 'asset_alert'
 
-RATIO_INTERVAL_FREEZE_TIME_MAP = {
-    AlertTrigger.ONE_HOUR: 1,
-    AlertTrigger.THREE_HOURS: 3,
-    AlertTrigger.SIX_HOURS: 6,
-    AlertTrigger.TWELVE_HOURS: 12,
-    AlertTrigger.ONE_DAY: 24
-}
-
 INTERVAL_CHANGE_PERCENT_SENSITIVITY_MAP = {
     AlertTrigger.FIVE_MIN: 5,
     AlertTrigger.ONE_HOUR: 5,
     AlertTrigger.THREE_HOURS: 10,
     AlertTrigger.SIX_HOURS: 10,
-    AlertTrigger.TWELVE_HOURS: 20,
-    AlertTrigger.ONE_DAY: 20
+    AlertTrigger.TWELVE_HOURS: 10,
+    AlertTrigger.ONE_DAY: 10
 }
 
 
@@ -165,7 +157,7 @@ def should_trigger_ratio_change(asset: Asset, interval) -> bool:
         return False
 
     # Do not send two alerts for any asset in its interval
-    freeze_time = RATIO_INTERVAL_FREEZE_TIME_MAP.get(interval)
+    freeze_time = AlertTrigger.INTERVAL_MINUTES_MAPPING.get(interval)
 
     if not freeze_time:
         return True
@@ -173,7 +165,7 @@ def should_trigger_ratio_change(asset: Asset, interval) -> bool:
     recently_interval_sent = AlertTrigger.objects.filter(
         asset=asset,
         interval=interval,
-        created__gte=timezone.now() - timedelta(hours=freeze_time)
+        created__gte=timezone.now() - timedelta(minutes=freeze_time)
     ).exists()
 
     return not recently_interval_sent
