@@ -137,14 +137,14 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         web_push_data['fcm_options']['link'] = link
 
     if ttl:
-        android_data['ttl'] = ttl
-        web_push_data['headers']['TTL'] = ttl
+        android_data['ttl'] = f'{ttl}s'
+        web_push_data['headers']['TTL'] = str(ttl)
 
     if collapse_key:
         android_data['collapse_key'] = collapse_key
 
     if web_push_data:
-        body['webpush'] = web_push_data
+        body['webpush'] = dict(web_push_data)
 
     if android_data:
         body['android'] = android_data
@@ -164,15 +164,15 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
     )
 
     success = resp.ok
+    data = resp.json()
 
     if token:
-        logger.info(f"Sending single push notif to token={token} {'succeeded' if success else 'failed'}")
+        logger.info(f"Sending single push notif to token={token} {'succeeded' if success else 'failed'} ({data})")
     else:
-        logger.info(f"Sending bulk push notif to topic={topic} {'succeeded' if success else 'failed'}")
+        logger.info(f"Sending bulk push notif to topic={topic} {'succeeded' if success else 'failed'} ({data})")
 
     if resp.status_code == 404:
         from accounts.models import FirebaseToken
-        data = resp.json()
         error = data['error']['status']
         if error in ['NOT_FOUND', 'INVALID_ARGUMENT', 'PERMISSION_DENIED']:
             FirebaseToken.live_objects.filter(token=token).update(active=False, error=error)
