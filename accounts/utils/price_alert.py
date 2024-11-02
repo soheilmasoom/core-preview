@@ -31,7 +31,7 @@ def subscribe_token_to_alert(token: FirebaseToken):
 
     for asset_alert in token.user.asset_alerts.all():  # type: AssetAlert
         topic = AssetAlert.get_default_rule_push_topic(asset_alert.asset)
-        fcm_topic_manager.subscribe(topic, [token])
+        fcm_topic_manager.subscribe(topic, [token.token])
 
 
 def resubscribe_all_alerts():

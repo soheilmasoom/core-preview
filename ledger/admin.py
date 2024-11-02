@@ -664,7 +664,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     }
 
     list_display = (
-        'created', 'network', 'receiver_account', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
+        'created', 'network', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
         'usdt_value', 'get_remaining_time_to_pass_48h', 'get_jalali_created', 'get_jalali_finished', 'out_address',
         'trx_hash', 'get_confirmation',
     )
@@ -1207,12 +1207,10 @@ class ManualTradeAdmin(admin.ModelAdmin):
 
 @admin.register(AlertTrigger)
 class AlertTriggerAdmin(admin.ModelAdmin):
-    list_display = (
-        'created', 'asset', 'price', 'change_percent', 'chanel', 'is_chanel_changed', 'cycle', 'interval',
-        'is_triggered',)
-    list_filter = ('asset', 'is_chanel_changed', 'is_triggered',)
-    readonly_fields = ('created', 'asset', 'price', 'change_percent', 'chanel', 'cycle',)
-    search_fields = ('cycle',)
+    list_display = ('created', 'asset', 'trigger_type', 'old_price', 'new_price', 'trigger_type', 'cycle', 'interval')
+    readonly_fields = ('created', 'asset', )
+    search_fields = ('cycle', 'asset__symbol')
+    list_filter = ('interval', 'trigger_type')
 
 
 @admin.register(DepositRecoveryRequest)

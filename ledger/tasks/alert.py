@@ -3,19 +3,18 @@ import math
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
-from random import randint
-from typing import Set, Dict
+from typing import Dict, List, Union
 
 from celery import shared_task
 from django.core.cache import cache
 from django.utils import timezone
 
-from accounts.models import Notification, User
+from accounts.models import Notification
 from accounts.utils.push_notif import send_push_notif
-from ledger.models import CoinCategory, AssetAlert, BulkAssetAlert, AlertTrigger, Asset
+from ledger.models import AlertTrigger, Asset, AssetAlert
 from ledger.models.asset_alert_rule import AssetAlertRule
 from ledger.utils.external_price import BUY
-from ledger.utils.precision import get_symbol_presentation_price
+from ledger.utils.precision import get_presentation_amount
 from ledger.utils.price import USDT_IRT, get_prices, get_symbol_parts, get_coins_symbols
 
 logger = logging.getLogger(__name__)
@@ -23,36 +22,31 @@ logger = logging.getLogger(__name__)
 
 CACHE_PREFIX = 'asset_alert'
 
-INTERVAL_HOUR_TIME_MAP = {
-    AlertTrigger.ONE_HOUR: 1,
-    AlertTrigger.THREE_HOURS: 3,
-    AlertTrigger.SIX_HOURS: 6,
-    AlertTrigger.TWELVE_HOURS: 12,
-    AlertTrigger.ONE_DAY: 24
-}
-
 INTERVAL_CHANGE_PERCENT_SENSITIVITY_MAP = {
     AlertTrigger.FIVE_MIN: 5,
     AlertTrigger.ONE_HOUR: 5,
     AlertTrigger.THREE_HOURS: 10,
     AlertTrigger.SIX_HOURS: 10,
-    AlertTrigger.TWELVE_HOURS: 20,
-    AlertTrigger.ONE_DAY: 20
+    AlertTrigger.TWELVE_HOURS: 10,
+    AlertTrigger.ONE_DAY: 10
 }
 
 
-@dataclass
+@dataclass()
 class AlertData:
-    user: User
     asset: Asset
+    cycle: int
+    current_price: Decimal
+    past_price: Decimal
+    interval: str
+    trigger_type: str
 
-    def __hash__(self):
-        return hash((self.user, self.asset))
-
-    def __eq__(self, other):
-        if not isinstance(other, AlertData):
-            return NotImplemented
-        return (self.user, self.asset) == (other.user, other.asset)
+    @property
+    def base_coin(self) -> str:
+        if self.asset.symbol == Asset.USDT:
+            return Asset.IRT
+        else:
+            return Asset.USDT
 
 
 def get_current_prices(only_base=Asset.USDT) -> dict:
@@ -63,136 +57,189 @@ def get_current_prices(only_base=Asset.USDT) -> dict:
     return get_prices(symbols, side=BUY)
 
 
-def send_notifications(asset_alerts: Set[AlertData], altered_coins: Dict[str, list]):
-    for alert in asset_alerts:
+def send_notifications(alerts_data: List[AlertData]):
+    for alert in alerts_data:
         asset = alert.asset
 
-        is_usdt_based = alert.asset.symbol != Asset.USDT
-        base_coin = 'تتر' if is_usdt_based else 'تومان'
-        new_price, old_price, interval, is_chanel_changed = altered_coins[alert.asset.symbol]
-        percent = math.floor(abs(new_price / old_price - Decimal(1)) * 100)
-        change_status = 'افزایش' if new_price > old_price else 'کاهش'
-        new_price = get_symbol_presentation_price(
-            symbol=alert.asset.symbol + Asset.USDT if is_usdt_based else Asset.IRT,
-            amount=new_price,
-            trunc_zero=True
+        base_coin = 'تتر' if alert.base_coin == Asset.USDT else 'تومان'
+
+        percent = math.floor(abs(alert.current_price / alert.past_price - Decimal(1)) * 100)
+        change_status = 'افزایش' if alert.current_price > alert.past_price else 'کاهش'
+
+        interval_verbose = AlertTrigger.INTERVAL_VERBOSE_MAP[alert.interval]
+
+        current_price_presentation = get_presentation_amount(alert.current_price)
+
+        if alert.trigger_type == AlertTrigger.TRIGGER_CHANNEL_CHANGE:
+            title = f'{change_status} قیمت {asset.name_fa}'
+            message = f'قیمت {asset.name_fa} به {current_price_presentation} {base_coin} رسید.'
+        else:
+            if alert.interval == AlertTrigger.FIVE_MIN:
+                title = f'{change_status} ناگهانی قیمت {asset.name_fa}'
+            else:
+                title = f'{change_status} قیمت {asset.name_fa}'
+
+            message = (f'قیمت {asset.name_fa} در {interval_verbose} گذشته {percent}'
+                       f' درصد {change_status} پیدا کرد و به {current_price_presentation} {base_coin} رسید.')
+
+        AlertTrigger.objects.create(
+            asset=asset,
+            trigger_type=alert.trigger_type,
+            cycle=alert.cycle,
+            old_price=alert.past_price,
+            new_price=alert.current_price,
+            interval=alert.interval,
         )
 
-        interval_verbose = AlertTrigger.INTERVAL_VERBOSE_MAP[interval]
-
-        if interval == AlertTrigger.FIVE_MIN and not is_chanel_changed:
-            title = f'{change_status} ناگهانی قیمت {alert.asset.name_fa}'
-        else:
-            title = f'{change_status} قیمت {alert.asset.name_fa}'
-
-        if not is_chanel_changed:
-            message = (f'قیمت {alert.asset.name_fa} در {interval_verbose} گذشته {percent}'
-                       f' درصد {change_status} پیدا کرد و به {new_price} {base_coin} رسید.')
-        else:
-            message = f'قیمت {alert.asset.name_fa} به {new_price} {base_coin} رسید.'
-
-        # send_push_notif(
-        #     title=title,
-        #     body=message,
-        #     link=f'/price/{asset.name}',
-        #     topic=AssetAlert.get_default_rule_push_topic(asset)
-        # )
+        send_push_notif(
+            title=title,
+            body=message,
+            link=f'/price/{asset.name}',
+            topic=AssetAlert.get_default_rule_push_topic(asset),
+            ttl=3600
+        )
 
 
-def process_chanel_change(asset: Asset, current_chanel: int) -> bool:
-    last_chanel_triggered_alerts = AlertTrigger.objects.filter(
-        asset=asset,
-        is_chanel_changed=True,
-        is_triggered=True
-    ).order_by('-created')[:2]
+def get_crossing_channel(old_channel: int, new_channel: int) -> Union[int, None]:
+    # if channel changed from 59 to 60 => crossing channel is 60
+    # if channel changed from 60 to 59 => crossing channel is 60 also
+    # if channel changed from 60 to 62 => crossing channel is 62
+    # if channel changed from 62 to 60 => crossing channel is 61
 
-    is_chanel_new = not (
-            last_chanel_triggered_alerts and
-            (last_chanel_triggered_alerts[0].chanel == current_chanel or
-             (len(last_chanel_triggered_alerts) == 2 and
-              last_chanel_triggered_alerts[1].chanel == current_chanel))
-    )
+    channel_change = new_channel - old_channel
 
-    return is_chanel_new
+    if channel_change >= 1:
+        return new_channel
+    elif channel_change <= -1:
+        return new_channel + 1
 
 
-def process_ratio_change(asset: Asset, interval) -> bool:
-    is_sent_recently = AlertTrigger.objects.filter(
-        asset=asset,
-        created__gte=timezone.now() - timedelta(hours=1),
-        is_triggered=True
-    ).exists()
+def get_channel_change_trigger_data(asset: Asset, old_price: Decimal, new_price: Decimal) -> bool:
 
-    if not is_sent_recently:
-        hours = INTERVAL_HOUR_TIME_MAP.get(interval, None)
-        is_interval_price_sent_recently = None
-        if hours:
-            is_interval_price_sent_recently = AlertTrigger.objects.filter(
-                asset=asset,
-                is_triggered=True,
-                interval=interval,
-                created__gte=timezone.now() - timedelta(hours=hours)
-            ).exists()
-        return is_interval_price_sent_recently is False
-    else:
+    if not asset.price_alert_channel_sensitivity:
         return False
 
+    channel_sensitivity = asset.price_alert_channel_sensitivity
 
-def get_altered_coins(past_cycle_prices: dict, current_cycle: dict, current_cycle_count: int,
-                      interval: str) -> Dict[str, list]:
+    new_channel = new_price // channel_sensitivity
+    old_channel = old_price // channel_sensitivity
+
+    crossing_channel = get_crossing_channel(old_channel=old_channel, new_channel=new_channel)
+
+    if not crossing_channel:
+        return False
+
+    last_alert_trigger = AlertTrigger.objects.filter(
+        asset=asset,
+        trigger_type=AlertTrigger.TRIGGER_CHANNEL_CHANGE,
+    ).order_by('created').last()
+
+    if not last_alert_trigger:
+        return True
+
+    last_old_channel = last_alert_trigger.old_price // channel_sensitivity
+    last_new_channel = last_alert_trigger.new_price // channel_sensitivity
+
+    last_crossing_channel = get_crossing_channel(old_channel=last_old_channel, new_channel=last_new_channel)
+
+    if not last_crossing_channel or last_crossing_channel != crossing_channel:
+        return True
+
+
+def should_trigger_ratio_change(asset: Asset, interval) -> bool:
+    # Do not send two alerts for any asset in one hour!
+    recently_sent = AlertTrigger.objects.filter(
+        asset=asset,
+        created__gte=timezone.now() - timedelta(hours=1),
+    ).exists()
+
+    if recently_sent:
+        return False
+
+    # Do not send two alerts for any asset in its interval
+    freeze_time = AlertTrigger.INTERVAL_MINUTES_MAPPING.get(interval)
+
+    if not freeze_time:
+        return True
+
+    recently_interval_sent = AlertTrigger.objects.filter(
+        asset=asset,
+        interval=interval,
+        created__gte=timezone.now() - timedelta(minutes=freeze_time)
+    ).exists()
+
+    return not recently_interval_sent
+
+
+def get_ratio_alerts(current_cycle_prices: dict, current_cycle: int, symbol_to_asset_mapping: dict, interval: str) \
+        -> Dict[str, AlertData]:
+
+    interval_cycles_count = AlertTrigger.INTERVAL_MINUTES_MAPPING[interval] // 5  # every cycle has 5 minutes length
+    if interval == AlertTrigger.ONE_DAY:
+        interval_cycles_count -= 2  # Because we have only 1 day of cycles!
+
+    past_cycle_prices = get_past_cycle_by_number(current_cycle - interval_cycles_count)
+
     if not past_cycle_prices:
         return {}
 
-    mapping_symbol = {}
+    alerts = {}
 
-    for asset in Asset.live_objects.exclude(symbol=Asset.IRT):
-        coin = asset.symbol
-        base_coin = Asset.USDT if coin != Asset.USDT else Asset.IRT
-        mapping_symbol[coin + base_coin] = asset
-
-    changed_coins = {}
-
-    for coin in past_cycle_prices.keys() & current_cycle.keys():
-        asset = mapping_symbol.get(coin, None)
+    for symbol in past_cycle_prices.keys() & current_cycle_prices.keys():
+        asset = symbol_to_asset_mapping.get(symbol)
         if not asset:
             continue
 
-        current_price = current_cycle[coin]
-        past_price = past_cycle_prices[coin]
-        change_percent = math.floor(Decimal(current_price / past_price - Decimal(1)) * 100)
-        is_ratio_changed = abs(change_percent) > INTERVAL_CHANGE_PERCENT_SENSITIVITY_MAP[interval]
+        current_price = current_cycle_prices[symbol]
+        past_price = past_cycle_prices[symbol]
+        coin, base_coin = get_symbol_parts(symbol)
 
-        chanel_sensitivity = asset.price_alert_chanel_sensitivity
-        current_chanel = current_price // chanel_sensitivity if chanel_sensitivity else None
-        past_chanel = past_price // chanel_sensitivity if chanel_sensitivity else None
-        is_chanel_changed = abs(current_chanel - past_chanel) >= 1 if (
-                chanel_sensitivity and interval == AlertTrigger.FIVE_MIN) else False
+        ratio = math.floor(Decimal(current_price / past_price - Decimal(1)) * 100)
+        is_ratio_changed = abs(ratio) > INTERVAL_CHANGE_PERCENT_SENSITIVITY_MAP[interval]
 
-        if is_chanel_changed or is_ratio_changed:
-            alert_trigger = AlertTrigger.objects.create(
+        if is_ratio_changed and should_trigger_ratio_change(asset, interval):
+            alerts[coin] = AlertData(
                 asset=asset,
-                price=current_price,
-                cycle=current_cycle_count,
-                change_percent=change_percent,
-                chanel=current_chanel,
-                is_chanel_changed=is_chanel_changed,
-                interval=interval
+                cycle=current_cycle,
+                current_price=current_price,
+                past_price=past_price,
+                interval=interval,
+                trigger_type=AlertTrigger.TRIGGER_PRICE_RATIO
             )
 
-            is_chanel_new = False
-            is_ratio_change_alerted = False
-            if is_chanel_changed:
-                is_chanel_new = process_chanel_change(asset=asset, current_chanel=current_chanel)
-            if is_ratio_changed:
-                is_ratio_change_alerted = process_ratio_change(asset=asset, interval=interval)
+    return alerts
 
-            if is_chanel_new or is_ratio_change_alerted:
-                coin, base_coin = get_symbol_parts(coin)
-                changed_coins[coin] = [current_price, past_price, interval, is_chanel_new]
-                alert_trigger.is_triggered = True
-                alert_trigger.save(update_fields=['is_triggered'])
 
-    return changed_coins
+def get_channel_change_alerts(current_cycle_prices: dict, current_cycle: int, symbol_to_asset_mapping: dict):
+    past_cycle_prices = get_past_cycle_by_number(current_cycle - 1)  # 5 minutes ago
+
+    if not past_cycle_prices:
+        return {}
+
+    alerts = {}
+
+    for symbol in past_cycle_prices.keys() & current_cycle_prices.keys():
+        asset = symbol_to_asset_mapping.get(symbol)
+        if not asset:
+            continue
+
+        current_price = current_cycle_prices[symbol]
+        past_price = past_cycle_prices[symbol]
+        coin, base_coin = get_symbol_parts(symbol)
+
+        channel_change_data = get_channel_change_trigger_data(asset, old_price=past_price, new_price=current_price)
+
+        if channel_change_data:
+            alerts[coin] = AlertData(
+                asset=asset,
+                cycle=current_cycle,
+                current_price=current_price,
+                past_price=past_price,
+                interval=AlertTrigger.FIVE_MIN,
+                trigger_type=AlertTrigger.TRIGGER_CHANNEL_CHANGE,
+            )
+
+    return alerts
 
 
 def get_past_cycle_by_number(cycle_number: int):
@@ -201,91 +248,43 @@ def get_past_cycle_by_number(cycle_number: int):
     return cache.get(key)
 
 
-def get_asset_alert_list(altered_coins: dict) -> Set[AlertData]:
-    asset_alerts = set()
-    all_assets = Asset.live_objects.filter(symbol__in=altered_coins.keys())
-    all_categories = CoinCategory.objects.all()
-    category_map = {}
-
-    for category in all_categories:
-        category_map[category] = category.coins.filter(symbol__in=altered_coins.keys())
-
-    for asset_alert in AssetAlert.objects.filter(
-        asset__symbol__in=altered_coins.keys(),
-        user__is_price_notif_on=True,
-    ).exclude(asset__otc_status=Asset.COMING_SOON):
-        asset_alerts.add(
-            AlertData(
-                user=asset_alert.user,
-                asset=asset_alert.asset,
-            )
-        )
-
-    for bulk_asset_alert in BulkAssetAlert.objects.filter(
-        user__is_price_notif_on=True
-    ):
-        subscription_type = bulk_asset_alert.subscription_type
-
-        if subscription_type == BulkAssetAlert.CATEGORY_ALL_COINS:
-            subscribed_coins = all_assets
-        elif subscription_type == BulkAssetAlert.CATEGORY_MY_ASSETS:
-            subscribed_coins = Asset.objects.filter(
-                symbol__in=altered_coins.keys(),
-                wallet__account=bulk_asset_alert.user.get_account(),
-                wallet__balance__gt=0
-            )
-        else:
-            subscribed_coins = category_map[bulk_asset_alert.coin_category]
-
-        for asset in subscribed_coins:
-            asset_alerts.add(AlertData(
-                user=bulk_asset_alert.user,
-                asset=asset
-            ))
-
-    return asset_alerts
-
-
 @shared_task(queue="notif-manager")
 def send_price_notifications():
     now = timezone.now()
-    current_cycle_count = (now.hour * 60 + now.minute) // 5
+    current_cycle = (now.hour * 60 + now.minute) // 5
     current_cycle_prices = get_current_prices()
 
-    key = CACHE_PREFIX + str(current_cycle_count)
+    if not current_cycle_prices:
+        return
+
+    key = CACHE_PREFIX + str(current_cycle)
     cache.set(key, current_cycle_prices, 3600 * 24 + 60 * 4)
 
-    past_five_minute_cycle = get_past_cycle_by_number(current_cycle_count - 1)
-    past_hour_cycle = get_past_cycle_by_number(current_cycle_count - 12)
-    past_three_hours_cycle = get_past_cycle_by_number(current_cycle_count - 12 * 3)
-    past_six_hours_cycle = get_past_cycle_by_number(current_cycle_count - 12 * 6)
-    past_twelve_hours_cycle = get_past_cycle_by_number(current_cycle_count - 12 * 12)
-    past_day_cycle = get_past_cycle_by_number(current_cycle_count + 2)
+    # past_day_cycle_prices = get_past_cycle_by_number(current_cycle + 2)
+
+    symbol_to_asset = {}
+
+    for asset in Asset.live_objects.exclude(symbol=Asset.IRT):
+        coin = asset.symbol
+        base_coin = Asset.USDT if coin != Asset.USDT else Asset.IRT
+        symbol_to_asset[coin + base_coin] = asset
 
     altered_coins = {
-        **get_altered_coins(past_five_minute_cycle, current_cycle_prices, current_cycle_count,
-                            interval=AlertTrigger.FIVE_MIN),
-        **get_altered_coins(past_hour_cycle, current_cycle_prices, current_cycle_count,
-                            interval=AlertTrigger.ONE_HOUR),
-        **get_altered_coins(past_three_hours_cycle, current_cycle_prices, current_cycle_count,
-                            interval=AlertTrigger.THREE_HOURS),
-        **get_altered_coins(past_six_hours_cycle, current_cycle_prices, current_cycle_count,
-                            interval=AlertTrigger.SIX_HOURS),
-        **get_altered_coins(past_twelve_hours_cycle, current_cycle_prices, current_cycle_count,
-                            interval=AlertTrigger.TWELVE_HOURS),
-        **get_altered_coins(past_day_cycle, current_cycle_prices, current_cycle_count,
-                            interval=AlertTrigger.ONE_DAY),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.ONE_DAY),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.TWELVE_HOURS),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.SIX_HOURS),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.THREE_HOURS),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.ONE_HOUR),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.FIVE_MIN),
     }
 
-    asset_alert_list = get_asset_alert_list(altered_coins)
+    send_notifications(list(altered_coins.values()))
 
-    send_notifications(asset_alert_list, altered_coins)
-
-    if randint(1, 100) < 10:
-        AlertTrigger.objects.filter(created__lte=timezone.now() - timedelta(days=10)).exclude(
-            is_chanel_changed=True,
-            is_triggered=True
-        ).delete()
+    # if randint(1, 100) < 10:
+    #     AlertTrigger.objects.filter(created__lte=timezone.now() - timedelta(days=10)).exclude(
+    #         is_chanel_changed=True,
+    #         is_triggered=True
+    #     ).delete()
 
 
 @shared_task(queue="notif-manager")

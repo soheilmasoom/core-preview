@@ -2,6 +2,7 @@ import dataclasses
 import json
 import logging
 import time
+from collections import defaultdict
 
 import requests
 from decouple import config
@@ -107,7 +108,11 @@ def send_push_notif_to_user(user: User, title: str, body: str, image: str = None
         send_push_notif(title, body, firebase_token.token, image, link)
 
 
-def send_push_notif(title: str, body: str, token: str = None, image: str = None, link: str = None, topic: str = None):
+def send_push_notif(title: str, body: str, token: str = None, image: str = None, link: str = None, topic: str = None,
+                    ttl: int = None, collapse_key: str = None):
+
+    assert topic or token
+
     notification = {
         "body": body,
         "title": title
@@ -116,22 +121,33 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
     if image:
         notification['image'] = image
 
+    android_data = {}
+    web_push_data = defaultdict(dict)
+
     body = {
-        "notification": notification
+        "notification": notification,
     }
 
     if token:
         body['token'] = token
-
-    if topic:
+    else:
         body['topic'] = topic
 
     if link:
-        body['webpush'] = {
-            'fcm_options': {
-                'link': link
-            }
-        }
+        web_push_data['fcm_options']['link'] = link
+
+    if ttl:
+        android_data['ttl'] = ttl
+        web_push_data['headers']['TTL'] = ttl
+
+    if collapse_key:
+        android_data['collapse_key'] = collapse_key
+
+    if web_push_data:
+        body['webpush'] = web_push_data
+
+    if android_data:
+        body['android'] = android_data
 
     access_token = _get_access_token()
 
@@ -147,6 +163,13 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         timeout=30,
     )
 
+    success = resp.ok
+
+    if token:
+        logger.info(f"Sending single push notif to token={token} {'succeeded' if success else 'failed'}")
+    else:
+        logger.info(f"Sending bulk push notif to topic={topic} {'succeeded' if success else 'failed'}")
+
     if resp.status_code == 404:
         from accounts.models import FirebaseToken
         data = resp.json()
@@ -154,4 +177,4 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         if error in ['NOT_FOUND', 'INVALID_ARGUMENT', 'PERMISSION_DENIED']:
             FirebaseToken.live_objects.filter(token=token).update(active=False, error=error)
 
-    return resp.ok
+    return success
