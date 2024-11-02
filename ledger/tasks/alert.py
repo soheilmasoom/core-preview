@@ -103,7 +103,8 @@ def send_notifications(alerts_data: List[AlertData]):
             title=title,
             body=message,
             link=f'/price/{asset.name}',
-            topic=AssetAlert.get_default_rule_push_topic(asset)
+            topic=AssetAlert.get_default_rule_push_topic(asset),
+            ttl=3600
         )
 
 
