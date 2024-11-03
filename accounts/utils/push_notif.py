@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from collections import defaultdict
+from typing import Union
 
 import requests
 from decouple import config
@@ -109,7 +110,7 @@ def send_push_notif_to_user(user: User, title: str, body: str, image: str = None
 
 
 def send_push_notif(title: str, body: str, token: str = None, image: str = None, link: str = None, topic: str = None,
-                    ttl: int = None, collapse_key: str = None):
+                    ttl: int = None, collapse_key: str = None) -> Union[str, None]:
 
     assert topic or token
 
@@ -177,4 +178,5 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
         if error in ['NOT_FOUND', 'INVALID_ARGUMENT', 'PERMISSION_DENIED']:
             FirebaseToken.live_objects.filter(token=token).update(active=False, error=error)
 
-    return success
+    if resp.ok:
+        return data['name']

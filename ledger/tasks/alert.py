@@ -82,6 +82,14 @@ def send_notifications(alerts_data: List[AlertData]):
             message = (f'قیمت {asset.name_fa} در {interval_verbose} گذشته {percent}'
                        f' درصد {change_status} پیدا کرد و به {current_price_presentation} {base_coin} رسید.')
 
+        fcm_key = send_push_notif(
+            title=title,
+            body=message,
+            link=f'/price/{asset.name}',
+            topic=AssetAlert.get_default_rule_push_topic(asset),
+            ttl=3600
+        )
+
         AlertTrigger.objects.create(
             asset=asset,
             trigger_type=alert.trigger_type,
@@ -89,14 +97,7 @@ def send_notifications(alerts_data: List[AlertData]):
             old_price=alert.past_price,
             new_price=alert.current_price,
             interval=alert.interval,
-        )
-
-        send_push_notif(
-            title=title,
-            body=message,
-            link=f'/price/{asset.name}',
-            topic=AssetAlert.get_default_rule_push_topic(asset),
-            ttl=3600
+            fcm_key=fcm_key or ''
         )
 
 
