@@ -289,7 +289,7 @@ class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
     list_filter = (PaymentGatewayFilter, 'status', 'source', PaymentUserFilter, )
     search_fields = ('ref_id', 'paymentrequest__bank_card__card_pan', 'amount', 'paymentrequest__authority',
                      'user__phone', 'user__first_name', 'user__last_name')
-    readonly_fields = ('group_id', 'user', 'amount', 'fee', 'source')
+    readonly_fields = ('group_id',)
     actions = ('refund', 'accept_deposit', 'reject_deposit')
     raw_id_fields = ('user', )
 
