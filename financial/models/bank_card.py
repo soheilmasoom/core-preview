@@ -20,7 +20,7 @@ class BankCard(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
-    user = models.ForeignKey(to='accounts.User', on_delete=models.PROTECT)
+    user = models.ForeignKey(to='accounts.User', on_delete=models.CASCADE)
 
     card_pan = models.CharField(
         verbose_name='شماره کارت',
@@ -102,7 +102,7 @@ class BankAccount(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
-    user = models.ForeignKey(to='accounts.User', on_delete=models.PROTECT, related_name='bank_accounts')
+    user = models.ForeignKey(to='accounts.User', on_delete=models.CASCADE, related_name='bank_accounts')
 
     iban = models.CharField(
         max_length=26,

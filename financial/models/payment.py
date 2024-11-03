@@ -1,3 +1,4 @@
+import logging
 import uuid
 from decimal import Decimal
 
@@ -10,7 +11,6 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
-from django.contrib.auth import authenticate
 
 from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.models import Account, EmailNotification
@@ -27,8 +27,6 @@ from ledger.utils.price import get_last_price, USDT_IRT
 from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 from ledger.widget.widget import Widget
-
-import logging
 
 logger = logging.getLogger(__name__)
 

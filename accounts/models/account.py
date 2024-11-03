@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Union
 
 from django.conf import settings
 from django.db import models
@@ -187,6 +186,7 @@ class Account(models.Model):
                 ~Q(balance=Decimal(0)),
                 account=self,
                 ).exists()
+
     class Meta:
         constraints = [
             UniqueConstraint(
