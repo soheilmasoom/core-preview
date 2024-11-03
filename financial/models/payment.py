@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 class PaymentRequest(models.Model):
-
     history = HistoricalRecords()
 
     APP, DESKTOP = 'app', 'desktop'
@@ -40,7 +39,7 @@ class PaymentRequest(models.Model):
     modified = models.DateTimeField(auto_now=True)
 
     gateway = models.ForeignKey('financial.Gateway', on_delete=models.PROTECT)
-    bank_card = models.ForeignKey('financial.BankCard', on_delete=models.PROTECT, null=True, blank=True)
+    bank_card = models.ForeignKey('financial.BankCard', on_delete=models.SET_NULL, null=True, blank=True)
     amount = models.PositiveIntegerField()
     fee = models.PositiveIntegerField()
 
