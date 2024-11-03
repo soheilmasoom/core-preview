@@ -19,7 +19,7 @@ class Account(models.Model):
 
     name = models.CharField(max_length=16, blank=True)
 
-    user = models.OneToOneField('User', on_delete=models.CASCADE, null=True, blank=True)
+    user = models.OneToOneField('User', on_delete=models.SET_NULL, null=True, blank=True)
 
     type = models.CharField(
         max_length=1,
