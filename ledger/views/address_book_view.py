@@ -35,7 +35,7 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
         memo = attrs.get('memo', '')
 
         if attrs['coin']:
-            asset = get_object_or_404(Asset, symbol=attrs['coin'])
+            asset = get_object_or_404(Asset, symbol=attrs['coin'], enable=True)
             get_object_or_404(NetworkAsset, network=network, asset=asset, can_withdraw=True)
         else:
             asset = None
@@ -157,7 +157,7 @@ class AddressBookView(ModelViewSet):
 
         if 'coin' in query_params:
             coin = query_params['coin']
-            asset = get_object_or_404(Asset, symbol=coin)
+            asset = get_object_or_404(Asset, symbol=coin, enable=True)
 
             can_withdraw_networks = list(NetworkAsset.objects.filter(
                 asset=asset,

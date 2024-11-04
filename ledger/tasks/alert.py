@@ -7,6 +7,7 @@ from typing import Dict, List, Union
 
 from celery import shared_task
 from django.core.cache import cache
+from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import Notification
@@ -16,6 +17,7 @@ from ledger.models.asset_alert_rule import AssetAlertRule
 from ledger.utils.external_price import BUY
 from ledger.utils.precision import get_presentation_amount
 from ledger.utils.price import USDT_IRT, get_prices, get_symbol_parts, get_coins_symbols
+from ledger.utils.wallet_pipeline import DECIMAL
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +70,7 @@ def send_notifications(alerts_data: List[AlertData]):
 
         interval_verbose = AlertTrigger.INTERVAL_VERBOSE_MAP[alert.interval]
 
-        current_price_presentation = get_presentation_amount(alert.current_price)
+        current_price_presentation = get_presentation_amount(alert.current_price, precision=DECIMAL)
 
         if alert.trigger_type == AlertTrigger.TRIGGER_CHANNEL_CHANGE:
             title = f'{change_status} قیمت {asset.name_fa}'
@@ -294,29 +296,18 @@ def send_price_notifications():
 def check_conditional_price_alerts():
     usdt_current_prices = get_current_prices(only_base=Asset.USDT)
     irt_current_prices = get_current_prices(only_base=Asset.IRT)
-    active_alerts = AssetAlertRule.objects.filter(active=True, is_triggered=False)
 
-    for alert in active_alerts:
-        if alert.base_asset.symbol == Asset.USDT:
-            asset_price = usdt_current_prices.get(alert.asset.symbol)
+    to_trigger_alert_rules = AssetAlertRule.objects.filter(
+        active=True
+    ).prefetch_related('asset_alert__asset', 'asset_alert__user')
+
+    for alert_rule in to_trigger_alert_rules:
+        if alert_rule.base_asset.symbol == Asset.USDT:
+            current_price = usdt_current_prices.get(alert_rule.asset.symbol)
         else:
-            asset_price = irt_current_prices.get(alert.asset.symbol)
-        trigger_price = alert.trigger_price
+            current_price = irt_current_prices.get(alert_rule.asset.symbol)
 
-        if not asset_price or not trigger_price:
+        if not current_price:
             continue
 
-        if alert.type == 'gt' and asset_price > trigger_price:
-            alert.is_triggered = True
-        elif alert.type == 'lt' and asset_price < trigger_price:
-            alert.is_triggered = True
-
-        if alert.is_triggered:
-            alert.save(update_fields=['is_triggered'])
-
-            Notification.send(
-                recipient=alert.user,
-                title=f"هشدار قیمت: {alert.asset.symbol}",
-                message=f"هشدار قیمت برای ارز {alert.asset.symbol} در قیمت {trigger_price} صادر شد.",
-                link=f'/price/{alert.asset.name}'
-            )
+        alert_rule.update_current_price(current_price)

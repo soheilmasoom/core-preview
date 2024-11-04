@@ -8,19 +8,31 @@ urlpatterns = [
     path('v1/networkassets/', views.NetworkAssetView.as_view()),
     path('v1/asset/overview/', views.AssetOverviewAPIView.as_view()),
     path('v2/asset/overview/', views.AssetOverviewAPIV2View.as_view()),
-    path('v1/alert/<int:asset_alert_pk>/rules/', views.AssetAlertRuleViewSet.as_view({
-        'get': 'list',
-        'post': 'create'
-    })),
-    path('v1/alert/<int:asset_alert_pk>/rules/<int:rule_pk>/', views.AssetAlertRuleViewSet.as_view({
-        'delete': 'destroy',
-        'put': 'update',
-    })),
-    path('v1/price/alert/single/', views.AssetAlertViewSet.as_view({
+
+    path('v1/price/alert/single/', views.AssetAlertViewSet.as_view({    # deprecate soon!
         'post': 'create',
         'get': 'list',
         'delete': 'destroy',
     })),
+
+    path('v1/price/alert/', views.AssetAlertViewSet.as_view({
+        'post': 'create',
+        'get': 'list',
+    })),
+    path('v1/price/alert/<slug:coin>/', views.AssetAlertViewSet.as_view({
+        'get': 'retrieve',
+        'delete': 'destroy',
+    })),
+    path('v1/price/alert/<slug:coin>/rules/', views.AssetAlertRuleViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    })),
+    path('v1/price/alert/<slug:coin>/rules/<int:rule_pk>/', views.AssetAlertRuleViewSet.as_view({
+        'get': 'retrieve',
+        'delete': 'destroy',
+        'put': 'update',
+    })),
+
     path('v1/assets/bookmark/', views.BookmarkAssetsViewSet.as_view({
         'put': 'update',
         'get': 'list',

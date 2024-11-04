@@ -116,7 +116,7 @@ class Notification(models.Model):
     @classmethod
     def send(cls, recipient, title: str, link: str = '', message: str = '', level: str = INFO, image: str = '',
              send_push: bool = True, group_id=None, type: str = ORDINARY, template: str = PLAIN, source: str = CORE,
-             count: int = 1):
+             count: int = 1, hidden: bool = False):
         count -= 1
 
         if not recipient:
@@ -151,7 +151,8 @@ class Notification(models.Model):
                 type=type,
                 count=count,
                 push_status=Notification.PUSH_WAITING if send_push else '',
-                group_id=group_id
+                group_id=group_id,
+                hidden=hidden
 
             )
         elif not group_id:
@@ -174,6 +175,7 @@ class Notification(models.Model):
                     'level': level,
                     'recipient': recipient,
                     'push_status': Notification.PUSH_WAITING if send_push else '',
+                    'hidden': hidden
                 }
             )
         else:

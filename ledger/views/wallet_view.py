@@ -305,7 +305,7 @@ class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
             return AssetRetrieveSerializer
 
     def get_object(self):
-        return get_object_or_404(Asset, symbol=self.kwargs['symbol'].upper())
+        return get_object_or_404(Asset, symbol=self.kwargs['symbol'].upper(), enable=True)
 
     def get_queryset(self):
         account = self.request.user.get_account()
@@ -373,7 +373,7 @@ class WalletBalanceView(APIView, DelegatedAccountMixin):
         if market not in Wallet.MARKETS:
             return Response({'error': 'Invalid market'}, status=status.HTTP_400_BAD_REQUEST)
 
-        asset = get_object_or_404(Asset, symbol=kwargs['symbol'].upper())
+        asset = get_object_or_404(Asset, symbol=kwargs['symbol'].upper(), enable=True)
         account, variant = self.get_account_variant(self.request)
         wallet = asset.get_wallet(account, market=market, variant=variant)
 
