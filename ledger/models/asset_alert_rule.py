@@ -39,7 +39,7 @@ class AssetAlertRule(models.Model):
         return f'{self.asset_alert.user.username} - {self.asset_alert.asset}-{self.base_asset} @ {self.trigger_price}'
     
     class Meta:
-        ordering = ('-created', )
+        ordering = ('id', )
 
     def get_state(self, price: Decimal) -> str:
         if price > self.trigger_price:
