@@ -165,9 +165,7 @@ class OTCTrade(models.Model):
 
     @classmethod
     def get_untriggered_otc_trade_queryset(cls):
-        result = OTCTrade.objects.filter(otc_request__type=OTCRequest.LIMIT, status=OTCTrade.PENDING).select_related('otc_request')
-        print("untriggered_otc_trade:#",list(result))
-        return result
+        return OTCTrade.objects.filter(otc_request__type=OTCRequest.LIMIT, status=OTCTrade.PENDING).select_related('otc_request')
 
     @classmethod
     def get_fill_type(cls, symbol: PairSymbol):
