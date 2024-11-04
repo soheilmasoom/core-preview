@@ -12,7 +12,7 @@ def create_assets(apps, schema_editor):
     symbols = ['USDT', 'BTC', 'ETH', 'BNB', 'SOL', 'SHIB', 'ADA', 'DOGE']
 
     for i, symbol in enumerate(symbols):
-        Asset.objects.get_or_create(symbol=symbol, defaults={'order': i + 1, 'enable': True})
+        Asset.objects.update_or_create(symbol=symbol, defaults={'order': i + 1, 'enable': True})
 
 
 class Migration(migrations.Migration):

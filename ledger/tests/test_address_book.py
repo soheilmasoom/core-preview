@@ -2,7 +2,7 @@ from django.test import Client
 from django.test import TestCase
 
 from accounts.utils.test import generate_otp_code
-from ledger.models import Asset
+from ledger.models import Asset, NetworkAsset
 from ledger.utils.test import new_account, new_address_book, new_network, new_network_asset
 from accounts.models.phone_verification import VerificationCode
 from django.urls import reverse
@@ -25,6 +25,7 @@ class AddressBookTestCase(TestCase):
         self.address_book = new_address_book(account=self.account, network=self.network, asset='USDT')
         self.address_book_without_coin = new_address_book(account=self.account, network=self.network)
         self.usdt = Asset.get(Asset.USDT)
+        new_network_asset(asset=self.usdt, network=self.network)
 
     def test_create_address_book(self):
         resp = self.client.post('/api/v1/addressbook/', {
