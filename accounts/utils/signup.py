@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def create_traffic_source(request, user, utm: dict):
+def create_traffic_source(request, user, utm: dict, signup_source: str = TrafficSource.MAIN):
     def clean_data(d) -> str:
         if not d:
             d = ''
@@ -62,6 +62,7 @@ def create_traffic_source(request, user, utm: dict):
         package_name=package_name,
         ip=get_client_ip(request),
         user_agent=request.META.get('HTTP_USER_AGENT', '')[:256],
+        signup_source=signup_source
     )
 
 

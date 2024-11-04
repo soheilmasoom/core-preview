@@ -4,6 +4,8 @@ from accounts.models import User
 
 
 class TrafficSource(models.Model):
+    SIGNUP_SOURCES = MAIN, WIDGET = 'main', 'widget'
+
     created = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name='کاربر', related_name='traffic_source')
 
@@ -18,6 +20,12 @@ class TrafficSource(models.Model):
 
     ip = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=256, blank=True)
+
+    signup_source = models.CharField(
+        max_length=8,
+        default=MAIN,
+        choices=[(s, s) for s in SIGNUP_SOURCES]
+    )
 
     def __str__(self):
         return f'User {self.user.id}: {self.utm_source}/{self.utm_medium}'

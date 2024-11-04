@@ -82,6 +82,14 @@ def send_notifications(alerts_data: List[AlertData]):
             message = (f'قیمت {asset.name_fa} در {interval_verbose} گذشته {percent}'
                        f' درصد {change_status} پیدا کرد و به {current_price_presentation} {base_coin} رسید.')
 
+        fcm_key = send_push_notif(
+            title=title,
+            body=message,
+            link=f'/price/{asset.name}',
+            topic=AssetAlert.get_default_rule_push_topic(asset),
+            ttl=3600
+        )
+
         AlertTrigger.objects.create(
             asset=asset,
             trigger_type=alert.trigger_type,
@@ -89,14 +97,7 @@ def send_notifications(alerts_data: List[AlertData]):
             old_price=alert.past_price,
             new_price=alert.current_price,
             interval=alert.interval,
-        )
-
-        send_push_notif(
-            title=title,
-            body=message,
-            link=f'/price/{asset.name}',
-            topic=AssetAlert.get_default_rule_push_topic(asset),
-            ttl=3600
+            fcm_key=fcm_key or ''
         )
 
 
@@ -269,13 +270,15 @@ def send_price_notifications():
         base_coin = Asset.USDT if coin != Asset.USDT else Asset.IRT
         symbol_to_asset[coin + base_coin] = asset
 
+    # lowest has most priority
     altered_coins = {
-        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.ONE_DAY),
-        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.TWELVE_HOURS),
-        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.SIX_HOURS),
-        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.THREE_HOURS),
-        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.ONE_HOUR),
         **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.FIVE_MIN),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.ONE_HOUR),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.THREE_HOURS),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.SIX_HOURS),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.TWELVE_HOURS),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.ONE_DAY),
+        **get_channel_change_alerts(current_cycle_prices, current_cycle, symbol_to_asset),
     }
 
     send_notifications(list(altered_coins.values()))

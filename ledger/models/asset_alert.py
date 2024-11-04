@@ -42,6 +42,7 @@ class AlertTrigger(models.Model):
     new_price = get_amount_field()
     cycle = models.PositiveIntegerField()
     interval = models.CharField(choices=INTERVAL_CHOICES, max_length=15)
+    fcm_key = models.CharField(max_length=256, blank=True)
 
 
 class AssetAlert(models.Model):

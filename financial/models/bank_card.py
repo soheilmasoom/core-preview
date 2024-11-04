@@ -14,13 +14,15 @@ class LiveManager(models.Manager):
 
 
 class BankCard(models.Model):
+    history = HistoricalRecords()
+
     CREDIT_FAMILY_TYPES = ('ONLINE_PREPAID', 'CREDIT', 'GIFT_CARD', 'VIRTUAL_CARD')
     REJECT_REASONS = DUPLICATED, NAME_MISMATCH, CREDIT_CARD = 'duplicated', 'name.mismatch', 'type.credit'
 
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
-    user = models.ForeignKey(to='accounts.User', on_delete=models.PROTECT)
+    user = models.ForeignKey(to='accounts.User', on_delete=models.CASCADE)
 
     card_pan = models.CharField(
         verbose_name='شماره کارت',
@@ -39,8 +41,6 @@ class BankCard(models.Model):
     deposit_number = models.CharField(blank=True, max_length=128)
 
     reject_reason = models.CharField(max_length=128, blank=True)
-
-    history = HistoricalRecords()
 
     objects = models.Manager()
     live_objects = LiveManager()
@@ -97,12 +97,14 @@ class BankCard(models.Model):
 
 
 class BankAccount(models.Model):
+    history = HistoricalRecords()
+
     ACTIVE, DEPOSITABLE_SUSPENDED, NON_DEPOSITABLE_SUSPENDED, STAGNANT, UNKNOWN = 'active', 'suspend', 'nsuspend', 'stagnant', 'unknown'
 
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
-    user = models.ForeignKey(to='accounts.User', on_delete=models.PROTECT, related_name='bank_accounts')
+    user = models.ForeignKey(to='accounts.User', on_delete=models.CASCADE, related_name='bank_accounts')
 
     iban = models.CharField(
         max_length=26,
@@ -129,8 +131,6 @@ class BankAccount(models.Model):
     deleted = models.BooleanField(default=False)
 
     stake_holder = models.BooleanField(default=False)
-
-    history = HistoricalRecords()
 
     objects = models.Manager()
     live_objects = LiveManager()
