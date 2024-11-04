@@ -25,7 +25,6 @@ class AddressBookTestCase(TestCase):
         self.address_book = new_address_book(account=self.account, network=self.network, asset='USDT')
         self.address_book_without_coin = new_address_book(account=self.account, network=self.network)
         self.usdt = Asset.get(Asset.USDT)
-        network_asset = new_network_asset(self.usdt, self.network)
 
     def test_create_address_book(self):
         resp = self.client.post('/api/v1/addressbook/', {
