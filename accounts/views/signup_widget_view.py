@@ -10,7 +10,7 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 
 from accounts.authentication import WidgetAccessToken
-from accounts.models import User
+from accounts.models import User, TrafficSource
 from accounts.models.phone_verification import VerificationCode
 from accounts.throttle import BurstRateThrottle
 from accounts.validators import national_card_code_validator
@@ -82,7 +82,7 @@ class WidgetSignupSerializer(serializers.Serializer):
                 user.save()
 
             utm = validated_data.get('utm') or {}
-            create_traffic_source(self.context['request'], user, utm)
+            create_traffic_source(self.context['request'], user, utm, signup_source=TrafficSource.WIDGET)
 
             promotion = validated_data.get('promotion', '')
             set_missions_to_user(user, promotion=promotion)
