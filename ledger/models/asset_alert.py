@@ -85,7 +85,7 @@ class AssetAlert(models.Model):
         unsubscribe_alert(self)
         self.save(update_fields=['active'])
 
-        if not AssetAlert.objects.filter(user=self.user).exists():
+        if not AssetAlert.live_objects.filter(user=self.user).exists():
             self.change_user_price_alerts(self.user, switch=False)
 
     @classmethod
