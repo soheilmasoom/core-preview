@@ -76,12 +76,40 @@ class AssetAlert(models.Model):
         subscribe_alert(self)
         self.save(update_fields=['active'])
 
+        self.change_user_price_alerts(self.user, switch=True)
+
     def deactivate(self):
         from accounts.utils.price_alert import unsubscribe_alert
 
         self.active = False
         unsubscribe_alert(self)
         self.save(update_fields=['active'])
+
+        if not AssetAlert.objects.filter(user=self.user).exists():
+            self.change_user_price_alerts(self.user, switch=False)
+
+    @classmethod
+    def change_user_price_alerts(cls, user: User, switch: bool):
+        from accounts.utils.price_alert import subscribe_user_to_alerts, unsubscribe_user_to_alerts
+
+        if user.is_price_notif_on == switch:
+            return
+
+        if switch:
+            if not AssetAlert.live_objects.filter(user=user).exists():
+                for asset in Asset.objects.filter(default_price_alert=True):
+                    asset_alert, _ = AssetAlert.objects.get_or_create(
+                        user=user,
+                        asset=asset
+                    )
+                    asset_alert.activate()
+            else:
+                subscribe_user_to_alerts(user)
+        else:
+            unsubscribe_user_to_alerts(user)
+
+        user.is_price_notif_on = switch
+        user.save(update_fields=['is_price_notif_on'])
 
     class Meta:
         unique_together = [('user', 'asset')]
