@@ -24,7 +24,7 @@ class AssetAlertRule(models.Model):
         LTE: 'کاهش'
     }
 
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
     asset_alert = models.ForeignKey(to='AssetAlert', on_delete=models.CASCADE, related_name='rules')
     base_asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='asset_alert_rule_base_asset')
     trigger_price = get_amount_field()
@@ -37,6 +37,9 @@ class AssetAlertRule(models.Model):
 
     def __str__(self):
         return f'{self.asset_alert.user.username} - {self.asset_alert.asset}-{self.base_asset} @ {self.trigger_price}'
+    
+    class Meta:
+        ordering = ('-created', )
 
     def get_state(self, price: Decimal) -> str:
         if price > self.trigger_price:

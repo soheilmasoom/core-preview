@@ -51,6 +51,20 @@ class AssetAlertRuleViewSet(viewsets.ModelViewSet):
             active=True
         )
 
+    def list(self, request, *args, **kwargs):
+        resp = super(AssetAlertRuleViewSet, self).list(request, *args, **kwargs)
+        data = resp.data
+
+        data.insert(0, {
+            'id': 0,
+            'trigger_price': 'instant',
+            'type': 'default',
+            'base_asset': Asset.IRT if self.kwargs['coin'] == Asset.USDT else Asset.USDT,
+            'hint': 'در صورتی که قیمت بیش از 5 درصد به صورت ناگهانی یا 10 درصد در طول زمان تغییر کند، هشدار قیمت ارسال می‌شود.'
+        })
+
+        return resp
+
     def perform_create(self, serializer):
         serializer.save(asset_alert=self.get_asset_alert())
 
