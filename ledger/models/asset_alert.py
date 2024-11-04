@@ -85,6 +85,9 @@ class AssetAlert(models.Model):
         unsubscribe_alert(self)
         self.save(update_fields=['active'])
 
+        if not AssetAlert.objects.filter(user=self.user).exists():
+            self.change_user_price_alerts(self.user, switch=False)
+
     @classmethod
     def change_user_price_alerts(cls, user: User, switch: bool):
         from accounts.utils.price_alert import subscribe_user_to_alerts, unsubscribe_user_to_alerts
