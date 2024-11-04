@@ -14,6 +14,7 @@ urlpatterns = [
         'get': 'list',
         'delete': 'destroy',
     })),
+    path('v1/price/alert/switch/', views.PriceNotifSwitchView.as_view()),
 
     path('v1/price/alert/', views.AssetAlertViewSet.as_view({
         'post': 'create',
@@ -42,7 +43,6 @@ urlpatterns = [
         'get': 'list',
         'delete': 'destroy'
     })),
-    path('v1/price/alert/switch/', views.PriceNotifSwitchView.as_view()),
 
     path('v1/networks/', views.NetworksView.as_view()),
 
