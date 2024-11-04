@@ -177,7 +177,10 @@ class BulkAssetAlertViewSet(viewsets.ModelViewSet):
 
 
 class PriceNotifSwitchSerializer(serializers.ModelSerializer):
-    is_price_notif_on = serializers.BooleanField()
+    def update(self, user: User, validated_data):
+        new_state = validated_data['is_price_notif_on']
+        AssetAlert.change_user_price_alerts(user, new_state)
+        return user
 
     class Meta:
         model = User
@@ -189,23 +192,3 @@ class PriceNotifSwitchView(RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
-
-    def perform_update(self, serializer):
-        user = serializer.instance
-        prev_state = user.is_price_notif_on
-        serializer.save()
-        new_state = user.is_price_notif_on
-
-        if prev_state != new_state:
-            if new_state and not AssetAlert.live_objects.filter(user=user).exists():
-                for asset in Asset.objects.filter(default_price_alert=True):
-                    asset_alert, _ = AssetAlert.objects.get_or_create(
-                        user=user,
-                        asset=asset
-                    )
-                    asset_alert.activate()
-
-            elif new_state:
-                subscribe_user_to_alerts(user)
-            else:
-                unsubscribe_user_to_alerts(user)
