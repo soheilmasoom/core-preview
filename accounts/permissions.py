@@ -1,5 +1,5 @@
 from django.conf import settings
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 
 from accounts.models import User
 from accounts.utils.hijack import get_hijacker_id
@@ -22,6 +22,18 @@ class IsBasicVerified(IsAuthenticated):
             return False
 
         return request.user.level >= User.LEVEL2
+
+
+from rest_framework.permissions import BasePermission
+
+
+class HasApiAccessPermission(BasePermission):
+    def has_permission(self, request, view):
+        allowed_apis = request.auth.get("allowed_apis", [])
+        print("---------> ", allowed_apis)
+        api_name = getattr(view, 'api_name', None)
+        print("---------< ", api_name)
+        return api_name in allowed_apis
 
 
 def can_trade(request) -> bool:

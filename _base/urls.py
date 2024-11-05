@@ -49,8 +49,9 @@ urlpatterns = [
     path('api/v2/stake/', include('stake.urls_v2')),
     path('api/v1/gamify/', include('gamify.urls')),
     path('api/v1/search/', include('search.urls')),
+    path('api/v1/telegram/', include('telegram.urls')),
     path('api/', include('ledger.urls')),
-    path('robots.txt', TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
+    path('+', TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
 
     path('tinymce/', include('tinymce.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
