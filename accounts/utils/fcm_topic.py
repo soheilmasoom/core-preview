@@ -60,12 +60,12 @@ class FcmTopicManger:
             tokens=pending_tokens.tokens
         )
 
-    def cleanup_tokens(self, tokens: List[str]):
-        if not tokens:
+    def cleanup_invalid_tokens(self, invalid_tokens: List[str]):
+        if not invalid_tokens:
             return
 
         for key in self._get_keys():
-            self.redis.srem(key, *tokens)
+            self.redis.srem(key, *invalid_tokens)
 
     def _add(self, topic: str, action: str, tokens: List[str]):
         if not tokens:

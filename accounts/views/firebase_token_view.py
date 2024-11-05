@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from accounts.models.firebase_token import FirebaseToken
 from accounts.utils.fcm_topic import fcm_topic_manager
 from accounts.utils.ip import get_client_ip
-from accounts.utils.price_alert import subscribe_token_to_alert
+from accounts.utils.price_alert import subscribe_token_to_alert, unsubscribe_token_to_alert
 from ledger.models import AssetAlert
 
 
@@ -36,8 +36,12 @@ class FirebaseTokenView(APIView):
         firebase_token = FirebaseToken.objects.filter(token=token).first()
 
         if firebase_token:
-            if user and firebase_token.user is None:
+            if user and firebase_token.user != user:
+                unsubscribe_token_to_alert(firebase_token)
                 FirebaseToken.objects.filter(token=token).update(user=user, user_agent=user_agent, ip=ip)
+
+                firebase_token.refresh_from_db()
+                subscribe_token_to_alert(firebase_token)
                 return Response({'msg': 'token updated'})
             else:
                 return Response({'msg': 'change user of token impossible'})
