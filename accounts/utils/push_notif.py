@@ -3,7 +3,7 @@ import json
 import logging
 import time
 from collections import defaultdict
-from typing import Union
+from typing import Set, Union
 
 import requests
 from decouple import config
@@ -180,3 +180,62 @@ def send_push_notif(title: str, body: str, token: str = None, image: str = None,
 
     if resp.ok:
         return data['name']
+
+
+def get_fcm_token_registered_coins(fcm_token: FirebaseToken) -> Union[None, Set[str]]:
+    access_token = _get_access_token()
+
+    resp = requests.get(
+        url=f'https://iid.googleapis.com/iid/info/{fcm_token.token}?details=true',
+        headers={
+            'Authorization': f'Bearer {access_token.token}',
+            'Content-Type': 'application/json',
+            "access_token_auth": "true",
+        },
+    )
+
+    if not resp.ok:
+        return None
+
+    data = resp.json()
+
+    return set(map(lambda x: x[13:].upper(), data['rel']['topics'].keys()))
+
+
+def get_user_registered_coins(user: User) -> Set[str]:
+    coins = None
+
+    for fcm_token in user.fcm_tokens.filter(active=True):
+        _coins = get_fcm_token_registered_coins(fcm_token)
+        if _coins is None:
+            continue
+
+        if coins is None:
+            coins = _coins
+        else:
+            coins = coins & _coins
+
+    return coins or set()
+
+
+def get_asset_alert_mismatch(user: User) -> bool:
+    from ledger.models import AssetAlert
+
+    if not user.fcm_tokens.filter(active=True):
+        logger.info(f'Alert mismatch OK for {user} due to no fcm token exists')
+        return True
+
+    subscribed_coins = get_user_registered_coins(user)
+    alert_coins = set(AssetAlert.objects.filter(user=user).values_list('asset__symbol', flat=True))
+
+    if subscribed_coins == alert_coins:
+        logger.info(f'Alert mismatch OK for {user} in {subscribed_coins}')
+
+        return True
+
+    else:
+        logger.info(f'Alert mismatch found for {user}')
+        logger.info(f'   Missing subscriptions: {alert_coins - subscribed_coins}')
+        logger.info(f'   Missing unsubscriptions: {subscribed_coins - alert_coins}')
+
+        return False

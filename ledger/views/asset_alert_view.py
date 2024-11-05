@@ -32,7 +32,7 @@ class AssetAlertSerializer(serializers.ModelSerializer):
     change_24h = serializers.SerializerMethodField()
 
     def get_change_24h(self, asset_alert: AssetAlert):
-        return self.context['cap_info'].get(asset_alert.asset.symbol, CoinInfo()).change_24h
+        return round(self.context['cap_info'].get(asset_alert.asset.symbol, CoinInfo()).change_24h, 2)
 
     def get_price_irt(self, asset_alert: AssetAlert):
         symbol = asset_alert.asset.symbol + Asset.IRT
