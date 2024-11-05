@@ -66,7 +66,7 @@ class AssetAlertObjectSerializer(serializers.ModelSerializer):
     change_24h = serializers.SerializerMethodField()
 
     def get_change_24h(self, asset_alert: AssetAlert):
-        return self.context['cap_info'].get(asset_alert.asset.symbol, CoinInfo()).change_24h
+        return round(self.context['cap_info'].get(asset_alert.asset.symbol, CoinInfo()).change_24h, 2)
 
     def get_price_usdt(self, asset_alert: AssetAlert):
         price = self.context['prices'].get(asset_alert.asset.symbol + Asset.USDT, 0)
