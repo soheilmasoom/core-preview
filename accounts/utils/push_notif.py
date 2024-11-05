@@ -97,7 +97,7 @@ def trigger_topic_subscriptions(pending_tokens: PendingTokens):
         pending_tokens.tokens = to_delete_tokens
         fcm_topic_manager.remove_pending_tokens(pending_tokens)
 
-    fcm_topic_manager.cleanup_tokens(invalid_tokens)
+    fcm_topic_manager.cleanup_invalid_tokens(invalid_tokens)
 
     return True
 
