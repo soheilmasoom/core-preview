@@ -70,17 +70,13 @@ def send_notifications(alerts_data: List[AlertData]):
 
         current_price_presentation = get_presentation_amount(alert.current_price)
 
-        if alert.trigger_type == AlertTrigger.TRIGGER_CHANNEL_CHANGE:
-            title = f'{change_status} قیمت {asset.name_fa}'
-            message = f'قیمت {asset.name_fa} به {current_price_presentation} {base_coin} رسید.'
-        else:
-            if alert.interval == AlertTrigger.FIVE_MIN:
-                title = f'{change_status} ناگهانی قیمت {asset.name_fa}'
-            else:
-                title = f'{change_status} قیمت {asset.name_fa}'
+        coin_name = asset.original_name_fa or asset.name_fa
+        title = coin_name
 
-            message = (f'قیمت {asset.name_fa} در {interval_verbose} گذشته {percent}'
-                       f' درصد {change_status} پیدا کرد و به {current_price_presentation} {base_coin} رسید.')
+        if alert.trigger_type == AlertTrigger.TRIGGER_CHANNEL_CHANGE:
+            message = f'قیمت {asset.name_fa} به {current_price_presentation} {base_coin} رسید'
+        else:
+            message = f'{change_status} {percent} درصدی {coin_name} در {interval_verbose} گذشته'
 
         fcm_key = send_push_notif(
             title=title,
