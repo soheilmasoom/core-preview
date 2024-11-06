@@ -46,7 +46,13 @@ class TOTPView(APIView):
         user = request.user
         device = TOTPDevice.objects.filter(user=user).first()
         scope = request.data.get('scope', ACTIVATE if device is None or device.confirmed is False else DEACTIVATE)
-        VerificationCode.send_otp_code(request, phone=user.phone, scope=VerificationCode.SCOPE_2FA, user=user)
+        VerificationCode.send_otp_code(
+            request=request,
+            phone=user.phone,
+            scope=VerificationCode.SCOPE_2FA,
+            user=user
+        )
+
         response_data = {}
 
         if scope == ACTIVATE:
@@ -116,7 +122,7 @@ class TOTPView(APIView):
             return Response({'msg': 'ورود دومرحله‌ای غیرفعال است.'})
 
 
-class CustomLoginSerializer(serializers.Serializer):
+class Forget2FAInitSerializer(serializers.Serializer):
     login = serializers.CharField(required=True, write_only=True)
     password = serializers.CharField(required=True, write_only=True)
 
@@ -135,11 +141,16 @@ class CustomLoginSerializer(serializers.Serializer):
 
     def save(self, **kwargs):
         user = self.validated_data
-        VerificationCode.send_otp_code(self.context['request'], phone=user.phone, scope=VerificationCode.SCOPE_FORGET_2FA, user=user)
+        VerificationCode.send_otp_code(
+            request=self.context['request'],
+            phone=user.phone,
+            scope=VerificationCode.SCOPE_FORGET_2FA,
+            user=user
+        )
 
 
 class Forget2FAInitView(CreateAPIView):
-    serializer_class = CustomLoginSerializer
+    serializer_class = Forget2FAInitSerializer
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
     permission_classes = []
 

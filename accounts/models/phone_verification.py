@@ -6,10 +6,11 @@ from typing import Union
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.db import models
+from django.db.models import F
 from django.utils import timezone
 from decouple import config
 
-from accounts.models import SpamPhone
+from accounts.models import SpamPhone, User
 from accounts.utils.ip import get_client_ip
 from accounts.utils.validation import generate_random_code, PHONE_MAX_LENGTH, fifteen_minutes_later_datetime, MINUTES
 
@@ -17,11 +18,19 @@ logger = logging.getLogger(__name__)
 
 
 class VerificationCode(models.Model):
+    MAX_MISSED_TRIES_PER_OTP = 10
+
+    MAX_HOURLY_ALLOWED_MISSED = 5
+    MAX_DAILY_ALLOWED_MISSED = 30
+    MAX_WEEKLY_ALLOWED_MISSED = 100
+    MAX_MONTHLY_ALLOWED_MISSED = 100
+
     EXPIRATION_TIME = 15 * MINUTES
 
     SCOPE_FORGET_PASSWORD = 'forget'
     SCOPE_VERIFY_PHONE = 'verify'
     SCOPE_VERIFY_PHONE_WIDGET = 'verify_widget'
+
     SCOPE_VERIFY_EMAIL = 'email_verify'
     SCOPE_CRYPTO_WITHDRAW = 'withdraw'
     SCOPE_FIAT_WITHDRAW = 'fiat_withdraw'
@@ -46,6 +55,8 @@ class VerificationCode(models.Model):
 
     RESTRICTED_SEND_SCOPES = [SCOPE_NEW_PHONE, SCOPE_FORGET_2FA]
     RESTRICTED_VERIFY_SCOPES = [SCOPE_CHANGE_PHONE_INIT]
+
+    NO_USER_SCOPES = [SCOPE_VERIFY_PHONE, SCOPE_VERIFY_PHONE_WIDGET]
 
     created = models.DateTimeField(auto_now_add=True)
     expiration = models.DateTimeField(default=fifteen_minutes_later_datetime)
@@ -92,10 +103,11 @@ class VerificationCode(models.Model):
     user_agent = models.TextField(blank=True)
     ip = models.GenericIPAddressField(null=True)
 
+    missed_checks = models.PositiveSmallIntegerField(default=0)
+
     @classmethod
     def get_by_code(cls, code: str, phone: str, scope: str, user=None) -> 'VerificationCode':
         otp_codes = VerificationCode.objects.filter(
-            code=code,
             code_used=False,
             expiration__gt=timezone.now(),
             scope=scope,
@@ -105,7 +117,15 @@ class VerificationCode(models.Model):
         if user:
             otp_codes = otp_codes.filter(user=user)
 
-        return otp_codes.order_by('created').last()
+        otp = otp_codes.filter(
+            code=code,
+            missed_checks__lt=cls.MAX_MISSED_TRIES_PER_OTP
+        ).order_by('created').last()
+
+        if not otp:
+            otp_codes.update(missed_checks=F('missed_checks') + 1)
+
+        return otp
 
     @classmethod
     def get_by_token(cls, token: str, scope: str) -> 'VerificationCode':
@@ -117,47 +137,70 @@ class VerificationCode(models.Model):
         ).first()
 
     @classmethod
-    def send_otp_code(cls, request, phone: str, scope: str, user=None) -> Union['VerificationCode', None]:
+    def _log_ignore_reason(cls, reason):
+        logger.info(f'Ignored sending otp due to {reason}')
+
+    @classmethod
+    def should_throttle(cls, request, phone: str, scope: str, user: User = None):
         # todo: handle throttling (don't allow to send more than twice in minute per phone / scope)
         # todo: use user devices / ip , ...
-        ip = get_client_ip(request)
+
         user_agent = request.META.get('HTTP_USER_AGENT', '')
 
         if SpamPhone.objects.filter(phone=phone):
-            logger.info('[OTP] Ignored sending otp to kavenegar due to blacklist')
-            return
+            cls._log_ignore_reason('spam phone')
+            return True
 
         if user_agent == 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36':
-            logger.info('[OTP] Ignored sending otp to kavenegar due to blacklist')
+            cls._log_ignore_reason('user agent blacklist')
+            return True
+
+        if cls._throttle_with_missed_tries(phone=phone, scope=scope, user=user):
+            cls._log_ignore_reason('missed tries')
+            return True
+
+        any_recent_code = VerificationCode.objects.filter(
+            phone=phone,
+            scope=scope,
+            created__gte=timezone.now() - timedelta(minutes=1),
+        ).count() >= 2
+
+        if any_recent_code:
+            cls._log_ignore_reason('recent sends')
+            return True
+
+        prev_codes = VerificationCode.objects.filter(
+            phone=phone,
+            scope=scope,
+            created__gte=timezone.now() - timedelta(minutes=5),
+        ).count()
+
+        if prev_codes >= 5:
+            cls._log_ignore_reason('multiple prev sends')
+            return True
+
+        return False
+
+    @classmethod
+    def _throttle_with_missed_tries(cls, phone: str, scope: str, user: user = None):
+        pass
+
+    @classmethod
+    def send_otp_code(cls, request, phone: str, scope: str, user: User = None) -> Union['VerificationCode', None]:
+        assert user or scope in cls.NO_USER_SCOPES
+
+        if cls.should_throttle(request=request, phone=phone, scope=scope, user=user):
             return
 
-        if not settings.DEBUG_OR_TESTING_OR_STAGING:
-            any_recent_code = VerificationCode.objects.filter(
-                phone=phone,
-                scope=scope,
-                created__gte=timezone.now() - timedelta(minutes=1),
-            ).count() >= 2
-
-            if not settings.DEBUG_OR_TESTING_OR_STAGING and any_recent_code:
-                logger.info('[OTP] Ignored sending otp to kavenegar because of recent')
-                return
-
-            prev_codes = VerificationCode.objects.filter(
-                phone=phone,
-                scope=scope,
-                created__gte=timezone.now() - timedelta(minutes=5),
-            ).count()
-
-            if not settings.DEBUG_OR_TESTING_OR_STAGING and prev_codes >= 5:
-                logger.info('[OTP] Ignored sending otp to kavenegar because of multiple prev')
-                return
+        ip = get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
 
         if scope in (cls.SCOPE_TELEPHONE, cls.SCOPE_VERIFY_PHONE, cls.SCOPE_VERIFY_PHONE_WIDGET):
             code_length = 4
         else:
             code_length = 6
 
-        if settings.DEBUG_OR_TESTING_OR_STAGING:
+        if settings.GENERATE_FAKE_OTP:
             code = '1' * code_length
         else:
             code = generate_random_code(code_length)
@@ -171,32 +214,31 @@ class VerificationCode(models.Model):
             user_agent=user_agent
         )
 
-        if not settings.DEBUG_OR_TESTING_OR_STAGING:
-            if scope != cls.SCOPE_TELEPHONE:  # is_phone(phone):
-                send_type = 'sms'
-                template = 'verify'
-            else:
-                send_type = 'call'
-                template = 'telephone'
+        if scope != cls.SCOPE_TELEPHONE:  # is_phone(phone):
+            send_type = 'sms'
+            template = 'verify'
+        else:
+            send_type = 'call'
+            template = 'telephone'
 
-            if config('OTP_BY_SMS_IR', cast=bool, default=False):
-                from accounts.tasks import send_message_by_sms_ir
-                send_message_by_sms_ir(
-                    phone=phone,
-                    template='69129',
-                    params={
-                        'brand': settings.BRAND,
-                        'code': otp_code.code
-                    }
-                )
-            else:
-                from accounts.tasks import send_message_by_kavenegar
-                send_message_by_kavenegar(
-                    phone=otp_code.phone,
-                    token=otp_code.code,
-                    send_type=send_type,
-                    template=template
-                )
+        if config('OTP_BY_SMS_IR', cast=bool, default=False):
+            from accounts.tasks import send_message_by_sms_ir
+            send_message_by_sms_ir(
+                phone=phone,
+                template='69129',
+                params={
+                    'brand': settings.BRAND,
+                    'code': otp_code.code
+                }
+            )
+        else:
+            from accounts.tasks import send_message_by_kavenegar
+            send_message_by_kavenegar(
+                phone=otp_code.phone,
+                token=otp_code.code,
+                send_type=send_type,
+                template=template
+            )
 
         return otp_code
 
