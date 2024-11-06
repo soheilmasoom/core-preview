@@ -102,7 +102,7 @@ class MarginPositionSerializer(AssetSerializerMini):
         unfilled_amount = Order.open_objects.filter(position=instance, side=BUY if instance.side == SHORT else SELL).annotate(
                 unfilled_amount=Sum(F('amount') - F('filled_amount'))
             ).aggregate(sum=Sum('unfilled_amount'))['sum'] or 0
-        return floor_precision(abs(instance.asset_wallet.get_free()) - unfilled_amount, instance.symbol.step_size)
+        return max(floor_precision(abs(instance.asset_wallet.get_free()) - unfilled_amount, instance.symbol.step_size), 0)
 
     def get_liquidation_price(self, instance):
         if instance.liquidation_price:
