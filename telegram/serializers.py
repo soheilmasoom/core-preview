@@ -5,7 +5,6 @@ from rest_framework import serializers
 from accounts.authentication import SetPasswordAccessToken
 from datetime import timedelta
 import base64
-from .utils.generate_signed_token import generate_signed_token
 import redis
 from decouple import config
 import uuid

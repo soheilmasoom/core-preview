@@ -29,12 +29,9 @@ class CustomTokenAuthentication(TokenAuthentication):
 
     def authenticate(self, request):
         auth = get_authorization_header(request).split()
-        print('here ', self.keyword.lower().encode())
-        print(auth)
         if not auth or auth[0].lower() != self.keyword.lower().encode():
             return None
         # activate('en-US')
-        print(auth)
         if len(auth) == 1:
             msg = _('Invalid token header. No credentials provided.')
             raise exceptions.AuthenticationFailed(msg)
@@ -57,12 +54,10 @@ class CustomTokenAuthentication(TokenAuthentication):
             request.path, request_ip, request.META.get('HTTP_X_FORWARDED_FOR'), request.META.get('REMOTE_ADDR')))
 
         try:
-            print('try in auth cred 1', key)
             token = model.objects.select_related('user').get(
                 # Q(ip_list__contains=[request_ip]) | Q(ip_list__isnull=True) | Q(ip_list=[]),
                 key=key
             )
-            print('try in auth cred 2')
         except model.DoesNotExist:
             logger.info(f'requested ip: {request_ip}')
             raise exceptions.AuthenticationFailed(_('Invalid token.'))
