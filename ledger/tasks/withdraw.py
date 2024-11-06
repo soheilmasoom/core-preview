@@ -4,11 +4,13 @@ from datetime import timedelta
 from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
+from accounts.models.user import User
+from accounts.utils.mask import get_masked_phone
 
 from ledger.fields import WithdrawSources
 from ledger.models import Transfer, ManualWithdraw
 from ledger.utils.blocklink import get_blocklink_requester
-from ledger.utils.fields import PROCESS, PENDING
+from ledger.utils.fields import DONE, PROCESS, PENDING
 from ledger.utils.fraud import verify_crypto_withdraw
 from ledger.withdraw.exchange import change_to_manual
 
@@ -144,6 +146,45 @@ def create_withdraw(transfer_id: int):
             })
 
 
+def process_internal_transfers():
+    withdraws = Transfer.objects.filter(
+        deposit=False,
+        source__in=[WithdrawSources.INTERNAL, WithdrawSources.INTERNAL_ACCOUNT],
+        status=PROCESS,
+        created__lte=timezone.now() - timedelta(seconds=Transfer.FREEZE_SECONDS),
+    )
+
+    for withdraw in withdraws:
+        with transaction.atomic():
+            deposit = create_internal_deposit_transfer(withdraw)
+            withdraw.accept()
+            deposit.accept()
+
+
+def create_internal_deposit_transfer(withdraw: Transfer):
+    assert not withdraw.deposit and withdraw.source != WithdrawSources.SELF
+
+    out_address = get_masked_phone(withdraw.wallet.account.user.username)
+    receiver_wallet = withdraw.wallet.asset.get_wallet(withdraw.receiver_account)
+
+    return Transfer.objects.create(
+        status=PENDING,
+        deposit_address=None,
+        memo='',
+        wallet=receiver_wallet,
+        receiver_account=withdraw.wallet.account,
+        network=withdraw.network,
+        amount=withdraw.amount,
+        deposit=True,
+        group_id=withdraw.group_id,
+        trx_hash=withdraw.trx_hash,
+        out_address=out_address,
+        source=withdraw.source,
+        usdt_value=withdraw.usdt_value,
+        irt_value=withdraw.irt_value,
+    )
+
+
 @shared_task(queue='transfer')
 def update_withdraws():
     if not verify_crypto_withdraw():
@@ -159,6 +200,8 @@ def update_withdraws():
 
     for transfer in re_handle_transfers:
         create_withdraw.delay(transfer.id)
+
+    process_internal_transfers()
 
     with transaction.atomic():
         for withdraw in ManualWithdraw.objects.filter(status=PROCESS).select_for_update():  # type: ManualWithdraw

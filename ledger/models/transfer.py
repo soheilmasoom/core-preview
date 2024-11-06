@@ -16,6 +16,7 @@ from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 from accounts.models import Account, Notification, EmailNotification, User
+from accounts.utils.mask import get_masked_phone
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
 from ledger.fields import WithdrawSources
@@ -46,8 +47,9 @@ class Transfer(models.Model):
 
     group_id = models.UUIDField(default=uuid4, db_index=True)
     deposit_address = models.ForeignKey('ledger.DepositAddress', on_delete=models.CASCADE, null=True, blank=True)
-    network = models.ForeignKey('ledger.Network', on_delete=models.CASCADE)
+    network = models.ForeignKey('ledger.Network', on_delete=models.CASCADE, null=True, blank=True)
     wallet = models.ForeignKey('ledger.Wallet', on_delete=models.CASCADE)
+    receiver_account = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, blank=True)
 
     amount = get_amount_field()
     fee_amount = get_amount_field(default=Decimal(0))
@@ -96,15 +98,31 @@ class Transfer(models.Model):
             return min(max(self.last_block_number - self.block_number, 0), self.network.min_confirm)
 
     def get_explorer_link(self) -> str:
+        if not self.network:
+            return ''
         if not self.trx_hash:
             return ''
-
         if 'Internal transfer' in self.trx_hash:
             return ''
 
         return self.network.explorer_link.format(hash=self.trx_hash)
 
     def build_trx(self, pipeline: WalletPipeline):
+        if self.source in [WithdrawSources.INTERNAL_ACCOUNT, WithdrawSources.INTERNAL]:
+            if not self.deposit:
+                sender_wallet = self.wallet
+                receiver_wallet = self.wallet.asset.get_wallet(self.receiver_account)
+
+                pipeline.new_trx(
+                    group_id=self.group_id,
+                    sender=sender_wallet,
+                    receiver=receiver_wallet,
+                    amount=self.amount,
+                    scope=Trx.INTERNAL_TRANSFER if self.source == WithdrawSources.INTERNAL_ACCOUNT else Trx.TRANSFER
+                )
+
+            return
+
         asset = self.wallet.asset
         out_wallet = asset.get_wallet(Account.out())
 
@@ -130,127 +148,80 @@ class Transfer(models.Model):
                 scope=Trx.COMMISSION
             )
 
-        if self.deposit:
-            from gamify.utils import check_prize_achievements, Task
-            check_prize_achievements(receiver.account, Task.DEPOSIT)
+    @classmethod
+    def get_withdraw_source(cls, receiver_user, network, address, memo):
+        if network:
+            queryset = DepositAddress.objects.filter(address=address)
+
+            if network.deposit_need_memo and memo:
+                queryset = queryset.filter(address_key__memo=memo)
+
+            if not queryset.exists() or (network.deposit_need_memo and not memo):
+                return WithdrawSources.SELF
+        if receiver_user:
+            return WithdrawSources.INTERNAL_ACCOUNT
+        else:
+            return WithdrawSources.INTERNAL
 
     @classmethod
-    def check_fast_forward(cls, sender_wallet: Wallet, network: Network, amount: Decimal, address: str,
-                           memo: str = '') -> Union['Transfer', None]:
+    def new_withdraw(cls, wallet: Wallet, amount: Decimal, address: str, memo: str = '',
+                    whitelist: bool = False, network: Union['Network', None] = None, receiver_user: Union['User', None] = None):
 
-        queryset = DepositAddress.objects.filter(address=address)
-
-        if network.deposit_need_memo and memo:
-            queryset = queryset.filter(address_key__memo=memo)
-
-        if not queryset.exists() or (network.deposit_need_memo and not memo):
-            return
-
-        sender_deposit_address = DepositAddress.get_deposit_address(
-            account=sender_wallet.account,
-            network=network
-        )
-
-        receiver_account = queryset.first().address_key.account
-        receiver_deposit_address = DepositAddress.get_deposit_address(
-            account=receiver_account,
-            network=network
-        )
-        receiver_wallet = sender_wallet.asset.get_wallet(receiver_account)
-
-        group_id = uuid4()
-
-        price_usdt = get_last_price(sender_wallet.asset.symbol + Asset.USDT) or 0
-        price_irt = get_last_price(sender_wallet.asset.symbol + Asset.IRT) or 0
-
-        with WalletPipeline() as pipeline:
-            pipeline.new_trx(
-                sender=sender_wallet,
-                receiver=receiver_wallet,
-                scope=Trx.TRANSFER,
-                group_id=group_id,
-                amount=amount
-            )
-            sender_transfer = Transfer.objects.create(
-                status=DONE,
-                deposit_address=sender_deposit_address,
-                memo=memo,
-                wallet=sender_wallet,
-                network=network,
-                amount=amount,
-                deposit=False,
-                group_id=group_id,
-                trx_hash='internal: <%s>' % str(group_id),
-                out_address=address,
-                source=WithdrawSources.INTERNAL,
-                usdt_value=amount * price_usdt,
-                irt_value=amount * price_irt,
-            )
-
-            receiver_transfer = Transfer.objects.create(
-                status=DONE,
-                deposit_address=receiver_deposit_address,
-                memo=memo,
-                wallet=receiver_wallet,
-                network=network,
-                amount=amount,
-                deposit=True,
-                group_id=group_id,
-                trx_hash='internal: <%s>' % str(group_id),
-                out_address=sender_deposit_address.address,
-                source=WithdrawSources.INTERNAL,
-                usdt_value=amount * price_usdt,
-                irt_value=amount * price_irt,
-            )
-
-        from gamify.utils import check_prize_achievements, Task
-        check_prize_achievements(receiver_account, Task.DEPOSIT)
-
-        sender_transfer.alert_user()
-        receiver_transfer.alert_user()
-
-        return sender_transfer
-
-    @classmethod
-    def new_withdraw(cls, wallet: Wallet, network: Network, amount: Decimal, address: str, memo: str = '',
-                     whitelist: bool = False):
         assert wallet.asset.symbol != Asset.IRT
         assert wallet.account.is_ordinary_user()
         wallet.has_balance(amount, raise_exception=True, check_system_wallets=True)
 
-        fast_forward = cls.check_fast_forward(
-            sender_wallet=wallet,
-            network=network,
-            amount=amount,
-            address=address,
-            memo=memo
-        )
-
-        if fast_forward:
-            return fast_forward
-
-        network_asset = NetworkAsset.objects.get(network=network, asset=wallet.asset)
-        assert network_asset.withdraw_max >= amount >= max(network_asset.withdraw_min, network_asset.withdraw_fee)
-
-        commission = network_asset.withdraw_fee
+        group_id = uuid4()
+        withdraw_source = Transfer.get_withdraw_source(receiver_user, network, address, memo)
 
         price_irt = get_last_price(wallet.asset.symbol + Asset.IRT) or 0
         price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
 
-        with WalletPipeline() as pipeline:  # type: WalletPipeline
+        out_address = address
+        # deposit_address = None
+        receiver_account = None
+        trx_hash = ""
+        source = None
+        fee_amount = 0
+
+        if withdraw_source == WithdrawSources.INTERNAL:
+            trx_hash = f'internal: <{str(group_id)}>'
+            source = WithdrawSources.INTERNAL
+            receiver_account = DepositAddress.objects.filter(address=address).first().address_key.account
+
+        elif withdraw_source == WithdrawSources.INTERNAL_ACCOUNT:
+            memo = ''
+            network = None
+            trx_hash = f'internal_account: <{str(group_id)}>'
+            source = WithdrawSources.INTERNAL_ACCOUNT
+            out_address = get_masked_phone(receiver_user.username)
+            receiver_account = receiver_user.get_account()
+
+        elif withdraw_source == WithdrawSources.SELF:
+            network_asset = NetworkAsset.objects.get(network=network, asset=wallet.asset)
+            assert network_asset.withdraw_max >= amount >= max(network_asset.withdraw_min, network_asset.withdraw_fee)
+
+            fee_amount = network_asset.withdraw_fee
+            source = network_asset.withdraw_source
+
+        with WalletPipeline() as pipeline:
             transfer = Transfer.objects.create(
-                status=INIT,
                 wallet=wallet,
                 network=network,
-                amount=amount - commission,
-                fee_amount=commission,
-                source=network_asset.withdraw_source,
-                out_address=address,
                 deposit=False,
                 memo=memo,
                 usdt_value=amount * price_usdt,
                 irt_value=amount * price_irt,
-                whitelist=whitelist,
+                group_id=group_id,
+                status=INIT,
+                # deposit_address=deposit_address,
+                trx_hash=trx_hash,
+                source=source,
+                out_address=out_address,
+                receiver_account=receiver_account,
+                amount=amount - fee_amount,
+                fee_amount=fee_amount,
+                whitelist=whitelist
             )
 
             pipeline.new_lock(key=transfer.group_id, wallet=wallet, amount=amount, reason=WalletPipeline.WITHDRAW)
@@ -274,14 +245,24 @@ class Transfer(models.Model):
 
         if user and user.is_active:
             if self.deposit:
-                title = 'دریافت شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
-                message = 'از ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
-                template = 'crypto_deposit_successful'
-
+                if self.source == WithdrawSources.INTERNAL_ACCOUNT:
+                    title = 'دریافت شد: %s %s' % (humanize_number(self.amount), self.asset.name_fa)
+                    message = ''
+                    template = 'internal_crypto_deposit_successful'
+                else:
+                    title = 'دریافت شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
+                    message = 'از ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
+                    template = 'crypto_deposit_successful'
             else:
-                title = 'ارسال شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
-                message = 'به ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
-                template = 'crypto_withdraw_successful'
+                if self.source == WithdrawSources.INTERNAL_ACCOUNT:
+                    title = 'ارسال شد: %s %s' % (humanize_number(self.amount), self.asset.name_fa)
+                    message = ''
+                    template = 'internal_crypto_withdraw_successful'
+                else:
+                    title = 'ارسال شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
+                    message = 'به ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
+                    template = 'crypto_withdraw_successful'
+
 
             Notification.send(
                 recipient=self.wallet.account.user,
@@ -317,9 +298,6 @@ class Transfer(models.Model):
             if not transfer.deposit:
                 pipeline.release_lock(transfer.group_id)
 
-                # We should alert user when deposit transfer created and when withdraw transfer changes to done
-                transfer.alert_user()
-
             else:
                 User.objects.filter(
                     id=transfer.wallet.account.user_id,
@@ -328,7 +306,13 @@ class Transfer(models.Model):
                     first_crypto_deposit_date=timezone.now()
                 )
 
+                from gamify.utils import check_prize_achievements
+                from gamify.models import Task
+
+                check_prize_achievements(transfer.wallet.account, Task.DEPOSIT)
+
             transfer.build_trx(pipeline)
+            transfer.alert_user()
 
     def reject(self):
         with WalletPipeline() as pipeline:
@@ -371,7 +355,18 @@ class Transfer(models.Model):
 
     class Meta:
         constraints = [
-            CheckConstraint(check=Q(amount__gte=0, fee_amount__gte=0), name='check_ledger_transfer_amounts', ),
+            CheckConstraint(
+                check=Q(amount__gte=0, fee_amount__gte=0),
+                name='check_ledger_transfer_amounts'
+            ),
+            CheckConstraint(
+                check=Q(network__isnull=False) | Q(source='internal_account'),
+                name='check_ledger_transfer_network_not_null'
+            ),
+            CheckConstraint(
+                check=Q(receiver_account__isnull=False) | ~Q(source__in=['internal', 'internal_account']),
+                name='check_ledger_transfer_receiver_account_not_null'
+            ),
             UniqueConstraint(
                 fields=('trx_hash', 'network', 'wallet', 'deposit_address', 'out_address'),
                 condition=Q(trx_hash__isnull=False, source='self'),
@@ -403,7 +398,7 @@ def handle_transfer_save(sender, instance, created, **kwargs):
         user_id=instance.wallet.account.user_id,
         amount=instance.amount,
         coin=instance.wallet.asset.symbol,
-        network=instance.network.symbol,
+        network=instance.network.symbol if instance.network else 'internal',
         created=instance.created,
         is_deposit=instance.deposit,
         value_irt=instance.irt_value,

@@ -6,7 +6,7 @@ from django.db.models import CheckConstraint, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from accounts.models import Account
+from accounts.models import Account, SystemConfig
 from ledger.exceptions import SmallAmountTrade, LargeAmountTrade, NoPriceError
 from ledger.models import Asset, Wallet
 from ledger.utils.external_price import get_other_side, BUY, SELL
@@ -15,7 +15,6 @@ from ledger.utils.otc import get_trading_pair
 from ledger.utils.precision import floor_precision, get_presentation_amount
 from ledger.utils.price import get_depth_price, get_price, USDT_IRT
 from ledger.utils.random import secure_uuid4
-from market.consts import OTC_MIN_HARD_FIAT_VALUE, OTC_MAX_HARD_FIAT_VALUE
 from market.models import BaseTrade
 from market.utils.trade import get_fee_info
 
@@ -66,6 +65,8 @@ class OTCRequest(BaseTrade):
         assert from_amount or to_amount
         assert (from_amount or to_amount) > 0
 
+        config = SystemConfig.get_system_config()
+
         otc_request = cls.get_otc_request(
             account=account,
             from_asset=from_asset,
@@ -81,10 +82,10 @@ class OTCRequest(BaseTrade):
         if not allow_dust:
             otc_irt_value = otc_request.irt_value
 
-            if otc_irt_value < OTC_MIN_HARD_FIAT_VALUE:
+            if otc_irt_value < config.min_otc_irt * Decimal('0.8'):
                 raise SmallAmountTrade()
 
-            if otc_irt_value > OTC_MAX_HARD_FIAT_VALUE:
+            if otc_irt_value > config.max_otc_irt:
                 raise LargeAmountTrade()
 
         if check_enough_balance:

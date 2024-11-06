@@ -155,6 +155,9 @@ class BlocklinkRequester(BaseRequester):
 
 
 class MockBlocklinkRequester(BlocklinkRequester):
+    def collect_api(self, path: str, method: str = 'GET', data: dict = None, cache_timeout: int = None, timeout: float = ...) -> Response:
+        pass
+
     def get_network_arch(self, network: str) -> str:
         if network == 'XRP':
             return 'XRP'

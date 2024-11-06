@@ -96,7 +96,18 @@ class SerializerDecimalField(serializers.DecimalField):
 def get_irt_market_asset_symbols():
     from market.models import PairSymbol
     from ledger.models import Asset
-    return set(PairSymbol.objects.select_related('base_asset').filter(
+    return set(PairSymbol.objects.filter(
         enable=True,
         base_asset__symbol=Asset.IRT
+    ).values_list('asset__symbol', flat=True))
+
+
+@cache_for(time=600)
+def get_irt_margin_enable_coins():
+    from market.models import PairSymbol
+    from ledger.models import Asset
+    return set(PairSymbol.objects.filter(
+        enable=True,
+        base_asset__symbol=Asset.IRT,
+        margin_enable=True
     ).values_list('asset__symbol', flat=True))

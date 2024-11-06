@@ -31,6 +31,7 @@ from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from financial.models import Payment
 from gamify.utils import clone_model
 from ledger import models
+from ledger.fields import WithdrawSources
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
     MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer, ConvertDust, \
@@ -663,14 +664,14 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     }
 
     list_display = (
-        'created', 'network', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
+        'created', 'network', 'receiver_account', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
         'usdt_value', 'get_remaining_time_to_pass_48h', 'get_jalali_created', 'get_jalali_finished', 'out_address',
         'trx_hash', 'get_confirmation',
     )
     search_fields = ('trx_hash', 'out_address', 'wallet__asset__symbol', 'wallet__account__user__phone')
     list_filter = ('deposit', 'status', 'source', TransferUserFilter, 'network')
     readonly_fields = (
-        'deposit_address', 'network', 'wallet', 'created', 'accepted_datetime', 'finished_datetime', 'get_risks',
+        'deposit_address', 'network', 'receiver_account', 'wallet', 'created', 'accepted_datetime', 'finished_datetime', 'get_risks',
         'out_address', 'memo', 'amount', 'irt_value', 'usdt_value', 'deposit', 'group_id', 'login_activity',
         'address_book', 'accepted_by', 'block_number', 'last_block_number'
     )
@@ -707,6 +708,8 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description='Confirmation')
     def get_confirmation(self, transfer: models.Transfer):
+        if transfer.source in [WithdrawSources.INTERNAL_ACCOUNT, WithdrawSources.INTERNAL]:
+            return 0
         return f'{transfer.get_confirmation_blocks() or 0}/{transfer.network.min_confirm}'
 
     @admin.display(description='User')
@@ -1418,7 +1421,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         if price is not None:
             price = floor_precision(obj.average_price, obj.symbol.tick_size)
         return price
-    
+
     @admin.action(description='convert dust and close', permissions=['change'])
     def convert_dust_close(self, request, queryset):
         positions = []
