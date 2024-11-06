@@ -136,22 +136,11 @@ class InitTelegramJWTAuthentication(JWTAuthentication):
         token = auth_header.split(" ")[1]
         try:
             payload = jwt.decode(token, CUSTOM_JWT_SECRET_KEY, algorithms=["HS256"])
-            # payload = super().get_validated_token(token)
-            print("This is payload:  ", payload)
-            user_id = payload.get("user_id")
-            # try:
-            #     print("we arrrrrrrrrrre here")
-            #     # user = User.objects.get(id='1')
-            #     # print(user)
-            # except User.DoesNotExist:
-            #     raise AuthenticationFailed("User not found")
 
             user = self.get_user(payload)
             token = TelegramAccessToken.for_user(user)
 
             token['allowed_apis'] = ['api/v1/telegram/user-info']
-            print(token)
-            print(token['allowed_apis'])
             return user, token
 
         except jwt.ExpiredSignatureError:
@@ -159,43 +148,9 @@ class InitTelegramJWTAuthentication(JWTAuthentication):
         except jwt.InvalidTokenError:
             raise exceptions.AuthenticationFailed("Invalid token")
 
+
 class TelegramJWTAuthentication(CustomJWTAuthentication):
     token_type = 'telegram'
-
-    # def get_validated_token(self, raw_token):
-    #     validated_token = JWTAuthentication().get_validated_token(raw_token)
-    #     print(")))))))))))))) ", validated_token.get('type'))
-    #     print(validated_token)
-    #     return validated_token
-
-    # def authenticate(self, request):
-    #     print(request)
-    #     validated_token = super().get_valid_token(request)
-    #     print(validated_token)
-    #     if not validated_token:
-    #         return None
-    #
-    #     if 'type' not in validated_token:
-    #         raise InvalidToken("Token missing 'type' field")
-    #     validated_token['allowed_apis'] = ['telegram_get_user_info', 'bookmark_assets']
-    #     print("Allowed APIs in validated_token:", validated_token.get('allowed_apis'))
-    #     if validated_token.get('type') != self.token_type:
-    #         msg = _(f'Token type must be "{self.token_type}"')
-    #         raise exceptions.AuthenticationFailed(msg)
-    #     return self.get_user(validated_token), validated_token
-    #
-    # def get_raw_token(self, header):
-    #     if header is None:
-    #         return None
-    #
-    #     header_str = header.decode("utf-8")
-    #
-    #     if header_str.startswith("Bearer "):
-    #         return header_str.split(" ")[1]
-    #     # elif header_str.startswith("Bearer "):
-    #     #     return header_str.split(" ")[1]
-    #
-    #     return None
 
 
 class TelegramAccessToken(AccessToken):

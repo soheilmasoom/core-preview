@@ -23,15 +23,10 @@ class GenerateTelegramLinkAPIView(APIView):
 
     def get(self, request):
         user = request.user
-        print(request.user.get_account())
-        print("here we go user: ", user.id)
-        print("As we can see: ", user.phone)
         serializer = TelegramLinkSerializer(context={'user': user})
-        print('this is the serializer data: ', serializer.data)
         link = serializer.get_telegram_link(None)
-        print("this is the link: ", link)
         return Response(link)
-        # return Response(serializer.data)
+
 
 class GetUserId(APIView):
     authentication_classes = []
@@ -52,6 +47,7 @@ class GetUserId(APIView):
         else:
             return Response({"error": "Invalid or expired link"}, status=status.HTTP_404_NOT_FOUND)
 
+
 class GetUserInfoView(APIView):
     authentication_classes = [TelegramJWTAuthentication]
     permission_classes = [HasApiAccessPermission]
@@ -61,7 +57,6 @@ class GetUserInfoView(APIView):
     def get(self, request, user_id):
 
         print("as you can see we are doing the job")
-        # Retrieve and return the user information if token is valid
         user = get_object_or_404(User, id=user_id)
         print(user)
         user_data = {
@@ -71,11 +66,9 @@ class GetUserInfoView(APIView):
             "first_name": user.first_name,
             "last_name": user.last_name,
             "national_code": user.national_code,
-            # "email": user.email,
-            # "first_name": user.first_name,
-            # "last_name": user.last_name,
         }
         return Response(user_data, status=status.HTTP_200_OK)
+
 
 class GetToken(APIView):
     authentication_classes = [InitTelegramJWTAuthentication]
@@ -86,9 +79,3 @@ class GetToken(APIView):
             return Response({'message': 'Access granted to secure API!', 'token': token}, status=status.HTTP_200_OK)
         else:
             return Response({'message': 'No token found'}, status=status.HTTP_401_UNAUTHORIZED)
-
-#
-# class get(CreateAPIView):
-#     authentication_classes = (SetPasswordJWTAuthentication,)
-#     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
-#     serializer_class = SetPasswordSerializer
