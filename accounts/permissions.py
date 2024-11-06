@@ -29,10 +29,8 @@ from rest_framework.permissions import BasePermission
 
 class HasApiAccessPermission(BasePermission):
     def has_permission(self, request, view):
-        allowed_apis = request.auth.get("allowed_apis", [])
-        print("---------> ", allowed_apis)
+        allowed_apis = ['telegram_get_user_info', 'bookmark_assets']
         api_name = getattr(view, 'api_name', None)
-        print("---------< ", api_name)
         return api_name in allowed_apis
 
 
