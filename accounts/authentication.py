@@ -218,7 +218,7 @@ class TelegramJWTAuthentication(CustomJWTAuthentication):
 
         header_str = header.decode("utf-8")
 
-        if header_str.startswith("telegram "):
+        if header_str.startswith("Bearer "):
             return header_str.split(" ")[1]
         # elif header_str.startswith("Bearer "):
         #     return header_str.split(" ")[1]
