@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -36,9 +35,6 @@ class BookmarkAssetsSerializer(serializers.ModelSerializer):
 class BookmarkAssetsViewSet(ModelViewSet):
     serializer_class = BookmarkAssetsSerializer
     authentication_classes = [SessionAuthentication, CustomJWTAuthentication, TelegramJWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    api_name = 'bookmark_assets'
 
     def list(self, request, *args, **kwargs):
         account = self.request.user.get_account()

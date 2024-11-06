@@ -2,13 +2,10 @@ import logging
 
 from django.utils.translation import gettext_lazy as _
 from rest_framework import exceptions, status
-from rest_framework.authentication import TokenAuthentication, get_authorization_header, BaseAuthentication
+from rest_framework.authentication import TokenAuthentication, get_authorization_header
 from rest_framework.exceptions import APIException
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.tokens import AccessToken
-import jwt
-from decouple import config
 
 from accounts.models import CustomToken, SystemConfig
 from accounts.utils.ip import get_client_ip
