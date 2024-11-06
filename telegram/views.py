@@ -13,10 +13,11 @@ from rest_framework import exceptions, status
 from rest_framework_simplejwt.tokens import AccessToken
 from accounts.permissions import HasApiAccessPermission
 from accounts.authentication import TelegramJWTAuthentication, InitTelegramJWTAuthentication
+from .utils.redis import get_user_key, delete_user_key
 
 
-CUSTOM_JWT_SECRET_KEY = config('CUSTOM_JWT_SECRET_KEY')
-User = get_user_model()  # Get the user model
+User = get_user_model()
+
 class GenerateTelegramLinkAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -31,6 +32,25 @@ class GenerateTelegramLinkAPIView(APIView):
         print("this is the link: ", link)
         return Response(link)
         # return Response(serializer.data)
+
+class GetUserId(APIView):
+    authentication_classes = []
+    permission_classes = []
+    def get(self, request):
+        random_string = request.data.get("random_string")
+        if not random_string:
+            return Response({"error": "Random string not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user_id = get_user_key(random_string)
+
+        if user_id:
+            user_id = user_id.decode("utf-8")
+
+            # delete_user_key(random_string)
+
+            return Response({"user_id": user_id}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Invalid or expired link"}, status=status.HTTP_404_NOT_FOUND)
 
 class GetUserInfoView(APIView):
     authentication_classes = [TelegramJWTAuthentication]

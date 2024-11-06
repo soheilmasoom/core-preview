@@ -205,7 +205,7 @@ class TelegramJWTAuthentication(CustomJWTAuthentication):
 
         if 'type' not in validated_token:
             raise InvalidToken("Token missing 'type' field")
-        validated_token['allowed_apis'] = ['telegram_get_user_info']
+        validated_token['allowed_apis'] = ['telegram_get_user_info', 'bookmark_assets']
         print("Allowed APIs in validated_token:", validated_token.get('allowed_apis'))
         if validated_token.get('type') != self.token_type:
             msg = _(f'Token type must be "{self.token_type}"')
@@ -220,8 +220,8 @@ class TelegramJWTAuthentication(CustomJWTAuthentication):
 
         if header_str.startswith("telegram "):
             return header_str.split(" ")[1]
-        elif header_str.startswith("Bearer "):
-            return header_str.split(" ")[1]
+        # elif header_str.startswith("Bearer "):
+        #     return header_str.split(" ")[1]
 
         return None
 
