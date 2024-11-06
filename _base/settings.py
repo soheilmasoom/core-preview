@@ -68,7 +68,6 @@ INSTALLED_APPS = [
     'gamify',
     'health',
     'search',
-    'telegram',
 
     'tinymce',
     'import_export',
@@ -403,5 +402,3 @@ EXCLUSIVE_SMS_NUMBER = config('EXCLUSIVE_SMS_NUMBER', default=None)
 
 LOGIN_URL = PANEL_URL + '/auth/login/'
 LOGIN_REDIRECT_URL = '/admin/'
-
-CUSTOM_JWT_SECRET_KEY = config('CUSTOM_JWT_SECRET_KEY')

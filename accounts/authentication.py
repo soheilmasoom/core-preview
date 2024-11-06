@@ -15,8 +15,6 @@ from accounts.utils.ip import get_client_ip
 
 logger = logging.getLogger(__name__)
 
-CUSTOM_JWT_SECRET_KEY = config('CUSTOM_JWT_SECRET_KEY')
-
 
 class TradeClosedException(APIException):
     status_code = status.HTTP_400_BAD_REQUEST
@@ -121,27 +119,10 @@ class WidgetJWTAuthentication(CustomJWTAuthentication):
     token_type = 'widget'
 
 
-class InitTelegramJWTAuthentication(JWTAuthentication):
-    token_type = 'init_telegram'
-
-    def authenticate(self, request):
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return None
-        token = auth_header.split(" ")[1]
-        try:
-            payload = jwt.decode(token, CUSTOM_JWT_SECRET_KEY, algorithms=["HS256"])
-
-            user = self.get_user(payload)
-            token = TelegramAccessToken.for_user(user)
-
-            token['allowed_apis'] = ['api/v1/telegram/user-info']
-            return user, token
-
-        except jwt.ExpiredSignatureError:
-            raise exceptions.AuthenticationFailed("Token has expired")
-        except jwt.InvalidTokenError:
-            raise exceptions.AuthenticationFailed("Invalid token")
+class WidgetAccessToken(AccessToken):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self['type'] = 'widget'
 
 
 class TelegramJWTAuthentication(CustomJWTAuthentication):
@@ -152,12 +133,6 @@ class TelegramAccessToken(AccessToken):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self['type'] = 'telegram'
-
-
-class WidgetAccessToken(AccessToken):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self['type'] = 'widget'
 
 
 class SetPasswordJWTAuthentication(WidgetJWTAuthentication):

@@ -1,13 +1,12 @@
 from rest_framework import serializers
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
+from accounts.authentication import CustomJWTAuthentication, TelegramJWTAuthentication
 from accounts.models import Account
 from ledger.models.asset import CoinField
-from rest_framework.authentication import SessionAuthentication
-from accounts.authentication import CustomJWTAuthentication, TelegramJWTAuthentication
-from rest_framework.permissions import IsAuthenticated
-from accounts.permissions import HasApiAccessPermission
 
 
 class BookmarkAssetsSerializer(serializers.ModelSerializer):
@@ -36,8 +35,8 @@ class BookmarkAssetsSerializer(serializers.ModelSerializer):
 
 class BookmarkAssetsViewSet(ModelViewSet):
     serializer_class = BookmarkAssetsSerializer
-    authentication_classes = [TelegramJWTAuthentication, SessionAuthentication, CustomJWTAuthentication]
-    permission_classes = [HasApiAccessPermission | IsAuthenticated]
+    authentication_classes = [SessionAuthentication, CustomJWTAuthentication, TelegramJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     api_name = 'bookmark_assets'
 
