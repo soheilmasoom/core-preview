@@ -664,7 +664,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     }
 
     list_display = (
-        'created', 'network', 'receiver_account', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
+        'created', 'network', 'get_asset', 'amount', 'fee_amount', 'deposit', 'status', 'source', 'get_user',
         'usdt_value', 'get_remaining_time_to_pass_48h', 'get_jalali_created', 'get_jalali_finished', 'out_address',
         'trx_hash', 'get_confirmation',
     )
@@ -1207,12 +1207,10 @@ class ManualTradeAdmin(admin.ModelAdmin):
 
 @admin.register(AlertTrigger)
 class AlertTriggerAdmin(admin.ModelAdmin):
-    list_display = (
-        'created', 'asset', 'price', 'change_percent', 'chanel', 'is_chanel_changed', 'cycle', 'interval',
-        'is_triggered',)
-    list_filter = ('asset', 'is_chanel_changed', 'is_triggered',)
-    readonly_fields = ('created', 'asset', 'price', 'change_percent', 'chanel', 'cycle',)
-    search_fields = ('cycle',)
+    list_display = ('created', 'asset', 'trigger_type', 'old_price', 'new_price', 'trigger_type', 'cycle', 'interval')
+    readonly_fields = ('created', 'asset', )
+    search_fields = ('cycle', 'asset__symbol')
+    list_filter = ('interval', 'trigger_type')
 
 
 @admin.register(DepositRecoveryRequest)
@@ -1392,7 +1390,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
                        'liquidation_price', 'leverage', 'equity', 'group_id')
     list_filter = ('side', 'symbol', 'status')
     search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
-    actions = ('convert_dust_close', )
+    actions = ('convert_dust_close', 'force_convert_dust_close')
 
     @admin.display(description='Orders')
     def get_orders(self, obj):
@@ -1424,12 +1422,20 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
 
     @admin.action(description='convert dust and close', permissions=['change'])
     def convert_dust_close(self, request, queryset):
+        self.convert_dust(queryset, False)
+
+
+    @admin.action(description='force convert dust and close', permissions=['change'])
+    def force_convert_dust_close(self, request, queryset):
+        self.convert_dust(queryset, True)
+
+    def convert_dust(self, queryset, force):
         positions = []
         group_id = uuid4()
 
         with WalletPipeline() as pipeline:
             for position in queryset:
-                position.convert_dust(pipeline)
+                position.convert_dust(pipeline, force=force)
 
                 isolated = position.base_wallet
                 isolated.refresh_from_db()

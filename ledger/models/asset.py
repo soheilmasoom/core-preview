@@ -71,7 +71,7 @@ class Asset(models.Model):
 
     price_page = models.BooleanField(default=True)
 
-    price_alert_chanel_sensitivity = get_amount_field(null=True)
+    price_alert_channel_sensitivity = get_amount_field(null=True)
 
     distribution_factor = models.FloatField(default=0)
 
@@ -80,6 +80,8 @@ class Asset(models.Model):
     margin_interest_fee = get_amount_field(default=Decimal('0.00015'))
 
     rebranded_to = models.OneToOneField('Asset', on_delete=models.SET_NULL, null=True, blank=True)
+
+    default_price_alert = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         ordering = ('-pin_to_top', '-trend', 'otc_status', 'order',)
@@ -195,6 +197,14 @@ class AssetSerializerMini(serializers.ModelSerializer):
 
 
 class CoinField(serializers.CharField):
+    def __init__(self, **kwargs):
+        coins = kwargs.pop('coins', None)
+        self.limit_to = {}
+        if coins:
+            self.limit_to['symbol__in'] = coins
+
+        super(CoinField, self).__init__(**kwargs)
+
     def to_representation(self, value: Asset):
         if value:
             return value.symbol
@@ -203,4 +213,4 @@ class CoinField(serializers.CharField):
         if not data:
             return
         else:
-            return get_object_or_404(Asset, symbol=data)
+            return get_object_or_404(Asset, symbol=data, enable=True, **self.limit_to)

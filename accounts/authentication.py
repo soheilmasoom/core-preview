@@ -104,54 +104,26 @@ class TradeTokenAuthentication(CustomTokenAuthentication):
 
 
 class CustomJWTAuthentication(JWTAuthentication):
-    def get_validated_token(self, raw_token):
-        validated_token = super().get_validated_token(raw_token)
-
-        if validated_token.get('type'):
-            raise InvalidToken("Token does not have the privilege for this request.")
-        return validated_token
+    token_type = None
 
     def authenticate(self, request):
-        validated_token = self.get_valid_token(request)
+        auth = super(CustomJWTAuthentication, self).authenticate(request)
+        if not auth:
+            return
+
+        user, validated_token = auth
+
         if not validated_token:
-            return None
+            return
 
-        return self.get_user(validated_token), validated_token
+        if validated_token.get('type') != self.token_type:
+            return
 
-    def get_valid_token(self, request):
-        header = self.get_header(request)
-        if header is None:
-            return None
-        print("the header: ", header)
-        raw_token = self.get_raw_token(self.get_header(request))
-        print("the raw token: ", raw_token)
-        if raw_token is None:
-            return None
-
-        return self.get_validated_token(raw_token)
+        return user, validated_token
 
 
 class WidgetJWTAuthentication(CustomJWTAuthentication):
     token_type = 'widget'
-
-    def get_validated_token(self, raw_token):
-        validated_token = JWTAuthentication().get_validated_token(raw_token)
-
-        return validated_token
-
-    def authenticate(self, request):
-        validated_token = super().get_valid_token(request)
-        if not validated_token:
-            return None
-
-        if 'type' not in validated_token:
-            raise InvalidToken("Token missing 'type' field")
-
-        if validated_token.get('type') != self.token_type:
-            msg = _(f'Token type must be "{self.token_type}"')
-            raise exceptions.AuthenticationFailed(msg)
-
-        return self.get_user(validated_token), validated_token
 
 
 class InitTelegramJWTAuthentication(JWTAuthentication):

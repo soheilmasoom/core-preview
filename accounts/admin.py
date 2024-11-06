@@ -39,7 +39,6 @@ from stake.models import StakeRequest
 from .admin_guard import M
 from .admin_guard.admin import AdvancedAdmin
 from .models import User, Account, Notification, UserAuthRequest, Company, LevelGrants
-from .models.fcm_topic_subscription import FCMTopicSubscription
 from .models.login_activity import LoginActivity
 from .models.sms_notification import SmsNotification
 from .models.user_feature_perm import UserFeaturePerm
@@ -184,13 +183,13 @@ class ConsultationAdmin(admin.ModelAdmin):
     search_fields = ('user__phone', 'user__email',)
     actions = ('cancel_consultation', 'done_consultation',)
 
-    @admin.action(description='تغیر به لغو شده', permissions=['change'])
+    @admin.action(description='Reject', permissions=['change'])
     def cancel_consultation(self, request, queryset):
-        queryset.objects.update(status=CANCELED)
+        queryset.filter(status=PENDING).update(status=CANCELED)
 
-    @admin.action(description='تغییر به انجام شده', permissions=['change'])
+    @admin.action(description='Accept', permissions=['change'])
     def done_consultation(self, request, queryset):
-        queryset.objects.update(status=DONE)
+        queryset.filter(status=PENDING).update(status=DONE)
 
     @admin.display(description='description')
     def get_description(self, consultation: Consultation):
@@ -1001,11 +1000,11 @@ class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
 @admin.register(TrafficSource)
 class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
-                    'gps_adid', 'yandex_profile_id')
+    list_display = ('created', 'get_username', 'signup_source', 'utm_source', 'utm_medium', 'utm_campaign',
+                    'utm_content', 'utm_term', 'gps_adid', 'yandex_profile_id')
     search_fields = ('user__phone', 'gps_adid', 'ip', 'profile_id')
     readonly_fields = ('user', )
-    list_filter = ('utm_source', 'utm_medium')
+    list_filter = ('signup_source', 'utm_source', 'utm_medium')
 
     @admin.display(description='user')
     def get_username(self, traffic_source: TrafficSource):
@@ -1035,9 +1034,9 @@ class LoginActivityAdmin(admin.ModelAdmin):
 
 @admin.register(FirebaseToken)
 class FirebaseTokenAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ['user', 'ip', 'native_app']
+    list_display = ['created', 'user', 'active', 'ip']
     readonly_fields = ('created', 'user')
-    list_filter = ('native_app', )
+    list_filter = ('active', 'native_app', )
     search_fields = ('user__phone', 'token')
 
 
@@ -1139,8 +1138,3 @@ class LevelGrantsAdmin(admin.ModelAdmin):
 class SpamPhoneAdmin(admin.ModelAdmin):
     list_display = ('created', 'phone')
     search_fields = ('phone', )
-
-
-@admin.register(FCMTopicSubscription)
-class FCMTopicSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'action', 'status', 'topic',)

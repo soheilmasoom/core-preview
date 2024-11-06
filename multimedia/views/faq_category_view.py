@@ -1,46 +1,28 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers
-from multimedia.models import FAQ
-from rest_framework.generics import ListAPIView
-from rest_framework.response import Response
-from rest_framework.exceptions import NotFound
+from rest_framework.generics import RetrieveAPIView
 
-class FAQItemSerializer(serializers.ModelSerializer):
+from multimedia.models import FAQ, FAQCategory
+
+
+class FAQSerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQ
-        fields = ['question_text', 'answer_text', 'title', 'link']
+        fields = ['title', 'answer', 'link']
 
-    def to_representation(self, instance):
-        if instance.type == FAQ.LINK:
-            return {
-                'title': instance.title,
-                'link': instance.link
-            }
-        else:
-            return {
-                'question_text': instance.question_text,
-                'answer_text': instance.answer_text
-            }
 
-class FAQResponseSerializer(serializers.Serializer):
-    type = serializers.CharField()
-    result = FAQItemSerializer(many=True)
+class FAQCategorySerializer(serializers.ModelSerializer):
+    faqs = FAQSerializer(many=True)
 
-class FAQByCategoryView(ListAPIView):
+    class Meta:
+        model = FAQCategory
+        fields = ('type', 'faqs')
+
+
+class FAQByCategoryView(RetrieveAPIView):
     authentication_classes = []
     permission_classes = []
-    serializer_class = FAQResponseSerializer
+    serializer_class = FAQCategorySerializer
 
-    def list(self, request, *args, **kwargs):
-        slug = self.kwargs['slug']
-        faqs = FAQ.objects.filter(category__slug=slug)
-
-        if not faqs.exists():
-            raise NotFound(f"پیدا نشد : {slug}")
-
-        faq_type = faqs.first().type
-
-        serializer = self.get_serializer({
-            'type': faq_type,
-            'result': faqs
-        })
-        return Response(serializer.data)
+    def get_object(self):
+        return get_object_or_404(FAQCategory, slug=self.kwargs['slug'])

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from decimal import Decimal
 
@@ -10,7 +11,6 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
-from django.contrib.auth import authenticate
 
 from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.models import Account, EmailNotification
@@ -28,13 +28,10 @@ from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 from ledger.widget.widget import Widget
 
-import logging
-
 logger = logging.getLogger(__name__)
 
 
 class PaymentRequest(models.Model):
-
     history = HistoricalRecords()
 
     APP, DESKTOP = 'app', 'desktop'
@@ -42,7 +39,7 @@ class PaymentRequest(models.Model):
     modified = models.DateTimeField(auto_now=True)
 
     gateway = models.ForeignKey('financial.Gateway', on_delete=models.PROTECT)
-    bank_card = models.ForeignKey('financial.BankCard', on_delete=models.PROTECT, null=True, blank=True)
+    bank_card = models.ForeignKey('financial.BankCard', on_delete=models.SET_NULL, null=True, blank=True)
     amount = models.PositiveIntegerField()
     fee = models.PositiveIntegerField()
 

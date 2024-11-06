@@ -18,7 +18,7 @@ from ledger.utils.external_price import SHORT, LONG, BUY, SELL, IRT, USDT
 from ledger.utils.fields import get_amount_field
 from ledger.utils.margin import alert_system_insurance_trx
 from ledger.utils.precision import floor_precision, ceil_precision
-from ledger.utils.price import get_price
+from ledger.utils.price import get_price, get_depth_price
 from market.models import PairSymbol
 
 logger = logging.getLogger(__name__)
@@ -328,7 +328,10 @@ class MarginPosition(models.Model):
                     group_id=group_id,
                 )
 
-            price = floor_precision(price, self.symbol.step_size)
+            if side == SELL:
+                price = floor_precision(price, self.symbol.tick_size)
+            else:
+                price = ceil_precision(price, self.symbol.tick_size)
 
             liquidation_order = new_order(
                 pipeline=pipeline,
@@ -455,7 +458,7 @@ class MarginPosition(models.Model):
         ).aggregate(s=Sum('amount'))['s'] or 0)
         return asset_fee + base_asset_fee
 
-    def convert_dust(self, pipeline):
+    def convert_dust(self, pipeline, force=False):
         group_id = uuid.uuid4()
 
         self.asset_wallet.refresh_from_db()
@@ -473,12 +476,18 @@ class MarginPosition(models.Model):
         free = self.asset_wallet.balance + pipeline.get_wallet_balance_diff(self.asset_wallet.id)
 
         value = abs(free) * price
-        if ((self.base_wallet.asset.symbol == IRT and value > 1_000_000) or
+        if not force and ((self.base_wallet.asset.symbol == IRT and value > 1_000_000) or
                 (self.base_wallet.asset.symbol == USDT and value > 20)):
             logger.warning(f'Failed to convert dust position:{self.id} due to VALUE:{value}')
             return
 
         if free > 0:
+            price = get_depth_price(
+                self.asset_wallet.asset.symbol + self.base_wallet.asset.symbol,
+                side=BUY,
+                amount=free
+            )
+
             pipeline.new_trx(
                 sender=self.asset_wallet,
                 receiver=self.asset_wallet.asset.get_wallet(SYSTEM_ACCOUNT_ID),
@@ -505,6 +514,12 @@ class MarginPosition(models.Model):
             )
 
         elif free < 0:
+            price = get_depth_price(
+                self.asset_wallet.asset.symbol + self.base_wallet.asset.symbol,
+                side=SELL,
+                amount=-free
+            )
+
             free_base = self.base_wallet.balance + pipeline.get_wallet_balance_diff(self.base_wallet.id)
             amount = min(free_base/price, -free)
 

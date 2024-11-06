@@ -1,85 +1,64 @@
 import logging
+
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import RetrieveUpdateAPIView
+from rest_framework.generics import RetrieveUpdateAPIView, get_object_or_404
 from rest_framework.response import Response
 
 from accounts.models import User
-from accounts.models.fcm_topic_subscription import FCMTopicSubscription
-from accounts.tasks.notification import manage_user_topic_subscription_task
+from accounts.utils.price_alert import subscribe_alert, unsubscribe_alert, subscribe_user_to_alerts, \
+    unsubscribe_user_to_alerts
 from ledger.models import AssetAlert, BulkAssetAlert, Asset
 from ledger.models.asset import AssetSerializerMini, CoinField
-from ledger.models.asset_alert import BASE_ALERT_PACKAGE
 from ledger.utils.coins_info import get_coins_info
 from ledger.utils.dto import CoinInfo
 from ledger.utils.external_price import SELL
 from ledger.utils.precision import get_symbol_presentation_price
-from ledger.utils.price import get_prices, get_coins_symbols
+from ledger.utils.price import get_prices, get_coins_symbols, get_last_price
 from ledger.views.coin_category_list_view import CoinCategorySerializer
-from accounts.utils.push_notif import manage_user_topic_subscription, send_push_notif
 
 logger = logging.getLogger(__name__)
 
 
-class AssetAlertCreateSerializer(serializers.ModelSerializer):
-    coin = CoinField(source='asset', required=False)
+class AssetAlertSerializer(serializers.ModelSerializer):
+    coin = CoinField(source='asset', write_only=True)
 
-    def validate(self, data):
-        user = self.context['request'].user
-        asset = data['asset']
-        if AssetAlert.objects.filter(user=user, asset=asset).exists():
-            raise ValidationError({'asset': 'ارز دیجیتال انتخاب شده تحت‌نظر می‌باشد.'})
-        if asset.is_cash():
-            raise ValidationError({'asset': 'ارزدیجیتال انتخاب شده نباید تومان باشد.'})
-        return data
-
-    def get_topic(self):
-        asset = self.validated_data.get('asset')
-        return f"price_alerts_{asset.symbol.lower()}"
-
-    class Meta:
-        model = AssetAlert
-        fields = ('coin',)
-
-
-class AssetAlertDeleteSerializer(serializers.ModelSerializer):
-    coin = CoinField(source='asset', required=False)
-
-    def validate(self, data):
-        user = self.context['request'].user
-        asset = data['asset']
-        if not AssetAlert.objects.filter(user=user, asset=asset).exists():
-            raise ValidationError({'asset': 'ارز دیجیتال انتخاب شده تحت‌نظر نمی‌باشد.'})
-        return data
-
-    class Meta:
-        model = AssetAlert
-        fields = ('coin',)
-
-
-class AssetAlertObjectSerializer(serializers.ModelSerializer):
-    asset = AssetSerializerMini()
+    asset = AssetSerializerMini(read_only=True)
     price_usdt = serializers.SerializerMethodField()
     price_irt = serializers.SerializerMethodField()
     change_24h = serializers.SerializerMethodField()
 
     def get_change_24h(self, asset_alert: AssetAlert):
-        return self.context['cap_info'].get(asset_alert.asset.symbol, CoinInfo()).change_24h
-
-    def get_price_usdt(self, asset_alert: AssetAlert):
-        price = self.context['prices'].get(asset_alert.asset.symbol + Asset.USDT, 0)
-        return get_symbol_presentation_price(asset_alert.asset.symbol + Asset.USDT, price)
+        return round(self.context['cap_info'].get(asset_alert.asset.symbol, CoinInfo()).change_24h, 2)
 
     def get_price_irt(self, asset_alert: AssetAlert):
-        price = self.context['prices'].get(asset_alert.asset.symbol + Asset.IRT, 0)
-        return get_symbol_presentation_price(asset_alert.asset.symbol + Asset.IRT, price)
+        symbol = asset_alert.asset.symbol + Asset.IRT
+        price = get_last_price(symbol)
+        return get_symbol_presentation_price(symbol, price)
+
+    def get_price_usdt(self, asset_alert: AssetAlert):
+        symbol = asset_alert.asset.symbol + Asset.USDT
+        price = get_last_price(symbol)
+        return get_symbol_presentation_price(symbol, price)
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        alert, _ = AssetAlert.objects.get_or_create(
+            asset=validated_data['asset'],
+            user=user
+        )
+
+        alert.activate()
+
+        return alert
 
     class Meta:
         model = AssetAlert
-        fields = ('id', 'asset', 'price_usdt', 'price_irt', 'change_24h')
+        fields = ('id', 'coin', 'asset', 'price_usdt', 'price_irt', 'change_24h', 'active')
+        read_only_fields = ('active',)
 
 
 class BulkAssetAlertViewSerializer(serializers.ModelSerializer):
@@ -119,71 +98,53 @@ class BulkAssetAlertObjectSerializer(serializers.ModelSerializer):
 
 
 class AssetAlertViewSet(viewsets.ModelViewSet):
-    serializer_class = AssetAlertCreateSerializer
-    queryset = AssetAlert.objects.all().prefetch_related('asset')
+    serializer_class = AssetAlertSerializer
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        user = request.user
-        topic = serializer.get_topic()
-        FCMTopicSubscription.objects.create(
-            user=user,
-            topic=topic,
-            action='subscribe'
-        )
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    def get_serializer_context(self):
+        ctx = super(AssetAlertViewSet, self).get_serializer_context()
 
-    def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-        serializer = AssetAlertObjectSerializer(queryset, many=True, context={
+        return {
+            **ctx,
             'cap_info': get_coins_info(),
-            'prices': get_prices(get_coins_symbols(queryset.values_list('asset__symbol', flat=True)), side=SELL, allow_stale=True)
-        })
-        return Response(serializer.data)
+        }
 
-    def get_object(self):
-        serializer = AssetAlertDeleteSerializer(
+    def perform_destroy(self, alert: AssetAlert):
+        alert.deactivate()
+
+    def destroy(self, request, *args, **kwargs):
+        if 'coin' in self.kwargs:  # remove destroy method after migration
+            return super(AssetAlertViewSet, self).destroy(request, *args, **kwargs)
+
+        serializer = AssetAlertSerializer(
             data=self.request.data,
             context={'request': self.request}
         )
         serializer.is_valid(raise_exception=True)
-        asset = serializer.validated_data.get('asset', None)
-        user = self.request.user
-        return self.get_queryset().get(user=user, asset=asset)
+        asset = serializer.validated_data['asset']
 
-    def perform_destroy(self, instance):
-        with transaction.atomic():
-            instance.delete()
-            user = self.request.user
-            serializer = self.get_serializer(data=self.request.data, context={'request': self.request})
-            serializer.is_valid(raise_exception=True)
-            user = self.request.user
-            topic = serializer.get_topic()
-            FCMTopicSubscription.objects.create(
-                user=user,
-                topic=topic,
-                action='unsubscribe'
-            )
-            logger.info(f"destroy {topic}, {user}")
-            if not(AssetAlert.objects.filter(user=user).exists() or BulkAssetAlert.objects.filter(user=user).exists()):
-                user.is_price_notif_on = False
-                user.save(update_fields=['is_price_notif_on'])
+        alert = AssetAlert.objects.filter(user=self.request.user, asset=asset).first()
 
-    def perform_create(self, serializer):
-        serializer.save(
-            user=self.request.user
-        )
+        if alert:
+            self.perform_destroy(alert)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def get_queryset(self):
+        queryset = AssetAlert.live_objects.filter(user=self.request.user).prefetch_related('asset')
         coin = self.request.query_params.get('coin')
-        queryset = self.queryset.filter(user=self.request.user)
 
         if coin:
             queryset = queryset.filter(asset__symbol=coin)
 
         return queryset
+
+    def get_object(self):
+        asset = get_object_or_404(Asset, symbol=self.kwargs['coin'], enable=True)
+        alert, _ = AssetAlert.objects.get_or_create(
+            asset=asset,
+            user=self.request.user
+        )
+        return alert
 
 
 class BulkAssetAlertViewSet(viewsets.ModelViewSet):
@@ -216,7 +177,10 @@ class BulkAssetAlertViewSet(viewsets.ModelViewSet):
 
 
 class PriceNotifSwitchSerializer(serializers.ModelSerializer):
-    is_price_notif_on = serializers.BooleanField()
+    def update(self, user: User, validated_data):
+        new_state = validated_data['is_price_notif_on']
+        AssetAlert.change_user_price_alerts(user, new_state)
+        return user
 
     class Meta:
         model = User
@@ -228,14 +192,3 @@ class PriceNotifSwitchView(RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
-
-    def perform_update(self, serializer):
-        with transaction.atomic():
-            serializer.save()
-            user = self.request.user
-            if not AssetAlert.objects.filter(user=user).exists():
-                for asset in Asset.objects.filter(symbol__in=BASE_ALERT_PACKAGE):
-                    AssetAlert.objects.create(
-                        user=user,
-                        asset=asset
-                    )
