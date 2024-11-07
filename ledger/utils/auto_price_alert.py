@@ -250,7 +250,7 @@ def process_automated_price_alerts():
         return
 
     key = CACHE_PREFIX + str(current_cycle)
-    cache.set(key, current_cycle_prices, 3600 * 24 + 60 * 4)
+    cache.set(key, current_cycle_prices, 3600 * 24)
 
     # past_day_cycle_prices = get_past_cycle_by_number(current_cycle + 2)
 
@@ -263,7 +263,7 @@ def process_automated_price_alerts():
 
     # lowest has most priority
     altered_coins = {
-        # **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.FIVE_MIN),
+        **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.FIVE_MIN),
         **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.ONE_HOUR),
         **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.THREE_HOURS),
         **get_ratio_alerts(current_cycle_prices, current_cycle, symbol_to_asset, interval=AlertTrigger.SIX_HOURS),
