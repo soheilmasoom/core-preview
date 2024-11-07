@@ -2,6 +2,7 @@ import logging
 import time
 from datetime import timedelta
 
+import requests
 from celery import shared_task
 from django.utils import timezone
 
@@ -12,6 +13,10 @@ from accounts.utils.email import send_email, EmailInfo
 from accounts.utils.fcm_topic import fcm_topic_manager
 from accounts.utils.push_notif import send_push_notif_to_user, trigger_topic_subscriptions
 from ledger.utils.fields import PENDING, DONE
+from decouple import config
+
+
+CUSTOM_TOKEN = config('CUSTOM_TOKEN')
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +41,39 @@ def send_notifications_push():
 
         notif.push_status = Notification.PUSH_SENT
         notif.save(update_fields=['push_status'])
+
+
+@shared_task(queue='notif-manager')
+def send_notifications_push_telegram():
+    notifs_to_send = []
+    for notif in Notification.objects.filter(sent_telegram=False).order_by('id')[:100]:
+        if notif.recipient.telegram_bot_enabled:
+            notifs_to_send.append(notif)
+            notif.sent_telegram = True
+            notif.save()
+
+    notification_json = {
+        "notifications": [
+            {
+                "notification_id": notif.id,
+                "recipient_id": notif.recipient.id,
+                "title": notif.title,
+                "message": notif.message,
+                "link": notif.link,
+                "level": notif.level,
+                "image": notif.image,
+            }
+            for notif in notifs_to_send
+        ]
+    }
+    headers = {
+        "Authorization": f"Token {CUSTOM_TOKEN}"
+    }
+    response = requests.post("http://127.0.0.1:8000/amir-raastin-bot/notif/", json=notification_json, headers=headers)
+
+    success = response.ok
+
+    logger.info(f"Sending single push notif to telegram {'succeeded' if success else 'failed'}")
 
 
 @shared_task(queue='notif-manager')

@@ -47,14 +47,14 @@ class TelegramUserIdRetrieveView(APIView):
             raise ValidationError("No valid action provided!")
 
         user = get_object_or_404(User, id=user_id)
-
         if action == "enable":
             user.telegram_bot_enabled = True
-            return Response({'msg': 'ربات تلگرام با موفقیت برای کاربر فعال شد.'})
         elif action == "disable":
             user.telegram_bot_enabled = False
-            return Response({'msg': 'ربات تلگرام با موفقیت برای کاربر غیر فعال شد.'})
+
         user.save()
+        return Response({'msg': 'عملیات فعالسازی/غیرفعاسازی موفق.'})
+
 
 
 class GenerateTelegramAccessTokenView(APIView):
