@@ -37,6 +37,25 @@ class TelegramUserIdRetrieveView(APIView):
 
         return Response({"id": user.id})
 
+    def patch(self, request):
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            raise ValidationError("No user provided!")
+
+        action = request.query_params.get('action')
+        if not action or action not in ['enable', 'disable']:
+            raise ValidationError("No valid action provided!")
+
+        user = get_object_or_404(User, id=user_id)
+
+        if action == "enable":
+            user.telegram_bot_enabled = True
+            return Response({'msg': 'ربات تلگرام با موفقیت برای کاربر فعال شد.'})
+        elif action == "disable":
+            user.telegram_bot_enabled = False
+            return Response({'msg': 'ربات تلگرام با موفقیت برای کاربر غیر فعال شد.'})
+        user.save()
+
 
 class GenerateTelegramAccessTokenView(APIView):
     authentication_classes = [CustomTokenAuthentication]
