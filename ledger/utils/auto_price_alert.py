@@ -167,11 +167,11 @@ def should_trigger_ratio_change(asset: Asset, interval) -> bool:
 def get_ratio_alerts(current_cycle_prices: dict, current_cycle: int, symbol_to_asset_mapping: dict, interval: str) \
         -> Dict[str, AlertData]:
 
-    interval_cycles_count = AlertTrigger.INTERVAL_MINUTES_MAPPING[interval] // 5  # every cycle has 5 minutes length
+    cycle_diff = AlertTrigger.INTERVAL_MINUTES_MAPPING[interval] // 5  # every cycle has 5 minutes length
     if interval == AlertTrigger.ONE_DAY:
-        interval_cycles_count -= 2  # Because we have only 1 day of cycles!
+        cycle_diff -= 2  # Because we have only 1 day of cycles!
 
-    past_cycle_prices = get_past_cycle_by_number(current_cycle - interval_cycles_count)
+    past_cycle_prices = get_cycle_prices(current_cycle - cycle_diff, diff=cycle_diff)
 
     if not past_cycle_prices:
         return {}
@@ -204,7 +204,7 @@ def get_ratio_alerts(current_cycle_prices: dict, current_cycle: int, symbol_to_a
 
 
 def get_channel_change_alerts(current_cycle_prices: dict, current_cycle: int, symbol_to_asset_mapping: dict):
-    past_cycle_prices = get_past_cycle_by_number(current_cycle - 1)  # 5 minutes ago
+    past_cycle_prices = get_cycle_prices(current_cycle - 1, diff=1)  # 5 minutes ago
 
     if not past_cycle_prices:
         return {}
@@ -235,9 +235,13 @@ def get_channel_change_alerts(current_cycle_prices: dict, current_cycle: int, sy
     return alerts
 
 
-def get_past_cycle_by_number(cycle_number: int):
+def get_cycle_prices(cycle: int, diff: int):
     total_cycles = 24 * 12
-    key = CACHE_PREFIX + str(cycle_number % total_cycles)
+    key = CACHE_PREFIX + str(cycle % total_cycles)
+
+    if diff == 1 and cache.ttl(key) < 20 * 3600:  # todo: remove me (this is code is needed only 24h after commit!)
+        return
+
     return cache.get(key)
 
 
