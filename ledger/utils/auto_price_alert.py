@@ -140,24 +140,11 @@ def get_channel_change_trigger_data(asset: Asset, old_price: Decimal, new_price:
 
 
 def should_trigger_ratio_change(asset: Asset, interval) -> bool:
-    # Do not send two alerts for any asset in one hour!
-    recently_sent = AlertTrigger.objects.filter(
-        asset=asset,
-        created__gte=timezone.now() - timedelta(hours=1),
-    ).exists()
-
-    if recently_sent:
-        return False
-
     # Do not send two alerts for any asset in its interval
-    freeze_time = AlertTrigger.INTERVAL_MINUTES_MAPPING.get(interval)
-
-    if not freeze_time:
-        return True
+    freeze_time = max(AlertTrigger.INTERVAL_MINUTES_MAPPING.get(interval, 0), 60)
 
     recently_interval_sent = AlertTrigger.objects.filter(
         asset=asset,
-        interval=interval,
         created__gte=timezone.now() - timedelta(minutes=freeze_time)
     ).exists()
 
