@@ -27,10 +27,10 @@ if settings.DEBUG_OR_TESTING_OR_STAGING:
 app.conf.beat_schedule = {
     'price_alert': {
         'task': 'ledger.tasks.alert.send_price_notifications',
-        'schedule':  60 * 3 * TASK_MULTIPLIER,
+        'schedule':  crontab(minute="*/5"),
         'options': {
             'queue': 'notif-manager',
-            'expires': 90 * TASK_MULTIPLIER
+            'expires': 300 * TASK_MULTIPLIER
         }
     },
     'update_network_fee': {
