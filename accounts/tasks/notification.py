@@ -71,9 +71,7 @@ def send_notifications_push_telegram():
     }
     response = requests.post("http://127.0.0.1:8000/amir-raastin-bot/notif/", json=notification_json, headers=headers)
 
-    success = response.ok
-
-    logger.info(f"Sending single push notif to telegram {'succeeded' if success else 'failed'}")
+    logger.info(f"Sending single push notif to telegram {'succeeded' if response.ok else 'failed'}")
 
 
 @shared_task(queue='notif-manager')
