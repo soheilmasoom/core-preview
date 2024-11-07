@@ -165,8 +165,11 @@ class MockBlocklinkRequester(BlocklinkRequester):
             return 'ETH'
 
 
+_requester = BlocklinkRequester()  # to maintain tcp session
+
+
 def get_blocklink_requester() -> BlocklinkRequester:
     if settings.DEBUG_OR_TESTING:
         return MockBlocklinkRequester()
     else:
-        return BlocklinkRequester()
+        return _requester
