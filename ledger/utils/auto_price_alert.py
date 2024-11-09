@@ -175,6 +175,12 @@ def get_ratio_alerts(current_cycle_prices: dict, current_cycle: int, symbol_to_a
         coin, base_coin = get_symbol_parts(symbol)
 
         ratio = math.floor(Decimal(current_price / past_price - Decimal(1)) * 100)
+
+        sensitivity = INTERVAL_CHANGE_PERCENT_SENSITIVITY_MAP[interval]
+        category = asset.spread_category
+        if category and category.name == 'high-risk':
+            sensitivity *= 2
+
         is_ratio_changed = abs(ratio) > INTERVAL_CHANGE_PERCENT_SENSITIVITY_MAP[interval]
 
         if is_ratio_changed and should_trigger_ratio_change(asset, interval):
