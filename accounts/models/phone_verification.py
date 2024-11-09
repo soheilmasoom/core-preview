@@ -9,21 +9,23 @@ from django.db import models
 from django.db.models import F
 from django.utils import timezone
 from decouple import config
+from rest_framework.exceptions import ValidationError
 
 from accounts.models import SpamPhone, User
 from accounts.utils.ip import get_client_ip
-from accounts.utils.validation import generate_random_code, PHONE_MAX_LENGTH, fifteen_minutes_later_datetime, MINUTES
+from accounts.utils.validation import generate_random_code, PHONE_MAX_LENGTH, fifteen_minutes_later_datetime, MINUTES, \
+    persian_timedelta
 
 logger = logging.getLogger(__name__)
 
 
 class VerificationCode(models.Model):
-    MAX_MISSED_TRIES_PER_OTP = 10
+    MAX_MISSED_CHECK_PER_OTP = 5
 
-    MAX_HOURLY_ALLOWED_MISSED = 5
-    MAX_DAILY_ALLOWED_MISSED = 30
-    MAX_WEEKLY_ALLOWED_MISSED = 100
-    MAX_MONTHLY_ALLOWED_MISSED = 100
+    MAX_ALLOWED_MISSED_CHECKS = {
+        timedelta(hours=1): 10,
+        timedelta(days=1): 50,
+    }
 
     EXPIRATION_TIME = 15 * MINUTES
 
@@ -44,14 +46,9 @@ class VerificationCode(models.Model):
     SCOPE_API_TOKEN = 'api_token'
     SCOPE_ADDRESS_BOOK = 'address_book'
 
-    SCOPE_CHOICES = [
-        (SCOPE_FORGET_PASSWORD, SCOPE_FORGET_PASSWORD), (SCOPE_VERIFY_PHONE, SCOPE_VERIFY_PHONE), (SCOPE_VERIFY_PHONE_WIDGET, SCOPE_VERIFY_PHONE_WIDGET),
-        (SCOPE_CRYPTO_WITHDRAW, SCOPE_CRYPTO_WITHDRAW), (SCOPE_TELEPHONE, SCOPE_TELEPHONE),
-        (SCOPE_CHANGE_PASSWORD, SCOPE_CHANGE_PASSWORD), (SCOPE_CHANGE_PHONE, SCOPE_CHANGE_PHONE),
-        (SCOPE_CHANGE_PHONE_INIT, SCOPE_CHANGE_PHONE_INIT), (SCOPE_VERIFY_EMAIL, SCOPE_VERIFY_EMAIL),
-        (SCOPE_FIAT_WITHDRAW, SCOPE_FIAT_WITHDRAW), (SCOPE_2FA, SCOPE_2FA), (SCOPE_API_TOKEN, SCOPE_API_TOKEN),
-        (SCOPE_ADDRESS_BOOK, SCOPE_ADDRESS_BOOK), (SCOPE_NEW_PHONE, SCOPE_NEW_PHONE), (SCOPE_FORGET_2FA, SCOPE_FORGET_2FA)
-    ]
+    SCOPES = SCOPE_FORGET_PASSWORD, SCOPE_VERIFY_PHONE, SCOPE_VERIFY_PHONE_WIDGET, SCOPE_CRYPTO_WITHDRAW, \
+             SCOPE_TELEPHONE, SCOPE_CHANGE_PASSWORD, SCOPE_CHANGE_PHONE, SCOPE_CHANGE_PHONE_INIT, SCOPE_VERIFY_EMAIL, \
+             SCOPE_FIAT_WITHDRAW, SCOPE_2FA, SCOPE_API_TOKEN, SCOPE_ADDRESS_BOOK, SCOPE_NEW_PHONE, SCOPE_FORGET_2FA,
 
     RESTRICTED_SEND_SCOPES = [SCOPE_NEW_PHONE, SCOPE_FORGET_2FA]
     RESTRICTED_VERIFY_SCOPES = [SCOPE_CHANGE_PHONE_INIT]
@@ -89,7 +86,7 @@ class VerificationCode(models.Model):
 
     scope = models.CharField(
         max_length=32,
-        choices=SCOPE_CHOICES,
+        choices=[(s, s) for s in SCOPES],
         db_index=True
     )
 
@@ -119,11 +116,15 @@ class VerificationCode(models.Model):
 
         otp = otp_codes.filter(
             code=code,
-            missed_checks__lt=cls.MAX_MISSED_TRIES_PER_OTP
+            missed_checks__lt=cls.MAX_MISSED_CHECK_PER_OTP
         ).order_by('created').last()
 
         if not otp:
-            otp_codes.update(missed_checks=F('missed_checks') + 1)
+            missed_count = otp_codes.update(missed_checks=F('missed_checks') + 1)
+
+            if missed_count:
+                if user and not user.ban_sms_otp_until:  # todo: handle signup throttle policies
+                    cls._check_if_should_ban_user(user, scope)
 
         return otp
 
@@ -147,6 +148,8 @@ class VerificationCode(models.Model):
 
         user_agent = request.META.get('HTTP_USER_AGENT', '')
 
+        now = timezone.now()
+
         if SpamPhone.objects.filter(phone=phone):
             cls._log_ignore_reason('spam phone')
             return True
@@ -155,9 +158,9 @@ class VerificationCode(models.Model):
             cls._log_ignore_reason('user agent blacklist')
             return True
 
-        if cls._throttle_with_missed_tries(phone=phone, scope=scope, user=user):
-            cls._log_ignore_reason('missed tries')
-            return True
+        if user and user.ban_sms_otp_until and user.ban_sms_otp_until > now:
+            td = persian_timedelta(user.ban_sms_otp_until - now)
+            raise ValidationError(f'امکان درخواست پیامک تا {td} دیگر وجود ندارد.')
 
         any_recent_code = VerificationCode.objects.filter(
             phone=phone,
@@ -182,8 +185,20 @@ class VerificationCode(models.Model):
         return False
 
     @classmethod
-    def _throttle_with_missed_tries(cls, phone: str, scope: str, user: user = None):
-        pass
+    def _check_if_should_ban_user(cls, user: user, scope: str):
+        codes = VerificationCode.objects.filter(
+            user=user,
+            scope=scope,
+            missed_checks__gte=cls.MAX_MISSED_CHECK_PER_OTP
+        )
+
+        now = timezone.now()
+
+        for delta, max_misses in sorted(cls.MAX_ALLOWED_MISSED_CHECKS.items(), key=lambda s: s[0], reverse=True):
+            missed_count = codes.filter(created__gte=now - delta).count()
+            if missed_count >= max_misses:
+                user.ban_sms_otp_until = now + delta
+                user.save('ban_sms_otp_until')
 
     @classmethod
     def send_otp_code(cls, request, phone: str, scope: str, user: User = None) -> Union['VerificationCode', None]:
@@ -195,7 +210,7 @@ class VerificationCode(models.Model):
         ip = get_client_ip(request)
         user_agent = request.META.get('HTTP_USER_AGENT', '')
 
-        if scope in (cls.SCOPE_TELEPHONE, cls.SCOPE_VERIFY_PHONE, cls.SCOPE_VERIFY_PHONE_WIDGET):
+        if scope in cls.NO_USER_SCOPES:
             code_length = 4
         else:
             code_length = 6
@@ -214,13 +229,6 @@ class VerificationCode(models.Model):
             user_agent=user_agent
         )
 
-        if scope != cls.SCOPE_TELEPHONE:  # is_phone(phone):
-            send_type = 'sms'
-            template = 'verify'
-        else:
-            send_type = 'call'
-            template = 'telephone'
-
         if config('OTP_BY_SMS_IR', cast=bool, default=False):
             from accounts.tasks import send_message_by_sms_ir
             send_message_by_sms_ir(
@@ -236,8 +244,7 @@ class VerificationCode(models.Model):
             send_message_by_kavenegar(
                 phone=otp_code.phone,
                 token=otp_code.code,
-                send_type=send_type,
-                template=template
+                template='verify'
             )
 
         return otp_code

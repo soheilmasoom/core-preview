@@ -183,6 +183,8 @@ class User(AbstractUser):
 
     ban_deposit_with_credit_bank_cards = models.BooleanField(default=False)
 
+    ban_sms_otp_until = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         name = get_masked_phone(self.username)
 
