@@ -289,9 +289,9 @@ class MarginPosition(models.Model):
 
         price = Order.get_market_price(self.symbol, Order.get_opposite_side(side))
         if side == BUY:
-            price = max(price * Decimal('1.03'), self.liquidation_price * Decimal('1.1'))
+            price = ceil_precision(max(price * Decimal('1.03'), self.liquidation_price * Decimal('1.1')), self.symbol.tick_size)
         else:
-            price = min(price * Decimal('0.97'), self.liquidation_price * Decimal('0.9'))
+            price = floor_precision(min(price * Decimal('0.97'), self.liquidation_price * Decimal('0.9')), self.symbol.tick_size)
 
         free_amount = (floor_precision(self.margin_wallet.get_free(), self.symbol.step_size) +
                        pipeline.get_wallet_free_balance_diff(self.margin_wallet.id))
@@ -327,11 +327,6 @@ class MarginPosition(models.Model):
                     scope=Trx.MARGIN_INSURANCE,
                     group_id=group_id,
                 )
-
-            if side == SELL:
-                price = floor_precision(price, self.symbol.tick_size)
-            else:
-                price = ceil_precision(price, self.symbol.tick_size)
 
             liquidation_order = new_order(
                 pipeline=pipeline,
