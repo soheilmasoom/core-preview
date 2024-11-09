@@ -86,7 +86,7 @@ class AssetAlertRule(models.Model):
                     title=title,
                     message=message,
                     link=f'/price/{asset.name}',
-                    hidden=True
+                    # hidden=True
                 )
 
             self.current_state = new_state
