@@ -70,7 +70,7 @@ def send_notifications(alerts_data: List[AlertData]):
         title = coin_name
 
         if alert.trigger_type == AlertTrigger.TRIGGER_CHANNEL_CHANGE:
-            message = f'قیمت {asset.name_fa} به {current_price_presentation} {base_coin} رسید'
+            message = f'{change_status}قیمت {asset.name_fa} به {current_price_presentation} {base_coin}'
         else:
             message = f'{change_status} {percent} درصدی {coin_name} در {interval_verbose} گذشته'
 
