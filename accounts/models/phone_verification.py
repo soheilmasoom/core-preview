@@ -124,7 +124,7 @@ class VerificationCode(models.Model):
 
             if missed_count:
                 if user and not user.ban_sms_otp_until:  # todo: handle signup throttle policies
-                    cls._check_if_should_ban_user(user, scope)
+                    cls._check_if_should_ban_user(user)
 
         return otp
 
@@ -195,10 +195,9 @@ class VerificationCode(models.Model):
         return False
 
     @classmethod
-    def _check_if_should_ban_user(cls, user: user, scope: str):
+    def _check_if_should_ban_user(cls, user: user):
         codes = VerificationCode.objects.filter(
             user=user,
-            scope=scope,
             missed_checks__gt=cls.MAX_MISSED_CHECK_PER_OTP
         )
 
