@@ -14,8 +14,6 @@ from accounts.utils.email import send_email, EmailInfo
 from accounts.utils.fcm_topic import fcm_topic_manager
 from accounts.utils.push_notif import send_push_notif_to_user, trigger_topic_subscriptions
 from ledger.utils.fields import PENDING, DONE
-from decouple import config
-
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +47,6 @@ def send_telegram_bot_notifications():
 
     notifs_to_send = []
     for notif in Notification.objects.filter(sent_telegram=False).order_by('id')[:100]:
-        print("----> ", notif.recipient.send_notifs_to_telegram_bot)
         if notif.recipient.send_notifs_to_telegram_bot:
             notifs_to_send.append(notif)
             notif.sent_telegram = True
