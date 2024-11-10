@@ -47,10 +47,12 @@ def send_notifications_push():
 def send_telegram_bot_notifications():
     notifs_to_send = []
     for notif in Notification.objects.filter(sent_telegram=False).order_by('id')[:100]:
+        print("----> ", notif.recipient.send_notifs_to_telegram_bot)
         if notif.recipient.send_notifs_to_telegram_bot:
             notifs_to_send.append(notif)
             notif.sent_telegram = True
             notif.save(update_fields=['sent_telegram'])
+            print("added")
 
     notification_json = {
         "notifications": [
@@ -69,7 +71,7 @@ def send_telegram_bot_notifications():
     headers = {
         "Authorization": f"Token {CUSTOM_TOKEN}"
     }
-    response = requests.post("http://127.0.0.1:8000/amir-raastin-bot/notif/", json=notification_json, headers=headers)
+    response = requests.post("http://127.0.0.1:8000/bot/notif/", json=notification_json, headers=headers)
 
     logger.info(f"Sending single push notif to telegram {'succeeded' if response.ok else 'failed'}")
 
