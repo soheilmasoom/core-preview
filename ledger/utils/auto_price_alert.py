@@ -166,7 +166,7 @@ def get_ratio_alerts(current_cycle_prices: dict, current_cycle: int, symbol_to_a
     alerts = {}
 
     for symbol in past_cycle_prices.keys() & current_cycle_prices.keys():
-        asset = symbol_to_asset_mapping.get(symbol)
+        asset = symbol_to_asset_mapping.get(symbol)  # type: Asset
         if not asset:
             continue
 
@@ -181,7 +181,7 @@ def get_ratio_alerts(current_cycle_prices: dict, current_cycle: int, symbol_to_a
         if category and category.name == 'high-risk':
             sensitivity *= 2
 
-        is_ratio_changed = abs(ratio) > INTERVAL_CHANGE_PERCENT_SENSITIVITY_MAP[interval]
+        is_ratio_changed = abs(ratio) > sensitivity
 
         if is_ratio_changed and should_trigger_ratio_change(asset, interval):
             alerts[coin] = AlertData(
