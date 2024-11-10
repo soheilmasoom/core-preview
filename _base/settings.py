@@ -23,6 +23,7 @@ BACKOFFICE_BASE_URL = config('BACKOFFICE_BASE_URL', default="")
 DEBUG_OR_TESTING = DEBUG or TESTING
 DEBUG_OR_TESTING_OR_STAGING = DEBUG or TESTING or STAGING
 
+GENERATE_FAKE_OTP = DEBUG_OR_TESTING_OR_STAGING
 
 HOST_URL = config('HOST_URL', default='https://api.raastin.com')
 PANEL_URL = config('PANEL_URL', default='https://raastin.com')
