@@ -482,6 +482,9 @@ class User(AbstractUser):
                 card.verified = None
                 card.save(update_fields=['verified'])
 
+    def does_sms_otp_banned(self) -> bool:
+        return self.ban_sms_otp_until and self.ban_sms_otp_until > timezone.now()
+
 
 @receiver(post_save, sender=User)
 def handle_user_save(sender, instance: User, created, **kwargs):

@@ -103,7 +103,10 @@ class VerificationCode(models.Model):
     missed_checks = models.PositiveSmallIntegerField(default=0)
 
     @classmethod
-    def get_by_code(cls, code: str, phone: str, scope: str, user=None) -> 'VerificationCode':
+    def get_by_code(cls, code: str, phone: str, scope: str, user=None) -> Union['VerificationCode', None]:
+        if user and user.does_sms_otp_banned():
+            return
+
         otp_codes = VerificationCode.objects.filter(
             code_used=False,
             expiration__gt=timezone.now(),
@@ -158,7 +161,7 @@ class VerificationCode(models.Model):
             cls._log_ignore_reason('user agent blacklist')
             return True
 
-        if user and user.ban_sms_otp_until and user.ban_sms_otp_until > now:
+        if user and user.does_sms_otp_banned():
             td = persian_timedelta(user.ban_sms_otp_until - now)
             raise ValidationError(f'امکان درخواست پیامک تا {td} دیگر وجود ندارد.')
 
