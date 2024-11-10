@@ -1,10 +1,7 @@
-import json
-import time
-
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings, RequestFactory
 
 from accounts.models import VerificationCode
-from accounts.utils.test import new_user
+from accounts.utils.test import new_user, new_phone
 
 
 class VerificationTests(TestCase):
@@ -14,6 +11,8 @@ class VerificationTests(TestCase):
 
         self.auth_client = Client()
         self.auth_client.force_login(self.user)
+
+        self.factory = RequestFactory()
 
     def test_send_otp(self):
         resp = self.auth_client.post('/api/v1/accounts/otp/send/', {
@@ -85,5 +84,31 @@ class VerificationTests(TestCase):
 
         self.assertEqual(resp.status_code, 400)
 
+    @override_settings(GENERATE_FAKE_OTP=False)
     def test_otp_randomness(self):
-        pass
+        request = self.factory.get('/', REMOTE_ADDR='127.0.0.1')
+
+        codes = []
+
+        for i in range(10):
+            code = VerificationCode.send_otp_code(request, phone=new_phone(), scope=VerificationCode.SCOPE_VERIFY_PHONE)
+            codes.append(code.code)
+            self.assertGreaterEqual(code.code, 1e3)
+            self.assertLess(code.code, 1e4)
+
+        self.assertGreater(len(set(codes)), 5)
+
+        codes = []
+
+        for i in range(10):
+            code = VerificationCode.send_otp_code(
+                request=request,
+                phone=new_phone(),
+                user=self.user,
+                scope=VerificationCode.SCOPE_CRYPTO_WITHDRAW
+            )
+            codes.append(code.code)
+            self.assertGreaterEqual(code.code, 1e5)
+            self.assertLess(code.code, 1e6)
+
+        self.assertGreater(len(set(codes)), 5)
