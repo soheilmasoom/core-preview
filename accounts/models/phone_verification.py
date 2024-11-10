@@ -207,7 +207,7 @@ class VerificationCode(models.Model):
             missed_count = codes.filter(created__gte=now - delta).count()
             if missed_count >= max_misses:
                 user.ban_sms_otp_until = now + delta
-                user.save('ban_sms_otp_until')
+                user.save(update_fields=['ban_sms_otp_until'])
 
     @classmethod
     def send_otp_code(cls, request, phone: str, scope: str, user: User = None) -> Union['VerificationCode', None]:
