@@ -5,7 +5,6 @@ from rest_framework import exceptions, status
 from rest_framework.authentication import TokenAuthentication, get_authorization_header
 from rest_framework.exceptions import APIException
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.models import CustomToken, SystemConfig
@@ -25,11 +24,9 @@ class CustomTokenAuthentication(TokenAuthentication):
 
     def authenticate(self, request):
         auth = get_authorization_header(request).split()
-
         if not auth or auth[0].lower() != self.keyword.lower().encode():
             return None
         # activate('en-US')
-
         if len(auth) == 1:
             msg = _('Invalid token header. No credentials provided.')
             raise exceptions.AuthenticationFailed(msg)
@@ -56,7 +53,6 @@ class CustomTokenAuthentication(TokenAuthentication):
                 # Q(ip_list__contains=[request_ip]) | Q(ip_list__isnull=True) | Q(ip_list=[]),
                 key=key
             )
-
         except model.DoesNotExist:
             logger.info(f'requested ip: {request_ip}')
             raise exceptions.AuthenticationFailed(_('Invalid token.'))
@@ -124,6 +120,16 @@ class WidgetAccessToken(AccessToken):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self['type'] = 'widget'
+
+
+class TelegramJWTAuthentication(CustomJWTAuthentication):
+    token_type = 'telegram'
+
+
+class TelegramAccessToken(AccessToken):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self['type'] = 'telegram'
 
 
 class SetPasswordJWTAuthentication(WidgetJWTAuthentication):
