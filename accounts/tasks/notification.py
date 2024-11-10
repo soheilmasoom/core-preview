@@ -15,7 +15,6 @@ from accounts.utils.fcm_topic import fcm_topic_manager
 from accounts.utils.push_notif import send_push_notif_to_user, trigger_topic_subscriptions
 from ledger.utils.fields import PENDING, DONE
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -50,8 +49,6 @@ def send_telegram_bot_notifications():
     for notif in Notification.objects.filter(sent_telegram=False).order_by('id')[:100]:
         if notif.recipient.send_notifs_to_telegram_bot:
             notifs_to_send.append(notif)
-            notif.sent_telegram = True
-            notif.save(update_fields=['sent_telegram'])
 
     notification_json = {
         "notifications": [
@@ -70,9 +67,14 @@ def send_telegram_bot_notifications():
     headers = {
         "Authorization": f"Token {settings.TELEGRAM_BOT_TOKEN}"
     }
-    response = requests.post("http://127.0.0.1:8000/bot/notif/", json=notification_json, headers=headers)
+    response = requests.post(settings.TELEGRAM_BOT_URL, json=notification_json, headers=headers)
 
     logger.info(f"Sending single push notif to telegram {'succeeded' if response.ok else 'failed'}")
+
+    if response.ok:
+        for notif in notifs_to_send:
+            notif.sent_telegram = True
+            notif.save(update_fields=['sent_telegram'])
 
 
 @shared_task(queue='notif-manager')

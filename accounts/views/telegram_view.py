@@ -40,20 +40,23 @@ class TelegramUserIdRetrieveView(APIView):
     def patch(self, request):
         user_id = request.query_params.get('user_id')
         if not user_id:
-            raise ValidationError("No user provided!")
+            raise ValidationError("Valid user id is required!")
 
-        action = request.query_params.get('action')
-        if not action or action not in ['enable', 'disable']:
-            raise ValidationError("No valid action provided!")
+        telegram_notif_enable = request.query_params.get('telegram_notif_enable', default=False)
+        if not telegram_notif_enable:
+            raise ValidationError("Valid Telegram notification enable required!")
 
         user = get_object_or_404(User, id=user_id)
-        if action == "enable":
-            user.send_notifs_to_telegram_bot = True
-        elif action == "disable":
-            user.send_notifs_to_telegram_bot = False
+        if not user:
+            raise ValidationError("No user found!")
 
+        if telegram_notif_enable == "1":
+            user.send_notifs_to_telegram_bot = True
+        elif telegram_notif_enable == "0":
+            user.send_notifs_to_telegram_bot = False
         user.save(update_fields=['send_notifs_to_telegram_bot'])
-        return Response({'msg': 'عملیات فعالسازی/غیرفعاسازی موفق.'})
+
+        return Response({'msg': f"عملیات {'فعالسازی' if telegram_notif_enable == '1' else 'غیرفعالسازی'} تلگرام موفق."})
 
 
 
