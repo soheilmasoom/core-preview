@@ -76,7 +76,6 @@ class SystemConfig(models.Model):
     check_national_code_for_widget = models.BooleanField(default=True)
 
     telegram_bot_username = models.CharField(max_length=256, blank=True, default='test_bot')
-    telegram_token = models.CharField(max_length=255)
 
     def __str__(self):
         return self.name
