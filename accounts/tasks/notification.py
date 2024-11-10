@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import requests
 from celery import shared_task
+from django.conf import settings
 from django.utils import timezone
 
 from accounts.models import Notification, BulkNotification, User, EmailNotification
@@ -15,8 +16,6 @@ from accounts.utils.push_notif import send_push_notif_to_user, trigger_topic_sub
 from ledger.utils.fields import PENDING, DONE
 from decouple import config
 
-
-CUSTOM_TOKEN = config('CUSTOM_TOKEN')
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +44,9 @@ def send_notifications_push():
 
 @shared_task(queue='notif-manager')
 def send_telegram_bot_notifications():
+    if not settings.TELEGRAM_BOT_TOKEN:
+        return
+
     notifs_to_send = []
     for notif in Notification.objects.filter(sent_telegram=False).order_by('id')[:100]:
         print("----> ", notif.recipient.send_notifs_to_telegram_bot)
@@ -69,7 +71,7 @@ def send_telegram_bot_notifications():
         ]
     }
     headers = {
-        "Authorization": f"Token {CUSTOM_TOKEN}"
+        "Authorization": f"Token {settings.TELEGRAM_BOT_TOKEN}"
     }
     response = requests.post("http://127.0.0.1:8000/bot/notif/", json=notification_json, headers=headers)
 
