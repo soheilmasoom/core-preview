@@ -15,6 +15,7 @@ from accounts.utils.fcm_topic import fcm_topic_manager
 from accounts.utils.push_notif import send_push_notif_to_user, trigger_topic_subscriptions
 from ledger.utils.fields import PENDING, DONE
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,7 +52,6 @@ def send_telegram_bot_notifications():
             notifs_to_send.append(notif)
             notif.sent_telegram = True
             notif.save(update_fields=['sent_telegram'])
-            print("added")
 
     notification_json = {
         "notifications": [
