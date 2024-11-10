@@ -15,6 +15,9 @@ class FirebaseTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = FirebaseToken
         fields = ('token', 'user_agent', 'ip', 'source')
+        extra_kwargs = {
+            'token': {'validators': []},
+        }
 
 
 class FirebaseTokenView(APIView):
