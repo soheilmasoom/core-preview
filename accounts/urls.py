@@ -72,7 +72,6 @@ urlpatterns = [
     path('quiz/passed/', views.QuizPassedView.as_view()),
 
     path('phone/init/', views.InitiateChangePhone.as_view()),
-
     path('phone/',   views.ChangePhoneView.as_view()),
 
     path('phone/change/', views.ChangePhoneBeforeVerifyView.as_view()),

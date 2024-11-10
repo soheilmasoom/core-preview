@@ -84,6 +84,9 @@ def get_sms_ir_token():
 
 @shared_task(queue='sms')
 def send_message_by_sms_ir(phone: str, template: str, params: dict):
+    if not phone or settings.DEBUG_OR_TESTING_OR_STAGING or not settings.EXCLUSIVE_SMS_NUMBER:
+        return True
+
     param_array = [
         {"Parameter": key, "ParameterValue": value} for (key, value) in params.items()
     ]
