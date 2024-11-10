@@ -116,7 +116,7 @@ class VerificationCode(models.Model):
 
         otp = otp_codes.filter(
             code=code,
-            missed_checks__lt=cls.MAX_MISSED_CHECK_PER_OTP
+            missed_checks__lte=cls.MAX_MISSED_CHECK_PER_OTP
         ).order_by('created').last()
 
         if not otp:
@@ -182,6 +182,16 @@ class VerificationCode(models.Model):
             cls._log_ignore_reason('multiple prev sends')
             return True
 
+        if user:
+            prev_codes = VerificationCode.objects.filter(
+                user=user,
+                created__gte=timezone.now() - timedelta(minutes=15),
+            ).count()
+
+            if prev_codes >= 10:
+                cls._log_ignore_reason('user too much sent otps')
+                return True
+
         return False
 
     @classmethod
@@ -189,7 +199,7 @@ class VerificationCode(models.Model):
         codes = VerificationCode.objects.filter(
             user=user,
             scope=scope,
-            missed_checks__gte=cls.MAX_MISSED_CHECK_PER_OTP
+            missed_checks__gt=cls.MAX_MISSED_CHECK_PER_OTP
         )
 
         now = timezone.now()
