@@ -44,13 +44,13 @@ def send_notifications_push():
 
 
 @shared_task(queue='notif-manager')
-def send_notifications_push_telegram():
+def send_telegram_bot_notifications():
     notifs_to_send = []
     for notif in Notification.objects.filter(sent_telegram=False).order_by('id')[:100]:
-        if notif.recipient.telegram_bot_enabled:
+        if notif.recipient.send_notifs_to_telegram_bot:
             notifs_to_send.append(notif)
             notif.sent_telegram = True
-            notif.save()
+            notif.save(update_fields=['sent_telegram'])
 
     notification_json = {
         "notifications": [

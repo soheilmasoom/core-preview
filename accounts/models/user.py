@@ -183,7 +183,7 @@ class User(AbstractUser):
 
     ban_deposit_with_credit_bank_cards = models.BooleanField(default=False)
 
-    telegram_bot_enabled = models.BooleanField(default=False)
+    send_notifs_to_telegram_bot = models.BooleanField(default=False)
 
     def __str__(self):
         name = get_masked_phone(self.username)

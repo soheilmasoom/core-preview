@@ -48,11 +48,11 @@ class TelegramUserIdRetrieveView(APIView):
 
         user = get_object_or_404(User, id=user_id)
         if action == "enable":
-            user.telegram_bot_enabled = True
+            user.send_notifs_to_telegram_bot = True
         elif action == "disable":
-            user.telegram_bot_enabled = False
+            user.send_notifs_to_telegram_bot = False
 
-        user.save()
+        user.save(update_fields=['send_notifs_to_telegram_bot'])
         return Response({'msg': 'عملیات فعالسازی/غیرفعاسازی موفق.'})
 
 
