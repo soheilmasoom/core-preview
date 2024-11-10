@@ -23,6 +23,7 @@ BACKOFFICE_BASE_URL = config('BACKOFFICE_BASE_URL', default="")
 DEBUG_OR_TESTING = DEBUG or TESTING
 DEBUG_OR_TESTING_OR_STAGING = DEBUG or TESTING or STAGING
 
+TELEGRAM_BOT_TOKEN = config('TELEGRAM_BOT_TOKEN', '')
 
 HOST_URL = config('HOST_URL', default='https://api.raastin.com')
 PANEL_URL = config('PANEL_URL', default='https://raastin.com')
