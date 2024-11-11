@@ -5,6 +5,7 @@ from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 from accounts.models import Notification
+from ledger.models import Asset
 from ledger.utils.fields import get_amount_field
 from ledger.utils.precision import get_presentation_amount
 from ledger.utils.wallet_pipeline import DECIMAL
@@ -26,7 +27,14 @@ class AssetAlertRule(models.Model):
 
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     asset_alert = models.ForeignKey(to='AssetAlert', on_delete=models.CASCADE, related_name='rules')
-    base_asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='asset_alert_rule_base_asset')
+
+    base_asset = models.ForeignKey(
+        to='Asset',
+        on_delete=models.CASCADE,
+        related_name='base_asset_alert_rules',
+        limit_choices_to={'symbol__in': [Asset.IRT, Asset.USDT]}
+    )
+
     trigger_price = get_amount_field()
     active = models.BooleanField(default=True)
     type = models.CharField(max_length=8, choices=TYPES_CHOICES)
@@ -69,7 +77,9 @@ class AssetAlertRule(models.Model):
 
             if new_state == self.type:  # trigger condition
                 self.last_trigger_time = timezone.now()
-                to_update.append('last_trigger_time')
+                self.active = False
+                to_update.extend(['last_trigger_time', 'active'])
+
                 asset = self.asset_alert.asset
 
                 title = f'{AssetAlertRule.TYPES_DIRECTION_VERBOSE[self.type]} {asset.name_fa}'
@@ -89,5 +99,9 @@ class AssetAlertRule(models.Model):
                     # hidden=True
                 )
 
+                return True
+
             self.current_state = new_state
             self.save(update_fields=to_update)
+
+        return False

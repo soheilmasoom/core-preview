@@ -20,7 +20,8 @@ def check_conditional_price_alerts():
     irt_current_prices = get_current_prices(only_base=Asset.IRT)
 
     to_trigger_alert_rules = AssetAlertRule.objects.filter(
-        active=True
+        active=True,
+        asset_alert__active=True,
     ).prefetch_related('asset_alert__asset', 'asset_alert__user')
 
     for alert_rule in to_trigger_alert_rules:
