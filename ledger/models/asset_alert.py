@@ -62,6 +62,9 @@ class AssetAlert(models.Model):
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
     active = models.BooleanField(default=False, db_index=True)
 
+    def __str__(self):
+        return f'{self.user} {self.asset}'
+
     @classmethod
     def get_default_rule_push_topic(cls, asset: Asset):
         return f'price_alerts_{asset.symbol.lower()}'

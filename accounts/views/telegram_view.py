@@ -37,6 +37,23 @@ class TelegramUserIdRetrieveView(APIView):
 
         return Response({"id": user.id})
 
+    def patch(self, request):
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            raise ValidationError("Valid user id is required!")
+
+        user = get_object_or_404(User, id=user_id)
+
+        telegram_notif_enable = request.query_params.get('telegram_notif_enable')
+
+        if telegram_notif_enable not in ('0', '1'):
+            raise ValidationError("No action to do!")
+
+        user.send_notifs_to_telegram_bot = telegram_notif_enable == '1'
+        user.save(update_fields=['send_notifs_to_telegram_bot'])
+
+        return Response("done")
+
 
 class GenerateTelegramAccessTokenView(APIView):
     authentication_classes = [CustomTokenAuthentication]
