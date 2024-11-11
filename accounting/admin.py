@@ -79,7 +79,7 @@ class VaultAdmin(admin.ModelAdmin):
 @admin.register(VaultItem)
 class VaultItemAdmin(SimpleHistoryAdmin):
     list_display = ('coin', 'vault', 'balance', 'free', 'value_usdt', 'value_irt', 'expected_min_balance', 'updated')
-    search_fields = ('coin', 'vault__name')
+    search_fields = ('coin', )
     list_filter = ('vault__name', 'vault__type', 'vault__market')
     ordering = ('-value_usdt', )
     readonly_fields = ('value_usdt', 'value_irt')
