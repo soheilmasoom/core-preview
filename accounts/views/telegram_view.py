@@ -21,7 +21,7 @@ class GenerateTelegramLinkAPIView(APIView):
         })
 
 
-class TelegramUserIdRetrieveView(APIView):
+class TelegramUserView(APIView):
     authentication_classes = [CustomTokenAuthentication]
 
     def get(self, request):

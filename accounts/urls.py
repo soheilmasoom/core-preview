@@ -122,6 +122,6 @@ urlpatterns = [
     path('consultation/', views.ConsultationView.as_view()),
 
     path('telegram/bot/start/', views.GenerateTelegramLinkAPIView.as_view()),
-    path('telegram/bot/user/', views.TelegramUserIdRetrieveView.as_view()),
+    path('telegram/bot/user/', views.TelegramUserView.as_view()),
     path('telegram/bot/login/', views.GenerateTelegramAccessTokenView.as_view()),
 ]
