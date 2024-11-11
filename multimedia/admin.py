@@ -133,22 +133,27 @@ class SectionAdmin(SimpleHistoryAdmin):
 
 
 class FAQTabularInline(admin.TabularInline):
-    fields = ('title', 'answer', 'link')
+    fields = ('get_id', 'title', 'answer', 'link',)
     readonly_fields = ('get_id', )
     model = FAQ
     extra = 1
 
     @admin.display(description="id")
     def get_id(self, faq: FAQ):
-        return admin_page_anchor(faq.id or '', faq)
+        return admin_page_anchor(faq, faq.id or '')
 
 
 @admin.register(FAQCategory)
 class FAQCategoryAdmin(SimpleHistoryAdmin):
-    list_display = ('slug', 'title',)
+    list_display = ('slug', 'title', 'type', 'get_items')
     search_fields = ('slug', 'title',)
+    list_filter = ('type',)
 
     inlines = (FAQTabularInline, )
+
+    @admin.display(description="Items")
+    def get_items(self, category: FAQCategory):
+        return category.faqs.count()
 
 
 class GuideTabularInline(admin.TabularInline):
@@ -159,7 +164,7 @@ class GuideTabularInline(admin.TabularInline):
 
     @admin.display(description="id")
     def get_id(self, guide: Guide):
-        return admin_page_anchor(guide.id or '', guide)
+        return admin_page_anchor(guide, guide.id or '')
 
 
 @admin.register(GuideGroup)
