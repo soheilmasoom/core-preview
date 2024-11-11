@@ -42,22 +42,17 @@ class TelegramUserIdRetrieveView(APIView):
         if not user_id:
             raise ValidationError("Valid user id is required!")
 
-        telegram_notif_enable = request.query_params.get('telegram_notif_enable', default=False)
-        if not telegram_notif_enable:
-            raise ValidationError("Valid Telegram notification enable required!")
-
         user = get_object_or_404(User, id=user_id)
-        if not user:
-            raise ValidationError("No user found!")
 
-        if telegram_notif_enable == "1":
-            user.send_notifs_to_telegram_bot = True
-        elif telegram_notif_enable == "0":
-            user.send_notifs_to_telegram_bot = False
+        telegram_notif_enable = request.query_params.get('telegram_notif_enable')
+
+        if telegram_notif_enable not in ('0', '1'):
+            raise ValidationError("No action to do!")
+
+        user.send_notifs_to_telegram_bot = telegram_notif_enable == '1'
         user.save(update_fields=['send_notifs_to_telegram_bot'])
 
-        return Response({'msg': f"عملیات {'فعالسازی' if telegram_notif_enable == '1' else 'غیرفعالسازی'} تلگرام موفق."})
-
+        return Response("done")
 
 
 class GenerateTelegramAccessTokenView(APIView):

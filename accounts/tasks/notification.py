@@ -45,16 +45,21 @@ def send_telegram_bot_notifications():
     if not settings.TELEGRAM_BOT_TOKEN:
         return
 
-    notifs_to_send = []
-    for notif in Notification.objects.filter(sent_telegram=False).order_by('id')[:100]:
-        if notif.recipient.send_notifs_to_telegram_bot:
-            notifs_to_send.append(notif)
+    Notification.objects.filter(
+        sent_telegram=False,
+        recipient__send_notifs_to_telegram_bot=False
+    ).update(sent_telegram=True)
 
-    notification_json = {
-        "notifications": [
+    notifs_to_send = list(Notification.objects.filter(
+        sent_telegram=False,
+        recipient__send_notifs_to_telegram_bot=True
+    ).order_by('id')[:1000])
+
+    data = {
+        "notifs": [
             {
-                "notification_id": notif.id,
-                "recipient_id": notif.recipient.id,
+                "id": notif.id,
+                "user_id": notif.recipient_id,
                 "title": notif.title,
                 "message": notif.message,
                 "link": notif.link,
@@ -67,14 +72,10 @@ def send_telegram_bot_notifications():
     headers = {
         "Authorization": f"Token {settings.TELEGRAM_BOT_TOKEN}"
     }
-    response = requests.post(settings.TELEGRAM_BOT_URL, json=notification_json, headers=headers)
+    resp = requests.post(settings.TELEGRAM_BOT_URL, json=data, headers=headers)
 
-    logger.info(f"Sending single push notif to telegram {'succeeded' if response.ok else 'failed'}")
-
-    if response.ok:
-        for notif in notifs_to_send:
-            notif.sent_telegram = True
-            notif.save(update_fields=['sent_telegram'])
+    if resp.ok:
+        Notification.objects.filter(id__in=[notif.id for notif in notifs_to_send]).update(sent_telegram=True)
 
 
 @shared_task(queue='notif-manager')
