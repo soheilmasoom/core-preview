@@ -12,6 +12,9 @@ class BaseRequester:
     CACHE_PREFIX = None
     BASE_TIMEOUT = 10
 
+    def __init__(self):
+        self.session = requests.Session()
+
     def get_auth_token(self):
         raise NotImplementedError
 
@@ -51,9 +54,9 @@ class BaseRequester:
 
         try:
             if method == 'GET':
-                resp = requests.get(params=data, **request_kwargs)
+                resp = self.session.get(params=data, **request_kwargs)
             else:
-                method_prop = getattr(requests, method.lower())
+                method_prop = getattr(self.session, method.lower())
                 resp = method_prop(json=data, **request_kwargs)
         except (requests.exceptions.ConnectionError, ReadTimeoutError, requests.exceptions.Timeout):
             raise TimeoutError

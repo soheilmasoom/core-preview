@@ -917,3 +917,68 @@ class ShortIsolatedMarginTestCase(TestCase):
         self.print_wallets(self.account)
 
         self.assert_liquidation(self.account, self.btcusdt)
+
+
+
+    def test_short_sell_16(self):
+        MarginLeverage.objects.update_or_create(
+            account=self.account,
+            defaults={
+                'leverage': Decimal('3')
+            }
+        )
+
+        self.transfer_usdt_api(TO_TRANSFER_USDT * 1000000000000000)
+
+        self.btcusdt.tick_size = 1
+        self.btcusdt.step_size = 0
+        self.btcusdt.save()
+
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=Decimal('55424.00000000'),
+                      market=Wallet.SPOT, price=Decimal('171.4'))
+
+        self.place_order(
+            amount=Decimal('55424.00000000'),
+            side=SELL,
+            market=Wallet.MARGIN,
+            price=Decimal('171.40'),
+            is_open_position=True
+        )
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=Decimal('12160.00000000'),
+                      market=Wallet.SPOT, price=Decimal('171.7'))
+
+        self.place_order(
+            amount=Decimal('12160.00000000'),
+            side=SELL,
+            market=Wallet.MARGIN,
+            price=Decimal('171.70'),
+            is_open_position=True
+        )
+
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=Decimal('100530.00000000'),
+                      market=Wallet.SPOT, price=Decimal('189.9'))
+        self.place_order(
+            amount=Decimal('100530.00000000'),
+            side=SELL,
+            market=Wallet.MARGIN,
+            price=Decimal('189.9'),
+            is_open_position=True
+        )
+
+        mp = MarginPosition.objects.filter(account=self.account, symbol=self.btcusdt).first()
+
+
+        with WalletPipeline() as pipeline:
+            new_order(pipeline, self.btcusdt, self.account2, side=BUY, amount=Decimal('100530.00000000'),
+                      market=Wallet.SPOT, price=mp.liquidation_price)
+
+            new_order(pipeline, self.btcusdt, self.account2, side=SELL, amount=Decimal('20000000.00000000'),
+                      market=Wallet.SPOT, price=mp.liquidation_price)
+
+        self.assert_liquidation(self.account, self.btcusdt)
