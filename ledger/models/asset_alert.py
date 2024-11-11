@@ -62,6 +62,9 @@ class AssetAlert(models.Model):
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
     active = models.BooleanField(default=False, db_index=True)
 
+    def __str__(self):
+        return f'{self.user} {self.asset}'
+
     @classmethod
     def get_default_rule_push_topic(cls, asset: Asset):
         return f'price_alerts_{asset.symbol.lower()}'
@@ -96,15 +99,19 @@ class AssetAlert(models.Model):
             return
 
         if switch:
-            if not AssetAlert.live_objects.filter(user=user).exists():
+            has_any_active_price_alert = AssetAlert.live_objects.filter(user=user).exists()
+
+            if not has_any_active_price_alert:
                 for asset in Asset.objects.filter(default_price_alert=True):
-                    asset_alert, _ = AssetAlert.objects.get_or_create(
+                    AssetAlert.objects.update_or_create(
                         user=user,
-                        asset=asset
+                        asset=asset,
+                        defaults={
+                            'active': True
+                        }
                     )
-                    asset_alert.activate()
-            else:
-                subscribe_user_to_alerts(user)
+
+            subscribe_user_to_alerts(user)
         else:
             unsubscribe_user_to_alerts(user)
 

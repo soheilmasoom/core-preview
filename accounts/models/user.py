@@ -485,7 +485,7 @@ class User(AbstractUser):
                 card.save(update_fields=['verified'])
 
     def does_sms_otp_banned(self) -> bool:
-        return self.ban_sms_otp_until and self.ban_sms_otp_until > timezone.now()
+        return self.ban_sms_otp_until and timezone.now() <= self.ban_sms_otp_until
 
 
 @receiver(post_save, sender=User)

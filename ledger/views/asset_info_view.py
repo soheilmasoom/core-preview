@@ -303,6 +303,7 @@ class AssetsViewSet(ModelViewSet):
         return asset
 
 
+@method_decorator(cache_page(60), name='dispatch')
 class AssetOverviewAPIView(APIView):
     permission_classes = []
 
@@ -365,6 +366,7 @@ class AssetOverviewAPIView(APIView):
         return Response(self.get_coins())
 
 
+@method_decorator(cache_page(60), name='dispatch')
 class AssetOverviewAPIV2View(AssetOverviewAPIView):
     def get(self, request):
         coins = self.get_coins()

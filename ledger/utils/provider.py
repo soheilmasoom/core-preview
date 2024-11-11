@@ -378,8 +378,11 @@ class MockProviderRequester(ProviderRequester):
         ]
 
 
+_requester = ProviderRequester()  # to maintain tcp session
+
+
 def get_provider_requester() -> ProviderRequester:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return MockProviderRequester()
     else:
-        return ProviderRequester()
+        return _requester

@@ -26,7 +26,7 @@ def unsubscribe_user_to_alerts(user: User):
 
 
 def subscribe_token_to_alert(token: FirebaseToken):
-    if not token.user or not token.active:
+    if not token.user or not token.active or not token.user.is_price_notif_on:
         return
 
     for asset_alert in token.user.asset_alerts.all():  # type: AssetAlert
@@ -44,5 +44,5 @@ def unsubscribe_token_to_alert(token: FirebaseToken):
 
 
 def resubscribe_all_alerts():
-    for asset_alert in AssetAlert.live_objects.order_by('id'):
+    for asset_alert in AssetAlert.live_objects.filter(user__is_price_notif_on=True).order_by('id'):
         subscribe_alert(asset_alert)
