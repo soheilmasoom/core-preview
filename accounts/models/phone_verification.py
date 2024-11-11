@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class VerificationCode(models.Model):
-    MAX_MISSED_CHECK_PER_OTP = 5
+    INVALIDATE_OTP_AFTER_WRONG_TRIES = 5
 
     MAX_ALLOWED_MISSED_CHECKS = {
         timedelta(hours=1): 10,
@@ -119,7 +119,7 @@ class VerificationCode(models.Model):
 
         otp = otp_codes.filter(
             code=code,
-            missed_checks__lte=cls.MAX_MISSED_CHECK_PER_OTP
+            missed_checks__lt=cls.INVALIDATE_OTP_AFTER_WRONG_TRIES
         ).order_by('created').last()
 
         if not otp:
@@ -201,7 +201,7 @@ class VerificationCode(models.Model):
     def _check_if_should_ban_user(cls, user: user):
         codes = VerificationCode.objects.filter(
             user=user,
-            missed_checks__gt=cls.MAX_MISSED_CHECK_PER_OTP
+            missed_checks__gte=cls.INVALIDATE_OTP_AFTER_WRONG_TRIES
         )
 
         now = timezone.now()
