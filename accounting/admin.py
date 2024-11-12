@@ -98,7 +98,7 @@ class VaultItemAdmin(SimpleHistoryAdmin):
             orm_lookups = []
             for search_field in self.search_fields:
                 if search_field in exact_fields:
-                    orm_lookup = '{}__exact'.format(search_field)
+                    orm_lookup = '{}__iexact'.format(search_field)
                 else:
                     orm_lookup = '{}__icontains'.format(search_field)
 
