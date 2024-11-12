@@ -16,6 +16,8 @@ def send_price_notifications():
 
 @shared_task(queue="notif-manager")
 def check_conditional_price_alerts():
+    # todo: should process in bulk
+
     usdt_current_prices = get_current_prices(only_base=Asset.USDT)
     irt_current_prices = get_current_prices(only_base=Asset.IRT)
 
