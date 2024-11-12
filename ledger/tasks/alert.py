@@ -22,14 +22,15 @@ def check_conditional_price_alerts():
     to_trigger_alert_rules = AssetAlertRule.objects.filter(
         active=True,
         asset_alert__active=True,
-    ).prefetch_related('asset_alert__asset', 'asset_alert__user')
+    ).prefetch_related('asset_alert__asset', 'asset_alert__base_asset', 'asset_alert__user')
 
     for alert_rule in to_trigger_alert_rules:
-        asset = alert_rule.asset_alert.asset
+        symbol = alert_rule.asset_alert.asset.symbol + alert_rule.base_asset.symbol
+
         if alert_rule.base_asset.symbol == Asset.USDT:
-            current_price = usdt_current_prices.get(asset.symbol)
+            current_price = usdt_current_prices.get(symbol)
         else:
-            current_price = irt_current_prices.get(asset.symbol)
+            current_price = irt_current_prices.get(symbol)
 
         if not current_price:
             continue
