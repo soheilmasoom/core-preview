@@ -48,6 +48,7 @@ from market.utils.fix import create_symbols_for_asset
 from .fix.revert_trade import clear_debt
 from .models import Asset, BalanceLock
 from .models.asset import AssetVariant
+from .models.asset_alert_rule import AssetAlertRule
 from .tasks import update_network_fees
 from .utils.blocklink import get_blocklink_requester
 from .utils.coins_info import get_coins_info
@@ -1121,15 +1122,29 @@ class ManualTransactionAdmin(admin.ModelAdmin):
 
 @admin.register(AssetAlert)
 class AssetAlertAdmin(admin.ModelAdmin):
-    list_display = ('get_username', 'asset',)
+    list_display = ('get_username', 'asset', 'active')
     search_fields = ['user__username', 'asset__symbol']
     raw_id_fields = ['user']
+    list_filter = ('active',)
 
     @admin.display(description='username')
     def get_username(self, alert: AssetAlert):
         return mark_safe(
             f'<span dir="ltr">{alert.user}</span>'
         )
+
+
+@admin.register(AssetAlertRule)
+class AssetAlertRuleAdmin(admin.ModelAdmin):
+    list_display = ('created', 'asset_alert', 'type', 'get_trigger_price', 'base_asset', 'active', 'current_state',
+                    'last_trigger_time')
+    search_fields = ['asset_alert__user__username', 'asset_alert__asset__symbol']
+    raw_id_fields = ['asset_alert']
+    list_filter = ('active', 'type', 'current_state')
+
+    @admin.display(description='Trigger Price')
+    def get_trigger_price(self, alert_rule: AssetAlertRule):
+        return get_presentation_amount(alert_rule.trigger_price)
 
 
 @admin.register(BalanceLock)

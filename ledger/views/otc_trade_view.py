@@ -54,8 +54,8 @@ class OTCInfoView(APIView):
                 'amount': 'مقدار نامعتبر است.'
             })
 
-        from_asset = get_object_or_404(Asset, symbol=from_symbol)
-        to_asset = get_object_or_404(Asset, symbol=to_symbol)
+        from_asset = get_object_or_404(Asset, symbol=from_symbol, enable=True)
+        to_asset = get_object_or_404(Asset, symbol=to_symbol, enable=True)
 
         if from_amount and to_amount:
             raise ValidationError({'amount': 'دقیقا یکی از این مقادیر می‌تواند پر باشد.'})

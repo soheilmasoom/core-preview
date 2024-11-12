@@ -2,7 +2,13 @@ from django.db import models
 
 from accounts.models import User
 from ledger.models import Asset, CoinCategory
+from ledger.models.asset_alert_rule import AssetAlertRule
 from ledger.utils.fields import get_amount_field
+
+
+class LiveManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(active=True)
 
 
 class AlertTrigger(models.Model):
@@ -48,13 +54,69 @@ class AlertTrigger(models.Model):
 class AssetAlert(models.Model):
     MAX_ASSET_ALERTS_PER_USER = 1000
 
+    objects = models.Manager()
+    live_objects = LiveManager()
+
     created = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='asset_alerts')
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
+    active = models.BooleanField(default=False, db_index=True)
+
+    def __str__(self):
+        return f'{self.user} {self.asset}'
 
     @classmethod
     def get_default_rule_push_topic(cls, asset: Asset):
         return f'price_alerts_{asset.symbol.lower()}'
+
+    def get_rules_count(self):
+        return AssetAlertRule.objects.filter(active=True).count()
+
+    def activate(self):
+        from accounts.utils.price_alert import subscribe_alert
+
+        self.active = True
+        subscribe_alert(self)
+        self.save(update_fields=['active'])
+
+        self.change_user_price_alerts(self.user, switch=True)
+
+    def deactivate(self):
+        from accounts.utils.price_alert import unsubscribe_alert
+
+        self.active = False
+        unsubscribe_alert(self)
+        self.save(update_fields=['active'])
+
+        if not AssetAlert.live_objects.filter(user=self.user).exists():
+            self.change_user_price_alerts(self.user, switch=False)
+
+    @classmethod
+    def change_user_price_alerts(cls, user: User, switch: bool):
+        from accounts.utils.price_alert import subscribe_user_to_alerts, unsubscribe_user_to_alerts
+
+        if user.is_price_notif_on == switch:
+            return
+
+        if switch:
+            has_any_active_price_alert = AssetAlert.live_objects.filter(user=user).exists()
+
+            if not has_any_active_price_alert:
+                for asset in Asset.objects.filter(default_price_alert=True):
+                    AssetAlert.objects.update_or_create(
+                        user=user,
+                        asset=asset,
+                        defaults={
+                            'active': True
+                        }
+                    )
+
+            subscribe_user_to_alerts(user)
+        else:
+            unsubscribe_user_to_alerts(user)
+
+        user.is_price_notif_on = switch
+        user.save(update_fields=['is_price_notif_on'])
 
     class Meta:
         unique_together = [('user', 'asset')]

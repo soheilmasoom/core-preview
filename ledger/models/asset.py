@@ -197,6 +197,14 @@ class AssetSerializerMini(serializers.ModelSerializer):
 
 
 class CoinField(serializers.CharField):
+    def __init__(self, **kwargs):
+        coins = kwargs.pop('coins', None)
+        self.limit_to = {}
+        if coins:
+            self.limit_to['symbol__in'] = coins
+
+        super(CoinField, self).__init__(**kwargs)
+
     def to_representation(self, value: Asset):
         if value:
             return value.symbol
@@ -205,4 +213,4 @@ class CoinField(serializers.CharField):
         if not data:
             return
         else:
-            return get_object_or_404(Asset, symbol=data)
+            return get_object_or_404(Asset, symbol=data, enable=True, **self.limit_to)

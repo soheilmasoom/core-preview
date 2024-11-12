@@ -183,6 +183,10 @@ class User(AbstractUser):
 
     ban_deposit_with_credit_bank_cards = models.BooleanField(default=False)
 
+    send_notifs_to_telegram_bot = models.BooleanField(default=False)
+
+    ban_sms_otp_until = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         name = get_masked_phone(self.username)
 
@@ -479,6 +483,9 @@ class User(AbstractUser):
             for card in cards.filter(type=''):
                 card.verified = None
                 card.save(update_fields=['verified'])
+
+    def does_sms_otp_banned(self) -> bool:
+        return self.ban_sms_otp_until and timezone.now() <= self.ban_sms_otp_until
 
 
 @receiver(post_save, sender=User)
