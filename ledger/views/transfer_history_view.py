@@ -26,7 +26,7 @@ class TransferSerializer(serializers.ModelSerializer):
     cancelable = serializers.SerializerMethodField()
 
     def get_network(self, transfer: Transfer):
-        return transfer.network.symbol if transfer.network else None
+        return transfer.network and transfer.network.symbol
 
     def get_min_confirm(self, transfer: Transfer):
         return transfer.network.min_confirm if transfer.network else None

@@ -114,12 +114,18 @@ def trigger_transfer_event(threshold=1000):
     ).order_by('id')[:threshold]
 
     for transfer in transfer_list:
+
+        if transfer.network:
+            network = transfer.network.symbol
+        else:
+            network = 'internal'
+
         event = TransferEvent(
             id=transfer.id,
             user_id=transfer.wallet.account.user_id,
             amount=transfer.amount,
             coin=transfer.wallet.asset.symbol,
-            network=transfer.network.symbol,
+            network=network,
             created=transfer.created,
             is_deposit=transfer.deposit,
             value_irt=transfer.irt_value,
