@@ -70,7 +70,7 @@ class AssetAlert(models.Model):
         return f'price_alerts_{asset.symbol.lower()}'
 
     def get_rules_count(self):
-        return AssetAlertRule.objects.filter(active=True).count()
+        return self.rules.filter(active=True).count()
 
     def activate(self):
         from accounts.utils.price_alert import subscribe_alert
