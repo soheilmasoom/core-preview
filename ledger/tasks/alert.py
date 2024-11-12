@@ -24,7 +24,7 @@ def check_conditional_price_alerts():
     to_trigger_alert_rules = AssetAlertRule.objects.filter(
         active=True,
         asset_alert__active=True,
-    ).prefetch_related('asset_alert__asset', 'asset_alert__base_asset', 'asset_alert__user')
+    ).prefetch_related('asset_alert__asset', 'base_asset', 'asset_alert__user')
 
     for alert_rule in to_trigger_alert_rules:
         symbol = alert_rule.asset_alert.asset.symbol + alert_rule.base_asset.symbol
