@@ -329,7 +329,7 @@ app.conf.beat_schedule = {
         'task': 'ledger.tasks.alert.check_conditional_price_alerts',
         'schedule': crontab(minute='*'),
         'options': {
-            'queue': 'celery',
+            'queue': 'notif-manager',
             'expires': 300
         },
     },
