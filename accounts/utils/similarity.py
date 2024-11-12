@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import re
 from difflib import SequenceMatcher
@@ -36,15 +37,34 @@ def clean_persian_name(name: str):
         'ﻓ': 'ف',
         'ﻌ': 'ع',
         'ﺎ': 'ا',
-        'ﻝ': 'ل'
+        'ﻝ': 'ل',
+        'ٸ': 'ی',
+        '\u200c': ''
     }
 
     name = name.translate(str.maketrans(mapping)).strip()
     return whitespace_regex.sub(' ', name)
 
 
+def remove_persian_pre_postfix(name: str):
+    no_space = name.replace(' ', '')
+
+    if len(no_space) >= 6 and name.startswith('سیده'):
+        return name[4:]
+    elif len(no_space) >= 5 and name.startswith('سید'):
+        return name[3:]
+    else:
+        return name
+
+
+def has_persian_pre_postfix(name: str):
+    return remove_persian_pre_postfix(name) != name
+
+
 def str_similar_rate(a: str, b: str) -> float:
-    return SequenceMatcher(None, a, b).ratio()
+    score = SequenceMatcher(None, a, b).ratio()
+    # print(f"Similarity {a} <> {b} score: {score}")
+    return score
 
 
 def rotate_words(s: str) -> str:
@@ -53,19 +73,38 @@ def rotate_words(s: str) -> str:
     return ' '.join(rotated)
 
 
-NAME_SIMILARITY_THRESHOLD = 0.79
+NAME_SIMILARITY_THRESHOLD = 0.95
 
 
-def name_similarity(name1, name2):
+@dataclasses.dataclass
+class Score:
+    score: float
+    valid: bool
+
+    def __bool__(self):
+        return self.valid
+
+
+def name_similarity(name1, name2) -> Score:
     name1, name2 = clean_persian_name(name1), clean_persian_name(name2)
+    if len(name1.replace(' ', '')) < 4 or len(name2.replace(' ', '')) < 4:
+        return Score(score=0, valid=False)
 
     words1 = len(name1.split(' '))
 
-    for i in range(words1):
-        verified = str_similar_rate(name1, name2) >= NAME_SIMILARITY_THRESHOLD
+    max_score = 0
 
-        if verified:
-            return True
+    for i in range(words1):
+        score = str_similar_rate(name1.replace(' ', ''), name2.replace(' ', ''))
+
+        if score > max_score:
+            max_score = score
+
+        if score >= NAME_SIMILARITY_THRESHOLD:
+            return Score(
+                score=score,
+                valid=True
+            )
 
         name1 = rotate_words(name1)
 
@@ -78,12 +117,23 @@ def name_similarity(name1, name2):
         if len(small) > len(long):
             small, long = long, small
 
-        if str_similar_rate(' '.join(small), ' '.join(long[:len(small)])) >= NAME_SIMILARITY_THRESHOLD:
-            return True
+        score = str_similar_rate(''.join(small).replace(' ', ''), ''.join(long[:len(small)]).replace(' ', ''))
+        if score > max_score:
+            max_score = score
 
-    logger.info('verifying %s and %s is %s' % (name1, name2, False))
+        if score >= NAME_SIMILARITY_THRESHOLD:
+            return Score(
+                score=score,
+                valid=True
+            )
 
-    return False
+    if has_persian_pre_postfix(name1) or has_persian_pre_postfix(name2):
+        return name_similarity(remove_persian_pre_postfix(name1), remove_persian_pre_postfix(name2))
+
+    return Score(
+        score=max_score,
+        valid=False
+    )
 
 
 MULTI_WORD_NAMES = [
