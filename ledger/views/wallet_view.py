@@ -1,13 +1,13 @@
 import logging
 from decimal import Decimal
 from uuid import uuid4
-from django.utils import timezone
 
 import django_filters
-from django.conf import settings
 from django.db.models import Q
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.generics import get_object_or_404
@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from _base.settings import SYSTEM_ACCOUNT_ID
+from accounts.authentication import CustomJWTAuthentication, TelegramJWTAuthentication
 from accounts.models import SystemConfig
 from accounts.views.jwt_views import DelegatedAccountMixin
 from ledger.models import Wallet, DepositAddress, NetworkAsset, Trx, Network, ConvertDust, ConvertDustTrx
@@ -26,7 +27,7 @@ from ledger.utils.fields import get_irt_market_asset_symbols
 from ledger.utils.precision import get_presentation_amount, get_symbol_presentation_price, \
     get_coin_presentation_balance
 from ledger.utils.price import get_prices, get_coins_symbols, get_last_prices, get_price
-from ledger.utils.wallet_pipeline import WalletPipeline, DECIMAL
+from ledger.utils.wallet_pipeline import WalletPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -259,6 +260,7 @@ class AssetRetrieveSerializer(AssetListSerializer):
 
 
 class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
+    authentication_classes = [SessionAuthentication, CustomJWTAuthentication, TelegramJWTAuthentication]
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -305,7 +307,7 @@ class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
             return AssetRetrieveSerializer
 
     def get_object(self):
-        return get_object_or_404(Asset, symbol=self.kwargs['symbol'].upper())
+        return get_object_or_404(Asset, symbol=self.kwargs['symbol'].upper(), enable=True)
 
     def get_queryset(self):
         account = self.request.user.get_account()
@@ -373,7 +375,7 @@ class WalletBalanceView(APIView, DelegatedAccountMixin):
         if market not in Wallet.MARKETS:
             return Response({'error': 'Invalid market'}, status=status.HTTP_400_BAD_REQUEST)
 
-        asset = get_object_or_404(Asset, symbol=kwargs['symbol'].upper())
+        asset = get_object_or_404(Asset, symbol=kwargs['symbol'].upper(), enable=True)
         account, variant = self.get_account_variant(self.request)
         wallet = asset.get_wallet(account, market=market, variant=variant)
 

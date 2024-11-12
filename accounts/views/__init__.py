@@ -39,3 +39,5 @@ from .system_config_view import SystemConfigView
 from .signup_widget_view import SignupWidgetView, InitiateSignupWidgetView
 from .user_widget_view import UserWidgetView
 from .set_password import SetPasswordView
+
+from .telegram_view import GenerateTelegramLinkAPIView, TelegramUserView, GenerateTelegramAccessTokenView

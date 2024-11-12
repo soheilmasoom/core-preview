@@ -76,11 +76,15 @@ class LoginActivitySerializer(serializers.ModelSerializer):
 
     def get_active(self, login_activity: LoginActivity):
         session = login_activity.session
-        return (session and session.expire_date > timezone.now()) or not login_activity.refresh_token is None
+        return bool(
+            (session and session.expire_date > timezone.now()) or login_activity.refresh_token is not None
+        )
 
     def get_current(self, login_activity: LoginActivity):
         session = login_activity.session
-        return session and session.session_key == self.context['request'].session.session_key
+        return bool(
+            session and session.session_key == self.context['request'].session.session_key
+        )
 
     class Meta:
         model = LoginActivity

@@ -163,8 +163,7 @@ class WithdrawViewWithCeleryTestCase(TestCase):
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-
-    def test_withdraw_to_internal_address_with_processing(self):
+    def test_withdraw_to_internal_address_with_processing2(self):
         address = '1BoatSLRHtKNngkdXEeobR76b53LETtpyT'
         address_key = AddressKey.objects.create(account=self.account2, address=address)
 
@@ -204,7 +203,6 @@ class WithdrawViewWithCeleryTestCase(TestCase):
 
         receiver_wallet = self.btc.get_wallet(self.account2)
         self.assertEqual(receiver_wallet.balance, Decimal('0.001'))
-
 
         self.assertEqual(
             Trx.objects.get(sender=self.btc.get_wallet(self.account1)).group_id,

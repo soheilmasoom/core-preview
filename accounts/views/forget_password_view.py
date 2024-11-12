@@ -22,9 +22,9 @@ class InitiateForgotPasswordSerializer(serializers.Serializer):
         user = User.get_user_from_login(login_phrase)
 
         return VerificationCode.send_otp_code(
-            self.context['request'],
-            login_phrase,
-            VerificationCode.SCOPE_FORGET_PASSWORD,
+            request=self.context['request'],
+            phone=login_phrase,
+            scope=VerificationCode.SCOPE_FORGET_PASSWORD,
             user=user
         ) or {}
 

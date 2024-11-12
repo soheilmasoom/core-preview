@@ -2,7 +2,9 @@ import logging
 import time
 from datetime import timedelta
 
+import requests
 from celery import shared_task
+from django.conf import settings
 from django.utils import timezone
 
 from accounts.models import Notification, BulkNotification, User, EmailNotification
@@ -36,6 +38,44 @@ def send_notifications_push():
 
         notif.push_status = Notification.PUSH_SENT
         notif.save(update_fields=['push_status'])
+
+
+@shared_task(queue='notif-manager')
+def send_telegram_bot_notifications():
+    if not settings.TELEGRAM_BOT_TOKEN:
+        return
+
+    Notification.objects.filter(
+        sent_telegram=False,
+        recipient__send_notifs_to_telegram_bot=False
+    ).update(sent_telegram=True)
+
+    notifs_to_send = list(Notification.objects.filter(
+        sent_telegram=False,
+        recipient__send_notifs_to_telegram_bot=True
+    ).order_by('id')[:1000])
+
+    data = {
+        "notifs": [
+            {
+                "id": notif.id,
+                "user_id": notif.recipient_id,
+                "title": notif.title,
+                "message": notif.message,
+                "link": notif.link,
+                "level": notif.level,
+                "image": notif.image,
+            }
+            for notif in notifs_to_send
+        ]
+    }
+    headers = {
+        "Authorization": f"Token {settings.TELEGRAM_BOT_TOKEN}"
+    }
+    resp = requests.post(settings.TELEGRAM_BOT_URL, json=data, headers=headers)
+
+    if resp.ok:
+        Notification.objects.filter(id__in=[notif.id for notif in notifs_to_send]).update(sent_telegram=True)
 
 
 @shared_task(queue='notif-manager')

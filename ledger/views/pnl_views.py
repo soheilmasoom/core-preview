@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from rest_framework.authentication import SessionAuthentication
 from django.db.models import Sum, Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -9,12 +10,14 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.authentication import CustomJWTAuthentication, TelegramJWTAuthentication
 from ledger.models import PNLHistory, Wallet
 from ledger.utils.precision import floor_precision
 
 
 class PNLOverview(APIView):
     permission_classes = (IsAuthenticated,)
+    authentication_classes = [SessionAuthentication, CustomJWTAuthentication, TelegramJWTAuthentication]
 
     def get(self, request: Request):
         market = self.request.query_params.get('market')

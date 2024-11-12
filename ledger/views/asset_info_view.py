@@ -238,24 +238,6 @@ class AssetsViewSet(ModelViewSet):
         else:
             queryset = Asset.live_objects.all()
 
-        if self.get_options('category'):
-            category_name = self.get_options('category')
-
-            if category_name == 'new-coins':
-                queryset = queryset.exclude(otc_status=Asset.COMING_SOON).order_by(F('publish_date').desc(nulls_last=True))[:100]
-                hide_coming_soon = False
-
-            elif category_name == 'coming-soon':
-                queryset = queryset.filter(otc_status=Asset.COMING_SOON).order_by('publish_date')
-                hide_coming_soon = False
-
-            else:
-                category = get_object_or_404(CoinCategory, name=category_name)
-                queryset = queryset.filter(coincategory=category)
-
-        if hide_coming_soon:
-            queryset = queryset.exclude(otc_status=Asset.COMING_SOON)
-
         if self.get_options('is_base'):
             queryset = queryset.filter(symbol__in=(Asset.IRT, Asset.USDT))
 
@@ -289,6 +271,26 @@ class AssetsViewSet(ModelViewSet):
                 networkasset__can_withdraw=True,
                 networkasset__network__can_withdraw=True
             ).distinct()
+
+        if self.get_options('category'):
+            category_name = self.get_options('category')
+
+            if category_name == 'new-coins':
+                queryset = queryset.exclude(
+                    otc_status=Asset.COMING_SOON
+                ).order_by(F('publish_date').desc(nulls_last=True))[:100]  # no filter should apply after this
+                hide_coming_soon = False
+
+            elif category_name == 'coming-soon':
+                queryset = queryset.filter(otc_status=Asset.COMING_SOON).order_by('publish_date')
+                hide_coming_soon = False
+
+            else:
+                category = get_object_or_404(CoinCategory, name=category_name)
+                queryset = queryset.filter(coincategory=category)
+
+        if hide_coming_soon:
+            queryset = queryset.exclude(otc_status=Asset.COMING_SOON)
 
         return queryset
 

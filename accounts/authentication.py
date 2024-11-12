@@ -5,7 +5,6 @@ from rest_framework import exceptions, status
 from rest_framework.authentication import TokenAuthentication, get_authorization_header
 from rest_framework.exceptions import APIException
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.models import CustomToken, SystemConfig
@@ -25,11 +24,9 @@ class CustomTokenAuthentication(TokenAuthentication):
 
     def authenticate(self, request):
         auth = get_authorization_header(request).split()
-
         if not auth or auth[0].lower() != self.keyword.lower().encode():
             return None
         # activate('en-US')
-
         if len(auth) == 1:
             msg = _('Invalid token header. No credentials provided.')
             raise exceptions.AuthenticationFailed(msg)
@@ -56,7 +53,6 @@ class CustomTokenAuthentication(TokenAuthentication):
                 # Q(ip_list__contains=[request_ip]) | Q(ip_list__isnull=True) | Q(ip_list=[]),
                 key=key
             )
-
         except model.DoesNotExist:
             logger.info(f'requested ip: {request_ip}')
             raise exceptions.AuthenticationFailed(_('Invalid token.'))
@@ -98,60 +94,42 @@ class TradeTokenAuthentication(CustomTokenAuthentication):
 
 
 class CustomJWTAuthentication(JWTAuthentication):
-    def get_validated_token(self, raw_token):
-        validated_token = super().get_validated_token(raw_token)
-
-        if validated_token.get('type'):
-            raise InvalidToken("Token does not have the privilege for this request.")
-
-        return validated_token
+    token_type = None
 
     def authenticate(self, request):
-        validated_token = self.get_valid_token(request)
+        auth = super(CustomJWTAuthentication, self).authenticate(request)
+        if not auth:
+            return
+
+        user, validated_token = auth
+
         if not validated_token:
-            return None
+            return
 
-        return self.get_user(validated_token), validated_token
+        if validated_token.get('type') != self.token_type:
+            return
 
-    def get_valid_token(self, request):
-        header = self.get_header(request)
-        if header is None:
-            return None
-
-        raw_token = self.get_raw_token(self.get_header(request))
-        if raw_token is None:
-            return None
-
-        return self.get_validated_token(raw_token)
+        return user, validated_token
 
 
 class WidgetJWTAuthentication(CustomJWTAuthentication):
     token_type = 'widget'
-
-    def get_validated_token(self, raw_token):
-        validated_token = JWTAuthentication().get_validated_token(raw_token)
-
-        return validated_token
-
-    def authenticate(self, request):
-        validated_token = super().get_valid_token(request)
-        if not validated_token:
-            return None
-
-        if 'type' not in validated_token:
-            raise InvalidToken("Token missing 'type' field")
-
-        if validated_token.get('type') != self.token_type:
-            msg = _(f'Token type must be "{self.token_type}"')
-            raise exceptions.AuthenticationFailed(msg)
-
-        return self.get_user(validated_token), validated_token
 
 
 class WidgetAccessToken(AccessToken):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self['type'] = 'widget'
+
+
+class TelegramJWTAuthentication(CustomJWTAuthentication):
+    token_type = 'telegram'
+
+
+class TelegramAccessToken(AccessToken):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self['type'] = 'telegram'
 
 
 class SetPasswordJWTAuthentication(WidgetJWTAuthentication):

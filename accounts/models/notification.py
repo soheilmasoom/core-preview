@@ -65,6 +65,8 @@ class Notification(models.Model):
     read = models.BooleanField(default=False)
     hidden = models.BooleanField(default=False)
 
+    sent_telegram = models.BooleanField(default=True)
+
     push_status = models.CharField(
         choices=((PUSH_WAITING, 'waiting'), (PUSH_SENT, 'sent'), (PUSH_CANCELED, 'canceled')),
         blank=True,
@@ -116,13 +118,14 @@ class Notification(models.Model):
     @classmethod
     def send(cls, recipient, title: str, link: str = '', message: str = '', level: str = INFO, image: str = '',
              send_push: bool = True, group_id=None, type: str = ORDINARY, template: str = PLAIN, source: str = CORE,
-             count: int = 1):
+             count: int = 1, hidden: bool = False):
         count -= 1
 
         if not recipient:
             logger.info('failed to send notif')
             return
-        if not template in Notification.TEMPLATE_LIST:
+
+        if template not in Notification.TEMPLATE_LIST:
             raise NotImplementedError
 
         if type == cls.DIFF:
@@ -151,8 +154,9 @@ class Notification(models.Model):
                 type=type,
                 count=count,
                 push_status=Notification.PUSH_WAITING if send_push else '',
-                group_id=group_id
-
+                group_id=group_id,
+                hidden=hidden,
+                sent_telegram=not recipient.send_notifs_to_telegram_bot
             )
         elif not group_id:
             logger.info('failed to send notif, uuid error')
@@ -174,6 +178,8 @@ class Notification(models.Model):
                     'level': level,
                     'recipient': recipient,
                     'push_status': Notification.PUSH_WAITING if send_push else '',
+                    'hidden': hidden,
+                    'sent_telegram': not recipient.send_notifs_to_telegram_bot
                 }
             )
         else:
