@@ -21,6 +21,9 @@ class InitiateForgotPasswordSerializer(serializers.Serializer):
         login_phrase = validated_data['login']
         user = User.get_user_from_login(login_phrase)
 
+        if not user:
+            return {}
+
         return VerificationCode.send_otp_code(
             request=self.context['request'],
             phone=login_phrase,
