@@ -25,10 +25,11 @@ def check_conditional_price_alerts():
     ).prefetch_related('asset_alert__asset', 'asset_alert__user')
 
     for alert_rule in to_trigger_alert_rules:
+        asset = alert_rule.asset_alert.asset
         if alert_rule.base_asset.symbol == Asset.USDT:
-            current_price = usdt_current_prices.get(alert_rule.asset.symbol)
+            current_price = usdt_current_prices.get(asset.symbol)
         else:
-            current_price = irt_current_prices.get(alert_rule.asset.symbol)
+            current_price = irt_current_prices.get(asset.symbol)
 
         if not current_price:
             continue
