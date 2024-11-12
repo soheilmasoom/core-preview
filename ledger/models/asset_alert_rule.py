@@ -45,7 +45,8 @@ class AssetAlertRule(models.Model):
     last_trigger_time = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f'{self.asset_alert.user.username} - {self.asset_alert.asset}-{self.base_asset} @ {self.trigger_price}'
+        return f'{self.asset_alert.user.username} - {self.asset_alert.asset}-{self.base_asset} on ' \
+               f'{self.type} {get_presentation_amount(self.trigger_price)}'
     
     class Meta:
         ordering = ('id', )
@@ -79,10 +80,12 @@ class AssetAlertRule(models.Model):
         if new_state == self.current_state:
             return False
 
+        trigger_alert = new_state == self.type
+
         with transaction.atomic():
             to_update = ['current_state']
 
-            if new_state == self.type:  # trigger condition
+            if trigger_alert:  # trigger condition
                 self.last_trigger_time = timezone.now()
                 self.active = False
                 to_update.extend(['last_trigger_time', 'active'])
@@ -106,9 +109,7 @@ class AssetAlertRule(models.Model):
                     # hidden=True
                 )
 
-                return True
-
             self.current_state = new_state
             self.save(update_fields=to_update)
 
-        return False
+        return trigger_alert
