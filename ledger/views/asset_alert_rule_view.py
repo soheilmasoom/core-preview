@@ -5,8 +5,9 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from ledger.models.asset import Asset, CoinField
-from ledger.models.asset_alert import AssetAlert
+from ledger.models.asset_alert import AssetAlert, AlertTrigger
 from ledger.models.asset_alert_rule import AssetAlertRule
+from ledger.utils.auto_price_alert import get_ratio_sensitivity
 from ledger.utils.precision import get_presentation_amount
 
 
@@ -59,12 +60,17 @@ class AssetAlertRuleViewSet(viewsets.ModelViewSet):
         resp = super(AssetAlertRuleViewSet, self).list(request, *args, **kwargs)
         data = resp.data
 
+        asset_alert = self.get_asset_alert()
+
+        min_sensitivity = get_ratio_sensitivity(asset_alert.asset, AlertTrigger.FIVE_MIN)
+        max_sensitivity = get_ratio_sensitivity(asset_alert.asset, AlertTrigger.ONE_DAY)
+
         data.insert(0, {
             'id': 0,
             'trigger_price': 'instant',
             'type': 'default',
             'base_asset': Asset.IRT if self.kwargs['coin'] == Asset.USDT else Asset.USDT,
-            'hint': 'در صورتی که قیمت بیش از 5 درصد به صورت ناگهانی یا 10 درصد در طول زمان تغییر کند، هشدار قیمت ارسال می‌شود.'
+            'hint': f'در صورتی که قیمت بیش از {min_sensitivity} درصد به صورت ناگهانی یا {max_sensitivity} درصد در طول زمان تغییر کند، هشدار قیمت ارسال می‌شود.'
         })
 
         return resp

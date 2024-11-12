@@ -107,6 +107,15 @@ def get_crossing_channel(old_channel: int, new_channel: int) -> Union[int, None]
         return new_channel + 1
 
 
+def get_ratio_sensitivity(asset: Asset, interval: str) -> int:
+    sensitivity = INTERVAL_CHANGE_PERCENT_SENSITIVITY_MAP[interval]
+    category = asset.spread_category
+    if category and category.name == 'high-risk':
+        sensitivity *= 2
+
+    return sensitivity
+
+
 def get_channel_change_trigger_data(asset: Asset, old_price: Decimal, new_price: Decimal) -> bool:
 
     if not asset.price_alert_channel_sensitivity:
@@ -176,10 +185,7 @@ def get_ratio_alerts(current_cycle_prices: dict, current_cycle: int, symbol_to_a
 
         ratio = math.floor(Decimal(current_price / past_price - Decimal(1)) * 100)
 
-        sensitivity = INTERVAL_CHANGE_PERCENT_SENSITIVITY_MAP[interval]
-        category = asset.spread_category
-        if category and category.name == 'high-risk':
-            sensitivity *= 2
+        sensitivity = get_ratio_sensitivity(asset, interval)
 
         is_ratio_changed = abs(ratio) > sensitivity
 
