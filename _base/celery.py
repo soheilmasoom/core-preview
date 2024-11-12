@@ -263,10 +263,10 @@ app.conf.beat_schedule = {
 
     'send_notifications_push': {
         'task': 'accounts.tasks.notification.send_notifications_push',
-        'schedule': 5 * TASK_MULTIPLIER,
+        'schedule': 1 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 60 * TASK_MULTIPLIER
+            'expires': 30 * TASK_MULTIPLIER
         },
     },
     'send_telegram_bot_notifications': {
