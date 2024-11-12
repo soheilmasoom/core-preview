@@ -28,10 +28,14 @@ class AssetAlertRuleSerializer(serializers.ModelSerializer):
         if asset_alert.get_rules_count() >= AssetAlertRule.MAX_RULES_PER_ASSET_ALERT:
             raise ValidationError(f'حداکثر {AssetAlertRule.MAX_RULES_PER_ASSET_ALERT} هشدار برای هر ارز دیجیتال مجاز است.')
 
-        return super(AssetAlertRuleSerializer, self).create(validated_data)
+        rule = super(AssetAlertRuleSerializer, self).create(validated_data)  # type: AssetAlertRule
+        rule.update_current_price()
+
+        return rule
 
     def update(self, rule: AssetAlertRule, validated_data):
         rule.reset_state()
+        rule.update_current_price()
         return super(AssetAlertRuleSerializer, self).update(rule, validated_data)
 
 

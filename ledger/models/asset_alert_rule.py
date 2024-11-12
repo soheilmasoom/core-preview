@@ -8,6 +8,7 @@ from accounts.models import Notification
 from ledger.models import Asset
 from ledger.utils.fields import get_amount_field
 from ledger.utils.precision import get_presentation_amount
+from ledger.utils.price import get_last_price
 from ledger.utils.wallet_pipeline import DECIMAL
 
 
@@ -61,7 +62,13 @@ class AssetAlertRule(models.Model):
         self.current_state = ''
         self.save(update_fields=['current_state'])
 
-    def update_current_price(self, price: Decimal) -> bool:
+    def update_current_price(self, price: Decimal = None) -> bool:
+        if not price:
+            price = get_last_price(f'{self.asset_alert.asset.symbol}{self.base_asset.symbol}')
+
+            if not price:
+                return False
+
         new_state = self.get_state(price)
 
         if not self.current_state:

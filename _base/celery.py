@@ -254,24 +254,24 @@ app.conf.beat_schedule = {
 
     'trigger_kafka_event': {
         'task': 'analytics.tasks.trigger_kafka_event',
-        'schedule': 10,
+        'schedule': 60,
         'options': {
-            'queue': 'notif-manager',
-            'expires': 12
+            'queue': 'celery',
+            'expires': 120
         }
     },
 
     'send_notifications_push': {
         'task': 'accounts.tasks.notification.send_notifications_push',
-        'schedule': 1 * TASK_MULTIPLIER,
+        'schedule': 10 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 30 * TASK_MULTIPLIER
+            'expires': 60 * TASK_MULTIPLIER
         },
     },
     'send_telegram_bot_notifications': {
         'task': 'accounts.tasks.notification.send_telegram_bot_notifications',
-        'schedule': 60 * TASK_MULTIPLIER,
+        'schedule': 30 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
             'expires': 120 * TASK_MULTIPLIER
@@ -282,12 +282,12 @@ app.conf.beat_schedule = {
         'schedule': 60 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 60 * TASK_MULTIPLIER
+            'expires': 120 * TASK_MULTIPLIER
         },
     },
     'send_sms_notifications': {
         'task': 'accounts.tasks.notification.send_sms_notifications',
-        'schedule': 10 * TASK_MULTIPLIER,
+        'schedule': 30 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
             'expires': 60 * TASK_MULTIPLIER
@@ -295,7 +295,7 @@ app.conf.beat_schedule = {
     },
     'send_email_notifications': {
         'task': 'accounts.tasks.notification.send_email_notifications',
-        'schedule': 10 * TASK_MULTIPLIER,
+        'schedule': 30 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
             'expires': 60 * TASK_MULTIPLIER
@@ -327,15 +327,15 @@ app.conf.beat_schedule = {
     },
     'check_conditional_price_alerts': {
         'task': 'ledger.tasks.alert.check_conditional_price_alerts',
-        'schedule': crontab(minute=5),
+        'schedule': crontab(minute='*'),
         'options': {
             'queue': 'celery',
-            'expires': 3600
+            'expires': 300
         },
     },
     'trigger_fcm_topic_subscriptions': {
         'task': 'accounts.tasks.notification.trigger_fcm_topic_subscriptions',
-        'schedule': crontab(minute=5),
+        'schedule': crontab(minute='*/5'),
         'options': {
             'queue': 'notif-manager',
             'expires': 3600
@@ -343,7 +343,7 @@ app.conf.beat_schedule = {
     },
     'network_schedules': {
         'task': 'ledger.tasks.network.check_network_schedules',
-        'schedule': crontab(minute='30'),
+        'schedule': crontab(minute=35),
         'options': {
             'queue': 'celery',
             'expires': 3 * 3600
