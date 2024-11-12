@@ -137,10 +137,12 @@ class Forget2FAInitSerializer(serializers.Serializer):
         if not user.is_2fa_active():
             raise ValidationError({'totp': 'شناسه دوعاملی غیرفعال می‌باشد.'})
 
-        return user
+        attrs['user'] = user
 
-    def save(self, **kwargs):
-        user = self.validated_data
+        return attrs
+
+    def create(self, validated_data):
+        user = self.validated_data['user']
         VerificationCode.send_otp_code(
             request=self.context['request'],
             phone=user.phone,
