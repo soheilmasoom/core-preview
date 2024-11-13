@@ -553,11 +553,10 @@ class MarginPosition(models.Model):
         from market.utils.order_utils import new_order
         from ledger.utils.wallet_pipeline import WalletPipeline
 
-        queryset = Order.objects.filter(
-            status=Order.NEW,
+        queryset = Order.open_objects.filter(
             account=self.account,
             symbol=self.symbol,
-            wallet__market=self.asset_wallet.MARGIN
+            position=self
         )
         Order.cancel_orders(queryset)
 
