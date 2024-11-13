@@ -58,7 +58,7 @@ class OTCRequest(BaseTrade):
 
     @classmethod
     def new_trade(cls, account: Account, market: str, from_asset: Asset, to_asset: Asset, order_type: str,
-                  from_amount: Decimal = None, to_amount: Decimal = None, allow_dust: bool = False,
+                  from_amount: Decimal = None, to_amount: Decimal = None,
                   check_enough_balance: bool = True, gtd: datetime = None, price: Decimal = None) -> 'OTCRequest':
 
         assert order_type in cls.ORDER_TYPES
@@ -79,14 +79,16 @@ class OTCRequest(BaseTrade):
             price=price,
         )
 
-        if not allow_dust:
-            otc_irt_value = otc_request.irt_value
+        otc_irt_value = otc_request.irt_value
 
-            if otc_irt_value < config.min_otc_irt * Decimal('0.8'):
-                raise SmallAmountTrade()
+        if otc_irt_value < config.min_otc_irt * Decimal('0.8'):
+            raise SmallAmountTrade()
 
-            if otc_irt_value > config.max_otc_irt:
-                raise LargeAmountTrade()
+        if otc_irt_value > config.max_otc_irt:
+            raise LargeAmountTrade()
+
+        if otc_request.amount > otc_request.symbol.max_trade_quantity:
+            raise LargeAmountTrade()
 
         if check_enough_balance:
             from_wallet = from_asset.get_wallet(account, otc_request.market)
