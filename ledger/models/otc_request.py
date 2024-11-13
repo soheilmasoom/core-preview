@@ -87,7 +87,7 @@ class OTCRequest(BaseTrade):
         if otc_irt_value > config.max_otc_irt:
             raise LargeAmountTrade()
 
-        if otc_request.amount > otc_request.symbol.max_trade_quantity:
+        if otc_request.symbol.asset.symbol == 'PNUT' and otc_request.amount > otc_request.symbol.max_trade_quantity:
             raise LargeAmountTrade()
 
         if check_enough_balance:
