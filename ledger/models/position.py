@@ -556,6 +556,7 @@ class MarginPosition(models.Model):
         queryset = Order.open_objects.filter(
             account=self.account,
             symbol=self.symbol,
+            wallet__market=self.asset_wallet.MARGIN,
             position=self
         )
         Order.cancel_orders(queryset)
