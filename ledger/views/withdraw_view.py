@@ -131,23 +131,22 @@ class WithdrawSerializer(serializers.ModelSerializer):
         if is_via_network:
             network_asset = get_object_or_404(NetworkAsset, asset=asset, network=network)
 
-        if is_via_network and not network_asset.can_withdraw_enabled():
-            raise ValidationError(
-                'در حال حاضر امکان برداشت {} روی شبکه {} وجود ندارد.'.format(asset.symbol, network.symbol))
+            if not network_asset.can_withdraw_enabled():
+                raise ValidationError(
+                    'در حال حاضر امکان برداشت {} روی شبکه {} وجود ندارد.'.format(asset.symbol, network.symbol))
 
-        if is_via_network and get_precision(amount) > network_asset.get_withdraw_precision():
-            raise ValidationError('مقدار وارد شده اشتباه است.')
+            if get_precision(amount) > network_asset.get_withdraw_precision():
+                raise ValidationError('مقدار وارد شده اشتباه است.')
 
-        if is_via_network and amount < network_asset.withdraw_min:
-            raise ValidationError('مقدار وارد شده کوچک است.')
+            if amount < network_asset.withdraw_min:
+                raise ValidationError('مقدار وارد شده کوچک است.')
 
-        if is_via_network and amount > network_asset.withdraw_max:
-            raise ValidationError('مقدار وارد شده بزرگ است.')
+            if amount > network_asset.withdraw_max:
+                raise ValidationError('مقدار وارد شده بزرگ است.')
 
-        if is_via_network and DepositAddress.objects.filter(address=address, address_key__deleted=True):
-            raise ValidationError('آدرس برداشت نامعتبر است.')
+            if DepositAddress.objects.filter(address=address, address_key__deleted=True):
+                raise ValidationError('آدرس برداشت نامعتبر است.')
 
-        if is_via_network:
             my_deposit_addresses = DepositAddress.objects.filter(address=address, address_key__account=account)
 
             if network.withdraw_allow_memo:
