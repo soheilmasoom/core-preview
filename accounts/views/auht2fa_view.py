@@ -143,12 +143,16 @@ class Forget2FAInitSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         user = self.validated_data['user']
-        VerificationCode.send_otp_code(
+
+        if not user:
+            return {}
+
+        return VerificationCode.send_otp_code(
             request=self.context['request'],
             phone=user.phone,
             scope=VerificationCode.SCOPE_FORGET_2FA,
             user=user
-        )
+        ) or {}
 
 
 class Forget2FAInitView(CreateAPIView):
