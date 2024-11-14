@@ -84,6 +84,11 @@ def trigger_users_event(threshold=1000):
         else:
             account = user.account
         referrer_id = account and account.referred_by and account.referred_by.owner.user_id
+
+        promotion = ''
+        if user.mission_journey:
+            promotion = user.mission_journey.name
+
         event = UserEvent(
             user_id=user.id,
             first_name=user.first_name,
@@ -97,7 +102,7 @@ def trigger_users_event(threshold=1000):
             birth_date=user.birth_date,
             can_withdraw=user.can_withdraw,
             can_trade=user.can_trade,
-            promotion=user.mission_journey.name,
+            promotion=promotion,
             chat_uuid=user.chat_uuid,
             verify_status=user.verify_status,
             reject_reason=user.reject_reason,
