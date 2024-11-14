@@ -28,12 +28,10 @@ GENERATE_FAKE_OTP = DEBUG_OR_TESTING_OR_STAGING
 HOST_URL = config('HOST_URL', default='https://api.raastin.com')
 PANEL_URL = config('PANEL_URL', default='https://raastin.com')
 
-TELEGRAM_BOT_URL = config('TELEGRAM_BOT_URL', default='')
-TELEGRAM_BOT_TOKEN = config('TELEGRAM_BOT_TOKEN', '')
-
 CELERY_TASK_ALWAYS_EAGER = config('CELERY_ALWAYS_EAGER', default=False)
 
-KAFKA_HOST_URL = config('KAFKA_HOST_URL', default='')
+KAFKA_HOST_URL = config('KAFKA_HOST_URL', default='https://kaftar.raastin.com')
+KAFTAR_TOKEN = config('KAFTAR_TOKEN', default='')
 
 BRAND_EN = config('BRAND_EN', default='')
 BRAND = config('BRAND', default='')

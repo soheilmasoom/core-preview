@@ -1,14 +1,13 @@
 import logging
 
 import requests
-from decouple import config
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 
 def send_message(profile: str, text: str):
-    token = config('KAFTAR_TOKEN', default='')
+    token = settings.KAFTAR_TOKEN
 
     if settings.DEBUG_OR_TESTING:
         print('send to %s' % profile)

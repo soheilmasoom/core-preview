@@ -42,7 +42,7 @@ def send_notifications_push():
 
 @shared_task(queue='notif-manager')
 def send_telegram_bot_notifications():
-    if not settings.TELEGRAM_BOT_TOKEN:
+    if not settings.KAFTAR_TOKEN:
         return
 
     Notification.objects.filter(
@@ -70,9 +70,9 @@ def send_telegram_bot_notifications():
         ]
     }
     headers = {
-        "Authorization": f"Token {settings.TELEGRAM_BOT_TOKEN}"
+        "Authorization": f"Token {settings.KAFTAR_TOKEN}"
     }
-    resp = requests.post(settings.TELEGRAM_BOT_URL, json=data, headers=headers)
+    resp = requests.post(settings.KAFKA_HOST_URL, json=data, headers=headers)
 
     if resp.ok:
         Notification.objects.filter(id__in=[notif.id for notif in notifs_to_send]).update(sent_telegram=True)
