@@ -72,7 +72,9 @@ def send_telegram_bot_notifications():
     headers = {
         "Authorization": f"Token {settings.KAFTAR_TOKEN}"
     }
-    resp = requests.post(settings.KAFKA_HOST_URL, json=data, headers=headers)
+    url = settings.KAFTAR_HOST_URL + '/api/v1/bot/notif/'
+
+    resp = requests.post(url, json=data, headers=headers)
 
     if resp.ok:
         Notification.objects.filter(id__in=[notif.id for notif in notifs_to_send]).update(sent_telegram=True)

@@ -19,7 +19,7 @@ def send_message(profile: str, text: str):
 
     try:
         requests.post(
-            'https://kaftar.raastinwallet.com/api/v1/messaging/send/',
+            f'{settings.KAFTAR_HOST_URL}/api/v1/messaging/send/',
             headers={
                 'Authorization': token
             },

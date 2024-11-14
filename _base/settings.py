@@ -30,7 +30,9 @@ PANEL_URL = config('PANEL_URL', default='https://raastin.com')
 
 CELERY_TASK_ALWAYS_EAGER = config('CELERY_ALWAYS_EAGER', default=False)
 
-KAFKA_HOST_URL = config('KAFKA_HOST_URL', default='https://kaftar.raastin.com')
+KAFKA_HOST_URL = config('KAFKA_HOST_URL', default='')
+
+KAFTAR_HOST_URL = config('KAFTAR_HOST_URL', default='https://kaftar.raastinwallet.com')
 KAFTAR_TOKEN = config('KAFTAR_TOKEN', default='')
 
 BRAND_EN = config('BRAND_EN', default='')
