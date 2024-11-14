@@ -299,6 +299,7 @@ class User(AbstractUser):
             ("manage_users", "Manage Users Info"),
             ("list_user", "Can list user"),
             ("can_view_user_selfie", "Can view user selfie"),
+            ("can_generate_telegram_jwt_token", "Can generate telegram jwt token"),
         ]
 
     def change_status(self, status: str, reason: str = ''):

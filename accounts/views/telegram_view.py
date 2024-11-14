@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.shortcuts import get_object_or_404
+from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -59,6 +60,9 @@ class GenerateTelegramAccessTokenView(APIView):
     authentication_classes = [CustomTokenAuthentication]
 
     def get(self, request):
+        if not request.user.has_perm('accounts.can_generate_telegram_jwt_token'):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
         user_id = request.query_params.get('user_id')
         if not user_id:
             raise ValidationError("No user provided!")
