@@ -69,6 +69,8 @@ class Asset(models.Model):
         choices=[(s, s) for s in OTC_STATUSES],
     )
 
+    max_otc_irt_value = models.PositiveIntegerField(null=True, blank=True)
+
     price_page = models.BooleanField(default=True)
 
     price_alert_channel_sensitivity = get_amount_field(null=True)

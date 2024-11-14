@@ -7,21 +7,21 @@ from rest_framework.generics import CreateAPIView, get_object_or_404
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from market.models import PairSymbol
-from ledger.utils.precision import floor_precision, get_precision
 
 from accounts.models import Account, LoginActivity, SystemConfig
 from accounts.permissions import can_trade
 from analytics.utils.yandex import send_yandex_event
-from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecrease, HedgeError, LargeAmountTrade, \
-    SmallDepthError, NoPriceError
+from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecrease, HedgeError, SmallDepthError, \
+    NoPriceError
 from ledger.models import OTCRequest, Asset, OTCTrade, Wallet
 from ledger.models.asset import InvalidAmount
 from ledger.models.otc_trade import TokenExpired
 from ledger.utils.external_price import BUY, SIDE_VERBOSE, SELL
 from ledger.utils.fields import get_serializer_amount_field
 from ledger.utils.otc import get_trading_pair
+from ledger.utils.precision import get_precision
 from ledger.utils.precision import get_symbol_presentation_amount, get_symbol_presentation_price
+from market.models import PairSymbol
 
 TARGETED_TRADE_VALUE = Decimal(15e6)  # IRT
 
@@ -233,9 +233,6 @@ class OTCRequestSerializer(serializers.ModelSerializer):
             raise ValidationError(str(e))
         except SmallAmountTrade:
             raise ValidationError('ارزش معامله، باید حداقل ۱۰,۰۰۰ تومان باشد.')
-        except LargeAmountTrade:
-            # raise ValidationError('ارزش معامله، حداکثر ۲ میلیارد تومان می‌تواند باشد.')
-            raise ValidationError('ارزش معامله، از حداکثر مبلغ بیشتر است.')
         except InsufficientBalance:
             raise ValidationError({'amount': 'موجودی کافی نیست.'})
         except SmallDepthError as exp:

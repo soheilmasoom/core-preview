@@ -12,7 +12,7 @@ from ledger.models import Asset, Wallet
 from ledger.utils.external_price import get_other_side, BUY, SELL
 from ledger.utils.fields import get_amount_field
 from ledger.utils.otc import get_trading_pair
-from ledger.utils.precision import floor_precision, get_presentation_amount
+from ledger.utils.precision import floor_precision, get_presentation_amount, humanize_number
 from ledger.utils.price import get_depth_price, get_price, USDT_IRT
 from ledger.utils.random import secure_uuid4
 from market.models import BaseTrade
@@ -84,11 +84,14 @@ class OTCRequest(BaseTrade):
         if otc_irt_value < config.min_otc_irt * Decimal('0.8'):
             raise SmallAmountTrade()
 
-        if otc_irt_value > config.max_otc_irt:
-            raise LargeAmountTrade()
+        max_otc_irt_value = config.max_otc_irt
+        asset = otc_request.symbol.asset
 
-        if otc_request.symbol.asset.symbol == 'PNUT' and otc_request.amount > otc_request.symbol.max_trade_quantity:
-            raise LargeAmountTrade()
+        if asset.max_otc_irt_value:
+            max_otc_irt_value = min(max_otc_irt_value, asset.max_otc_irt_value)
+
+        if otc_irt_value > max_otc_irt_value:
+            raise LargeAmountTrade(f'ارزش معامله باید حداکثر به اندازه {humanize_number(max_otc_irt_value)} تومان باشد.')
 
         if check_enough_balance:
             from_wallet = from_asset.get_wallet(account, otc_request.market)
