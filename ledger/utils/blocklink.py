@@ -23,7 +23,7 @@ class BlocklinkRequester(BaseRequester):
     def get_auth_token(self):
         return config('BLOCKLINK_TOKEN')
 
-    def create_wallet(self, arch: str, tag) -> Response:
+    def create_wallet(self, arch: str, tag: str) -> Response:
         data = {
             'architecture': arch,
             'tag': tag
