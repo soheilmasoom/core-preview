@@ -62,9 +62,17 @@ class OTCTrade(models.Model):
     to_buy_amount = get_amount_field(default=0, validators=())
     hedged = models.BooleanField(default=False, db_index=True)
 
-    def change_status(self, status: str):
+    reason = models.CharField(max_length=256, blank=True)
+
+    def change_status(self, status: str, reason: str = ''):
+        update_fields = ['status']
         self.status = status
-        self.save(update_fields=['status'])
+
+        if reason:
+            self.reason = reason
+            update_fields.append('reason')
+
+        self.save(update_fields=update_fields)
 
     def create_ledger(self, pipeline: WalletPipeline):
         user = self.otc_request.account
@@ -176,22 +184,20 @@ class OTCTrade(models.Model):
 
     def execute_trade(self) -> 'OTCTrade':
         if self.otc_request.type == OTCRequest.MARKET and self.otc_request.expired():
-            self.reject()
+            self.reject(reason='TOKEN_EXPIRED')
             raise TokenExpired()
 
         if self.execution_type == self.MARKET:
             try:
                 self.try_fok_fill()
             except Exception as exp:
-                logger.exception('Error in hedging market otc request')
-                self.reject()
+                self.reject(reason='HEDGE_IN_MARKET')
                 raise
         else:
             try:
                 self.hedge_with_provider()
             except HedgeError:
-                logger.exception('Error in hedging provider otc request')
-                self.reject()
+                self.reject(reason='HEDGE_IN_PROVIDER')
                 raise
 
         return self
@@ -239,7 +245,7 @@ class OTCTrade(models.Model):
                 hedge_key=str(fok_order.id),
             ).save()
 
-    def reject(self, is_user_canceled=False):
+    def reject(self, is_user_canceled: bool = False, reason: str = ''):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
             otc_trade = OTCTrade.objects.select_for_update().get(id=self.id)
 
@@ -248,9 +254,9 @@ class OTCTrade(models.Model):
 
             pipeline.release_lock(self.group_id)
             if is_user_canceled:
-                otc_trade.change_status(self.USER_CANCELED)
+                otc_trade.change_status(self.USER_CANCELED, reason=reason)
             else:
-                otc_trade.change_status(self.CANCELED)
+                otc_trade.change_status(self.CANCELED, reason=reason)
 
     def accept(self, pipeline: WalletPipeline):
         otc_trade = OTCTrade.objects.select_for_update().get(id=self.id)
