@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from accounts.models import Account
@@ -23,7 +24,8 @@ class DepositAddress(models.Model):
         address_key = AddressKey.objects.filter(account=account, architecture=architecture, deleted=False).first()
 
         if not address_key:
-            address_dict = requester.create_wallet(account, architecture).data
+            tag = '{brand}-base-{account_id}'.format(brand=settings.BRAND_EN.lower(), account_id=account.id)
+            address_dict = requester.create_wallet(arch=architecture, tag=tag).data
 
             address_key, _ = AddressKey.objects.get_or_create(
                 account=account,
