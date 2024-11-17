@@ -10,7 +10,7 @@ from rest_framework import serializers
 from ledger.utils.cache import cache_for
 from ledger.utils.precision import normalize_fraction, AMOUNT_PRECISION
 
-PROCESS, PENDING, CANCELED, DONE, REFUND = 'process', 'pending', 'canceled', 'done', 'refund'
+PROCESS, PENDING, CANCELED, DONE, REFUND, UNKNOWN = 'process', 'pending', 'canceled', 'done', 'refund', 'unknown'
 INIT, REJECTED, VERIFIED = 'init', 'rejected', 'verified'
 
 STATUS_CHOICES = (INIT, INIT), (PROCESS, PROCESS), (PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE)

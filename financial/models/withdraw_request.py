@@ -20,7 +20,7 @@ from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
 from financial.models import BankAccount
 from ledger.models import Trx, Asset
-from ledger.utils.fields import get_group_id_field, get_status_field, PENDING, CANCELED, DONE, REFUND, PROCESS
+from ledger.utils.fields import get_group_id_field, get_status_field, PENDING, CANCELED, DONE, REFUND, PROCESS, UNKNOWN
 from ledger.utils.fraud import verify_fiat_withdraw
 from ledger.utils.precision import humanize_number
 from ledger.utils.price import get_last_price, USDT_IRT
@@ -136,6 +136,10 @@ class FiatWithdrawRequest(BaseTransfer):
         withdraw_handler = FiatWithdraw.get_withdraw_channel(self.gateway)
         withdraw_data = withdraw_handler.get_withdraw_status(self)
         status = withdraw_data.status
+
+        if status == UNKNOWN:
+            logger.info(f'Updating fiat withdraw {self.id} ignored due to unknown status')
+            return
 
         logger.info(f'FiatRequest {self.id} status: {status}')
 
