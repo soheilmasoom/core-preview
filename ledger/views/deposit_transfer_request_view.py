@@ -10,7 +10,7 @@ from rest_framework.generics import CreateAPIView, get_object_or_404
 from accounts.authentication import CustomTokenAuthentication
 from accounts.admin_guard.html_tags import url_to_admin_list
 from accounts.utils.telegram import send_system_message
-from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset, DepositRecoveryRequest
+from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset, DepositRecoveryRequest, ProxyWallet
 from ledger.models.transfer import Transfer
 from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.fields import PENDING, DONE, CANCELED, INIT
@@ -48,6 +48,11 @@ class DepositSerializer(serializers.ModelSerializer):
 
         asset = Asset.objects.filter(symbol=coin).first()
         coin_mult = 1
+
+        if ProxyWallet.objects.filter(address__iexact=receiver_address).exists():
+            raise ValidationError({
+                'status': 'ignored due to proxy wallet'
+            })
 
         if not asset and coin:
             asset = Asset.objects.filter(original_symbol=coin).first()

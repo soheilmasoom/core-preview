@@ -6,9 +6,8 @@ from typing import Dict, Tuple
 from decouple import config
 from django.conf import settings
 
-from ledger.exceptions import FetchError
-from accounts.models import Account
 from accounts.verifiers.jibit import Response
+from ledger.exceptions import FetchError
 from ledger.utils.base_requester import BaseRequester
 
 __all__ = ('get_blocklink_requester', )
@@ -24,13 +23,10 @@ class BlocklinkRequester(BaseRequester):
     def get_auth_token(self):
         return config('BLOCKLINK_TOKEN')
 
-    def create_wallet(self, account: Account, arch: str) -> Response:
+    def create_wallet(self, arch: str, tag: str) -> Response:
         data = {
             'architecture': arch,
-            'tag': '{brand}-base-{account_id}'.format(
-                brand=settings.BRAND_EN.lower(),
-                account_id=account.id,
-            )
+            'tag': tag
         }
 
         return self.collect_api(

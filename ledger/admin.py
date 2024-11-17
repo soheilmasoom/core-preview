@@ -1509,3 +1509,18 @@ class NetworkScheduleAdmin(SimpleHistoryAdmin):
     @admin.action(description='Cancel', permissions=['change'])
     def cancel(self, request, queryset):
         queryset.filter(status=PENDING).update(status=CANCELED)
+
+
+@admin.register(models.ProxyWallet)
+class ProxyWalletAdmin(AdvancedAdmin):
+    list_display = ('created', 'network', 'address',)
+    readonly_fields = ('created', 'address',)
+    list_filter = ('network',)
+    search_fields = ('address',)
+
+    def save_model(self, request, obj, form, change):
+        requester = get_blocklink_requester()
+        architecture = requester.get_network_arch(obj.network.symbol)
+        address_dict = requester.create_wallet(arch=architecture, tag='proxy-wallet').data
+        obj.address = address_dict.get('address')
+        super().save_model(request, obj, form, change)
