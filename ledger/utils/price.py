@@ -16,6 +16,8 @@ USDT_IRT = 'USDTIRT'
 
 
 def _get_external_last_prices(coins: Union[list, set], allow_stale: bool = False) -> Dict[str, Decimal]:
+    allow_stale = True
+
     prices = fetch_external_redis_prices(coins, allow_stale=allow_stale)
 
     last_prices = {}
@@ -48,6 +50,8 @@ def get_all_otc_spreads(side):
 
 
 def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict[str, Decimal]:
+    allow_stale = True
+
     assert side in (BUY, SELL)
     from market.models import Order
 
@@ -168,6 +172,8 @@ def get_coins_symbols(coins: List[str], only_base: str = None) -> List[str]:
 
 
 def get_price(symbol: str, side: str, allow_stale: bool = False):
+    allow_stale = True
+
     prices = get_prices([symbol], side, allow_stale)
     return prices.get(symbol)
 

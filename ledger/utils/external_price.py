@@ -81,6 +81,8 @@ def _get_external_price_multiplier(coin: str) -> Decimal:
 
 
 def _get_price_redis(allow_stale: bool):
+    allow_stale = True
+
     global _price_redis
     global _master_price_redis
 
@@ -108,11 +110,15 @@ def _get_redis_price_key(coin: str, market: str = None):
 
 
 def _check_price_dict_time_frame(data: dict, allow_stale: bool = False):
+    allow_stale = True
+
     now = timezone.now().timestamp()
     return allow_stale or data.get('s') == 'c' or not data.get('t') or now - 30 <= float(data.get('t')) <= now
 
 
 def fetch_external_price_by_symbol(symbol: str, side: str, allow_stale: bool = False) -> Decimal:
+    allow_stale = True
+
     side = SIDE_MAP[side]
 
     coin, base = split_symbol(symbol)
@@ -136,6 +142,8 @@ def _get_manual_staled_prices() -> dict:
 
 
 def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow_stale: bool = False) -> List[Price]:
+    allow_stale = True
+
     results = []
 
     if side:
