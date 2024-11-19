@@ -223,17 +223,6 @@ class ProviderRequester(BaseRequester):
 
         return resp.data
 
-    def get_price(self, symbol: str, side: str, delay: int = 300, when: datetime = None) -> Decimal:
-        resp = self.collect_api('/api/v1/market/price/history/', data={
-            'symbol': symbol,
-            'side': side,
-            'delay': delay,
-            'datetime': when
-        })
-
-        if resp.success:
-            return Decimal(resp.data['price'])
-
     def get_avg_trade_price(self, symbol: str, start: datetime, end: datetime) -> Decimal:
         resp = self.collect_api('/api/v1/market/price/trade/avg/', data={
             'symbol': symbol,

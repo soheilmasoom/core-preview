@@ -136,7 +136,7 @@ class OTCTrade(models.Model):
                     recipient=otc_trade.otc_request.account.user,
                     title='سفارش قیمت ثابت منقضی شد',
                     message=f'سفارش {symbol} شما منقضی شد.',
-                    link="/trade/otc/history?tab=convert-history"
+                    link="/history/converts?tab=convert-history"
                 )
 
     @classmethod
@@ -301,7 +301,7 @@ class OTCTrade(models.Model):
                 recipient=self.otc_request.account.user,
                 title='سفارش قیمت ثابت شما انجام شد',
                 message=f'سفارش {symbol} شما انجام شد.',
-                link="/trade/otc/history?tab=convert-history"
+                link="/history/converts?tab=convert-history"
             )
 
     def get_pending_hedge_trades(self):
