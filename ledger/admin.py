@@ -709,7 +709,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description='Confirmation')
     def get_confirmation(self, transfer: models.Transfer):
-        if transfer.source in [WithdrawSources.INTERNAL_ACCOUNT, WithdrawSources.INTERNAL]:
+        if transfer.is_internal:
             return 0
         return f'{transfer.get_confirmation_blocks() or 0}/{transfer.network.min_confirm}'
 
