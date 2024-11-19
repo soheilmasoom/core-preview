@@ -127,19 +127,20 @@ class ProviderRequester(BaseRequester):
             logger.info('ignored due to small order')
             return
 
-        if market_info.type == 'spot' and side == SELL:
+        if market_info.type == 'spot' and side == SELL:  # todo: remove this
             balance_map = self.get_balances(market_info.id, market_info.type)['balances']
-            balance = Decimal(balance_map.get(asset.symbol, 0))
+            if balance_map:
+                balance = Decimal(balance_map.get(asset.symbol, 0))
 
-            if balance < order_amount:
-                diff = order_amount - balance
+                if balance < order_amount:
+                    diff = order_amount - balance
 
-                if diff * price < min_notional:
-                    order_amount = floor_precision(balance, round_digits)
+                    if diff * price < min_notional:
+                        order_amount = floor_precision(balance, round_digits)
 
-                    if order_amount * price < min_notional:
-                        logger.info('ignored due to small order')
-                        return
+                        if order_amount * price < min_notional:
+                            logger.info('ignored due to small order')
+                            return
 
         if hedge_price:
             hedge_price = floor_precision(hedge_price, min(-int(log10(market_info.tick_size)), 8))
