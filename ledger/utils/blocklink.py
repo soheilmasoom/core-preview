@@ -163,6 +163,12 @@ class BlocklinkRequester(BaseRequester):
 
         return status_code and status_code in [200, 201]
 
+    def get_cold_wallets(self):
+        return self.collect_api(
+            path='/api/v1/tracker/cold-wallets/',
+            method='GET',
+        )
+
 
 class MockBlocklinkRequester(BlocklinkRequester):
     def collect_api(self, path: str, method: str = 'GET', data: dict = None, cache_timeout: int = None, timeout: float = ...) -> Response:
