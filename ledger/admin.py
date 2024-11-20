@@ -31,7 +31,6 @@ from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from financial.models import Payment
 from gamify.utils import clone_model
 from ledger import models
-from ledger.fields import WithdrawSources
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
     MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer, ConvertDust, \
@@ -1524,3 +1523,21 @@ class ProxyWalletAdmin(AdvancedAdmin):
         address_dict = requester.create_wallet(arch=architecture, tag='proxy-wallet').data
         obj.address = address_dict.get('address')
         super().save_model(request, obj, form, change)
+
+
+@admin.register(models.ColdWallet)
+class ColdWalletAdmin(AdvancedAdmin):
+    list_display = ('created', 'architecture', 'address',)
+    readonly_fields = ('created',)
+    list_filter = ('architecture',)
+    search_fields = ('address', 'architecture')
+
+    def save_model(self, request, obj, form, change):
+        requester = get_blocklink_requester()
+        obj.architecture = obj.architecture.upper()
+        result = requester.submit_cold_wallet(arch=obj.architecture, address=obj.address)
+
+        if result:
+            super().save_model(request, obj, form, change)
+        else:
+            self.message_user(request, 'creation error', messages.ERROR)
