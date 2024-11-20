@@ -18,7 +18,7 @@ from financial.utils.ach import next_ach_clear_time
 from financial.utils.bank import BANK_INFO
 from financial.utils.encryption import encrypt
 from financial.utils.withdraw_limit import is_holiday, time_in_range
-from ledger.utils.fields import PENDING, DONE, CANCELED
+from ledger.utils.fields import PENDING, DONE, CANCELED, UNKNOWN
 
 logger = logging.getLogger(__name__)
 
@@ -331,10 +331,16 @@ class ZibalChannel(FiatWithdraw):
         )
 
     def get_withdraw_status(self, transfer: BaseTransfer) -> Withdraw:
-        data = self.collect_api(f'/v1/report/checkout/inquire', method='POST', data={
-            "walletId": int(self.gateway.wallet_id),
-            'uniqueCode': str(transfer.id)
-        })
+        try:
+            data = self.collect_api(f'/v1/report/checkout/inquire', method='POST', data={
+                "walletId": int(self.gateway.wallet_id),
+                'uniqueCode': str(transfer.id)
+            })
+        except ServerError:
+            return Withdraw(
+                tracking_id='',
+                status=UNKNOWN
+            )
 
         if 'details' in data:
             details = data['details'][0]

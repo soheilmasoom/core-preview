@@ -197,9 +197,13 @@ class WithdrawSerializer(serializers.ModelSerializer):
         receiver_user = None
         if not is_via_network:
             try:
-                receiver_user = User.objects.get(phone=receiver_phone)
+                receiver_user = User.objects.get(
+                    phone=receiver_phone,
+                    is_active=True,
+                    level__gte=User.LEVEL2,
+                )
             except User.DoesNotExist:
-                raise serializers.ValidationError({'receiver': 'کاربر پیدا نشد.'})
+                raise serializers.ValidationError({'receiver': 'امکان انتقال به کاربر مورد نظر وجود ندارد!'})
 
             if receiver_user == user:
                 raise ValidationError({'receiver': 'امکان انتقال به خود را ندارید.'})

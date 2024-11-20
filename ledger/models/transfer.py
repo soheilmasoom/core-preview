@@ -93,6 +93,10 @@ class Transfer(models.Model):
     def network_asset(self):
         return NetworkAsset.objects.get(network=self.network, asset=self.asset)
 
+    @property
+    def is_internal(self):
+        return self.source in (WithdrawSources.INTERNAL_ACCOUNT, WithdrawSources.INTERNAL)
+
     def get_confirmation_blocks(self) -> Union[int, None]:
         if self.last_block_number and self.block_number:
             return min(max(self.last_block_number - self.block_number, 0), self.network.min_confirm)
@@ -108,7 +112,7 @@ class Transfer(models.Model):
         return self.network.explorer_link.format(hash=self.trx_hash)
 
     def build_trx(self, pipeline: WalletPipeline):
-        if self.source in [WithdrawSources.INTERNAL_ACCOUNT, WithdrawSources.INTERNAL]:
+        if self.is_internal:
             if not self.deposit:
                 sender_wallet = self.wallet
                 receiver_wallet = self.wallet.asset.get_wallet(self.receiver_account)
@@ -334,6 +338,16 @@ class Transfer(models.Model):
 
             if transfer.status != DONE:
                 return
+
+            other_internal_transfers = list(Transfer.objects.filter(group_id=transfer.group_id).exclude(id=self.id))
+            assert len(other_internal_transfers) <= 1
+
+            other = other_internal_transfers[0] if other_internal_transfers else None
+            assert (other and transfer.is_internal) or (not other and not transfer.is_internal)
+
+            if other:
+                other.status = REFUND
+                other.save(update_fields=['status'])
 
             transfer.status = REFUND
             transfer.save(update_fields=['status'])

@@ -23,7 +23,7 @@ class BlocklinkRequester(BaseRequester):
     def get_auth_token(self):
         return config('BLOCKLINK_TOKEN')
 
-    def create_wallet(self, arch: str, tag) -> Response:
+    def create_wallet(self, arch: str, tag: str) -> Response:
         data = {
             'architecture': arch,
             'tag': tag
@@ -147,6 +147,26 @@ class BlocklinkRequester(BaseRequester):
                 'coin': coin,
                 'network': network
             }
+        )
+
+    def submit_cold_wallet(self, arch:str, address:str):
+        data = {
+            'architecture': arch,
+            'address': address
+        }
+
+        status_code = self.collect_api(
+            path='/api/v1/tracker/cold-wallets/submit/',
+            method='POST',
+            data=data
+        ).status_code
+
+        return status_code and status_code in [200, 201]
+
+    def get_cold_wallets(self):
+        return self.collect_api(
+            path='/api/v1/tracker/cold-wallets/',
+            method='GET',
         )
 
 

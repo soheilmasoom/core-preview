@@ -127,19 +127,20 @@ class ProviderRequester(BaseRequester):
             logger.info('ignored due to small order')
             return
 
-        if market_info.type == 'spot' and side == SELL:
+        if market_info.type == 'spot' and side == SELL:  # todo: remove this
             balance_map = self.get_balances(market_info.id, market_info.type)['balances']
-            balance = Decimal(balance_map.get(asset.symbol, 0))
+            if balance_map:
+                balance = Decimal(balance_map.get(asset.symbol, 0))
 
-            if balance < order_amount:
-                diff = order_amount - balance
+                if balance < order_amount:
+                    diff = order_amount - balance
 
-                if diff * price < min_notional:
-                    order_amount = floor_precision(balance, round_digits)
+                    if diff * price < min_notional:
+                        order_amount = floor_precision(balance, round_digits)
 
-                    if order_amount * price < min_notional:
-                        logger.info('ignored due to small order')
-                        return
+                        if order_amount * price < min_notional:
+                            logger.info('ignored due to small order')
+                            return
 
         if hedge_price:
             hedge_price = floor_precision(hedge_price, min(-int(log10(market_info.tick_size)), 8))
@@ -222,17 +223,6 @@ class ProviderRequester(BaseRequester):
             return []
 
         return resp.data
-
-    def get_price(self, symbol: str, side: str, delay: int = 300, when: datetime = None) -> Decimal:
-        resp = self.collect_api('/api/v1/market/price/history/', data={
-            'symbol': symbol,
-            'side': side,
-            'delay': delay,
-            'datetime': when
-        })
-
-        if resp.success:
-            return Decimal(resp.data['price'])
 
     def get_avg_trade_price(self, symbol: str, start: datetime, end: datetime) -> Decimal:
         resp = self.collect_api('/api/v1/market/price/trade/avg/', data={
