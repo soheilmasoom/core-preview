@@ -805,9 +805,12 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='Terminate Withdraw', permissions=['change'])
     def terminate_withdraw(self, request, queryset):
+        for t in queryset.filter(deposit=False, status=PROCESS):
+            t.reject()
+
         requester = get_blocklink_requester()
 
-        for transfer in queryset.filter(deposit=False, status__in=[PROCESS, PENDING]):
+        for transfer in queryset.filter(deposit=False, status=PENDING):
             requester.terminate_withdraw(transfer.id)
 
 
