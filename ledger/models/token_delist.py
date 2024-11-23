@@ -1,6 +1,7 @@
 import dataclasses
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Sum
@@ -24,13 +25,13 @@ class DelistInfo:
 
 
 ALARM_SMS_CONTENT = """
-کاربر گرامی راستین،
-به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از راستین حذف خواهد شد. لطفا تا قبل از 
+کاربر گرامی {brand}،
+به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از {brand} حذف خواهد شد. لطفا تا قبل از 
 آن زمان نسبت به فروش یا برداشت این توکن اقدام نمایید.
 """
 
 ALARM_NOTIF_CONTENT = """
-به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از راستین حذف خواهد شد. لطفا تا قبل از آن، نسبت به فروش یا برداشت این توکن اقدام نمایید.
+به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از {brand} حذف خواهد شد. لطفا تا قبل از آن، نسبت به فروش یا برداشت این توکن اقدام نمایید.
 """
 
 
@@ -65,14 +66,22 @@ class TokenDelist(models.Model):
                     recipient=user,
                     group_id=self.group_id,
                     title=f'حذف توکن {coin}',
-                    message=ALARM_NOTIF_CONTENT.strip().format(coin=coin, delist_at=str(jalali_date))
+                    message=ALARM_NOTIF_CONTENT.strip().format(
+                        coin=coin,
+                        delist_at=str(jalali_date),
+                        brand=settings.BRAND
+                    )
                 )
 
                 SmsNotification.objects.get_or_create(
                     recipient=user,
                     group_id=self.group_id,
                     defaults={
-                        'content': ALARM_SMS_CONTENT.strip().format(coin=coin, delist_at=str(jalali_date))
+                        'content': ALARM_SMS_CONTENT.strip().format(
+                            coin=coin,
+                            delist_at=str(jalali_date),
+                            brand=settings.BRAND
+                        )
                     }
                 )
 
