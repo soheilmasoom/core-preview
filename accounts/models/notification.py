@@ -142,23 +142,21 @@ class Notification(models.Model):
             if Notification.live_objects.filter(group_id=group_id, source=cls.NINJA).exists():
                 return
 
-            notification = Notification.objects.get_or_create(
+            notification = Notification.objects.create(
                 recipient=recipient,
+                template=template,
+                title=title,
+                link=link,
+                message=message,
+                level=level,
+                source=source,
+                image=image,
+                type=type,
+                count=count,
+                push_status=Notification.PUSH_WAITING if send_push else '',
                 group_id=group_id,
-                defaults={
-                    'template': template,
-                    'title': title,
-                    'link': link,
-                    'message': message,
-                    'level': level,
-                    'source': source,
-                    'image': image,
-                    'type': type,
-                    'count': count,
-                    'push_status': Notification.PUSH_WAITING if send_push else '',
-                    'hidden': hidden,
-                    'sent_telegram': not recipient.send_notifs_to_telegram_bot
-                }
+                hidden=hidden,
+                sent_telegram=not recipient.send_notifs_to_telegram_bot
             )
 
         elif not group_id:
