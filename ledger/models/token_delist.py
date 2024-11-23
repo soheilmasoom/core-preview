@@ -57,7 +57,7 @@ class TokenDelist(models.Model):
         )
 
         coin = self.asset.symbol
-        jalali_date = str(gregorian_to_jalali_date(self.delist_at.astimezone()))
+        jalali_date = str(gregorian_to_jalali_date(self.delist_at.astimezone())).replace('-', '/')
 
         with transaction.atomic():
             for user in users:
