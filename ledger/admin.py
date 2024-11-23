@@ -1367,8 +1367,13 @@ class TokenTransferAdmin(admin.ModelAdmin):
 class TokenDelistAdmin(admin.ModelAdmin):
     list_display = ('created', 'delist_at', 'asset', 'status')
     readonly_fields = ('status', 'group_id', 'get_delist_info')
-    actions = ('accept_for_testers', 'accept', 'reject', 'revert')
+    actions = ('alarm_delist', 'accept_for_testers', 'accept', 'reject', 'revert')
     autocomplete_fields = ('asset',)
+
+    @admin.action(description='Alarm Delist', permissions=['change'])
+    def alarm_delist(self, request, queryset):
+        for delist in queryset.filter(status=PENDING):
+            delist.alarm_delist()
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
