@@ -232,5 +232,5 @@ class TokenDelist(models.Model):
                         humanize_number(int(base_amount))
                     ),
                     level=Notification.INFO,
-                    group_id=self.group_id
+                    # group_id=self.group_id
                 )
