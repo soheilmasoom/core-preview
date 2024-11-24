@@ -1,4 +1,5 @@
 import dataclasses
+from datetime import timedelta, datetime
 from decimal import Decimal
 
 from django.conf import settings
@@ -35,9 +36,14 @@ ALARM_NOTIF_CONTENT = """
 """
 
 
+def default_delist_at() -> datetime:
+    delist_at = timezone.now().astimezone() + timedelta(days=7)
+    return delist_at.replace(hour=9, minute=0, second=0, microsecond=0)
+
+
 class TokenDelist(models.Model):
     created = models.DateTimeField(auto_now=True)
-    delist_at = models.DateTimeField(default=timezone.now)
+    delist_at = models.DateTimeField(default=default_delist_at)
 
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
     status = get_status_field(default=PENDING)
@@ -46,11 +52,12 @@ class TokenDelist(models.Model):
     group_id = get_group_id_field()
 
     def clean(self):
-        if self.asset.otc_status == Asset.ACTIVE:
-            raise ValidationError('Asset should not be active!')
+        if hasattr(self, 'asset'):
+            if self.asset.otc_status == Asset.ACTIVE:
+                raise ValidationError('Asset should not be active!')
 
-        if not self.asset.enable:
-            raise ValidationError('Asset should be enable!')
+            if not self.asset.enable:
+                raise ValidationError('Asset should be enable!')
 
     def alarm_delist(self):
         users = User.objects.filter(
@@ -84,7 +91,6 @@ class TokenDelist(models.Model):
                         )
                     }
                 )
-
 
     def reject(self):
         with transaction.atomic():
