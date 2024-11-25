@@ -61,7 +61,7 @@ class TransferSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transfer
-        fields = ('id', 'created', 'amount', 'status', 'link', 'out_address', 'asset', 'network', 'trx_hash',
+        fields = ('id', 'created', 'amount', 'status', 'link', 'out_address', 'memo', 'asset', 'network', 'trx_hash',
                   'fee_amount', 'is_internal', 'cancelable', 'min_confirm', 'unlock_confirm', 'confirmation')
 
 
