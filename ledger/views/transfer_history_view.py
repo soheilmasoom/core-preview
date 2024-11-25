@@ -24,7 +24,7 @@ class TransferSerializer(serializers.ModelSerializer):
     asset = AssetSerializerMini(source='wallet.asset', read_only=True)
     is_internal = serializers.SerializerMethodField()
     cancelable = serializers.SerializerMethodField()
-    memo_name_fa = serializers.CharField(source='network.memo_name_fa')
+    memo_name_fa = serializers.SerializerMethodField()
 
     def get_network(self, transfer: Transfer):
         return transfer.network and transfer.network.symbol
@@ -59,6 +59,12 @@ class TransferSerializer(serializers.ModelSerializer):
         return \
             transfer.status == INIT or \
             (transfer.status == PROCESS and transfer.in_freeze_time())
+
+    def get_memo_name_fa(self, transfer: Transfer):
+        if transfer.network:
+            return transfer.network.memo_name_fa
+        else:
+            return ''
 
     class Meta:
         model = Transfer
