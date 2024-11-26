@@ -8,7 +8,7 @@ from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
 from rest_framework import permissions
 
-from accounts.views import HealthView, PriceHealthView, SystemConfigView
+from accounts.views import HealthView, SystemConfigView
 from accounts.views.dashboard import dashboard
 from accounts.views.health_view import HealthCheckView
 
@@ -38,7 +38,6 @@ urlpatterns = [
     path('api/v1/system/config/', SystemConfigView.as_view()),
 
     path('api/v1/health/ready/', HealthView.as_view()),
-    path('api/v1/health/price/', PriceHealthView.as_view()),
     path('api/v1/health/check/', HealthCheckView.as_view()),
     path('api/v1/accounts/', include('accounts.urls')),
     path('analytics/', include('analytics.urls')),

@@ -25,7 +25,7 @@ from .shahkar_view import ShahkarCheckView, ShahkarStatusView
 from .attribution_view import AttributionAPIView
 
 from .auht2fa_view import TOTPView, Forget2FAView, Forget2FAInitView
-from .health_view import HealthView, PriceHealthView
+from .health_view import HealthView
 from .user_digest_view import UserDigestView
 from .feedback_view import UserFeedbackView
 
