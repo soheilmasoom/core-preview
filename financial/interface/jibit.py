@@ -3,6 +3,7 @@ import logging
 import requests
 
 from accounts.verifiers.utils import Response, ServerError
+from financial.exceptions import ProviderError
 from financial.interface.base_interface import BaseChannel, WithdrawDTO, WalletDTO
 from financial.models.withdraw_request import BaseTransfer
 from financial.utils.ach import next_ach_clear_time
@@ -114,17 +115,25 @@ class JibitChannel(BaseChannel):
         })
 
         if not resp.success:
-            if resp.data['errors'][0]['code'] == 'transfer.already_exists':
+            code = resp.data['errors'][0]['code']
+            if code == 'transfer.already_exists':
                 return WithdrawDTO(
                     tracking_id='',
                     status=PENDING,
                 )
 
+            elif code == 'transfers.0.source_bank.not_supported':
+                return WithdrawDTO(
+                    tracking_id='',
+                    status=CANCELED,
+                    message=code,
+                )
+
             else:
-                raise ServerError('Jibit withdraw error')
+                raise ProviderError(code)
 
         if resp.data.get('submittedCount', 0) == 0:
-            raise ServerError('Jibit submission failed')
+            raise ProviderError('Jibit submission failed')
 
         return WithdrawDTO(
             tracking_id='',

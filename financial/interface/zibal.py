@@ -126,7 +126,8 @@ class ZibalChannel(BaseChannel):
         return WithdrawDTO(
             tracking_id=data['id'],
             status=status,
-            receive_datetime=receive_datetime.replace(tzinfo=pytz.utc).astimezone()
+            receive_datetime=receive_datetime.replace(tzinfo=pytz.utc).astimezone(),
+            message=data.get('message', '')
         )
 
     def get_withdraw_status(self, transfer: BaseTransfer) -> WithdrawDTO:
