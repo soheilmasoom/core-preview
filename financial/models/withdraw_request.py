@@ -10,17 +10,19 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import Account, EmailNotification, SmsNotification
 from accounts.models import Notification
 from accounts.tasks.send_sms import send_message_by_kavenegar
-from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_system_message
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
-from financial.models import BankAccount
+from financial.exceptions import NoChannelError, ProviderError
+from financial.models.base_transfer import BaseTransfer
+from financial.utils.interface import get_withdraw_channel
 from ledger.models import Trx, Asset
-from ledger.utils.fields import get_group_id_field, get_status_field, PENDING, CANCELED, DONE, REFUND, PROCESS, UNKNOWN
+from ledger.utils.fields import get_status_field, PENDING, CANCELED, DONE, REFUND, PROCESS, UNKNOWN
 from ledger.utils.fraud import verify_fiat_withdraw
 from ledger.utils.precision import humanize_number
 from ledger.utils.price import get_last_price, USDT_IRT
@@ -28,18 +30,6 @@ from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 logger = logging.getLogger(__name__)
-
-
-class BaseTransfer(models.Model):
-    created = models.DateTimeField(auto_now_add=True, db_index=True)
-    amount = models.PositiveIntegerField(verbose_name='میزان برداشت')
-    gateway = models.ForeignKey('Gateway', on_delete=models.PROTECT)
-    bank_account = models.ForeignKey(to=BankAccount, on_delete=models.PROTECT, verbose_name='حساب بانکی')
-    group_id = get_group_id_field()
-    ref_id = models.CharField(max_length=128, blank=True, verbose_name='شماره پیگیری')
-
-    class Meta:
-        abstract = True
 
 
 class FiatWithdrawRequest(BaseTransfer):
@@ -92,7 +82,6 @@ class FiatWithdrawRequest(BaseTransfer):
             )
 
     def create_withdraw_request(self):
-        from financial.utils.withdraw import NoChannelError
 
         if not verify_fiat_withdraw(self):
             logger.info('Ignoring fiat withdraw due to not verified')
@@ -105,11 +94,8 @@ class FiatWithdrawRequest(BaseTransfer):
             self.save(update_fields=['status'])
             return
 
-        from financial.utils.withdraw import ProviderError
-        from financial.utils.withdraw import FiatWithdraw
-
         try:
-            api_handler = FiatWithdraw.get_withdraw_channel(self.gateway)
+            api_handler = get_withdraw_channel(self.gateway)
         except NoChannelError:
             return
 
@@ -131,9 +117,7 @@ class FiatWithdrawRequest(BaseTransfer):
             send_system_message("Manual fiat withdraw", link=url_to_edit_object(self))
 
     def update_status(self):
-        from financial.utils.withdraw import FiatWithdraw
-
-        withdraw_handler = FiatWithdraw.get_withdraw_channel(self.gateway)
+        withdraw_handler = get_withdraw_channel(self.gateway)
         withdraw_data = withdraw_handler.get_withdraw_status(self)
         status = withdraw_data.status
 

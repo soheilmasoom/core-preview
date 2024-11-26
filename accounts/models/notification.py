@@ -158,6 +158,7 @@ class Notification(models.Model):
                 hidden=hidden,
                 sent_telegram=not recipient.send_notifs_to_telegram_bot
             )
+
         elif not group_id:
             logger.info('failed to send notif, uuid error')
             return

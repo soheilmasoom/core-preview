@@ -1,12 +1,15 @@
 import dataclasses
+from datetime import timedelta, datetime
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Sum
 from django.utils import timezone
 
-from accounts.models import User, Account, Notification
+from accounts.models import User, Account, Notification, SmsNotification
+from accounts.utils.validation import gregorian_to_jalali_date
 from ledger.models import Asset, Wallet, Trx
 from ledger.utils.external_price import BUY
 from ledger.utils.fields import get_status_field, CANCELED, DONE, PENDING, get_group_id_field, REFUND
@@ -22,9 +25,25 @@ class DelistInfo:
     base_amounts: Decimal
 
 
+ALARM_SMS_CONTENT = """
+کاربر گرامی {brand}،
+به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از {brand} حذف خواهد شد. لطفا تا قبل از 
+آن زمان نسبت به فروش یا برداشت این توکن اقدام نمایید.
+"""
+
+ALARM_NOTIF_CONTENT = """
+به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از {brand} حذف خواهد شد. لطفا تا قبل از آن، نسبت به فروش یا برداشت این توکن اقدام نمایید.
+"""
+
+
+def default_delist_at() -> datetime:
+    delist_at = timezone.now().astimezone() + timedelta(days=7)
+    return delist_at.replace(hour=9, minute=0, second=0, microsecond=0)
+
+
 class TokenDelist(models.Model):
     created = models.DateTimeField(auto_now=True)
-    delist_at = models.DateTimeField(default=timezone.now)
+    delist_at = models.DateTimeField(default=default_delist_at)
 
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
     status = get_status_field(default=PENDING)
@@ -33,11 +52,45 @@ class TokenDelist(models.Model):
     group_id = get_group_id_field()
 
     def clean(self):
-        if self.asset.otc_status == Asset.ACTIVE:
-            raise ValidationError('Asset should not be active!')
+        if hasattr(self, 'asset'):
+            if self.asset.otc_status == Asset.ACTIVE:
+                raise ValidationError('Asset should not be active!')
 
-        if not self.asset.enable:
-            raise ValidationError('Asset should be enable!')
+            if not self.asset.enable:
+                raise ValidationError('Asset should be enable!')
+
+    def alarm_delist(self):
+        users = User.objects.filter(
+            id__in=self.get_candidate_wallets().values_list('account__user', flat=True)
+        )
+
+        coin = self.asset.symbol
+        jalali_date = str(gregorian_to_jalali_date(self.delist_at.astimezone())).replace('-', '/')
+
+        with transaction.atomic():
+            for user in users:
+                Notification.send(
+                    recipient=user,
+                    group_id=self.group_id,
+                    title=f'حذف توکن {coin}',
+                    message=ALARM_NOTIF_CONTENT.strip().format(
+                        coin=coin,
+                        delist_at=str(jalali_date),
+                        brand=settings.BRAND
+                    )
+                )
+
+                SmsNotification.objects.get_or_create(
+                    recipient=user,
+                    group_id=self.group_id,
+                    defaults={
+                        'content': ALARM_SMS_CONTENT.strip().format(
+                            coin=coin,
+                            delist_at=str(jalali_date),
+                            brand=settings.BRAND
+                        )
+                    }
+                )
 
     def reject(self):
         with transaction.atomic():
@@ -107,7 +160,7 @@ class TokenDelist(models.Model):
 
             return DelistInfo(
                 asset_amounts=humanize_number(amount_sum),
-                base_amounts=humanize_number(amount_sum * price)
+                base_amounts=humanize_number(amount_sum * price) if price else None
             )
 
         elif self.status == DONE:
@@ -179,5 +232,5 @@ class TokenDelist(models.Model):
                         humanize_number(int(base_amount))
                     ),
                     level=Notification.INFO,
-                    group_id=self.group_id
+                    # group_id=self.group_id
                 )

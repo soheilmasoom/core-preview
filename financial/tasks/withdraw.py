@@ -6,7 +6,6 @@ from django.db import transaction
 from django.utils import timezone
 
 from financial.models import FiatWithdrawRequest, Gateway
-from financial.utils.withdraw import FiatWithdraw
 from ledger.utils.fields import PENDING, PROCESS
 from ledger.utils.fraud import verify_fiat_withdraw
 

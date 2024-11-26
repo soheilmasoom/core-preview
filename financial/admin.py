@@ -4,7 +4,6 @@ from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import SimpleListFilter
-from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from django.utils.safestring import mark_safe
@@ -13,7 +12,6 @@ from import_export import resources
 from import_export.admin import ExportMixin
 from simple_history.admin import SimpleHistoryAdmin
 
-from accounting.models import VaultItem, Vault
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
 from accounts.admin_guard.html_tags import anchor_tag, admin_page_anchor
@@ -26,9 +24,8 @@ from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAcc
     GeneralBankAccount, BankPaymentRequest, BankPaymentRequestReceipt
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
+from financial.utils.interface import get_withdraw_channel
 from financial.utils.payment_id_client import get_payment_id_client
-from financial.utils.response import get_file_response
-from financial.utils.withdraw import FiatWithdraw
 from gamify.utils import clone_model
 from ledger.utils.fields import PENDING, INIT, CANCELED, DONE, PROCESS
 from ledger.utils.precision import humanize_number
@@ -112,21 +109,21 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         ('اطلاعات درخواست', {'fields': ('created', 'status', 'amount', 'fee_amount', 'ref_id', 'bank_account',
          'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time', 'gateway', 'get_risks', 'accepted_by')}),
         ('اطلاعات کاربر', {'fields': (
-            'get_withdraw_request_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
+            'get_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
         )}),
         ('نظر', {'fields': ('comment',)})
     )
     list_filter = ('status', UserRialWithdrawRequestFilter, )
     ordering = ('-created', )
     readonly_fields = (
-        'created', 'bank_account', 'amount', 'get_withdraw_request_iban', 'fee_amount', 'get_risks',
+        'created', 'bank_account', 'amount', 'get_iban', 'fee_amount', 'get_risks',
         'get_withdraw_request_user', 'get_withdraw_request_receive_time', 'get_user', 'login_activity',
         'get_withdraw_request_receive_time', 'get_withdraw_request_withdraw_time',
-        'accepted_by', 'accepted_datetime'
+        'accepted_by', 'accepted_datetime', 'get_gateway'
     )
     search_fields = ('bank_account__iban', 'bank_account__user__phone', 'group_id', 'ref_id')
 
-    list_display = ('created', 'bank_account', 'get_user', 'status', 'amount', 'gateway', 'ref_id')
+    list_display = ('created', 'get_iban', 'get_user', 'status', 'get_amount', 'get_gateway', 'ref_id')
 
     actions = ('accept_withdraw_request', 'reject_withdraw_request', 'refund', 'resend_withdraw_request',
                'change_to_active_gateway', 'accept_manual')
@@ -139,12 +136,19 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description='کاربر')
     def get_user(self, withdraw_request: FiatWithdrawRequest):
-        link = url_to_edit_object(withdraw_request.bank_account.user)
-        return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, withdraw_request.bank_account.user))
+        return admin_page_anchor(withdraw_request.bank_account.user)
 
     @admin.display(description='شماره شبا')
-    def get_withdraw_request_iban(self, withdraw_request: FiatWithdrawRequest):
-        return withdraw_request.bank_account.iban
+    def get_iban(self, withdraw_request: FiatWithdrawRequest):
+        return admin_page_anchor(withdraw_request.bank_account)
+
+    @admin.display(description='درگاه')
+    def get_gateway(self, withdraw_request: FiatWithdrawRequest):
+        return admin_page_anchor(withdraw_request.gateway)
+
+    @admin.display(description='مقدار')
+    def get_amount(self, withdraw_request: FiatWithdrawRequest):
+        return humanize_number(withdraw_request.amount)
 
     @admin.display(description='risks')
     def get_risks(self, transfer):
@@ -503,7 +507,7 @@ class ManualTransferAdmin(admin.ModelAdmin):
         obj.save()
 
         if obj.status == ManualTransfer.PROCESS:
-            handler = FiatWithdraw.get_withdraw_channel(obj.gateway)
+            handler = get_withdraw_channel(obj.gateway)
 
             handler.create_withdraw(transfer=obj)
 

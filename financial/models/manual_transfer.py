@@ -1,5 +1,6 @@
 from django.db import models
-from .withdraw_request import BaseTransfer
+
+from financial.models.base_transfer import BaseTransfer
 
 
 class ManualTransfer(BaseTransfer):

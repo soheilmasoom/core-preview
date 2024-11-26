@@ -248,6 +248,12 @@ class Transfer(models.Model):
     def alert_user(self):
         user = self.wallet.account.user
 
+        def summarize(address: str):
+            if len(address) < 20:
+                return address
+            else:
+                return f'{address[:9]}...{address[-8:]}'
+
         if user and user.is_active:
             if self.deposit:
                 if self.source == WithdrawSources.INTERNAL_ACCOUNT:
@@ -256,7 +262,7 @@ class Transfer(models.Model):
                     template = 'internal_crypto_deposit_successful'
                 else:
                     title = 'دریافت شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
-                    message = 'از ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
+                    message = 'از آدرس %s' % summarize(self.out_address)
                     template = 'crypto_deposit_successful'
             else:
                 if self.source == WithdrawSources.INTERNAL_ACCOUNT:
@@ -265,7 +271,7 @@ class Transfer(models.Model):
                     template = 'internal_crypto_withdraw_successful'
                 else:
                     title = 'ارسال شد: %s %s' % (humanize_number(self.amount), self.wallet.asset.name_fa)
-                    message = 'به ادرس %s...%s ' % (self.out_address[-8:], self.out_address[:9])
+                    message = 'به آدرس %s' % summarize(self.out_address)
                     template = 'crypto_withdraw_successful'
 
 

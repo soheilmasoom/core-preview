@@ -103,7 +103,8 @@ def get_common_system_risks(account: Account) -> list:
 
     deposits = transfers.filter(
         deposit=True,
-        created__gte=timezone.now() - timedelta(days=1)
+        created__gte=timezone.now() - timedelta(days=1),
+        network__isnull=False
     ).values('network', 'wallet__asset').annotate(value=Sum('usdt_value'))
 
     for deposit in deposits:
