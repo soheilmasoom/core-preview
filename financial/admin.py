@@ -109,21 +109,21 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         ('اطلاعات درخواست', {'fields': ('created', 'status', 'amount', 'fee_amount', 'ref_id', 'bank_account',
          'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time', 'gateway', 'get_risks', 'accepted_by')}),
         ('اطلاعات کاربر', {'fields': (
-            'get_withdraw_request_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
+            'get_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
         )}),
         ('نظر', {'fields': ('comment',)})
     )
     list_filter = ('status', UserRialWithdrawRequestFilter, )
     ordering = ('-created', )
     readonly_fields = (
-        'created', 'bank_account', 'amount', 'get_withdraw_request_iban', 'fee_amount', 'get_risks',
+        'created', 'bank_account', 'amount', 'get_iban', 'fee_amount', 'get_risks',
         'get_withdraw_request_user', 'get_withdraw_request_receive_time', 'get_user', 'login_activity',
         'get_withdraw_request_receive_time', 'get_withdraw_request_withdraw_time',
-        'accepted_by', 'accepted_datetime'
+        'accepted_by', 'accepted_datetime', 'get_gateway'
     )
     search_fields = ('bank_account__iban', 'bank_account__user__phone', 'group_id', 'ref_id')
 
-    list_display = ('created', 'bank_account', 'get_user', 'status', 'amount', 'gateway', 'ref_id')
+    list_display = ('created', 'get_iban', 'get_user', 'status', 'get_amount', 'get_gateway', 'ref_id')
 
     actions = ('accept_withdraw_request', 'reject_withdraw_request', 'refund', 'resend_withdraw_request',
                'change_to_active_gateway', 'accept_manual')
@@ -139,12 +139,16 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         return admin_page_anchor(withdraw_request.bank_account.user)
 
     @admin.display(description='شماره شبا')
-    def get_withdraw_request_iban(self, withdraw_request: FiatWithdrawRequest):
+    def get_iban(self, withdraw_request: FiatWithdrawRequest):
         return admin_page_anchor(withdraw_request.bank_account)
-    #
-    # @admin.display(description='شماره شبا')
-    # def get_withdraw_request_iban(self, withdraw_request: FiatWithdrawRequest):
-    #     return withdraw_request.bank_account.iban
+
+    @admin.display(description='درگاه')
+    def get_gateway(self, withdraw_request: FiatWithdrawRequest):
+        return admin_page_anchor(withdraw_request.gateway)
+
+    @admin.display(description='مقدار')
+    def get_amount(self, withdraw_request: FiatWithdrawRequest):
+        return humanize_number(withdraw_request.amount)
 
     @admin.display(description='risks')
     def get_risks(self, transfer):
