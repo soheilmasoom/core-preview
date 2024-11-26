@@ -1,13 +1,17 @@
+import logging
 from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
 
+from accounts.verifiers.utils import ServerError
 from financial.exceptions import NoChannelError
 from financial.models import Gateway, Payment, PaymentId
 from financial.utils.interface import get_withdraw_channel
 from financial.utils.payment_id_client import get_payment_id_client
 from ledger.utils.fields import PENDING
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task(queue='finance')
@@ -31,6 +35,8 @@ def handle_missing_payments():
             channel.update_missing_payments()
         except NoChannelError:
             pass
+        except ServerError as e:
+            logger.info(f'Failed to update missing payments due to {e}')
 
 
 @shared_task(queue='finance')
