@@ -170,7 +170,7 @@ class ZibalChannel(BaseChannel):
             path='/v1/gateway/report/transaction',
             method='POST',
             data={'merchantId': merchant_id, 'status': status},
-            timeout=45
+            timeout=90
         )
 
     def update_missing_payments(self):
