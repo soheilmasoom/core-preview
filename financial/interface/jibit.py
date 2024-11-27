@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List
 
 import requests
+from django.utils import timezone
 
 from accounts.verifiers.utils import Response, ServerError
 from financial.exceptions import ProviderError
@@ -181,7 +182,7 @@ class JibitChannel(BaseChannel):
                 'page': page,
                 'size': page_size,
                 'state': 'MANUALLY_FAILED',
-                'from': start.strftime('%Y-%m-%dT%H:%M:%S')
+                'from': start.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             })
 
             data = resp.get_success_data()
