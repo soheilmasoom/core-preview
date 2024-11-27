@@ -79,6 +79,8 @@ class JibitChannel(BaseChannel):
         )
 
     def get_instant_banks(self) -> list:
+        return []  # instant withdraw disabled
+
         swift_codes = self.collect_api('/v2/banks/status').data or []
 
         if not swift_codes:
