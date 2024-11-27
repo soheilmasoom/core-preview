@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Union
+from typing import Union, List
 
 from financial.models import Gateway
 from financial.models.withdraw_request import BaseTransfer
@@ -21,6 +21,13 @@ class WithdrawDTO:
     status: str
     receive_datetime: Union[datetime, None] = None
     message: str = ''
+
+
+@dataclass
+class WithdrawRefundedDTO:
+    id: int
+    amount: int
+    ref_id: str
 
 
 class BaseChannel:
@@ -45,3 +52,6 @@ class BaseChannel:
 
     def is_active(self):
         return bool(self.gateway.withdraw_api_secret_encrypted)
+
+    def get_refunded_withdraws(self, start: datetime) -> List[WithdrawRefundedDTO]:
+        return []
