@@ -38,7 +38,9 @@ class ZibalChannel(BaseChannel):
             resp_data = resp.json()
 
         except (requests.exceptions.ConnectionError, JSONDecodeError, TimeoutError):
-            raise ServerError('Zibal connection error')
+            raise ServerError({
+                'message': 'Zibal connection error'
+            })
 
         if not resp_data['result'] == 1:
             print(resp_data)
