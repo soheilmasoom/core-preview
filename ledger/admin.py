@@ -1521,7 +1521,7 @@ class NetworkScheduleAdmin(SimpleHistoryAdmin):
 
 @admin.register(models.ProxyWallet)
 class ProxyWalletAdmin(AdvancedAdmin):
-    list_display = ('created', 'network', 'address',)
+    list_display = ('created', 'network', 'address', 'comment')
     readonly_fields = ('created', 'address',)
     list_filter = ('network',)
     search_fields = ('address',)
