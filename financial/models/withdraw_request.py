@@ -121,7 +121,11 @@ class FiatWithdrawRequest(BaseTransfer):
         if not s:
             return
 
-        self.comment = '\n'.join([self.comment, s])
+        if self.comment:
+            self.comment += '\n' + s
+        else:
+            self.comment = s
+
         self.save(update_fields=['comment'])
 
     def update_status(self):
