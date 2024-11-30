@@ -31,8 +31,18 @@ ALARM_SMS_CONTENT = """
 آن زمان نسبت به فروش یا برداشت این توکن اقدام نمایید.
 """
 
+ALARM_SMS_CONTENT_NO_WITHDRAW = """
+کاربر گرامی {brand}،
+به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از {brand} حذف خواهد شد. لطفا تا قبل از 
+آن زمان نسبت به فروش این توکن اقدام نمایید.
+"""
+
 ALARM_NOTIF_CONTENT = """
 به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از {brand} حذف خواهد شد. لطفا تا قبل از آن، نسبت به فروش یا برداشت این توکن اقدام نمایید.
+"""
+
+ALARM_NOTIF_CONTENT_NO_WITHDRAW = """
+به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از {brand} حذف خواهد شد. لطفا تا قبل از آن، نسبت به فروش این توکن اقدام نمایید.
 """
 
 
@@ -50,6 +60,32 @@ class TokenDelist(models.Model):
 
     testers = models.ManyToManyField(User, limit_choices_to={'is_staff': True}, blank=True)
     group_id = get_group_id_field()
+
+    can_withdraw = models.BooleanField(default=True, help_text='Changes notification texts')
+
+    def get_alarm_notif_content(self):
+        template = ALARM_NOTIF_CONTENT if self.can_withdraw else ALARM_NOTIF_CONTENT_NO_WITHDRAW
+
+        coin = self.asset.symbol
+        jalali_date = str(gregorian_to_jalali_date(self.delist_at.astimezone())).replace('-', '/')
+
+        return template.strip().format(
+            coin=coin,
+            delist_at=str(jalali_date),
+            brand=settings.BRAND
+        )
+
+    def get_alarm_sms_content(self):
+        template = ALARM_SMS_CONTENT if self.can_withdraw else ALARM_SMS_CONTENT_NO_WITHDRAW
+
+        coin = self.asset.symbol
+        jalali_date = str(gregorian_to_jalali_date(self.delist_at.astimezone())).replace('-', '/')
+
+        return template.strip().format(
+            coin=coin,
+            delist_at=str(jalali_date),
+            brand=settings.BRAND
+        )
 
     def clean(self):
         if hasattr(self, 'asset'):
@@ -75,7 +111,9 @@ class TokenDelist(models.Model):
         )
 
         coin = self.asset.symbol
-        jalali_date = str(gregorian_to_jalali_date(self.delist_at.astimezone())).replace('-', '/')
+
+        alarm_notif_content = self.get_alarm_notif_content()
+        alarm_sms_content = self.get_alarm_sms_content()
 
         with transaction.atomic():
             for user in users:
@@ -83,11 +121,7 @@ class TokenDelist(models.Model):
                     recipient=user,
                     group_id=self.group_id,
                     title=f'حذف توکن {coin}',
-                    message=ALARM_NOTIF_CONTENT.strip().format(
-                        coin=coin,
-                        delist_at=str(jalali_date),
-                        brand=settings.BRAND
-                    )
+                    message=alarm_notif_content
                 )
 
             for user in to_sms_users:
@@ -95,11 +129,7 @@ class TokenDelist(models.Model):
                     recipient=user,
                     group_id=self.group_id,
                     defaults={
-                        'content': ALARM_SMS_CONTENT.strip().format(
-                            coin=coin,
-                            delist_at=str(jalali_date),
-                            brand=settings.BRAND
-                        )
+                        'content': alarm_sms_content
                     }
                 )
 
