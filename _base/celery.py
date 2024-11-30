@@ -203,10 +203,19 @@ app.conf.beat_schedule = {
 
     'handle_missing_payment_ids': {
         'task': 'financial.tasks.gateway.handle_missing_payment_ids',
-        'schedule': 30 * TASK_MULTIPLIER,
+        'schedule': 60 * TASK_MULTIPLIER,
         'options': {
             'queue': 'finance',
-            'expires': 30 * TASK_MULTIPLIER
+            'expires': 60 * TASK_MULTIPLIER
+        },
+    },
+
+    'check_withdraw_refunds': {
+        'task': 'financial.tasks.gateway.check_withdraw_refunds',
+        'schedule': crontab(minute=0),
+        'options': {
+            'queue': 'finance',
+            'expires': 3600
         },
     },
 

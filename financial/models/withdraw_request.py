@@ -105,16 +105,28 @@ class FiatWithdrawRequest(BaseTransfer):
             withdraw = api_handler.create_withdraw(transfer=self)
             self.ref_id = withdraw.tracking_id
             self.receive_datetime = withdraw.receive_datetime
-            self.comment = withdraw.message
 
-            self.save(update_fields=['ref_id', 'withdraw_datetime', 'receive_datetime', 'comment'])
+            self.add_comment(withdraw.message)
+
+            self.save(update_fields=['ref_id', 'withdraw_datetime', 'receive_datetime'])
             self.change_status(withdraw.status)
 
         except ProviderError as e:
-            self.comment = str(e)
-            self.save(update_fields=['comment', 'withdraw_datetime'])
+            self.add_comment(str(e))
+            self.save(update_fields=['withdraw_datetime'])
 
             send_system_message("Manual fiat withdraw", link=url_to_edit_object(self))
+
+    def add_comment(self, s: str):
+        if not s:
+            return
+
+        if self.comment:
+            self.comment += '\n' + s
+        else:
+            self.comment = s
+
+        self.save(update_fields=['comment'])
 
     def update_status(self):
         withdraw_handler = get_withdraw_channel(self.gateway)
@@ -176,7 +188,7 @@ class FiatWithdrawRequest(BaseTransfer):
             }
         )
 
-    def refund(self):
+    def refund(self) -> bool:
         assert self.status == DONE
 
         content = render_to_string('accounts/notif/sms/withdraw_refund.txt', context={
@@ -202,30 +214,31 @@ class FiatWithdrawRequest(BaseTransfer):
             self.status = REFUND
             self.save(update_fields=['status'])
 
-    def change_status(self, new_status: str):
-        with transaction.atomic():
+        return True
+
+    def change_status(self, new_status: str) -> bool:
+        with WalletPipeline() as pipeline:  # type: WalletPipeline
             withdraw = FiatWithdrawRequest.objects.select_for_update().get(id=self.id)
 
             old_status = withdraw.status
 
-            if old_status == new_status:
-                return
+            if old_status in (CANCELED, DONE) or old_status == new_status:
+                return False
 
-            assert old_status not in (CANCELED, DONE)
+            if new_status in (CANCELED, DONE):
+                pipeline.release_lock(withdraw.group_id)
 
-            with WalletPipeline() as pipeline:  # type: WalletPipeline
-                if new_status in (CANCELED, DONE):
-                    pipeline.release_lock(withdraw.group_id)
+            if (old_status, new_status) in (PROCESS, PENDING):
+                withdraw.withdraw_datetime = timezone.now()
+            elif new_status == DONE:
+                withdraw.build_trx(pipeline)
 
-                if (old_status, new_status) in (PROCESS, PENDING):
-                    withdraw.withdraw_datetime = timezone.now()
-                elif new_status == DONE:
-                    withdraw.build_trx(pipeline)
-
-                withdraw.status = new_status
-                withdraw.save(update_fields=['status'])
+            withdraw.status = new_status
+            withdraw.save(update_fields=['status'])
 
         self.alert_withdraw_verify_status()
+
+        return True
 
     def clean(self):
         old = None

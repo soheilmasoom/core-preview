@@ -274,7 +274,6 @@ class Transfer(models.Model):
                     message = 'به آدرس %s' % summarize(self.out_address)
                     template = 'crypto_withdraw_successful'
 
-
             Notification.send(
                 recipient=self.wallet.account.user,
                 title=title,
@@ -397,6 +396,7 @@ class Transfer(models.Model):
 
         permissions = [
             ("list_transfer", "Can list transfer"),
+            ("manage_transfers", "Can manage transfers"),
         ]
 
     def __str__(self):

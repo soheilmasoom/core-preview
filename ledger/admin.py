@@ -694,6 +694,9 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     def get_queryset(self, request):
         return super(TransferAdmin, self).get_queryset(request).select_related('wallet__account__user')
 
+    def has_manage_permission(self, request, obj=None):
+        return request.user.has_perm("ledger.manage_transfers")
+
     @admin.display(description='Asset')
     def get_asset(self, transfer: models.Transfer):
         return transfer.wallet.asset
@@ -764,7 +767,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         for transfer in queryset.filter(deposit=False, status=INIT):
             transfer.reject()
 
-    @admin.action(description='تایید واریز', permissions=['change'])
+    @admin.action(description='تایید واریز', permissions=['manage'])
     def accept_deposit(self, request, queryset):
         queryset = queryset.filter(
             status=INIT,
@@ -777,17 +780,17 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             for transfer in queryset:
                 transfer.accept()
 
-    @admin.action(description='رد واریز', permissions=['change'])
+    @admin.action(description='رد واریز', permissions=['manage'])
     def reject_deposit(self, request, queryset):
         for transfer in queryset.filter(deposit=True, status__in=[INIT, PENDING]):
             transfer.reject()
 
-    @admin.action(description='Revert Deposit', permissions=['change'])
+    @admin.action(description='Revert Deposit', permissions=['manage'])
     def refund_deposit(self, request, queryset):
         for transfer in queryset.filter(deposit=True, status=DONE):
             transfer.revert()
 
-    @admin.action(description='Accept Canceled Deposits', permissions=['change'])
+    @admin.action(description='Accept Canceled Deposits', permissions=['manage'])
     def accept_canceled_deposits(self, request, queryset):
         queryset = queryset.filter(
             status=CANCELED,
@@ -1520,7 +1523,7 @@ class NetworkScheduleAdmin(SimpleHistoryAdmin):
 
 @admin.register(models.ProxyWallet)
 class ProxyWalletAdmin(AdvancedAdmin):
-    list_display = ('created', 'network', 'address',)
+    list_display = ('created', 'network', 'address', 'comment')
     readonly_fields = ('created', 'address',)
     list_filter = ('network',)
     search_fields = ('address',)

@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
+from json import JSONDecodeError
 
 import pytz
 import requests
@@ -33,15 +34,13 @@ class ZibalChannel(BaseChannel):
             else:
                 method_prop = getattr(requests, method.lower())
                 resp = method_prop(json=data, **request_kwargs)
-        except requests.exceptions.ConnectionError:
-            logger.error('zibal connection error', extra={
-                'url': url,
-                'method': method,
-                'data': data,
-            })
-            raise TimeoutError
 
-        resp_data = resp.json()
+            resp_data = resp.json()
+
+        except (requests.exceptions.ConnectionError, JSONDecodeError, TimeoutError):
+            raise ServerError({
+                'message': 'Zibal connection error'
+            })
 
         if not resp_data['result'] == 1:
             print(resp_data)
@@ -126,7 +125,8 @@ class ZibalChannel(BaseChannel):
         return WithdrawDTO(
             tracking_id=data['id'],
             status=status,
-            receive_datetime=receive_datetime.replace(tzinfo=pytz.utc).astimezone()
+            receive_datetime=receive_datetime.replace(tzinfo=pytz.utc).astimezone(),
+            message=data.get('message', '')
         )
 
     def get_withdraw_status(self, transfer: BaseTransfer) -> WithdrawDTO:
@@ -169,7 +169,7 @@ class ZibalChannel(BaseChannel):
             path='/v1/gateway/report/transaction',
             method='POST',
             data={'merchantId': merchant_id, 'status': status},
-            timeout=45
+            timeout=90
         )
 
     def update_missing_payments(self):

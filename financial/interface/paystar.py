@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import logging
+from json import JSONDecodeError
 
 import requests
 from django.core.cache import cache
@@ -65,7 +66,10 @@ class PaystarChannel(BaseChannel):
             })
             raise TimeoutError
 
-        resp_data = resp.json()
+        try:
+            resp_data = resp.json()
+        except JSONDecodeError:
+            resp_data = {'data': None}
 
         if self.verbose or not resp.ok:
             print('status', resp.status_code)

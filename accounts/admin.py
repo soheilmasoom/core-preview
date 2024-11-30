@@ -289,6 +289,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     fields_view_conditions = {
         'get_selfie_image': M.has_perm('accounts.can_view_user_selfie'),
+        'password': M.superuser
     }
 
     fields_edit_conditions = {
