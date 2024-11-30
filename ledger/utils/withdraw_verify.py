@@ -44,14 +44,18 @@ def auto_withdraw_verify(transfer: Transfer) -> bool:
 
     risks = [*common_system_risks, *system_risks, *fata_risks]
 
+    any_risk = [*common_system_risks]
+    if fata_risks and not fata_risks[0].whitelist:
+        any_risk.extend(fata_risks)
+
+    if system_risks and not system_risks[0].whitelist:
+        any_risk.extend(system_risks)
+
     if risks:
         transfer.risks = list(map(dataclasses.asdict, risks))
         transfer.save(update_fields=['risks'])
 
-        if fata_risks and fata_risks[0].whitelist:
-            risks = system_risks
-
-    return not bool(risks)
+    return not bool(any_risk)
 
 
 @dataclasses.dataclass
