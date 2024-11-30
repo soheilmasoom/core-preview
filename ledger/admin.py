@@ -392,15 +392,32 @@ class OTCUserFilter(SimpleListFilter):
         return [(1, 1)]
 
     def queryset(self, request, queryset):
-        user = request.GET.get('user')
+        user = self.value()
+
         if user is not None:
             return queryset.filter(otc_request__account__user_id=user)
         else:
             return queryset
 
 
+class OTCSideFilter(SimpleListFilter):
+    title = 'side'
+    parameter_name = 'side'
+
+    def lookups(self, request, model_admin):
+        return models.OTCRequest.SIDE_CHOICES
+
+    def queryset(self, request, queryset):
+        side = self.value()
+
+        if side:
+            return queryset.filter(otc_request__side=side)
+        else:
+            return queryset
+
+
 class OrderTypeOTCFilter(SimpleListFilter):
-    title = 'Order Type'
+    title = 'order type'
     parameter_name = 'order_type'
 
     def lookups(self, request, model_admin):
@@ -419,7 +436,7 @@ class OrderTypeOTCFilter(SimpleListFilter):
 class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'get_username', 'otc_request', 'get_order_type', 'status', 'get_value', 'get_value_irt',
                     'execution_type', 'gap_revenue', 'hedged')
-    list_filter = (OTCUserFilter, 'status', 'execution_type', 'hedged', OrderTypeOTCFilter)
+    list_filter = (OrderTypeOTCFilter, OTCSideFilter, 'status', 'execution_type', 'hedged', OTCUserFilter)
     search_fields = ('group_id', 'order_id', 'otc_request__symbol__asset__symbol', 'otc_request__account__user__phone')
     readonly_fields = ('otc_request', 'get_username', 'get_order_type', 'group_id')
     actions = ('accept_trade', 'accept_trade_without_hedge', 'cancel_trade', 'revert')
