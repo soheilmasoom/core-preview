@@ -1383,12 +1383,12 @@ class TokenDelistAdmin(admin.ModelAdmin):
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
-        for delist in queryset.filter(status=PENDING):
+        for delist in queryset.filter(status=PENDING, delist_at__lt=timezone.now()):
             delist.accept()
 
     @admin.action(description='Test', permissions=['change'])
     def accept_for_testers(self, request, queryset):
-        for delist in queryset.filter(status=PENDING):
+        for delist in queryset.filter(status=PENDING, delist_at__lt=timezone.now()):
             with WalletPipeline() as pipeline:
                 delist.change_funds(pipeline, only_testers=True)
 
