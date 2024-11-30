@@ -21,6 +21,7 @@ from ledger.utils.precision import humanize_number
 FATA_SAFE_DEBT_IRT_VALUE = -3_000_000
 FATA_RISKY_DEBT_IRT_VALUE = -10_000_000
 
+WHITELIST_DAILY_WITHDRAW_IRT_VALUE = 500_000
 SAFE_DAILY_WITHDRAW_VALUE = 400
 SAFE_MONTHLY_WITHDRAW_VALUE = 40_000
 
@@ -209,6 +210,21 @@ def get_withdraw_system_risks(transfer: Transfer) -> list:
     current_day_withdraw_value = withdraws.filter(
         created__gte=timezone.now() - timedelta(days=1)
     ).aggregate(value=Sum('usdt_value'))['value'] or 0
+
+    current_day_withdraw_irt_value = withdraws.filter(
+        created__gte=timezone.now() - timedelta(days=1)
+    ).aggregate(value=Sum('irt_value'))['value'] or 0
+
+    if current_day_withdraw_irt_value < WHITELIST_DAILY_WITHDRAW_IRT_VALUE:
+        return [
+            RiskFactor(
+                reason=RiskFactor.DAY_HIGH_WITHDRAW,
+                value=round(current_day_withdraw_irt_value),
+                expected=round(WHITELIST_DAILY_WITHDRAW_IRT_VALUE),
+                whitelist=True,
+                type=RiskFactor.TYPE_SYSTEM,
+            )
+        ]
 
     if current_day_withdraw_value > SAFE_DAILY_WITHDRAW_VALUE:
         risks.append(
