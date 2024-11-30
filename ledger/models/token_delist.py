@@ -8,7 +8,7 @@ from django.db import models, transaction
 from django.db.models import Sum
 from django.utils import timezone
 
-from accounts.models import User, Account, Notification, SmsNotification
+from accounts.models import User, Account, Notification, SmsNotification, SystemConfig
 from accounts.utils.validation import gregorian_to_jalali_date
 from ledger.models import Asset, Wallet, Trx
 from ledger.utils.external_price import BUY
@@ -60,8 +60,18 @@ class TokenDelist(models.Model):
                 raise ValidationError('Asset should be enable!')
 
     def alarm_delist(self):
+        wallets = self.get_candidate_wallets()
+
         users = User.objects.filter(
-            id__in=self.get_candidate_wallets().values_list('account__user', flat=True)
+            id__in=wallets.values_list('account__user', flat=True).distinct()
+        )
+
+        price = get_price(self.asset.symbol + Asset.IRT, side=BUY)
+        config = SystemConfig.get_system_config()
+
+        to_sms_wallets = wallets.filter(balance__gte=config.min_otc_irt / price)
+        to_sms_users = User.objects.filter(
+            id__in=to_sms_wallets.values_list('account__user', flat=True).distinct()
         )
 
         coin = self.asset.symbol
@@ -80,6 +90,7 @@ class TokenDelist(models.Model):
                     )
                 )
 
+            for user in to_sms_users:
                 SmsNotification.objects.get_or_create(
                     recipient=user,
                     group_id=self.group_id,
