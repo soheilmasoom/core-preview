@@ -91,7 +91,6 @@ def check_withdraw_refunds():
                 if withdraw.status == DONE:
                     refund_done = withdraw.refund()
                     action_name = 'refunded'
-
                 else:
                     refund_done = withdraw.change_status(CANCELED)
                     action_name = 'canceled'
