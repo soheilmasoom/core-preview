@@ -159,7 +159,7 @@ def get_positions_unhealthy() -> List[MonitorDTO]:
         dead_monitors.append(
             MonitorDTO(
                 title='No Positions Liquidation Price',
-                detail=f'No liquidation price set for positions: {short_join(lost_positions_liquidation_price, 50)}',
+                detail=f'No liquidation price set for positions: {short_join(lost_positions_liquidation_price)}',
             )
         )
 
@@ -176,7 +176,7 @@ def get_positions_unhealthy() -> List[MonitorDTO]:
         dead_monitors.append(
             MonitorDTO(
                 title='Closed Positions with Asset',
-                detail=f'Closed positions non zero wallets: {short_join(closed_positions_wallets)}'
+                detail=f'Closed positions non zero wallets: {short_join(closed_positions_wallets, 50)}'
             )
         )
 
