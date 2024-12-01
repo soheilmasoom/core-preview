@@ -8,7 +8,8 @@ from accounts.models import User, UserAuthRequest
 from accounts.tasks import basic_verify_user
 from accounts.utils.similarity import clean_persian_name
 from analytics.utils.yandex import send_yandex_event
-from financial.models.bank_card import BankCard, BankCardSerializer
+from financial.models import BankCard
+from financial.serializers import BankCardSerializer
 from financial.validators import bank_card_pan_validator
 
 

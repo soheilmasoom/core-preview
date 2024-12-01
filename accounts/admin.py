@@ -22,8 +22,7 @@ from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationC
     UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
     AttributionTracker, AppConfig, SpamPhone
 from accounts.models import UserComment, TrafficSource, Referral
-from financial.models.bank_card import BankCard, BankAccount
-from financial.models.payment import Payment
+from financial.models import BankCard, BankAccount, Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
 from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_crypto_withdraw_irt_value
 from gamify.utils import check_prize_achievements

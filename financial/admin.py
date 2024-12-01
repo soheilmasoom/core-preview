@@ -366,6 +366,7 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_filter = (BankCardUserFilter, 'deleted', 'verified')
     search_fields = ('card_pan', )
     raw_id_fields = ('user',)
+    readonly_fields = ('verifier', 'reject_reason')
 
     actions = ['verify_bank_cards', 'verify_bank_cards_manual', 'reject_bank_cards_manual']
 
@@ -382,16 +383,14 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='تایید شماره کارت', permissions=['change'])
     def verify_bank_cards_manual(self, request, queryset):
-        for card in queryset:
-            card.verified = True
-            card.save()
+        for card in queryset:  # type: BankCard
+            card.accept(verifier=request.user)
             card.user.verify_level2_if_not()
 
     @admin.action(description='رد شماره کارت', permissions=['change'])
     def reject_bank_cards_manual(self, request, queryset):
-        for card in queryset:
-            card.verified = False
-            card.save()
+        for card in queryset:  # type: BankCard
+            card.reject(BankCard.MANUAL, request.user)
 
             user = card.user
 
@@ -428,7 +427,7 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_filter = (BankUserFilter, )
     search_fields = ('iban', )
     raw_id_fields = ('user', )
-    readonly_fields = ('rejected_by', )
+    readonly_fields = ('verifier', 'reject_reason')
 
     actions = ['verify_bank_accounts_manual', 'verify_bank_accounts_auto', 'reject_bank_accounts_manual']
 
@@ -452,10 +451,8 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='رد شماره شبا', permissions=['change'])
     def reject_bank_accounts_manual(self, request, queryset):
-        for bank_account in queryset:
-            bank_account.verified = False
-            bank_account.rejected_by = request.user
-            bank_account.save(update_fields=['verified', 'rejected_by'])
+        for bank_account in queryset:  # type: BankAccount
+            bank_account.reject(BankAccount.MANUAL, verifier=request.user)
 
             user = bank_account.user
 
