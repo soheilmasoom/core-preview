@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ledger', '0317_merge_0316_coldwallet_0316_proxywallet_comment'),
+        ('ledger', '0317_alter_transfer_options'),
     ]
 
     operations = [
