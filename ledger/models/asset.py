@@ -58,6 +58,7 @@ class Asset(models.Model):
     pin_to_top = models.BooleanField(default=False)
 
     hedge = models.BooleanField(default=True)
+    do_care_hedge = models.BooleanField(default=True, help_text='To be affected in hedge calculations')
 
     spread_category = models.ForeignKey('ledger.AssetSpreadCategory', on_delete=models.SET_NULL, null=True, blank=True)
 

@@ -120,12 +120,12 @@ class AssetOverview:
 
     def get_total_hedge_value(self):
         return sum([
-            abs(self.get_hedge_value(asset.symbol) or 0) for asset in Asset.live_objects.filter(hedge=True)
+            abs(self.get_hedge_value(asset.symbol) or 0) for asset in Asset.live_objects.filter(do_care_hedge=True)
         ])
 
     def get_total_cumulative_hedge_value(self):
         return sum([
-            self.get_hedge_value(asset.symbol) or 0 for asset in Asset.live_objects.filter(hedge=True)
+            self.get_hedge_value(asset.symbol) or 0 for asset in Asset.live_objects.filter(do_care_hedge=True)
         ])
 
     def get_exchange_assets_usdt(self):

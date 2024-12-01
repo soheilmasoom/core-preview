@@ -90,7 +90,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'order', 'trend', 'hedge',
         'publish_date', 'spread_category', 'otc_status', 'price_page', 'get_distribution_factor', 'margin_interest_fee'
     )
-    list_filter = ('enable', 'trend', 'spread_category', 'coincategory', 'otc_status')
+    list_filter = ('enable', 'hedge', 'do_care_hedge', 'otc_status', 'spread_category', 'coincategory', 'trend')
     list_editable = ('order', )
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'otc_status', 'order')
