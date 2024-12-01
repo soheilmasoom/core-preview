@@ -131,6 +131,9 @@ class NetworkAsset(models.Model):
 
         self.save(update_fields=to_update_fields)
 
+    def get_contract_link(self) -> str:
+        return self.network.contract_link.format(contract=self.contract)
+
     def update_info_with_blocklink(self):
         resp = get_blocklink_requester().get_contract_info(
             coin=self.asset.get_original_symbol(),

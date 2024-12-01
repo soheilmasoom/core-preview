@@ -20,6 +20,8 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     min_withdraw = serializers.SerializerMethodField()
     min_deposit = serializers.SerializerMethodField()
 
+    contract_link = serializers.SerializerMethodField()
+
     def get_min_withdraw(self, network_asset: NetworkAsset):
         return get_presentation_amount(network_asset.withdraw_min)
 
@@ -32,9 +34,12 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     def get_slow_withdraw(self, network_asset: NetworkAsset):
         return not network_asset.network.can_deposit
 
+    def get_contract_link(self, network_asset: NetworkAsset):
+        return network_asset.get_contract_link()
+
     class Meta:
         fields = ('asset', 'network', 'network_name', 'withdraw_commission', 'min_withdraw', 'min_deposit',
-                  'slow_withdraw', 'contract')
+                  'slow_withdraw', 'contract', 'contract_link')
         model = NetworkAsset
 
 

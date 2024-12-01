@@ -191,6 +191,8 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     memo_name_fa = serializers.CharField(source='network.memo_name_fa')
     memo_name = serializers.CharField(source='network.memo_name')
 
+    contract_link = serializers.SerializerMethodField()
+
     def get_can_deposit(self, network_asset: NetworkAsset):
         return network_asset.can_deposit_enabled()
 
@@ -222,11 +224,14 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     def get_slow_withdraw(self, network_asset: NetworkAsset):
         return not network_asset.network.can_deposit
 
+    def get_contract_link(self, network_asset: NetworkAsset):
+        return network_asset.get_contract_link()
+
     class Meta:
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
                   'min_deposit', 'network_name', 'address_regex', 'memo_regex', 'withdraw_precision', 'need_memo', 'min_confirm',
                   'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name', 'deposit_need_memo',
-                  'withdraw_allow_memo', 'contract')
+                  'withdraw_allow_memo', 'contract', 'contract_link')
         model = NetworkAsset
 
 
