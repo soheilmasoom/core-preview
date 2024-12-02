@@ -15,9 +15,18 @@ logger = logging.getLogger(__name__)
 
 @shared_task(queue='celery')
 def accept_pending_otc_trades():
-    expire = timezone.now() - timedelta(seconds=60)
+    pending_otc_trades = OTCTrade.objects.filter(
+        status=OTCTrade.PENDING,
+        execution_type=OTCTrade.PROVIDER,
+        otc_request__type=OTCRequest.MARKET,
+    )
 
-    for otc in OTCTrade.objects.filter(status=OTCTrade.PENDING, execution_type=OTCTrade.PROVIDER, otc_request__type=OTCRequest.MARKET, created__lt=expire):
+    now = timezone.now()
+
+    for otc in pending_otc_trades.filter(created__lt=now - timedelta(minutes=15)):
+        otc.reject(reason='HEDGE_EXPIRATION')
+
+    for otc in pending_otc_trades.filter(created__lt=now - timedelta(minutes=1)):
         try:
             otc.hedge_with_provider()
         except Exception as e:
