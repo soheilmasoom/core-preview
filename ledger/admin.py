@@ -768,7 +768,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
         return mark_safe(get_risks_html(risks))
 
-    @admin.action(description='تایید برداشت', permissions=['change'])
+    @admin.action(description='تایید برداشت', permissions=['view'])
     def accept_withdraw(self, request, queryset):
         queryset.filter(
             status=INIT,
@@ -779,7 +779,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             accepted_by=request.user
         )
 
-    @admin.action(description='رد برداشت', permissions=['change'])
+    @admin.action(description='رد برداشت', permissions=['view'])
     def reject_withdraw(self, request, queryset):
         for transfer in queryset.filter(deposit=False, status=INIT):
             transfer.reject()
