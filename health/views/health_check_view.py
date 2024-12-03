@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 import dataclasses
 import logging
 import random
@@ -15,14 +14,6 @@ from rest_framework.views import APIView
 
 from ledger.models import NetworkAsset, MarginPosition, MarginHistoryModel, Wallet
 from ledger.utils.external_price import fetch_external_price, SIDES
-
-
-class HealthView(APIView):
-    authentication_classes = ()
-    permission_classes = ()
-
-    def get(self, request):
-        return Response({'status': 'healthy!'})
 
 
 logger = logging.getLogger(__name__)
@@ -177,7 +168,7 @@ def get_positions_unhealthy() -> List[MonitorDTO]:
         dead_monitors.append(
             MonitorDTO(
                 title='Closed Positions with Asset',
-                detail=f'Closed positions non zero wallets: {short_join(closed_positions_wallets)}'
+                detail=f'Closed positions non zero wallets: {short_join(closed_positions_wallets, 50)}'
             )
         )
 
@@ -199,5 +190,3 @@ class HealthCheckView(APIView):
             return Response({'status': 'dead', 'reason': list(map(dataclasses.asdict, unhealthy_monitors))})
         else:
             return Response({'status': 'healthy'})
-=======
->>>>>>> Stashed changes
