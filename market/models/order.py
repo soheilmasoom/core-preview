@@ -117,7 +117,7 @@ class Order(models.Model):
     oco = models.ForeignKey(to='market.OCO', on_delete=models.SET_NULL, null=True, blank=True)
 
     is_open_position = models.BooleanField(null=True, default=None)
-    position = models.ForeignKey(to='ledger.MarginPosition', on_delete=models.CASCADE, null=True)
+    position = models.ForeignKey(to='ledger.MarginPosition', on_delete=models.SET_NULL, null=True, blank=True)
 
     time_in_force = models.CharField(
         max_length=6,
