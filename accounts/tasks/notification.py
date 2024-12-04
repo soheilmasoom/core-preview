@@ -45,14 +45,8 @@ def send_telegram_bot_notifications():
     if not settings.KAFTAR_TOKEN:
         return
 
-    Notification.objects.filter(
-        sent_telegram=False,
-        recipient__send_notifs_to_telegram_bot=False
-    ).update(sent_telegram=True)
-
     notifs_to_send = list(Notification.objects.filter(
         sent_telegram=False,
-        recipient__send_notifs_to_telegram_bot=True
     ).order_by('id')[:1000])
 
     data = {
