@@ -286,6 +286,7 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 @admin.register(User)
 class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, UserAdmin):
     default_edit_condition = M.superuser
+    list_per_page = 20
 
     fields_view_conditions = {
         'get_selfie_image': M.has_perm('accounts.can_view_user_selfie'),
@@ -369,9 +370,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         )})
     )
 
-    list_display = ('get_date_joined_jalali', 'get_username', 'first_name', 'last_name', 'level', 'archived', 'get_user_reject_reason',
-                    'verify_status', 'get_promotion', 'get_source_medium', 'get_referrer_user', 'is_price_notif_on',
-                    'get_suspended',)
+    list_display = ('get_date_joined_jalali', 'get_username', 'first_name', 'last_name', 'level', 'archived',
+                    'get_user_reject_reason', 'verify_status', )
     list_filter = (
         'archived', ManualNameVerifyFilter, 'level', 'national_code_phone_verified', 'date_joined', 'verify_status', 'level_2_verify_datetime',
         'level_3_verify_datetime', UserStatusFilter, UserNationalCodeFilter, AnotherUserFilter, UserPendingStatusFilter,
@@ -504,10 +504,10 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         if user.mission_journey:
             return mark_safe(admin_page_anchor(user.mission_journey))
 
-    @admin.display(description='username')
+    @admin.display(description='phone')
     def get_username(self, user: User):
         return mark_safe(
-            f'<span dir="ltr">{get_masked_phone(user.username)}</span>'
+            f'<span dir="ltr">{get_masked_phone(user.phone)}</span>'
         )
 
     @admin.display(description='suspended', boolean=True)
