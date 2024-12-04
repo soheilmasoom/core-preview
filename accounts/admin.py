@@ -504,10 +504,10 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         if user.mission_journey:
             return mark_safe(admin_page_anchor(user.mission_journey))
 
-    @admin.display(description='phone')
+    @admin.display(description='username')
     def get_username(self, user: User):
         return mark_safe(
-            f'<span dir="ltr">{get_masked_phone(user.phone)}</span>'
+            f'<span dir="ltr">{get_masked_phone(user.username)}</span>'
         )
 
     @admin.display(description='suspended', boolean=True)
