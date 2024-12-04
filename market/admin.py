@@ -118,8 +118,7 @@ class OrderAdmin(AdvancedAdmin):
         return super(OrderAdmin, self).get_queryset(request).annotate(symbol_name=F('symbol__name'))
 
     def allow_list_view(self, request):
-        return any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters)) \
-               or request.GET.get('status') == 'new' or request.GET.get('status__exact') == 'new'
+        return any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters))
 
     @admin.display(description='created', ordering='created')
     def get_created(self, order):
