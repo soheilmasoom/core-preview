@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
+from django.db.models import F
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
@@ -24,17 +25,18 @@ class BaseAssetFilter(SimpleListFilter):
             return queryset
 
 
-class UserTradeFilter(SimpleListFilter):
-    title = 'کاربر'
-    parameter_name = 'user'
+class AccountTradeFilter(SimpleListFilter):
+    title = 'account'
+    parameter_name = 'account'
 
     def lookups(self, request, model_admin):
         return [(1, 1)]
 
     def queryset(self, request, queryset):
-        user = request.GET.get('user')
-        if user is not None:
-            return queryset.filter(account__user=user)
+        account_id = self.value()
+
+        if account_id is not None:
+            return queryset.filter(account_id=account_id)
         else:
             return queryset
 
@@ -69,17 +71,18 @@ class TypeFilter(SimpleListFilter):
         return queryset
 
 
-class UserFilter(SimpleListFilter):
-    title = 'کاربر'
-    parameter_name = 'user'
+class AccountOrderFilter(SimpleListFilter):
+    title = 'account'
+    parameter_name = 'account'
 
     def lookups(self, request, model_admin):
         return (1, 1),
 
     def queryset(self, request, queryset):
-        user = request.GET.get('user')
-        if user is not None:
-            return queryset.filter(wallet__account__user_id=user)
+        account_id = self.value()
+
+        if account_id is not None:
+            return queryset.filter(wallet__account_id=account_id)
         else:
             return queryset
 
@@ -104,18 +107,27 @@ class OrderPositionFilter(admin.SimpleListFilter):
 
 @admin.register(Order)
 class OrderAdmin(AdvancedAdmin):
-    list_display = ('created', 'created_at_millis', 'symbol', 'account', 'side', 'fill_type', 'status', 'price', 'amount')
-    list_filter = (TypeFilter, UserFilter, 'side', 'fill_type', 'status', 'symbol')
-    readonly_fields = ('wallet', 'symbol', 'account', 'stop_loss', 'login_activity', 'position')
+    list_display = ('get_created', 'side', 'get_symbol', 'fill_type', 'status', 'price', 'amount')
+    list_filter = (TypeFilter, AccountOrderFilter, 'side', 'fill_type', 'status', 'symbol')
+    readonly_fields = [field.name for field in Order._meta.get_fields()]
     actions = ('cancel_order', )
 
-    list_permission_exclude_filters = ('id', 'user')
+    list_permission_exclude_filters = ('id', 'account', 'group_id')
 
-    def created_at_millis(self, instance):
-        created = instance.created.astimezone()
-        return created.strftime('%S.%f')[:-3]
+    def get_queryset(self, request):
+        return super(OrderAdmin, self).get_queryset(request).annotate(symbol_name=F('symbol__name'))
 
-    created_at_millis.short_description = 'Created Second'
+    def allow_list_view(self, request):
+        return any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters)) \
+               or request.GET.get('status') == 'new' or request.GET.get('status__exact') == 'new'
+
+    @admin.display(description='created', ordering='created')
+    def get_created(self, order):
+        return order.created.astimezone().strftime('%Y-%m-%d %H:%M:%S')
+
+    @admin.display(description='symbol')
+    def get_symbol(self, order):
+        return order.symbol_name
 
     @admin.action(description='Cancel', permissions=['change'])
     def cancel_order(self, request, queryset):
@@ -154,28 +166,28 @@ class TradePositionFilter(admin.SimpleListFilter):
 
 @admin.register(Trade)
 class TradeAdmin(AdvancedAdmin):
-    list_display = ('created', 'created_at_millis', 'account', 'symbol', 'side', 'price', 'is_maker', 'market',
-                    'amount', 'fee_amount', 'fee_revenue', 'get_value_irt', 'get_value_usdt')
-    list_filter = ('trade_source', UserTradeFilter, 'symbol', 'market')
-    readonly_fields = ('symbol', 'order_id', 'account', 'login_activity', 'group_id', 'position')
-    search_fields = ('symbol__name', )
+    list_display = ('created', 'get_symbol', 'side', 'price', 'is_maker', 'market',
+                    'amount', 'fee_amount', 'fee_revenue')
+    list_filter = ('trade_source', AccountTradeFilter, 'symbol', 'market')
+    # readonly_fields = [field.name for field in Order._meta.get_fields()]
     actions = ('revert', )
 
-    list_permission_exclude_filters = ('id', 'user')
+    list_permission_exclude_filters = ('id', 'account', 'group_id')
 
-    def created_at_millis(self, instance):
-        created = instance.created.astimezone()
-        return created.strftime('%S.%f')[:-3]
+    def get_queryset(self, request):
+        return super(TradeAdmin, self).get_queryset(request).annotate(symbol_name=F('symbol__name'))
 
-    created_at_millis.short_description = 'Created Second'
+    def allow_list_view(self, request):
+        return any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters)) \
+               or request.GET.get('status') == 'new' or request.GET.get('status__exact') == 'new'
 
-    @admin.display(description='value irt', ordering='value_irt')
-    def get_value_irt(self, trade: Trade):
-        return get_presentation_amount(trade.irt_value)
+    @admin.display(description='created', ordering='created')
+    def get_created(self, trade: Trade):
+        return trade.created.astimezone().strftime('%Y-%m-%d %H:%M:%S')
 
-    @admin.display(description='value usdt', ordering='value_usdt')
-    def get_value_usdt(self, trade: Trade):
-        return get_presentation_amount(trade.usdt_value)
+    @admin.display(description='symbol')
+    def get_symbol(self, trade):
+        return trade.symbol_name
 
     @admin.action(description='Revert', permissions=['change'])
     def revert(self, request, queryset):

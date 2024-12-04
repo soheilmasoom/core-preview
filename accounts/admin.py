@@ -532,12 +532,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     get_payment_address.short_description = 'واریزهای ریالی'
 
     def get_fill_order_address(self, user: User):
-        link = url_to_admin_list(Trade) + '?user={}'.format(user.id)
+        link = url_to_admin_list(Trade) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_fill_order_address.short_description = 'معاملات'
 
     def get_order_link(self, user: User):
-        link = url_to_admin_list(Order) + '?user={}'.format(user.id)
+        link = url_to_admin_list(Order) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_order_link.short_description = 'سفارشات'
 
@@ -548,7 +548,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     get_bots_link.short_description = 'لیست ربات‌ها'
 
     def get_open_order_address(self, user: User):
-        link = url_to_admin_list(Order) +'?status=new&user={}'.format(user.id)
+        link = url_to_admin_list(Order) +'?status__exact=new&account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_open_order_address.short_description = 'سفارشات باز'
 
