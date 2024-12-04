@@ -403,7 +403,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     preserve_filters = ('archived', )
 
     search_fields = (
-        *UserAdmin.search_fields, 'national_code', 'phone', 'traffic_source__utm_source', 'traffic_source__utm_medium',
+        'national_code', 'phone'
     )
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
