@@ -72,17 +72,14 @@ class ZibalChannel(BaseChannel):
         )
 
     def create_withdraw(self, transfer: BaseTransfer) -> WithdrawDTO:
-        # paya_banks = []
-        #
-        # if transfer.bank_account.bank not in paya_banks:
-        #     checkout_delay = -1
-        #     status = DONE
-        # else:
-        #     checkout_delay = 0
-        #     status = PENDING
+        paya_banks = []
 
-        checkout_delay = 0
-        status = PENDING
+        if transfer.bank_account.bank not in paya_banks:
+            checkout_delay = -1
+            status = DONE
+        else:
+            checkout_delay = 0
+            status = PENDING
 
         try:
             data = self.collect_api('/v1/wallet/checkout/plus', method='POST', data={
