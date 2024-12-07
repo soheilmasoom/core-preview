@@ -9,7 +9,7 @@ def create_assets(apps, schema_editor):
 
     Asset.objects.get_or_create(symbol='IRT')
 
-    symbols = ['USDT', 'BTC', 'ETH', 'BNB', 'SOL', 'SHIB', 'ADA', 'DOGE']
+    symbols = ['USDT', 'BTC', 'ETH', 'BNB', 'SOL', 'SHIB', 'ADA', 'DOGE', 'XRP']
 
     for i, symbol in enumerate(symbols):
         Asset.objects.update_or_create(symbol=symbol, defaults={'order': i + 1, 'enable': True})
