@@ -55,7 +55,7 @@ def update_withdraws():
         created__lt=timezone.now() - timedelta(seconds=FiatWithdrawRequest.FREEZE_TIME)
     ).exclude(
         withdraw_datetime__isnull=False,
-        withdraw_datetime__gte=timezone.now() - timedelta(minutes=10)
+        withdraw_datetime__gte=timezone.now() - timedelta(minutes=5)
     )
 
     for fiat_withdraw in withdraws:
