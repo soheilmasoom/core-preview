@@ -294,6 +294,19 @@ class Transfer(models.Model):
                 }
             )
 
+    def add_comment(self, s: str):
+        if not s:
+            return
+
+        s = timezone.now().astimezone().strftime('%Y-%m-%d %H:%M:%S') + ' > ' + s
+
+        if self.comment:
+            self.comment += '\n' + s
+        else:
+            self.comment = s
+
+        self.save(update_fields=['comment'])
+
     def accept(self):
         with WalletPipeline() as pipeline:  # type: WalletPipeline
             transfer = Transfer.objects.select_for_update().get(id=self.id)
@@ -324,7 +337,7 @@ class Transfer(models.Model):
             transfer.build_trx(pipeline)
             transfer.alert_user()
 
-    def reject(self):
+    def reject(self, reason: str = ''):
         with WalletPipeline() as pipeline:
             transfer = Transfer.objects.select_for_update().get(id=self.id)
             if transfer.status in self.COMPLETE_STATUSES:

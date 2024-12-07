@@ -187,15 +187,13 @@ class DepositSerializer(serializers.ModelSerializer):
                 }
             )
 
-        description = ''
-
         if not network_asset.can_deposit_enabled():
             status = INIT
-            description = 'init reason: provider deposit is not enable!'
+            transfer.add_comment('init reason: deposit is not enable!')
 
         elif not verify_crypto_deposit(transfer):
             status = INIT
-            description = 'init reason: crypto verify failed!'
+            transfer.add_comment('init reason: crypto verify failed!')
 
         if status == INIT:
             send_system_message("Verify deposit: %s" % transfer, link=url_to_admin_list(
@@ -203,10 +201,6 @@ class DepositSerializer(serializers.ModelSerializer):
             ))
 
         transfer.change_status(status)
-
-        if description:
-            transfer.comment = description
-            transfer.save(update_fields=['comment'])
 
         return transfer
 

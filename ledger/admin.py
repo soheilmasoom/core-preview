@@ -781,8 +781,8 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='رد برداشت', permissions=['view'])
     def reject_withdraw(self, request, queryset):
-        for transfer in queryset.filter(deposit=False, status=INIT):
-            transfer.reject()
+        for transfer in queryset.filter(deposit=False, status=INIT):  # type: models.Transfer
+            transfer.reject(reason='Rejected by admin')
 
     @admin.action(description='تایید واریز', permissions=['manage'])
     def accept_deposit(self, request, queryset):
@@ -800,7 +800,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     @admin.action(description='رد واریز', permissions=['manage'])
     def reject_deposit(self, request, queryset):
         for transfer in queryset.filter(deposit=True, status__in=[INIT, PENDING]):
-            transfer.reject()
+            transfer.reject(reason='Rejected by admin')
 
     @admin.action(description='Revert', permissions=['manage'])
     def revert(self, request, queryset):
