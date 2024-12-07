@@ -163,38 +163,12 @@ class Transfer(models.Model):
 
         group_id = uuid4()
 
-        if receiver_user:
-            withdraw_source = WithdrawSources.INTERNAL_ACCOUNT
-
-        elif network:
-            queryset = DepositAddress.objects.filter(address=address)
-
-            if network.deposit_need_memo and memo:
-                queryset = queryset.filter(address_key__memo=memo)
-
-            if not queryset.exists() or (network.deposit_need_memo and not memo):
-                withdraw_source = WithdrawSources.SELF
-            else:
-                withdraw_source = WithdrawSources.INTERNAL
-        else:
-            raise NotImplementedError
-
-        price_irt = get_last_price(wallet.asset.symbol + Asset.IRT) or 0
-        price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
-
         out_address = address
-        # deposit_address = None
         receiver_account = None
         trx_hash = ""
-        source = None
         fee_amount = 0
 
-        if withdraw_source == WithdrawSources.INTERNAL:
-            trx_hash = f'internal: <{str(group_id)}>'
-            source = WithdrawSources.INTERNAL
-            receiver_account = DepositAddress.objects.filter(address=address).first().address_key.account
-
-        elif withdraw_source == WithdrawSources.INTERNAL_ACCOUNT:
+        if receiver_user:
             memo = ''
             network = None
             trx_hash = f'internal_account: <{str(group_id)}>'
@@ -202,12 +176,32 @@ class Transfer(models.Model):
             out_address = get_masked_phone(receiver_user.username)
             receiver_account = receiver_user.get_account()
 
-        elif withdraw_source == WithdrawSources.SELF:
-            network_asset = NetworkAsset.objects.get(network=network, asset=wallet.asset)
-            assert network_asset.withdraw_max >= amount >= max(network_asset.withdraw_min, network_asset.withdraw_fee)
+        elif network:
+            queryset = DepositAddress.objects.filter(address=address)
 
-            fee_amount = network_asset.withdraw_fee
-            source = network_asset.withdraw_source
+            if network.deposit_need_memo and memo:
+                queryset = queryset.filter(address_key__memo=memo)
+
+            receiver_deposit_addresses = list(queryset)
+            assert len(receiver_deposit_addresses) <= 1
+
+            if not receiver_deposit_addresses or (network.deposit_need_memo and not memo):
+                network_asset = NetworkAsset.objects.get(network=network, asset=wallet.asset)
+                assert network_asset.withdraw_max >= amount >= max(network_asset.withdraw_min,
+                                                                   network_asset.withdraw_fee)
+
+                fee_amount = network_asset.withdraw_fee
+                source = network_asset.withdraw_source
+            else:
+                trx_hash = f'internal: <{str(group_id)}>'
+                source = WithdrawSources.INTERNAL
+                receiver_account = receiver_deposit_addresses[0].address_key.account
+
+        else:
+            raise NotImplementedError
+
+        price_irt = get_last_price(wallet.asset.symbol + Asset.IRT) or 0
+        price_usdt = get_last_price(wallet.asset.symbol + Asset.USDT) or 0
 
         with WalletPipeline() as pipeline:
             transfer = Transfer.objects.create(
@@ -219,7 +213,6 @@ class Transfer(models.Model):
                 irt_value=amount * price_irt,
                 group_id=group_id,
                 status=INIT,
-                # deposit_address=deposit_address,
                 trx_hash=trx_hash,
                 source=source,
                 out_address=out_address,
