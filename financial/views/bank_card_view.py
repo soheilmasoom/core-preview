@@ -3,7 +3,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import User
-from financial.models.bank_card import BankCardSerializer, BankCard
+from financial.models import BankCard
+from financial.serializers import BankCardSerializer
 
 
 class BankCardView(ModelViewSet):

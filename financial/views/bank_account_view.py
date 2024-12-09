@@ -1,10 +1,10 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import ListAPIView
 from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import User
-from financial.models.bank_card import BankAccountSerializer, BankAccount
+from financial.models import BankAccount
+from financial.serializers import BankAccountSerializer
 
 
 class BankAccountView(ModelViewSet):

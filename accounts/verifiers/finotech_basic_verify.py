@@ -157,9 +157,7 @@ def verify_user_primary_info(user: User, retry: int = 5) -> bool:
 
 def verify_bank_card(bank_card: BankCard, retry: int = 5) -> bool:
     if BankCard.live_objects.filter(card_pan=bank_card.card_pan, verified=True).exclude(id=bank_card.id).exists():
-        logger.info('rejecting bank card because of duplication')
-        bank_card.verified = False
-        bank_card.save()
+        bank_card.reject(BankCard.DUPLICATED)
         return False
 
     requester = FinotechRequester(bank_card.user)

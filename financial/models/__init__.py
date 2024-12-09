@@ -1,5 +1,6 @@
 from .bank import GeneralBankAccount
-from .bank_card import BankCard, BankAccount
+from .bank_card import BankCard
+from .bank_account import BankAccount
 from .payment import PaymentRequest, Payment
 from .payment_id import PaymentId, PaymentIdRequest
 from .gateway import Gateway
