@@ -5,7 +5,7 @@ from financial.utils.manager import LiveManager
 
 
 class BaseBankEntity(models.Model):
-    REJECT_REASONS = DUPLICATED, NAME_MISMATCH, CREDIT_CARD, MANUAL = 'duplicated', 'name.mismatch', 'type.credit', 'manual'
+    REJECT_REASONS = DUPLICATED, NAME_MISMATCH, CREDIT_CARD, MANUAL, TRANSACTION_REFUND = 'duplicated', 'name.mismatch', 'type.credit', 'manual', 'trx_refund'
 
     objects = models.Manager()
     live_objects = LiveManager()
