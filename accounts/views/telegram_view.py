@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
@@ -7,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.authentication import CustomTokenAuthentication, TelegramAccessToken
-from accounts.models import User
+from accounts.models import User, Notification
 from accounts.utils.telegram_auth_token import TelegramAuthKey
 
 
@@ -51,7 +52,15 @@ class TelegramUserView(APIView):
             raise ValidationError("No action to do!")
 
         user.send_notifs_to_telegram_bot = telegram_notif_enable == '1'
-        user.save(update_fields=['send_notifs_to_telegram_bot'])
+
+        with transaction.atomic():
+            user.save(update_fields=['send_notifs_to_telegram_bot'])
+
+            if not user.send_notifs_to_telegram_bot:
+                Notification.objects.filter(
+                    sent_telegram=False,
+                    recipient=user
+                ).update(sent_telegram=True)
 
         return Response("done")
 

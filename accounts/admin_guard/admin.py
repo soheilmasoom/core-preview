@@ -67,10 +67,16 @@ class AdvancedAdmin(ModelAdmin):
     def get_add_mode(self, request):
         return request.path.endswith('/add/')
 
-    def get_changelist(self, request, **kwargs):
-        if self.list_permission_exclude_filters is None or self.has_list_permission(request) or \
-                any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters)):
+    def allow_list_view(self, request):
+        allowed_filters = self.list_permission_exclude_filters
+        if allowed_filters:
+            allowed_filters = list(allowed_filters) + [f + '__exact' for f in allowed_filters]
 
+        return self.list_permission_exclude_filters is None or self.has_list_permission(request) or \
+                any(map(lambda f: request.GET.get(f), allowed_filters))
+
+    def get_changelist(self, request, **kwargs):
+        if self.allow_list_view(request):
             return super(AdvancedAdmin, self).get_changelist(request, **kwargs)
 
         raise PermissionDenied

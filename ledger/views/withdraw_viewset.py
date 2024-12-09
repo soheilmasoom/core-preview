@@ -25,7 +25,7 @@ class WithdrawViewSet(ModelViewSet):
         if transfer.status != INIT and not transfer.in_freeze_time():
             raise ValidationError({'status': 'زمان لازم برای لغو برداشت تمام شده است.'})
 
-        transfer.reject()
+        transfer.reject(reason='Rejected by user')
 
     def get_queryset(self):
         query_params = self.request.query_params

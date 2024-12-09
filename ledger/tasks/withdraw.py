@@ -105,14 +105,7 @@ def create_withdraw(transfer_id: int):
 
         elif response.status_code == 400 and reject_type == 'Invalid':
             logger.info('withdraw failed %s %s %s' % (transfer.id, response.status_code, resp_data))
-
-            if transfer.comment:
-                transfer.comment += '\n\n'
-
-            transfer.comment += f'Blocklink reject reason: {reject_reason}'
-            transfer.save(update_fields=['comment'])
-
-            transfer.reject()
+            transfer.reject(reason=f'Rejected by blocklink: {reject_reason}')
 
             if reject_reason == 'InvalidReceiverAddress':
                 user = transfer.wallet.account.user

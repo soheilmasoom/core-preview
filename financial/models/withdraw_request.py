@@ -121,6 +121,8 @@ class FiatWithdrawRequest(BaseTransfer):
         if not s:
             return
 
+        s = timezone.now().astimezone().strftime('%Y-%m-%d %H:%M:%S') + ' > ' + s
+
         if self.comment:
             self.comment += '\n' + s
         else:

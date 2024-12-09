@@ -285,6 +285,7 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 @admin.register(User)
 class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, UserAdmin):
     default_edit_condition = M.superuser
+    list_per_page = 20
 
     fields_view_conditions = {
         'get_selfie_image': M.has_perm('accounts.can_view_user_selfie'),
@@ -368,9 +369,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         )})
     )
 
-    list_display = ('get_date_joined_jalali', 'get_username', 'first_name', 'last_name', 'level', 'archived', 'get_user_reject_reason',
-                    'verify_status', 'get_promotion', 'get_source_medium', 'get_referrer_user', 'is_price_notif_on',
-                    'get_suspended',)
+    list_display = ('get_date_joined_jalali', 'get_username', 'first_name', 'last_name', 'level', 'archived',
+                    'get_user_reject_reason', 'verify_status', )
     list_filter = (
         'archived', ManualNameVerifyFilter, 'level', 'national_code_phone_verified', 'date_joined', 'verify_status', 'level_2_verify_datetime',
         'level_3_verify_datetime', UserStatusFilter, UserNationalCodeFilter, AnotherUserFilter, UserPendingStatusFilter,
@@ -402,7 +402,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     preserve_filters = ('archived', )
 
     search_fields = (
-        *UserAdmin.search_fields, 'national_code', 'phone', 'traffic_source__utm_source', 'traffic_source__utm_medium',
+        'national_code', 'phone'
     )
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
@@ -531,12 +531,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     get_payment_address.short_description = 'واریزهای ریالی'
 
     def get_fill_order_address(self, user: User):
-        link = url_to_admin_list(Trade) + '?user={}'.format(user.id)
+        link = url_to_admin_list(Trade) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_fill_order_address.short_description = 'معاملات'
 
     def get_order_link(self, user: User):
-        link = url_to_admin_list(Order) + '?user={}'.format(user.id)
+        link = url_to_admin_list(Order) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_order_link.short_description = 'سفارشات'
 
@@ -547,7 +547,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     get_bots_link.short_description = 'لیست ربات‌ها'
 
     def get_open_order_address(self, user: User):
-        link = url_to_admin_list(Order) +'?status=new&user={}'.format(user.id)
+        link = url_to_admin_list(Order) +'?status__exact=new&account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_open_order_address.short_description = 'سفارشات باز'
 

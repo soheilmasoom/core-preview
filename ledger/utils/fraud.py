@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Sum
+from django.db.models import Sum, F
 from django.utils import timezone
 
 from accounts.models import SystemConfig
@@ -50,7 +50,7 @@ def verify_fiat_deposit(payment) -> bool:
     payments_sum = Payment.objects.filter(
         created__gte=timezone.now() - timedelta(days=1),
         user=payment.user,
-    ).exclude(status__in=[CANCELED, REFUND]).aggregate(sum=Sum('amount'))['sum'] or 0
+    ).exclude(status__in=[CANCELED, REFUND]).aggregate(sum=Sum(F('amount') + F('fee')))['sum'] or 0
 
     if payments_sum > SystemConfig.get_system_config().fiat_daily_auto_verify_limit:
         return False

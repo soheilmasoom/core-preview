@@ -274,7 +274,7 @@ class User(AbstractUser):
 
     @property
     def kyc_bank_card(self):
-        return self.bankcard_set.filter(kyc=True).first()
+        return self.bankcard_set.filter(kyc=True, deleted=False).first()
 
     def get_verify_weight(self) -> int:
         from accounts.models import UserAuthRequest
