@@ -10,7 +10,7 @@ if settings.DEBUG_OR_TESTING:
 
     from accounts.models import Account, User, VerificationCode
     from ledger.utils.external_price import get_price_redis
-    from ledger.models import Asset, AddressBook, Network, NetworkAsset, Wallet
+    from ledger.models import Asset, AddressBook, Network, NetworkAsset, Wallet, DepositAddress, AddressKey
     from financial.models import BankCard, Gateway
     from market.models import PairSymbol
     from market.utils.order_utils import new_order
@@ -60,10 +60,10 @@ if settings.DEBUG_OR_TESTING:
             user=user, )
         return otp_code.code
 
-    def new_network() -> Network:
-        symbol = 'BSC'
-        name = 'BSC'
-        address_regex = '[1-9]'
+    def new_network(symbol: str = 'BSC') -> Network:
+        symbol = symbol
+        name = symbol
+        address_regex = '.*'
         network = Network.objects.create(symbol=symbol, name=name, address_regex=address_regex)
 
         return network
@@ -72,10 +72,10 @@ if settings.DEBUG_OR_TESTING:
 
         asset = asset
         network = network
-        withdraw_fee = '0'
-        withdraw_min = '1'
-        withdraw_max = '1000'
-        withdraw_precision = '1'
+        withdraw_fee = 0
+        withdraw_min = 0
+        withdraw_max = 1000
+        withdraw_precision = 8
         network_asset = NetworkAsset.objects.create(
             asset=asset,
             network=network,
@@ -100,6 +100,14 @@ if settings.DEBUG_OR_TESTING:
         address_book = AddressBook.objects.create(name=name, address=address, account=account, network=network,
                                                   asset=asset, whitelist=whitelist)
         return address_book
+
+    def new_deposit_address(account: Account, network: Network, address: str, memo: str = '') -> DepositAddress:
+        address_key = AddressKey.objects.create(account=account, address=address, memo=memo)
+        return DepositAddress.objects.create(
+            address=address,
+            network=network,
+            address_key=address_key
+        )
 
     def new_bankcard(user) -> BankCard:
         bankcard = BankCard.objects.create(user=user, card_pan='1', verified=True, kyc=True,)

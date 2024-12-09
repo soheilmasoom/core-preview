@@ -177,7 +177,7 @@ def get_positions_unhealthy() -> List[MonitorDTO]:
         dead_monitors.append(
             MonitorDTO(
                 title='Closed Positions with Asset',
-                detail=f'Closed positions non zero wallets: {short_join(closed_positions_wallets)}'
+                detail=f'Closed positions non zero wallets: {short_join(closed_positions_wallets, 50)}'
             )
         )
 

@@ -65,7 +65,7 @@ class Notification(models.Model):
     read = models.BooleanField(default=False)
     hidden = models.BooleanField(default=False)
 
-    sent_telegram = models.BooleanField(default=True)
+    sent_telegram = models.BooleanField(default=True, db_index=True)
 
     push_status = models.CharField(
         choices=((PUSH_WAITING, 'waiting'), (PUSH_SENT, 'sent'), (PUSH_CANCELED, 'canceled')),

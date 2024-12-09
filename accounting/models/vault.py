@@ -71,10 +71,12 @@ class Vault(models.Model):
             coin__in=coins
         ).exclude(
             balance=0,
+            free=0,
             value_usdt=0,
             value_irt=0
         ).update(
             balance=0,
+            free=0,
             value_usdt=0,
             value_irt=0,
             updated=now,

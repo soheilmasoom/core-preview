@@ -21,6 +21,7 @@ from ledger.utils.precision import humanize_number
 FATA_SAFE_DEBT_IRT_VALUE = -3_000_000
 FATA_RISKY_DEBT_IRT_VALUE = -10_000_000
 
+WHITELIST_DAILY_WITHDRAW_IRT_VALUE = 500_000
 SAFE_DAILY_WITHDRAW_VALUE = 400
 SAFE_MONTHLY_WITHDRAW_VALUE = 40_000
 
@@ -43,14 +44,18 @@ def auto_withdraw_verify(transfer: Transfer) -> bool:
 
     risks = [*common_system_risks, *system_risks, *fata_risks]
 
+    any_risk = [*common_system_risks]
+    if fata_risks and not fata_risks[0].whitelist:
+        any_risk.extend(fata_risks)
+
+    if system_risks and not system_risks[0].whitelist:
+        any_risk.extend(system_risks)
+
     if risks:
         transfer.risks = list(map(dataclasses.asdict, risks))
         transfer.save(update_fields=['risks'])
 
-        if fata_risks and fata_risks[0].whitelist:
-            risks = system_risks
-
-    return not bool(risks)
+    return not bool(any_risk)
 
 
 @dataclasses.dataclass
@@ -209,6 +214,21 @@ def get_withdraw_system_risks(transfer: Transfer) -> list:
     current_day_withdraw_value = withdraws.filter(
         created__gte=timezone.now() - timedelta(days=1)
     ).aggregate(value=Sum('usdt_value'))['value'] or 0
+
+    current_day_withdraw_irt_value = withdraws.filter(
+        created__gte=timezone.now() - timedelta(days=1)
+    ).aggregate(value=Sum('irt_value'))['value'] or 0
+
+    if current_day_withdraw_irt_value < WHITELIST_DAILY_WITHDRAW_IRT_VALUE:
+        return [
+            RiskFactor(
+                reason=RiskFactor.DAY_HIGH_WITHDRAW,
+                value=round(current_day_withdraw_irt_value),
+                expected=round(WHITELIST_DAILY_WITHDRAW_IRT_VALUE),
+                whitelist=True,
+                type=RiskFactor.TYPE_SYSTEM,
+            )
+        ]
 
     if current_day_withdraw_value > SAFE_DAILY_WITHDRAW_VALUE:
         risks.append(

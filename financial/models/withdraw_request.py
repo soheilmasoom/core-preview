@@ -115,11 +115,13 @@ class FiatWithdrawRequest(BaseTransfer):
             self.add_comment(str(e))
             self.save(update_fields=['withdraw_datetime'])
 
-            send_system_message("Manual fiat withdraw", link=url_to_edit_object(self))
+            # send_system_message("Manual fiat withdraw", link=url_to_edit_object(self))
 
     def add_comment(self, s: str):
         if not s:
             return
+
+        s = timezone.now().astimezone().strftime('%Y-%m-%d %H:%M:%S') + ' > ' + s
 
         if self.comment:
             self.comment += '\n' + s

@@ -89,7 +89,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'order', 'trend', 'hedge',
         'publish_date', 'spread_category', 'otc_status', 'price_page', 'get_distribution_factor', 'margin_interest_fee'
     )
-    list_filter = ('enable', 'trend', 'spread_category', 'coincategory', 'otc_status')
+    list_filter = ('enable', 'hedge', 'do_care_hedge', 'otc_status', 'spread_category', 'coincategory', 'trend')
     list_editable = ('order', )
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'otc_status', 'order')
@@ -391,15 +391,32 @@ class OTCUserFilter(SimpleListFilter):
         return [(1, 1)]
 
     def queryset(self, request, queryset):
-        user = request.GET.get('user')
+        user = self.value()
+
         if user is not None:
             return queryset.filter(otc_request__account__user_id=user)
         else:
             return queryset
 
 
+class OTCSideFilter(SimpleListFilter):
+    title = 'side'
+    parameter_name = 'side'
+
+    def lookups(self, request, model_admin):
+        return models.OTCRequest.SIDE_CHOICES
+
+    def queryset(self, request, queryset):
+        side = self.value()
+
+        if side:
+            return queryset.filter(otc_request__side=side)
+        else:
+            return queryset
+
+
 class OrderTypeOTCFilter(SimpleListFilter):
-    title = 'Order Type'
+    title = 'order type'
     parameter_name = 'order_type'
 
     def lookups(self, request, model_admin):
@@ -418,7 +435,7 @@ class OrderTypeOTCFilter(SimpleListFilter):
 class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'get_username', 'otc_request', 'get_order_type', 'status', 'get_value', 'get_value_irt',
                     'execution_type', 'gap_revenue', 'hedged')
-    list_filter = (OTCUserFilter, 'status', 'execution_type', 'hedged', OrderTypeOTCFilter)
+    list_filter = (OrderTypeOTCFilter, OTCSideFilter, 'status', 'execution_type', 'hedged', OTCUserFilter)
     search_fields = ('group_id', 'order_id', 'otc_request__symbol__asset__symbol', 'otc_request__account__user__phone')
     readonly_fields = ('otc_request', 'get_username', 'get_order_type', 'group_id')
     actions = ('accept_trade', 'accept_trade_without_hedge', 'cancel_trade', 'revert')
@@ -677,7 +694,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     )
     exclude = ('risks',)
 
-    actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit', 'refund_deposit',
+    actions = ('accept_withdraw', 'reject_withdraw', 'accept_deposit', 'reject_deposit', 'revert',
                'terminate_withdraw', 'accept_canceled_deposits')
 
     list_permission_exclude_filters = ('id', 'user')
@@ -764,8 +781,8 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='رد برداشت', permissions=['view'])
     def reject_withdraw(self, request, queryset):
-        for transfer in queryset.filter(deposit=False, status=INIT):
-            transfer.reject()
+        for transfer in queryset.filter(deposit=False, status=INIT):  # type: models.Transfer
+            transfer.reject(reason='Rejected by admin')
 
     @admin.action(description='تایید واریز', permissions=['manage'])
     def accept_deposit(self, request, queryset):
@@ -783,11 +800,11 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     @admin.action(description='رد واریز', permissions=['manage'])
     def reject_deposit(self, request, queryset):
         for transfer in queryset.filter(deposit=True, status__in=[INIT, PENDING]):
-            transfer.reject()
+            transfer.reject(reason='Rejected by admin')
 
-    @admin.action(description='Revert Deposit', permissions=['manage'])
-    def refund_deposit(self, request, queryset):
-        for transfer in queryset.filter(deposit=True, status=DONE):
+    @admin.action(description='Revert', permissions=['manage'])
+    def revert(self, request, queryset):
+        for transfer in queryset.filter(status=DONE):
             transfer.revert()
 
     @admin.action(description='Accept Canceled Deposits', permissions=['manage'])
@@ -1382,12 +1399,12 @@ class TokenDelistAdmin(admin.ModelAdmin):
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
-        for delist in queryset.filter(status=PENDING):
+        for delist in queryset.filter(status=PENDING, delist_at__lt=timezone.now()):
             delist.accept()
 
     @admin.action(description='Test', permissions=['change'])
     def accept_for_testers(self, request, queryset):
-        for delist in queryset.filter(status=PENDING):
+        for delist in queryset.filter(status=PENDING, delist_at__lt=timezone.now()):
             with WalletPipeline() as pipeline:
                 delist.change_funds(pipeline, only_testers=True)
 

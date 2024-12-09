@@ -8,7 +8,7 @@ from django.db import models, transaction
 from django.db.models import Sum
 from django.utils import timezone
 
-from accounts.models import User, Account, Notification, SmsNotification
+from accounts.models import User, Account, Notification, SmsNotification, SystemConfig
 from accounts.utils.validation import gregorian_to_jalali_date
 from ledger.models import Asset, Wallet, Trx
 from ledger.utils.external_price import BUY
@@ -31,8 +31,18 @@ ALARM_SMS_CONTENT = """
 آن زمان نسبت به فروش یا برداشت این توکن اقدام نمایید.
 """
 
+ALARM_SMS_CONTENT_NO_WITHDRAW = """
+کاربر گرامی {brand}،
+به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از {brand} حذف خواهد شد. لطفا تا قبل از 
+آن زمان نسبت به فروش این توکن اقدام نمایید.
+"""
+
 ALARM_NOTIF_CONTENT = """
 به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از {brand} حذف خواهد شد. لطفا تا قبل از آن، نسبت به فروش یا برداشت این توکن اقدام نمایید.
+"""
+
+ALARM_NOTIF_CONTENT_NO_WITHDRAW = """
+به منظور حفظ امنیت و کاهش ریسک، توکن {coin} در تاریخ {delist_at} از {brand} حذف خواهد شد. لطفا تا قبل از آن، نسبت به فروش این توکن اقدام نمایید.
 """
 
 
@@ -51,6 +61,32 @@ class TokenDelist(models.Model):
     testers = models.ManyToManyField(User, limit_choices_to={'is_staff': True}, blank=True)
     group_id = get_group_id_field()
 
+    can_withdraw = models.BooleanField(default=True, help_text='Changes notification texts')
+
+    def get_alarm_notif_content(self):
+        template = ALARM_NOTIF_CONTENT if self.can_withdraw else ALARM_NOTIF_CONTENT_NO_WITHDRAW
+
+        coin = self.asset.symbol
+        jalali_date = str(gregorian_to_jalali_date(self.delist_at.astimezone())).replace('-', '/')
+
+        return template.strip().format(
+            coin=coin,
+            delist_at=str(jalali_date),
+            brand=settings.BRAND
+        )
+
+    def get_alarm_sms_content(self):
+        template = ALARM_SMS_CONTENT if self.can_withdraw else ALARM_SMS_CONTENT_NO_WITHDRAW
+
+        coin = self.asset.symbol
+        jalali_date = str(gregorian_to_jalali_date(self.delist_at.astimezone())).replace('-', '/')
+
+        return template.strip().format(
+            coin=coin,
+            delist_at=str(jalali_date),
+            brand=settings.BRAND
+        )
+
     def clean(self):
         if hasattr(self, 'asset'):
             if self.asset.otc_status == Asset.ACTIVE:
@@ -60,12 +96,24 @@ class TokenDelist(models.Model):
                 raise ValidationError('Asset should be enable!')
 
     def alarm_delist(self):
+        wallets = self.get_candidate_wallets()
+
         users = User.objects.filter(
-            id__in=self.get_candidate_wallets().values_list('account__user', flat=True)
+            id__in=wallets.values_list('account__user', flat=True).distinct()
+        )
+
+        price = get_price(self.asset.symbol + Asset.IRT, side=BUY)
+        config = SystemConfig.get_system_config()
+
+        to_sms_wallets = wallets.filter(balance__gte=config.min_otc_irt / price)
+        to_sms_users = User.objects.filter(
+            id__in=to_sms_wallets.values_list('account__user', flat=True).distinct()
         )
 
         coin = self.asset.symbol
-        jalali_date = str(gregorian_to_jalali_date(self.delist_at.astimezone())).replace('-', '/')
+
+        alarm_notif_content = self.get_alarm_notif_content()
+        alarm_sms_content = self.get_alarm_sms_content()
 
         with transaction.atomic():
             for user in users:
@@ -73,22 +121,15 @@ class TokenDelist(models.Model):
                     recipient=user,
                     group_id=self.group_id,
                     title=f'حذف توکن {coin}',
-                    message=ALARM_NOTIF_CONTENT.strip().format(
-                        coin=coin,
-                        delist_at=str(jalali_date),
-                        brand=settings.BRAND
-                    )
+                    message=alarm_notif_content
                 )
 
+            for user in to_sms_users:
                 SmsNotification.objects.get_or_create(
                     recipient=user,
                     group_id=self.group_id,
                     defaults={
-                        'content': ALARM_SMS_CONTENT.strip().format(
-                            coin=coin,
-                            delist_at=str(jalali_date),
-                            brand=settings.BRAND
-                        )
+                        'content': alarm_sms_content
                     }
                 )
 

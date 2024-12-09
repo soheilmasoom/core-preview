@@ -117,7 +117,7 @@ class Order(models.Model):
     oco = models.ForeignKey(to='market.OCO', on_delete=models.SET_NULL, null=True, blank=True)
 
     is_open_position = models.BooleanField(null=True, default=None)
-    position = models.ForeignKey(to='ledger.MarginPosition', on_delete=models.CASCADE, null=True)
+    position = models.ForeignKey(to='ledger.MarginPosition', on_delete=models.SET_NULL, null=True, blank=True)
 
     time_in_force = models.CharField(
         max_length=6,
@@ -131,7 +131,6 @@ class Order(models.Model):
         return f'({self.id}) {self.symbol}-{self.side} [p:{self.price:.2f}] (u:{self.unfilled_amount:.5f}/{self.amount:.5f})'
 
     class Meta:
-        ordering = ['status']
         indexes = [
             models.Index(fields=['symbol', 'type', 'status', 'created']),
             models.Index(fields=['symbol', 'status']),

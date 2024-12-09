@@ -1,30 +1,25 @@
 import logging
 from decimal import Decimal
-import os
 from uuid import uuid4
 
+from django.db import models
+from django.db.models import F, Sum
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
-from ledger.utils.price import get_depth_price, get_price
-from accounts.models import Notification
-
-
-from django.conf import settings
-from django.db import models
-from django.db.models import F, Sum
-from ledger.utils.external_price import BUY, SELL, get_other_side
-
 from _base.settings import OTC_ACCOUNT_ID
 from accounting.models import TradeRevenue
-from accounts.models import Account, SystemConfig
 from accounts.admin_guard.html_tags import url_to_edit_object
+from accounts.models import Account, SystemConfig
+from accounts.models import Notification
 from accounts.utils.telegram import send_system_message
 from ledger.exceptions import HedgeError, SmallDepthError
-from ledger.models import OTCRequest, Trx, Wallet, Asset
+from ledger.models import OTCRequest, Trx, Asset
 from ledger.utils.external_price import SELL, BUY
+from ledger.utils.external_price import get_other_side
 from ledger.utils.fields import get_amount_field
 from ledger.utils.precision import floor_precision, get_symbol_presentation_price
+from ledger.utils.price import get_depth_price
 from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 from market.models import Trade, PairSymbol

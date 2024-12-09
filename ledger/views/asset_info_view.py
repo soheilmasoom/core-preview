@@ -374,8 +374,8 @@ class AssetOverviewAPIV2View(AssetOverviewAPIView):
         data = []
 
         headers = {
-            'high_volume': 'بیشترین سود',
-            'high_24h_change': 'بیشترین حجم',
+            'high_24h_change': 'بیشترین سود',
+            'high_volume': 'بیشترین حجم',
             'newest': 'جدیدترین'
         }
 
