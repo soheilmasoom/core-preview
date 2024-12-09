@@ -18,9 +18,16 @@ class Migration(migrations.Migration):
             old_name='rejected_by',
             new_name='verifier',
         ),
-        migrations.RemoveField(
+        migrations.RenameField(
             model_name='bankaccount',
-            name='rejected_by',
+            old_name='rejected_by',
+            new_name='verifier',
+        ),
+        migrations.AlterField(
+            model_name='bankaccount',
+            name='verifier',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL,
+                                    related_name='+', to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
             model_name='bankaccount',
@@ -31,11 +38,6 @@ class Migration(migrations.Migration):
             model_name='bankaccount',
             name='reject_reason',
             field=models.CharField(blank=True, max_length=128),
-        ),
-        migrations.AddField(
-            model_name='bankaccount',
-            name='verifier',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
             model_name='bankcard',

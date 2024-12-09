@@ -236,6 +236,7 @@ def verify_bank_account(bank_account: BankAccount, retry: int = 2) -> Union[bool
     if not iban_info.success:
         if iban_info.data.code == 'INVALID_IBAN':
             bank_account.reject(iban_info.data.code)
+            return False
 
         else:
             link = url_to_edit_object(bank_account)
