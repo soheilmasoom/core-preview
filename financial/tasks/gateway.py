@@ -10,7 +10,7 @@ from accounts.utils.telegram import send_system_message
 from accounts.verifiers.utils import ServerError
 from financial.exceptions import NoChannelError
 from financial.interface.base_interface import WithdrawRefundedDTO
-from financial.models import Gateway, Payment, PaymentId, FiatWithdrawRequest
+from financial.models import Gateway, Payment, PaymentId, FiatWithdrawRequest, BankAccount
 from financial.utils.interface import get_withdraw_channel
 from financial.utils.payment_id_client import get_payment_id_client
 from ledger.utils.fields import PENDING, DONE, PROCESS, CANCELED
@@ -88,10 +88,12 @@ def check_withdraw_refunds():
             assert withdraw.ref_id == refund.ref_id
 
             with transaction.atomic():
+                # reject bank account on withdraw refund
+                withdraw.bank_account.reject(reason=BankAccount.TRANSACTION_REFUND)
+
                 if withdraw.status == DONE:
                     refund_done = withdraw.refund()
                     action_name = 'refunded'
-
                 else:
                     refund_done = withdraw.change_status(CANCELED)
                     action_name = 'canceled'

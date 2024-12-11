@@ -13,8 +13,8 @@ from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import VerificationCode, LoginActivity
 from accounts.permissions import IsBasicVerified
-from financial.models import FiatWithdrawRequest, Gateway
-from financial.models.bank_card import BankAccount, BankAccountSerializer
+from financial.models import FiatWithdrawRequest, Gateway, BankAccount
+from financial.serializers import BankAccountSerializer
 from financial.utils.withdraw_limit import user_reached_fiat_withdraw_limit
 from financial.utils.withdraw_verify import auto_verify_fiat_withdraw
 from ledger.exceptions import InsufficientBalance

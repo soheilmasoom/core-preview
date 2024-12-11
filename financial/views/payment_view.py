@@ -7,8 +7,8 @@ from rest_framework.pagination import LimitOffsetPagination
 from accounts.models import LoginActivity, SystemConfig
 from accounts.permissions import IsBasicVerified
 from financial.models import BankCard, PaymentRequest, Payment
-from financial.models.bank_card import BankCardSerializer
 from financial.models.gateway import GatewayFailed
+from financial.serializers import BankCardSerializer
 from financial.utils.bank import get_bank_from_iban
 from ledger.utils.precision import humanize_number
 
