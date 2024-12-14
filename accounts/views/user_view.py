@@ -10,7 +10,7 @@ from accounts.models import User, CustomToken, SystemConfig
 from accounts.models import VerificationCode, Company
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.utils.hijack import get_hijacker_id
-from financial.models.bank_card import BankCardSerializer, BankAccountSerializer
+from financial.serializers import BankCardSerializer, BankAccountSerializer
 
 
 class UserFeatureSerializer(serializers.ModelSerializer):

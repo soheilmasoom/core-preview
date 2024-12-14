@@ -554,7 +554,7 @@ class WalletUserFilter(SimpleListFilter):
         return [(1, 1)]
 
     def queryset(self, request, queryset):
-        account = request.GET.get('account')
+        account = self.value()
         if account is not None:
             return queryset.filter(account=account)
         else:
@@ -1080,8 +1080,10 @@ class ManualTransactionForm(forms.ModelForm):
 
     def clean(self):
         wallet_id = self.cleaned_data['wallet']
-        if not wallet_id:
-            account = Account.objects.filter(user_id=self.cleaned_data['user']).first()
+        user_id = self.cleaned_data['user']
+
+        if user_id:
+            account = Account.objects.filter(user_id=user_id).first()
             if not account:
                 self.add_error('user', _("Please specify valid user id"))
                 return
@@ -1090,8 +1092,11 @@ class ManualTransactionForm(forms.ModelForm):
                 self.add_error('asset', _("Please specify asset"))
                 return
             self.cleaned_data['wallet'] = asset.get_wallet(account, market=self.cleaned_data['market'])
-        else:
+        elif wallet_id:
             self.cleaned_data['wallet'] = Wallet.objects.get(id=wallet_id)
+        else:
+            self.add_error('user', _("Please specify user id"))
+            return
 
         return super(ManualTransactionForm, self).clean()
 
