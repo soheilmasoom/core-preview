@@ -1551,6 +1551,10 @@ class ProxyWalletAdmin(AdvancedAdmin):
     search_fields = ('address',)
 
     def save_model(self, request, obj, form, change):
+        if obj.network.symbol == 'XRP':
+            self.message_user(request, 'creation error due to XRP network', messages.ERROR)
+            return
+
         requester = get_blocklink_requester()
         architecture = requester.get_network_arch(obj.network.symbol)
         address_dict = requester.create_wallet(arch=architecture, tag='proxy-wallet').data
