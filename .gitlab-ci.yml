@@ -151,27 +151,60 @@ deploy_gold:
     refs:
     - release/gold
   script:
+    # Goldoon Deployments
     - 'darkube deploy --token ${GOLDOON_DEPLOY_TOKEN}
       --app-id ${GOLDOON_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
       --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${GOLDOON_CELERY_BEAT_DEPLOY_TOKEN}
+      --app-id ${GOLDOON_CELERY_BEAT_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${GOLDOON_CELERY_WORKERS_DEPLOY_TOKEN}
+      --app-id ${GOLDOON_CELERY_WORKERS_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+
+    # Gold API Deployments
     - 'darkube deploy --token ${GOLD_API_DEPLOY_TOKEN}
       --app-id ${GOLD_API_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
       --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${GOLD_API_CELERY_BEAT_DEPLOY_TOKEN}
+      --app-id ${GOLD_API_CELERY_BEAT_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${GOLD_API_CELERY_WORKERS_DEPLOY_TOKEN}
+      --app-id ${GOLD_API_CELERY_WORKERS_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+
+    # ONSA Deployments
     - 'darkube deploy --token ${ONSA_DEPLOY_TOKEN}
       --app-id ${ONSA_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
       --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${ONSA_CELERY_BEAT_DEPLOY_TOKEN}
+      --app-id ${ONSA_CELERY_BEAT_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${ONSA_CELERY_WORKERS_DEPLOY_TOKEN}
+      --app-id ${ONSA_CELERY_WORKERS_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+
+    # Zarify Deployments
     - 'darkube deploy --token ${ZARIFY_DEPLOY_TOKEN}
       --app-id ${ZARIFY_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
       --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${ZARIFY_CELERY_BEAT_DEPLOY_TOKEN}
+      --app-id ${ZARIFY_CELERY_BEAT_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${ZARIFY_CELERY_WORKERS_DEPLOY_TOKEN}
+      --app-id ${ZARIFY_CELERY_WORKERS_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+
+    # Tillya Deployments
     - 'darkube deploy --token ${TILLYA_DEPLOY_TOKEN}
       --app-id ${TILLYA_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
       --job-id "${CI_JOB_ID}"'
-#    - 'darkube deploy --token ${GOLD_CELERY_BEAT_DEPLOY_TOKEN}
-#      --app-id ${GOLD_CELERY_BEAT_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
-#      --job-id "${CI_JOB_ID}"'
-#    - 'darkube deploy --token ${GOLD_CELERY_WORKERS_DEPLOY_TOKEN}
-#      --app-id ${GOLD_CELERY_WORKERS_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
-#      --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${TILLYA_CELERY_BEAT_DEPLOY_TOKEN}
+      --app-id ${TILLYA_CELERY_BEAT_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+    - 'darkube deploy --token ${TILLYA_CELERY_WORKERS_DEPLOY_TOKEN}
+      --app-id ${TILLYA_CELERY_WORKERS_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
   stage: deploy
   tags:
     - hamravesh
