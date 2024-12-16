@@ -140,13 +140,13 @@ class CanceledOTCAlert(BaseAlertHandler):
         if not canceled:
             return []
 
-        canceled_assets = canceled.values('otc_request__symbol__name', 'side').annotate(
+        canceled_assets = canceled.values('otc_request__symbol__name', 'otc_request__side').annotate(
             count=Count('*')
         ).filter(
             count__gte=self.rate
         )
 
-        return list(map(lambda c: f"{c['side']} {c['otc_request__symbol__name']}: {c['count']}", sorted(canceled_assets.items())))
+        return list(map(lambda c: f"{c['otc_request__side']} {c['otc_request__symbol__name']}: {c['count']}", sorted(canceled_assets.items())))
 
 
 class AssetHedgeAlert(BaseAlertHandler):
