@@ -22,9 +22,15 @@ class AlertType(models.Model):
 
     alert_on_same_status = models.BooleanField(default=False)
 
+    rate = models.PositiveSmallIntegerField(default=1)
+
     def get_status(self) -> Status:
         alert_class = ALERTS[self.type]  # type: Type[BaseAlertHandler]
-        alert = alert_class(self.warning_threshold, self.error_threshold)
+        alert = alert_class(
+            warning_threshold=self.warning_threshold,
+            error_threshold=self.error_threshold,
+            rate=self.rate
+        )
         return alert.get_status()
 
     def __str__(self):

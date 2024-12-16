@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import F
+from django.db.models import F, Count
 from django.utils import timezone
 
 from accounting.models import Vault, VaultItem
@@ -48,9 +48,10 @@ class BaseAlertHandler:
     ALERTS = (Status.WARNING, Status.ERROR)
     HELP = 'threshold'
 
-    def __init__(self, warning_threshold: Decimal, error_threshold: Decimal):
+    def __init__(self, warning_threshold: Decimal, error_threshold: Decimal, rate: int):
         self.warning_threshold = warning_threshold
         self.error_threshold = error_threshold
+        self.rate = rate
 
     def get_status(self) -> Status:
         if Status.ERROR in self.ALERTS:
@@ -131,10 +132,18 @@ class CanceledOTCAlert(BaseAlertHandler):
     HELP = 'time passed from now in minutes'
 
     def get_alerting(self, threshold: Decimal) -> list:
-        return OTCTrade.objects.filter(
+        canceled = OTCTrade.objects.filter(
             created__gte=timezone.now() - timedelta(minutes=int(threshold)),
             status=OTCTrade.CANCELED,
         )
+
+        canceled_assets = dict(canceled.values('otc_request__symbol__asset__symbol').annotate(
+            count=Count('*')
+        ).filter(
+            count__gte=self.rate
+        ).values_list('otc_request__symbol__asset__symbol', 'count'))
+
+        return list(map(lambda c: f'{c[0]}: {c[1]}', sorted(canceled_assets.items())))
 
 
 class AssetHedgeAlert(BaseAlertHandler):
