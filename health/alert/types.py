@@ -137,6 +137,9 @@ class CanceledOTCAlert(BaseAlertHandler):
             status=OTCTrade.CANCELED,
         )
 
+        if not canceled:
+            return []
+
         canceled_assets = dict(canceled.values('otc_request__symbol__asset__symbol').annotate(
             count=Count('*')
         ).filter(
