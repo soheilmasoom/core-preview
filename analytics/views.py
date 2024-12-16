@@ -10,12 +10,19 @@ from django.db.models import Q, Count, F, Value, CharField, Sum, IntegerField
 from django.db.models.functions import Cast, TruncDate, Greatest
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils.dateparse import parse_datetime
 from openpyxl import Workbook
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from accounting.models import TradeRevenue
+from accounts.authentication import CustomTokenAuthentication
 from accounts.models import TrafficSource, User
 from analytics.models import ReportPermission
 from analytics.utils.list import join_lists_with_first_element
+from ledger.models import Trx
 
 
 def _get_report_permission(user: User, group_id: str):
@@ -131,7 +138,8 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime, level
         ).values(*group_by).annotate(
             revenue=Greatest(
                 Cast(
-                    Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F('value')) * permission.referral_percent_revenue / 100,
+                    Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F(
+                        'value')) * permission.referral_percent_revenue / 100,
                     output_field=IntegerField()
                 ), 0)
         ).values_list(*group_by, 'revenue')
@@ -156,7 +164,74 @@ def queryset_to_workbook(headers: list, data: list):
     # write data
     for row_num, row in enumerate(data, 1):
         for col_num, field_name in enumerate(headers, 1):
-            cell = sheet.cell(row=row_num+1, column=col_num)
-            cell.value = row[col_num-1]
+            cell = sheet.cell(row=row_num + 1, column=col_num)
+            cell.value = row[col_num - 1]
 
     return workbook
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    sender = serializers.SerializerMethodField()
+    receiver = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Trx
+        fields = ('id', 'sender', 'receiver')
+
+    def get_sender(self, obj):
+        return {
+            'user_id': obj.sender.account.user_id,
+            'market': obj.sender.market,
+            'amount': obj.sender.balance,
+            'coin': obj.sender.asset.name
+        }
+
+    def get_receiver(self, obj):
+        return {
+            'user_id': obj.receiver.account.user_id,
+            'market': obj.receiver.market,
+            'amount': obj.receiver.balance,
+            'coin': obj.receiver.asset.name
+        }
+
+
+class TransactionView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+
+    def get(self, request):
+        page_number = self._get_int_param(request, 'page_number')
+        page_size = self._get_int_param(request, 'page_size')
+        date = self._get_date_param(request, 'date')
+
+        start_index = (page_number - 1) * page_size
+        end_index = page_number * page_size
+
+        trxs = Trx.objects.filter(created__lt=date).order_by('id')[start_index:end_index]
+
+        trxs_to_send = TransactionSerializer(trxs, many=True).data
+
+        return Response({
+            "page_number": page_number,
+            "page_size": page_size,
+            "trxs": trxs_to_send
+        })
+
+    def _get_int_param(self, request, param_name):
+        param = request.GET.get(param_name)
+        if not param:
+            raise ValidationError(f"Missing required parameter: {param_name}")
+        try:
+            return int(param)
+        except ValueError:
+            raise ValidationError(f"Invalid value for {param_name}. Must be an integer.")
+
+    def _get_date_param(self, request, param_name):
+        date_str = request.GET.get(param_name)
+        if not date_str:
+            raise ValidationError(f"Missing required parameter: {param_name}")
+
+        date = parse_datetime(date_str)
+        if not date:
+            raise ValidationError(f"Invalid date format for {param_name}.")
+
+        return date
