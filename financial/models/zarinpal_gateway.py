@@ -12,7 +12,7 @@ from rest_framework.exceptions import NotFound
 
 
 class ZarinpalGateway(Gateway):
-    BASE_URL = 'https://api.zarinpal.com'
+    BASE_URL = 'https://payment.zarinpal.com'
 
     def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         payload = {
@@ -65,6 +65,10 @@ class ZarinpalGateway(Gateway):
                 'authority': payment_request.authority
             },
             timeout=30,
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
         )
 
         data = resp.json()['data']
