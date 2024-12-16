@@ -146,7 +146,10 @@ class CanceledOTCAlert(BaseAlertHandler):
             count__gte=self.rate
         )
 
-        return list(map(lambda c: f"{c['otc_request__side']} {c['otc_request__symbol__name']}: {c['count']}", sorted(canceled_assets.items())))
+        return sorted(list(map(
+            lambda c: f"{c['otc_request__side']} {c['otc_request__symbol__name']}: {c['count']}",
+            canceled_assets
+        )))
 
 
 class AssetHedgeAlert(BaseAlertHandler):
