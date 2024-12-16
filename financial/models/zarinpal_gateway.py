@@ -57,13 +57,15 @@ class ZarinpalGateway(Gateway):
     def _verify(self, payment: Payment):
         payment_request = payment.paymentrequest
 
+        payload = {
+            'merchant_id': payment_request.gateway.merchant_id,
+            'amount': str(payment_request.amount),
+            'authority': payment_request.authority
+        }
+
         resp = requests.post(
             self.BASE_URL + '/pg/v4/payment/verify.json',
-            data={
-                'merchant_id': payment_request.gateway.merchant_id,
-                'amount': payment_request.amount,
-                'authority': payment_request.authority
-            },
+            json=payload,
             timeout=30,
             headers={
                 'Content-Type': 'application/json',
@@ -71,8 +73,8 @@ class ZarinpalGateway(Gateway):
             },
         )
 
+        logger.info(resp.json())
         data = resp.json()['data']
-
         if data['code'] == 101:
             logger.warning('duplicate verify!', extra={'payment_id': payment.id})
 
