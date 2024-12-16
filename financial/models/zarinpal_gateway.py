@@ -59,7 +59,7 @@ class ZarinpalGateway(Gateway):
 
         payload = {
             'merchant_id': payment_request.gateway.merchant_id,
-            'amount': str(payment_request.amount),
+            'amount': str(payment_request.amount + payment_request.fee),
             'authority': payment_request.authority
         }
 
