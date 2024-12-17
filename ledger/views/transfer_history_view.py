@@ -24,6 +24,7 @@ class TransferSerializer(serializers.ModelSerializer):
     asset = AssetSerializerMini(source='wallet.asset', read_only=True)
     is_internal = serializers.SerializerMethodField()
     cancelable = serializers.SerializerMethodField()
+    freeze_seconds = serializers.SerializerMethodField()
     memo_name_fa = serializers.SerializerMethodField()
 
     def get_network(self, transfer: Transfer):
@@ -66,11 +67,14 @@ class TransferSerializer(serializers.ModelSerializer):
         else:
             return ''
 
+    def get_freeze_seconds(self, transfer: Transfer):
+        return Transfer.FREEZE_SECONDS
+
     class Meta:
         model = Transfer
         fields = ('id', 'created', 'amount', 'status', 'link', 'out_address', 'memo', 'asset', 'network', 'trx_hash',
-                  'fee_amount', 'is_internal', 'cancelable', 'min_confirm', 'unlock_confirm', 'confirmation',
-                  'memo_name_fa')
+                  'fee_amount', 'is_internal', 'cancelable', 'freeze_seconds', 'min_confirm', 'unlock_confirm',
+                  'confirmation', 'memo_name_fa')
 
 
 class WithdrawHistoryView(ListAPIView):
