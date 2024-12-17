@@ -148,11 +148,10 @@ CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': LOCAL_REDIS_URL + '/0',
-
+        'KEY_PREFIX': 'test',
         'OPTIONS': {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
-        'KEY_PREFIX': config(BRAND_EN, default='default')
     },
     'token': {
         'BACKEND': 'django_redis.cache.RedisCache',
