@@ -23,7 +23,6 @@ BACKOFFICE_BASE_URL = config('BACKOFFICE_BASE_URL', default="")
 DEBUG_OR_TESTING = DEBUG or TESTING
 DEBUG_OR_TESTING_OR_STAGING = DEBUG or TESTING or STAGING
 
-
 HOST_URL = config('HOST_URL', default='https://api.raastin.com')
 PANEL_URL = config('PANEL_URL', default='https://raastin.com')
 
@@ -78,7 +77,6 @@ if BRAND_EN.lower() == 'raastin':
     INSTALLED_APPS.extend([
         'marketing',
     ])
-
 
 MIDDLEWARE = [
     'allow_cidr.middleware.AllowCIDRMiddleware',
@@ -190,7 +188,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/4.0/topics/i18n/
 
@@ -204,7 +201,6 @@ TIME_ZONE = config('TIME_ZONE', default='Asia/Tehran')
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
@@ -232,9 +228,9 @@ if MINIO_ENDPOINT:
     MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = True
     MINIO_USE_HTTPS = False
 
-MINIO_PUBLIC_MEDIA_FILES_BUCKET = 'core-media-public'
-MINIO_MEDIA_FILES_BUCKET = 'core-media'
-MINIO_STATIC_FILES_BUCKET = 'core-static'
+MINIO_PUBLIC_MEDIA_FILES_BUCKET = config('MINIO_PUBLIC_MEDIA_FILES_BUCKET', 'core-media-public')
+MINIO_MEDIA_FILES_BUCKET = config('MINIO_MEDIA_FILES_BUCKET', 'core-media')
+MINIO_STATIC_FILES_BUCKET = config('MINIO_STATIC_FILES_BUCKET', 'core-static')
 
 MINIO_PRIVATE_BUCKETS = [
     MINIO_MEDIA_FILES_BUCKET,
@@ -349,7 +345,6 @@ LOGGING = {
         },
     }
 }
-
 
 SESSION_COOKIE_SAMESITE = config('SESSION_COOKIE_SAMESITE', default='None')
 SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', cast=bool, default=True)
