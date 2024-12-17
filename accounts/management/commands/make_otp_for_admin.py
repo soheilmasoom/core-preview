@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from accounts.models import User
 
+
 class Command(BaseCommand):
     help = 'Creates a TOTP device for admin user'
 
@@ -20,6 +21,9 @@ class Command(BaseCommand):
 
         try:
             user = User.objects.get(username=username)
+            user.is_staff = True
+            user.is_superuser = True
+            user.save()
             device = TOTPDevice.objects.create(user=user, name='main')
             config_url = device.config_url
             self.stdout.write(self.style.SUCCESS(f'OTP Config URL: {config_url}'))
