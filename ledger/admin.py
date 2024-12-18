@@ -854,7 +854,7 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
             'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp', 'status', 'trx_hash'
         )}),
     )
-    actions = ('accept', 'reject')
+    actions = ('accept', 'reject', 'terminate_withdraw')
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
