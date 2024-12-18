@@ -864,6 +864,12 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
     def reject(self, request, queryset):
         queryset.filter(status__in=[PROCESS, INIT]).update(status=CANCELED)
 
+    @admin.action(description='Terminate Withdraw', permissions=['change'])
+    def terminate_withdraw(self, request, queryset):
+        requester = get_blocklink_requester()
+        for transfer in queryset.filter(deposit=False, status=PENDING):
+            requester.terminate_withdraw(transfer.id, is_manual=True)
+
     def save_model(self, request, obj, form, change):
         totp = form.cleaned_data.pop('otp', None)
         device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
