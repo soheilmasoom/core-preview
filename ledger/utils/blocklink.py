@@ -120,9 +120,10 @@ class BlocklinkRequester(BaseRequester):
             data=data
         )
 
-    def terminate_withdraw(self, transfer_id) -> Response:
+    def terminate_withdraw(self, transfer_id, is_manual:bool = False) -> Response:
         data = {
             'requester_id': transfer_id,
+            'is_manual': is_manual
         }
 
         return self.collect_api(

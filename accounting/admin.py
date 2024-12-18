@@ -61,6 +61,7 @@ class VaultAdmin(admin.ModelAdmin):
     ordering = ('-real_value', )
     list_filter = ('market', 'type', 'should_be_updated')
     list_editable = ('expected_max_value', 'should_be_updated')
+    search_fields = ('name', )
 
     @admin.display(description='usdt')
     def get_usdt(self, vault: Vault):

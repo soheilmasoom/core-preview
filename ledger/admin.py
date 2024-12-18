@@ -854,7 +854,7 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
             'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp', 'status', 'trx_hash'
         )}),
     )
-    actions = ('accept', 'reject')
+    actions = ('accept', 'reject', 'terminate_withdraw')
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -863,6 +863,12 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
         queryset.filter(status__in=[PROCESS, INIT]).update(status=CANCELED)
+
+    @admin.action(description='Terminate Withdraw', permissions=['change'])
+    def terminate_withdraw(self, request, queryset):
+        requester = get_blocklink_requester()
+        for transfer in queryset.filter(deposit=False, status=PENDING):
+            requester.terminate_withdraw(transfer.id, is_manual=True)
 
     def save_model(self, request, obj, form, change):
         totp = form.cleaned_data.pop('otp', None)
@@ -1551,6 +1557,10 @@ class ProxyWalletAdmin(AdvancedAdmin):
     search_fields = ('address',)
 
     def save_model(self, request, obj, form, change):
+        if obj.network.symbol == 'XRP':
+            self.message_user(request, 'creation error due to XRP network', messages.ERROR)
+            return
+
         requester = get_blocklink_requester()
         architecture = requester.get_network_arch(obj.network.symbol)
         address_dict = requester.create_wallet(arch=architecture, tag='proxy-wallet').data
