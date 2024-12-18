@@ -5,6 +5,7 @@ from accounts.models import User
 from ledger.fields import WithdrawSources
 from ledger.models import Asset, Network, Transfer
 from ledger.utils.fields import get_amount_field, get_address_field, get_status_field, PROCESS, DONE, CANCELED, PENDING
+from ledger.utils.precision import get_presentation_amount
 from ledger.utils.price import get_last_price
 
 
@@ -34,6 +35,9 @@ class DepositRecoveryRequest(models.Model):
     )
 
     comment = models.TextField(blank=True)
+
+    def __str__(self):
+        return f'{get_presentation_amount(self.amount)} {self.asset} on {self.network}'
 
     class Meta:
         permissions = [
