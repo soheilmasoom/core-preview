@@ -27,6 +27,7 @@ from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.admin_guard.utils.html import get_table_html
 from accounts.models import Account
 from accounts.models.user_feature_perm import UserFeaturePerm
+from accounts.utils.telegram import send_system_message
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from financial.models import Payment
 from gamify.utils import clone_model
@@ -1287,13 +1288,15 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
         return ''
 
-    @admin.action(description='تایید اولیه', permissions=['change'])
+    @admin.action(description='تایید اولیه', permissions=['view'])
     def verify_requests(self, request, queryset):
         qs = queryset.filter(status=PROCESS, user__isnull=False, asset__isnull=False, network__isnull=False)
 
         for req in qs:
             if not req.verify(request.user):
                 self.message_user(request, f'Can not verify {req}', messages.ERROR)
+            else:
+                send_system_message("Accept deposit recovery: %s" % req, link=url_to_admin_list(self, {'status': 'pending'}))
 
     @admin.action(description='تایید نهایی', permissions=['change'])
     def accept_requests(self, request, queryset):
