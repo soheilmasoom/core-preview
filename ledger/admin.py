@@ -854,7 +854,7 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
             'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp', 'status', 'trx_hash'
         )}),
     )
-    actions = ('accept', 'reject')
+    actions = ('accept', 'reject', 'terminate_withdraw')
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -867,7 +867,7 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
     @admin.action(description='Terminate Withdraw', permissions=['change'])
     def terminate_withdraw(self, request, queryset):
         requester = get_blocklink_requester()
-        for transfer in queryset.filter(deposit=False, status=PENDING):
+        for transfer in queryset.filter(status=PENDING):
             requester.terminate_withdraw(transfer.id, is_manual=True)
 
     def save_model(self, request, obj, form, change):
