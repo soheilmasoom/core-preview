@@ -301,6 +301,7 @@ REST_FRAMEWORK = {
 
     'DEFAULT_THROTTLE_RATES': {
         'auth_burst': '50/min',
+        'auth_sustained': '500/day',
         'api_burst': '60/min',
         'api_sustained': '10000/day',  # only for custom token
     },
