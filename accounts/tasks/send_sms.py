@@ -20,7 +20,7 @@ def send_message_by_kavenegar(phone: str, template: str, token: str, send_type: 
     try:
         return send_kavenegar_exclusive_sms(
             phone=phone,
-            content=render_to_string(f"accounts/sms/{template}.txt", {'token': token})
+            content=render_to_string(f"accounts/sms/{template}.txt", {'token': token, 'brand': settings.BRAND})
         )
     except TemplateDoesNotExist:
         pass
