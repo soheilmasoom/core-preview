@@ -4,6 +4,8 @@ import requests
 from celery import shared_task
 from decouple import config
 from django.conf import settings
+from django.template import TemplateDoesNotExist
+from django.template.loader import render_to_string
 from kavenegar import KavenegarAPI, APIException, HTTPException
 
 from accounts.verifiers.finotech import token_cache
@@ -15,6 +17,14 @@ SMS_IR_TOKEN_KEY = 'sms-ir-token'
 
 
 def send_message_by_kavenegar(phone: str, template: str, token: str, send_type: str = 'sms'):
+    try:
+        return send_kavenegar_exclusive_sms(
+            phone=phone,
+            content=render_to_string(f"accounts/sms/{template}.txt", {'token': token})
+        )
+    except TemplateDoesNotExist:
+        pass
+
     if not phone or settings.DEBUG_OR_TESTING_OR_STAGING:
         return
 
