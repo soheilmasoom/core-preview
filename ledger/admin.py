@@ -865,7 +865,7 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
     def reject(self, request, queryset):
         queryset.filter(status__in=[PROCESS, INIT]).update(status=CANCELED)
 
-    @admin.action(description='Terminate Withdraw', permissions=['change'])
+    @admin.action(description='Terminate', permissions=['change'])
     def terminate_withdraw(self, request, queryset):
         requester = get_blocklink_requester()
         for transfer in queryset.filter(status=PENDING):
