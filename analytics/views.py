@@ -138,8 +138,7 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime, level
         ).values(*group_by).annotate(
             revenue=Greatest(
                 Cast(
-                    Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F(
-                        'value')) * permission.referral_percent_revenue / 100,
+                    Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F('value')) * permission.referral_percent_revenue / 100,
                     output_field=IntegerField()
                 ), 0)
         ).values_list(*group_by, 'revenue')
@@ -164,8 +163,8 @@ def queryset_to_workbook(headers: list, data: list):
     # write data
     for row_num, row in enumerate(data, 1):
         for col_num, field_name in enumerate(headers, 1):
-            cell = sheet.cell(row=row_num + 1, column=col_num)
-            cell.value = row[col_num - 1]
+            cell = sheet.cell(row=row_num+1, column=col_num)
+            cell.value = row[col_num-1]
 
     return workbook
 
