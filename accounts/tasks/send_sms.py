@@ -17,13 +17,13 @@ SMS_IR_TOKEN_KEY = 'sms-ir-token'
 
 
 def send_message_by_kavenegar(phone: str, template: str, token: str, send_type: str = 'sms'):
-    try:
-        return send_kavenegar_exclusive_sms(
-            phone=phone,
-            content=render_to_string(f"accounts/sms/{template}.txt", {'token': token, 'brand': settings.BRAND})
-        )
-    except TemplateDoesNotExist:
-        pass
+    # try:
+    #     return send_kavenegar_exclusive_sms(
+    #         phone=phone,
+    #         content=render_to_string(f"accounts/sms/{template}.txt", {'token': token, 'brand': settings.BRAND})
+    #     )
+    # except TemplateDoesNotExist:
+    #     pass
 
     if not phone or settings.DEBUG_OR_TESTING_OR_STAGING:
         return
