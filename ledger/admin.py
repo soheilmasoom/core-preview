@@ -980,6 +980,15 @@ class AddressKeyAdmin(admin.ModelAdmin):
     readonly_fields = ('address', 'account', 'memo')
     search_fields = ('address', 'public_address', 'account__user__phone', 'memo')
     list_filter = ('architecture', 'deleted', 'architecture')
+    actions = ('safe_delete', 'revert_delete')
+
+    @admin.action(description='Safe Delete', permissions=['change'])
+    def safe_delete(self, request, queryset):
+        queryset.update(deleted=True)
+
+    @admin.action(description='Revert delete', permissions=['change'])
+    def revert_delete(self, request, queryset):
+        queryset.update(deleted=False)
 
 
 @admin.register(models.AssetSpreadCategory)
