@@ -216,7 +216,8 @@ class TransactionView(APIView):
             "trxs": trxs_to_send
         })
 
-    def _get_int_param(self, request, param_name):
+    @staticmethod
+    def _get_int_param(request, param_name):
         param = request.GET.get(param_name)
         if not param:
             raise ValidationError(f"Missing required parameter: {param_name}")
@@ -225,7 +226,8 @@ class TransactionView(APIView):
         except ValueError:
             raise ValidationError(f"Invalid value for {param_name}. Must be an integer.")
 
-    def _get_date_param(self, request, param_name):
+    @staticmethod
+    def _get_date_param(request, param_name):
         date_str = request.GET.get(param_name)
         if not date_str:
             raise ValidationError(f"Missing required parameter: {param_name}")
