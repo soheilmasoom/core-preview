@@ -72,7 +72,7 @@ def trigger_topic_subscriptions(pending_tokens: PendingTokens):
     resp_json = resp.json()
 
     if not resp.ok:
-        logger.info(f"Unable to trigger subscription for {pending_tokens.action}/{pending_tokens.topic}")
+        logger.info(f"Unable to trigger subscription for {pending_tokens.action}/{pending_tokens.topic}: {resp_json}")
         return False
 
     to_delete_tokens = []
