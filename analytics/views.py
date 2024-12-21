@@ -22,7 +22,7 @@ from accounts.authentication import CustomTokenAuthentication
 from accounts.models import TrafficSource, User
 from analytics.models import ReportPermission
 from analytics.utils.list import join_lists_with_first_element
-from ledger.models import Trx
+from ledger.models import Trx, Wallet
 
 
 def _get_report_permission(user: User, group_id: str):
@@ -169,38 +169,32 @@ def queryset_to_workbook(headers: list, data: list):
     return workbook
 
 
+class WalletSerializer(serializers.ModelSerializer):
+    symbol = serializers.CharField(source='asset.symbol')
+    user_id = serializers.CharField(source='account.user_id')
+    account_id = serializers.CharField()
+
+    class Meta:
+        model = Wallet
+        fields = ['created', 'id', 'user_id', 'account_id', 'market', 'symbol']
+
+
 class TransactionSerializer(serializers.ModelSerializer):
-    sender = serializers.SerializerMethodField()
-    receiver = serializers.SerializerMethodField()
+    sender_id = serializers.IntegerField()
+    receiver_id = serializers.IntegerField()
 
     class Meta:
         model = Trx
-        fields = ('id', 'sender', 'receiver')
-
-    def get_sender(self, obj):
-        return {
-            'user_id': obj.sender.account.user_id,
-            'market': obj.sender.market,
-            'amount': obj.sender.balance,
-            'coin': obj.sender.asset.name
-        }
-
-    def get_receiver(self, obj):
-        return {
-            'user_id': obj.receiver.account.user_id,
-            'market': obj.receiver.market,
-            'amount': obj.receiver.balance,
-            'coin': obj.receiver.asset.name
-        }
+        fields = ['created', 'id', 'sender_id', 'receiver_id', 'amount']
 
 
 class TransactionView(APIView):
     authentication_classes = [CustomTokenAuthentication]
 
     def get(self, request):
-        page_number = self._get_int_param(request, 'page_number')
-        page_size = self._get_int_param(request, 'page_size')
-        date = self._get_date_param(request, 'date')
+        page_number = _get_int_param(request, 'page_number')
+        page_size = _get_int_param(request, 'page_size')
+        date = _get_date_param(request, 'date')
 
         start_index = (page_number - 1) * page_size
         end_index = page_number * page_size
@@ -215,24 +209,43 @@ class TransactionView(APIView):
             "trxs": trxs_to_send
         })
 
-    @staticmethod
-    def _get_int_param(request, param_name):
-        param = request.GET.get(param_name)
-        if not param:
-            raise ValidationError(f"Missing required parameter: {param_name}")
-        try:
-            return int(param)
-        except ValueError:
-            raise ValidationError(f"Invalid value for {param_name}. Must be an integer.")
+class WalletView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
 
-    @staticmethod
-    def _get_date_param(request, param_name):
-        date_str = request.GET.get(param_name)
-        if not date_str:
-            raise ValidationError(f"Missing required parameter: {param_name}")
+    def get(self, request):
+        page_number = _get_int_param(request, 'page_number')
+        page_size = _get_int_param(request, 'page_size')
+        date = _get_date_param(request, 'date')
 
-        date = parse_datetime(date_str)
-        if not date:
-            raise ValidationError(f"Invalid date format for {param_name}.")
+        start_index = (page_number - 1) * page_size
+        end_index = page_number * page_size
 
-        return date
+        wallets = Wallet.objects.filter(created__lt=date).order_by('id')[start_index:end_index]
+
+        wallets_to_send = WalletSerializer(wallets, many=True).data
+
+        return Response({
+            "page_number": page_number,
+            "page_size": page_size,
+            "wallets": wallets_to_send
+        })
+
+def _get_int_param(request, param_name):
+    param = request.GET.get(param_name)
+    if not param:
+        raise ValidationError(f"Missing required parameter: {param_name}")
+    try:
+        return int(param)
+    except ValueError:
+        raise ValidationError(f"Invalid value for {param_name}. Must be an integer.")
+
+def _get_date_param(request, param_name):
+    date_str = request.GET.get(param_name)
+    if not date_str:
+        raise ValidationError(f"Missing required parameter: {param_name}")
+
+    date = parse_datetime(date_str)
+    if not date:
+        raise ValidationError(f"Invalid date format for {param_name}.")
+
+    return date
