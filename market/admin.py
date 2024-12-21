@@ -165,7 +165,7 @@ class TradePositionFilter(admin.SimpleListFilter):
 
 @admin.register(Trade)
 class TradeAdmin(AdvancedAdmin):
-    list_display = ('created', 'get_symbol', 'side', 'price', 'is_maker', 'market',
+    list_display = ('get_created', 'get_symbol', 'side', 'price', 'is_maker', 'market',
                     'amount', 'fee_amount', 'fee_revenue')
     list_filter = ('trade_source', AccountTradeFilter, 'symbol', 'market')
     # readonly_fields = [field.name for field in Order._meta.get_fields()]
