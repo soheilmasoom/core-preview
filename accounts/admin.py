@@ -1014,11 +1014,12 @@ class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
 @admin.register(LoginActivity)
 class LoginActivityAdmin(admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'ip', 'country', 'city', 'device', 'os', 'browser', 'device_type', 'is_sign_up',
-                    'native_app', 'session', 'get_jalali_created')
+    list_display = ('created', 'get_username', 'ip', 'country', 'city', 'device', 'os', 'browser', 'device_type',
+                    'is_sign_up', 'native_app', 'get_jalali_created')
     search_fields = ('user__phone', 'ip', 'session__session_key')
-    readonly_fields = ('user', 'session', 'ip', 'refresh_token', 'get_jalali_created')
+    readonly_fields = ('user', 'ip', 'refresh_token', 'get_jalali_created')
     list_filter = ('is_sign_up', 'native_app',)
+    exclude = ('session',)
 
     @admin.display(description='user')
     def get_username(self, login_activity: LoginActivity):
