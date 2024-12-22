@@ -62,9 +62,10 @@ class DepositSerializer(serializers.ModelSerializer):
 
         need_memo = network.deposit_need_memo
 
-        q = Q()
+        q = Q(deleted=False) | Q(accept_deposits=True)
+
         if need_memo:
-            q = Q(memo=memo)
+            q &= Q(memo=memo)
         else:
             memo = ''
 
@@ -72,7 +73,6 @@ class DepositSerializer(serializers.ModelSerializer):
             q,
             address=receiver_address,
             architecture=get_blocklink_requester().get_network_arch(network),
-            deleted=False
         ).first()
 
         requester_id = validated_data.get('id')
