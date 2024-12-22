@@ -4,11 +4,11 @@ from decimal import Decimal
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.db.models import Q
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError, NotFound
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, get_object_or_404
 
-from accounts.authentication import CustomTokenAuthentication
 from accounts.admin_guard.html_tags import url_to_admin_list
+from accounts.authentication import CustomTokenAuthentication
 from accounts.utils.telegram import send_system_message
 from ledger.models import Network, Asset, DepositAddress, AddressKey, NetworkAsset, DepositRecoveryRequest, ProxyWallet
 from ledger.models.transfer import Transfer
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class DepositSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(allow_null=True)
+    id = serializers.IntegerField()
     network = serializers.CharField(max_length=16, write_only=True)
     sender_address = serializers.CharField(max_length=256, write_only=True)
     receiver_address = serializers.CharField(max_length=256, write_only=True)
@@ -35,93 +35,79 @@ class DepositSerializer(serializers.ModelSerializer):
                   'block_number', 'last_block_number']
 
     def create(self, validated_data):
+        receiver_address = validated_data['receiver_address']
+        if ProxyWallet.objects.filter(address__iexact=receiver_address).exists():
+            raise ValidationError({
+                'receiver_address': 'Ignored due to proxy wallet'
+            })
+
         network_symbol = validated_data.get('network')
-        sender_address = validated_data.get('sender_address')
-        receiver_address = validated_data.get('receiver_address')
+        sender_address = validated_data['sender_address']
         network = Network.objects.get(symbol=network_symbol)
         memo = validated_data.get('memo') or ''
         status = validated_data.get('status')
         trx_hash = validated_data.get('trx_hash')
         block_number = validated_data.get('block_number')
         last_block_number = validated_data.get('last_block_number')
-        coin = validated_data.get('coin')
+        coin = validated_data['coin']
 
         asset = Asset.objects.filter(symbol=coin).first()
         coin_mult = 1
 
-        if ProxyWallet.objects.filter(address__iexact=receiver_address).exists():
-            raise ValidationError({
-                'status': 'ignored due to proxy wallet'
-            })
-
-        if not asset and coin:
+        if not asset:
             asset = Asset.objects.filter(original_symbol=coin).first()
 
-            if asset:
-                coin_mult = asset.get_coin_multiplier()
+            if not asset:
+                raise ValidationError({'coin': 'Ignored due to invalid coin'})
+
+            coin_mult = asset.get_coin_multiplier()
 
         need_memo = network.deposit_need_memo
+
+        if need_memo and not memo:
+            DepositRecoveryRequest.objects.get_or_create(
+                blocklink_id=validated_data['id'],
+                defaults={
+                    'asset': asset,
+                    'network': network,
+                    'memo': truncate_str(memo, 64),
+                    'trx_hash': trx_hash,
+                    'amount': Decimal(validated_data.get('amount')) / coin_mult,
+                    'receiver_address': receiver_address,
+                    'scope': DepositRecoveryRequest.SYSTEM,
+                }
+            )
+            raise ValidationError({'memo': 'Ignored due to empty memo'})
+
+        if not need_memo:
+            memo = ''
 
         q = Q(deleted=False) | Q(accept_deposits=True)
 
         if need_memo:
             q &= Q(memo=memo)
-        else:
-            memo = ''
 
-        address_key = AddressKey.objects.filter(
+        address_keys = list(AddressKey.objects.filter(
             q,
             address=receiver_address,
             architecture=get_blocklink_requester().get_network_arch(network),
-        ).first()
+        ))
 
-        requester_id = validated_data.get('id')
+        if not address_keys:
+            raise ValidationError({'receiver_address': 'Ignored due to invalid receiver_address or memo'})
 
-        if need_memo and (not memo or not address_key):
-            if status == DONE and requester_id:
-                DepositRecoveryRequest.objects.get_or_create(
-                    blocklink_id=validated_data.get('id'),
-                    defaults={
-                        'asset': asset,
-                        'network': network,
-                        'memo': truncate_str(memo, 64),
-                        'trx_hash': trx_hash,
-                        'amount': Decimal(validated_data.get('amount')) / coin_mult,
-                        'receiver_address': receiver_address,
-                        'scope': DepositRecoveryRequest.SYSTEM,
-                    }
-                )
-                raise ValidationError({'address_key': 'Recovery created'})
-            else:
-                raise ValidationError({'address_key': 'Not Found'})
+        if len(address_keys) > 1:
+            raise ValidationError({'receiver_address': 'Ignored due to multiple address_key matched!'})
 
-        if not address_key:
-            raise NotFound
+        address_key = address_keys[0]
 
-        if (need_memo and not memo) or (not need_memo and memo):
-            raise ValidationError({'memo': 'null memo for memo networks error'})
-
-        deposit_address = DepositAddress.objects.filter(
+        deposit_address, _ = DepositAddress.objects.get_or_create(
+            address_key=address_key,
             network=network,
-            address=receiver_address,
-            address_key__memo=memo
-        ).first()
-
-        if deposit_address and deposit_address.address_key.deleted:
-            raise ValidationError({'receiver_address': 'old deposit address not supported'})
-
-        if not deposit_address:
-            deposit_address, _ = DepositAddress.objects.get_or_create(
-                address=receiver_address,
-                network=network,
-                defaults={
-                    'address_key': address_key
-                }
-            )
-
-        if not asset:
-            logger.warning('invalid coin for deposit', extra={'coin': coin})
-            raise ValidationError({'coin': 'invalid coin'})
+            defaults={
+                'address': address_key.public_address
+            }
+        )
 
         wallet = asset.get_wallet(deposit_address.address_key.account)
 
