@@ -22,8 +22,8 @@ MIN_PRECISION_AMOUNT = Decimal('0.00000001')
 class NetworkAsset(models.Model):
     history = HistoricalRecords()
 
-    asset = models.ForeignKey('ledger.Asset', on_delete=models.PROTECT)
-    network = models.ForeignKey('ledger.Network', on_delete=models.PROTECT)
+    asset = models.ForeignKey('ledger.Asset', on_delete=models.CASCADE)
+    network = models.ForeignKey('ledger.Network', on_delete=models.CASCADE)
 
     withdraw_fee = get_amount_field()
     withdraw_min = get_amount_field()
