@@ -8,9 +8,10 @@ from accounts.models import User
 from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object
 from ledger.utils.precision import get_presentation_amount
 from .models import StakeRequest, StakeRevenue, StakeOption
+from _base.utils import admin_register_for_crypto_exchange
 
 
-@admin.register(StakeOption)
+@admin_register_for_crypto_exchange(StakeOption)
 class StakeOptionAdmin(admin.ModelAdmin):
     list_display = ['asset', 'apr', 'get_stake_request_count', 'get_stake_request_amount', 'total_cap', 'fee', 'enable',
                     'landing']
@@ -49,7 +50,7 @@ class StakeStatusFilter(SimpleListFilter):
             return queryset
 
 
-@admin.register(StakeRequest)
+@admin_register_for_crypto_exchange(StakeRequest)
 class StakeRequestAdmin(AdvancedAdmin):
     list_display = ['get_stake_option_asset', 'get_stake_option_apr', 'created', 'get_amount', 'get_user', 'status',
                     'start_at', 'cancel_request_at', 'cancel_pending_at', 'end_at', 'get_stake_revenue']
@@ -110,7 +111,7 @@ class StakeRequestAdmin(AdvancedAdmin):
             stake_request.change_status(StakeRequest.CANCEL_COMPLETE)
 
 
-@admin.register(StakeRevenue)
+@admin_register_for_crypto_exchange(StakeRevenue)
 class StakeRevenueAdmin(admin.ModelAdmin):
     list_display = ['created', 'get_revenue', 'get_user', 'get_stake_option_asset', 'get_stake_option_apr']
     list_filter = ('stake_request__stake_option', )

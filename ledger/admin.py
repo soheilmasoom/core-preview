@@ -52,6 +52,7 @@ from .utils.blocklink import get_blocklink_requester
 from .utils.coins_info import get_coins_info
 from .utils.price import get_last_price
 from .utils.wallet_pipeline import WalletPipeline
+from _base.utils import admin_register_for_crypto_exchange
 
 
 class CoinCategoryInline(admin.TabularInline):
@@ -1277,7 +1278,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         )
 
 
-@admin.register(TokenRebrand)
+@admin_register_for_crypto_exchange(TokenRebrand)
 class TokenRebrandAdmin(admin.ModelAdmin):
     list_display = ('created', 'old_asset', 'new_asset', 'new_asset_multiplier', 'status')
     readonly_fields = ('status', 'group_id', 'get_rebrand_info')
@@ -1316,7 +1317,7 @@ class TokenTransferPartInline(admin.TabularInline):
     extra = 1
 
 
-@admin.register(TokenTransfer)
+@admin_register_for_crypto_exchange(TokenTransfer)
 class TokenTransferAdmin(admin.ModelAdmin):
     list_display = ('created', 'title', 'status')
     readonly_fields = ('status', 'group_id', 'get_transfer_info')
@@ -1347,7 +1348,7 @@ class TokenTransferAdmin(admin.ModelAdmin):
         return mark_safe(get_table_html(['old', 'new'], rows))
 
 
-@admin.register(TokenDelist)
+@admin_register_for_crypto_exchange(TokenDelist)
 class TokenDelistAdmin(admin.ModelAdmin):
     list_display = ('created', 'delist_at', 'asset', 'status')
     readonly_fields = ('status', 'group_id', 'get_delist_info')
@@ -1381,7 +1382,7 @@ class TokenDelistAdmin(admin.ModelAdmin):
         return mark_safe(get_table_html(['name', 'value'], rows))
 
 
-@admin.register(MarginPosition)
+@admin_register_for_crypto_exchange(MarginPosition)
 class MarginPositionAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'account', 'symbol', 'side', 'status', 'leverage', 'get_equity', 'amount',
                     'get_liquidation_price', 'get_average_price', 'get_orders', 'get_trades')
@@ -1443,7 +1444,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
                 MarginPosition.objects.bulk_update(positions, ['status'])
 
 
-@admin.register(MarginHistoryModel)
+@admin_register_for_crypto_exchange(MarginHistoryModel)
 class MarginHistoryModelAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'position', 'asset', 'amount', 'type')
     readonly_fields = ('created', 'position', 'asset', 'type', 'group_id', 'account')
@@ -1451,7 +1452,7 @@ class MarginHistoryModelAdmin(admin.ModelAdmin):
     list_filter = ('type', 'asset')
 
 
-@admin.register(MarginLeverage)
+@admin_register_for_crypto_exchange(MarginLeverage)
 class MarginLeverageAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'leverage')
     readonly_fields = ('account',)
