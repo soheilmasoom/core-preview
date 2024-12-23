@@ -10,10 +10,8 @@ from django.db.models import Q, Count, F, Value, CharField, Sum, IntegerField
 from django.db.models.functions import Cast, TruncDate, Greatest
 from django.http import HttpResponse
 from django.shortcuts import render
-from django.utils.dateparse import parse_datetime
 from openpyxl import Workbook
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
@@ -211,7 +209,7 @@ class TransactionView(ListAPIView):
     serializer_class = TransactionSerializer
 
     def get_queryset(self):
-        return Trx.objects.filter()
+        return Trx.objects.filter().order_by('id')
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -232,7 +230,7 @@ class WalletView(ListAPIView):
     serializer_class = WalletSerializer
 
     def get_queryset(self):
-        return Wallet.objects.filter().prefetch_related('asset__symbol', 'account__user_id')
+        return Wallet.objects.filter().order_by('id').prefetch_related('asset', 'account')
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
