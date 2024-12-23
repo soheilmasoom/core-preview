@@ -185,21 +185,33 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = ['id', 'created', 'sender_id', 'receiver_id', 'amount', 'group_id']
 
 
+class NoCountLimitOffsetPagination(LimitOffsetPagination):
+    def paginate_queryset(self, queryset, request, view=None):
+        self.limit = self.get_limit(request)
+        if self.limit is None:
+            return None
+
+        self.offset = self.get_offset(request)
+        self.request = request
+
+        paginated_queryset = queryset[self.offset:self.offset + self.limit]
+
+        if not paginated_queryset:
+            return []
+
+        if self.template is not None and len(paginated_queryset) == self.limit:
+            self.display_page_controls = True
+
+        return paginated_queryset
+
+
 class TransactionView(ListAPIView):
     authentication_classes = [CustomTokenAuthentication]
-    pagination_class = LimitOffsetPagination
+    pagination_class = NoCountLimitOffsetPagination
     serializer_class = TransactionSerializer
 
     def get_queryset(self):
-        date_str = self.request.query_params.get('to_date')
-        if not date_str:
-            raise ValidationError("Missing required parameter: to_date")
-
-        date = parse_datetime(date_str)
-        if not date:
-            raise ValidationError("Invalid date format for to_date.")
-
-        return Trx.objects.filter(created__lt=date)
+        return Trx.objects.filter()
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -210,27 +222,17 @@ class TransactionView(ListAPIView):
         serializer = self.get_serializer(page, many=True)
 
         return Response({
-            'next': paginator.get_next_link(),
-            'previous': paginator.get_previous_link(),
             'results': serializer.data
         })
 
 
 class WalletView(ListAPIView):
     authentication_classes = [CustomTokenAuthentication]
-    pagination_class = LimitOffsetPagination
+    pagination_class = NoCountLimitOffsetPagination
     serializer_class = WalletSerializer
 
     def get_queryset(self):
-        date_str = self.request.query_params.get('to_date')
-        if not date_str:
-            raise ValidationError("Missing required parameter: to_date")
-
-        date = parse_datetime(date_str)
-        if not date:
-            raise ValidationError("Invalid date format for to_date.")
-
-        return Wallet.objects.filter(created__lt=date)
+        return Wallet.objects.filter().prefetch_related('asset__symbol', 'account__user_id')
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -241,7 +243,5 @@ class WalletView(ListAPIView):
         serializer = self.get_serializer(page, many=True)
 
         return Response({
-            'next': paginator.get_next_link(),
-            'previous': paginator.get_previous_link(),
             'results': serializer.data
         })
