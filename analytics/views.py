@@ -14,8 +14,9 @@ from django.utils.dateparse import parse_datetime
 from openpyxl import Workbook
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
+from rest_framework.generics import ListAPIView
 from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.response import Response
 
 from accounting.models import TradeRevenue
 from accounts.authentication import CustomTokenAuthentication
@@ -184,7 +185,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = ['id', 'created', 'sender_id', 'receiver_id', 'amount', 'group_id']
 
 
-class TransactionView(ModelViewSet):
+class TransactionView(ListAPIView):
     authentication_classes = [CustomTokenAuthentication]
     pagination_class = LimitOffsetPagination
     serializer_class = TransactionSerializer
@@ -200,8 +201,22 @@ class TransactionView(ModelViewSet):
 
         return Trx.objects.filter(created__lt=date)
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
 
-class WalletView(ModelViewSet):
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
+        serializer = self.get_serializer(page, many=True)
+
+        return Response({
+            'next': paginator.get_next_link(),
+            'previous': paginator.get_previous_link(),
+            'results': serializer.data
+        })
+
+
+class WalletView(ListAPIView):
     authentication_classes = [CustomTokenAuthentication]
     pagination_class = LimitOffsetPagination
     serializer_class = WalletSerializer
@@ -216,3 +231,17 @@ class WalletView(ModelViewSet):
             raise ValidationError("Invalid date format for to_date.")
 
         return Wallet.objects.filter(created__lt=date)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
+        serializer = self.get_serializer(page, many=True)
+
+        return Response({
+            'next': paginator.get_next_link(),
+            'previous': paginator.get_previous_link(),
+            'results': serializer.data
+        })
