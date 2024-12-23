@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'gamify',
     'health',
     'search',
+    'treasury',
 
     'tinymce',
     'import_export',
