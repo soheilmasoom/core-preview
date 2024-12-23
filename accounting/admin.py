@@ -10,6 +10,7 @@ from accounting.models import Account, AccountTransaction, TransactionAttachment
 from accounting.models.provider_income import ProviderIncome
 from gamify.utils import clone_model
 from ledger.utils.precision import humanize_number
+from _base.utils import admin_register_for_crypto_exchange
 
 
 @admin.register(Account)
@@ -150,14 +151,14 @@ class PeriodicFetcherAdmin(admin.ModelAdmin):
     list_display = ('name', 'end')
 
 
-@admin.register(BlocklinkIncome)
+@admin_register_for_crypto_exchange(BlocklinkIncome)
 class BlocklinkIncomeAdmin(admin.ModelAdmin):
     list_display = ('start', 'network', 'coin', 'real_fee_amount', 'fee_cost', 'fee_income',)
     list_filter = ('network', )
     search_fields = ('network', 'coin')
 
 
-@admin.register(BlocklinkDustCost)
+@admin_register_for_crypto_exchange(BlocklinkDustCost)
 class BlocklinkDustCostAdmin(admin.ModelAdmin):
     list_display = ('updated', 'network', 'amount', 'usdt_value',)
 

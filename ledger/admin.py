@@ -253,7 +253,7 @@ class WithdrawFeedbackAdmin(admin.ModelAdmin):
     list_filter = ('category', )
 
 
-@admin.register(models.Network)
+@admin_register_for_crypto_exchange(models.Network)
 class NetworkAdmin(SimpleHistoryAdmin):
     list_display = (
         'symbol', 'can_withdraw', 'can_deposit', 'min_confirm', 'unlock_confirm', 'deposit_need_memo',
@@ -281,7 +281,7 @@ class NetworkAssetFilter(admin.SimpleListFilter):
         return queryset
 
 
-@admin.register(NetworkAsset)
+@admin_register_for_crypto_exchange(NetworkAsset)
 class NetworkAssetAdmin(SimpleHistoryAdmin):
     list_display = ('network', 'asset', 'get_withdraw_fee', 'get_withdraw_min', 'get_withdraw_max', 'get_deposit_min',
                     'can_deposit', 'can_withdraw', 'update_fee_with_provider', 'update_with_provider', 'network_order',
@@ -335,7 +335,7 @@ class DepositAddressUserFilter(admin.SimpleListFilter):
             return queryset
 
 
-@admin.register(models.DepositAddress)
+@admin_register_for_crypto_exchange(models.DepositAddress)
 class DepositAddressAdmin(AdvancedAdmin):
     list_display = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     readonly_fields = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
@@ -868,14 +868,14 @@ class CryptoAccountTypeFilter(SimpleListFilter):
             return queryset
 
 
-@admin.register(models.MarginTransfer)
+@admin_register_for_crypto_exchange(models.MarginTransfer)
 class MarginTransferAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'amount', 'type',)
     search_fields = ('group_id',)
     readonly_fields = ('account', )
 
 
-@admin.register(models.AddressBook)
+@admin_register_for_crypto_exchange(models.AddressBook)
 class AddressBookAdmin(SimpleHistoryAdmin):
     list_display = ('name', 'get_username', 'network', 'address', 'asset',)
     search_fields = ('address', 'name', 'account__user__phone')
@@ -942,7 +942,7 @@ class CoinCategoryAdmin(SimpleHistoryAdmin):
         obj.refresh()
 
 
-@admin.register(models.AddressKey)
+@admin_register_for_crypto_exchange(models.AddressKey)
 class AddressKeyAdmin(admin.ModelAdmin):
     list_display = ('address', 'deleted', 'account', 'architecture', 'memo')
     readonly_fields = ('address', 'account', 'memo')
@@ -1213,7 +1213,7 @@ class AlertTriggerAdmin(admin.ModelAdmin):
     search_fields = ('cycle',)
 
 
-@admin.register(DepositRecoveryRequest)
+@admin_register_for_crypto_exchange(DepositRecoveryRequest)
 class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('created', 'asset', 'network', 'amount', 'memo', 'scope', 'status', 'get_user')
     list_filter = ('status', 'asset', 'scope')
@@ -1476,7 +1476,7 @@ class ConvertDustTrxAdmin(admin.ModelAdmin):
     list_display = ('convert_dust', 'asset', 'base_asset', 'amount', 'converted_amount')
 
 
-@admin.register(NetworkSchedule)
+@admin_register_for_crypto_exchange(NetworkSchedule)
 class NetworkScheduleAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'network', 'disable_at', 'status')
     list_filter = ('network', 'status')
