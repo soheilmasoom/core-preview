@@ -112,7 +112,7 @@ class OrderAdmin(AdvancedAdmin):
     readonly_fields = [field.name for field in Order._meta.get_fields()]
     actions = ('cancel_order', )
 
-    list_permission_exclude_filters = ('id', 'account', 'group_id')
+    list_permission_exclude_filters = ('id', 'account', 'group_id', 'position')
 
     def get_queryset(self, request):
         return super(OrderAdmin, self).get_queryset(request).annotate(symbol_name=F('symbol__name'))
@@ -171,7 +171,7 @@ class TradeAdmin(AdvancedAdmin):
     # readonly_fields = [field.name for field in Order._meta.get_fields()]
     actions = ('revert', )
 
-    list_permission_exclude_filters = ('id', 'account', 'group_id')
+    list_permission_exclude_filters = ('id', 'account', 'group_id', 'position')
 
     def get_queryset(self, request):
         return super(TradeAdmin, self).get_queryset(request).annotate(symbol_name=F('symbol__name'))
