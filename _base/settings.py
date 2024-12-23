@@ -2,16 +2,21 @@ import os
 import re
 import sys
 from datetime import timedelta
+from enum import Enum
 from pathlib import Path
 
 import sentry_sdk
 from decouple import Csv, config
 from sentry_sdk.integrations.django import DjangoIntegration
 
+from _base.utils import ExchangeType
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
 OTP_TOTP_THROTTLE_FACTOR = 1
+
+EXCHANGE_TYPE = ExchangeType(config('EXCHANGE_TYPE', default='CRYPTO'))
 
 DEBUG = config('DEBUG', cast=bool, default=False)
 STAGING = config('STAGING', cast=bool, default=False)
