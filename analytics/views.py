@@ -15,6 +15,7 @@ from rest_framework import serializers
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
+from rest_framework.utils.urls import replace_query_param
 
 from accounting.models import TradeRevenue
 from accounts.authentication import CustomTokenAuthentication
@@ -189,6 +190,7 @@ class NoCountLimitOffsetPagination(LimitOffsetPagination):
         if self.limit is None:
             return None
 
+        self.count = None
         self.offset = self.get_offset(request)
         self.request = request
 
@@ -202,6 +204,13 @@ class NoCountLimitOffsetPagination(LimitOffsetPagination):
 
         return paginated_queryset
 
+    def get_next_link(self):
+        url = self.request.build_absolute_uri()
+        url = replace_query_param(url, self.limit_query_param, self.limit)
+
+        offset = self.offset + self.limit
+        return replace_query_param(url, self.offset_query_param, offset)
+
 
 class TransactionView(ListAPIView):
     authentication_classes = [CustomTokenAuthentication]
@@ -211,18 +220,6 @@ class TransactionView(ListAPIView):
     def get_queryset(self):
         return Trx.objects.filter().order_by('id')
 
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(queryset, request)
-
-        serializer = self.get_serializer(page, many=True)
-
-        return Response({
-            'results': serializer.data
-        })
-
 
 class WalletView(ListAPIView):
     authentication_classes = [CustomTokenAuthentication]
@@ -231,15 +228,3 @@ class WalletView(ListAPIView):
 
     def get_queryset(self):
         return Wallet.objects.filter().order_by('id').prefetch_related('asset', 'account')
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(queryset, request)
-
-        serializer = self.get_serializer(page, many=True)
-
-        return Response({
-            'results': serializer.data
-        })
