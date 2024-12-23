@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime, timedelta
-from decimal import Decimal
 from typing import Tuple
 
 from django.conf import settings
@@ -14,8 +13,8 @@ from django.utils.dateparse import parse_datetime
 from openpyxl import Workbook
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.viewsets import ModelViewSet
 
 from accounting.models import TradeRevenue
 from accounts.authentication import CustomTokenAuthentication
@@ -138,7 +137,8 @@ def get_data(permission: ReportPermission, start: datetime, end: datetime, level
         ).values(*group_by).annotate(
             revenue=Greatest(
                 Cast(
-                    Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F('value')) * permission.referral_percent_revenue / 100,
+                    Sum((F('fee_revenue') + F('gap_revenue')) * F('value_irt') / F(
+                        'value')) * permission.referral_percent_revenue / 100,
                     output_field=IntegerField()
                 ), 0)
         ).values_list(*group_by, 'revenue')
@@ -163,8 +163,8 @@ def queryset_to_workbook(headers: list, data: list):
     # write data
     for row_num, row in enumerate(data, 1):
         for col_num, field_name in enumerate(headers, 1):
-            cell = sheet.cell(row=row_num+1, column=col_num)
-            cell.value = row[col_num-1]
+            cell = sheet.cell(row=row_num + 1, column=col_num)
+            cell.value = row[col_num - 1]
 
     return workbook
 
@@ -172,80 +172,47 @@ def queryset_to_workbook(headers: list, data: list):
 class WalletSerializer(serializers.ModelSerializer):
     symbol = serializers.CharField(source='asset.symbol')
     user_id = serializers.CharField(source='account.user_id')
-    account_id = serializers.CharField()
 
     class Meta:
         model = Wallet
-        fields = ['created', 'id', 'user_id', 'account_id', 'market', 'symbol']
+        fields = ['id', 'created', 'user_id', 'account_id', 'market', 'symbol']
 
 
 class TransactionSerializer(serializers.ModelSerializer):
-    sender_id = serializers.IntegerField()
-    receiver_id = serializers.IntegerField()
-
     class Meta:
         model = Trx
-        fields = ['created', 'id', 'sender_id', 'receiver_id', 'amount']
+        fields = ['id', 'created', 'sender_id', 'receiver_id', 'amount', 'group_id']
 
 
-class TransactionView(APIView):
+class TransactionView(ModelViewSet):
     authentication_classes = [CustomTokenAuthentication]
+    pagination_class = LimitOffsetPagination
+    serializer_class = TransactionSerializer
 
-    def get(self, request):
-        page_number = _get_int_param(request, 'page_number')
-        page_size = _get_int_param(request, 'page_size')
-        date = _get_date_param(request, 'date')
+    def get_queryset(self):
+        date_str = self.request.query_params.get('to_date')
+        if not date_str:
+            raise ValidationError("Missing required parameter: to_date")
 
-        start_index = (page_number - 1) * page_size
-        end_index = page_number * page_size
+        date = parse_datetime(date_str)
+        if not date:
+            raise ValidationError("Invalid date format for to_date.")
 
-        trxs = Trx.objects.filter(created__lt=date).order_by('id')[start_index:end_index]
+        return Trx.objects.filter(created__lt=date)
 
-        trxs_to_send = TransactionSerializer(trxs, many=True).data
 
-        return Response({
-            "page_number": page_number,
-            "page_size": page_size,
-            "trxs": trxs_to_send
-        })
-
-class WalletView(APIView):
+class WalletView(ModelViewSet):
     authentication_classes = [CustomTokenAuthentication]
+    pagination_class = LimitOffsetPagination
+    serializer_class = WalletSerializer
 
-    def get(self, request):
-        page_number = _get_int_param(request, 'page_number')
-        page_size = _get_int_param(request, 'page_size')
-        date = _get_date_param(request, 'date')
+    def get_queryset(self):
+        date_str = self.request.query_params.get('to_date')
+        if not date_str:
+            raise ValidationError("Missing required parameter: to_date")
 
-        start_index = (page_number - 1) * page_size
-        end_index = page_number * page_size
+        date = parse_datetime(date_str)
+        if not date:
+            raise ValidationError("Invalid date format for to_date.")
 
-        wallets = Wallet.objects.filter(created__lt=date).order_by('id')[start_index:end_index]
-
-        wallets_to_send = WalletSerializer(wallets, many=True).data
-
-        return Response({
-            "page_number": page_number,
-            "page_size": page_size,
-            "wallets": wallets_to_send
-        })
-
-def _get_int_param(request, param_name):
-    param = request.GET.get(param_name)
-    if not param:
-        raise ValidationError(f"Missing required parameter: {param_name}")
-    try:
-        return int(param)
-    except ValueError:
-        raise ValidationError(f"Invalid value for {param_name}. Must be an integer.")
-
-def _get_date_param(request, param_name):
-    date_str = request.GET.get(param_name)
-    if not date_str:
-        raise ValidationError(f"Missing required parameter: {param_name}")
-
-    date = parse_datetime(date_str)
-    if not date:
-        raise ValidationError(f"Invalid date format for {param_name}.")
-
-    return date
+        return Wallet.objects.filter(created__lt=date)
