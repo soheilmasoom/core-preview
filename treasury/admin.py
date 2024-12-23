@@ -8,9 +8,10 @@ from .models import Treasury, PreciousMetalChoices
 class TreasuryAdmin(admin.ModelAdmin):
     list_display = ('metal_type', 'current_balance', 'sold_amount', 'bank_reserved', 'last_updated')
     readonly_fields = ('last_updated',)
+    actions = ['delete_selected']
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        return True
 
     def has_add_permission(self, request):
         return True
