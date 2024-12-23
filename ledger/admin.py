@@ -239,7 +239,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         queryset.update(hedge=False)
 
 
-@admin.register(FeedbackCategory)
+@admin_register_for_crypto_exchange(FeedbackCategory)
 class FeedbackCategoryAdmin(admin.ModelAdmin):
     list_display = ('category', 'order')
     list_editable = ('order', )
@@ -927,7 +927,7 @@ class PrizeAdmin(AdvancedAdmin):
         )
 
 
-@admin.register(CoinCategory)
+@admin_register_for_crypto_exchange(CoinCategory)
 class CoinCategoryAdmin(SimpleHistoryAdmin):
     list_display = ('name', 'title', 'get_coin_count', 'order')
     list_editable = ('order',)
