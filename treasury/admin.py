@@ -2,11 +2,11 @@ from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.contrib import messages
 
-from _base.utils import admin_register_for_precious_metal_exchange
+from _base.utils import admin_register_for_precious_metals_exchange
 from .models import Treasury
 
 
-@admin_register_for_precious_metal_exchange(Treasury)
+@admin_register_for_precious_metals_exchange(Treasury)
 class TreasuryAdmin(admin.ModelAdmin):
     list_display = ('metal_type', 'current_balance', 'sold_amount', 'bank_reserved', 'last_updated')
     readonly_fields = ('last_updated',)
