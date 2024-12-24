@@ -34,7 +34,7 @@ class ProviderRequester(BaseRequester):
     CACHE_PREFIX = 'provider'
 
     def get_base_url(self):
-        return config('PROVIDER_BASE_URL', default='https://provider.raastinwallet.com')
+        return config('PROVIDER_BASE_URL', default='https://prv.raastinwallet.com')
 
     def get_auth_token(self):
         return config('PROVIDER_TOKEN', '')
