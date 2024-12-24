@@ -401,9 +401,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     )
     preserve_filters = ('archived', )
 
-    search_fields = (
-        'national_code', 'phone'
-    )
+    search_fields = ('national_code', 'phone', 'username')
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
 

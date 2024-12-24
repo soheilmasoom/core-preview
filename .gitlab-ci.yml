@@ -159,6 +159,23 @@ tgju_deploy_production:
     - hamravesh
 
 
+ramzio_deploy_production:
+  image: hamravesh.hamdocker.ir/public/darkube-cli:v1.1
+  only:
+    refs:
+    - main
+  script:
+    - 'darkube deploy --token ${RAMZIO_API_DEPLOY_TOKEN}
+      --app-id ${RAMZIO_API_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+  retry:
+    max: 2
+
+  stage: deploy
+  tags:
+    - hamravesh
+
+
 deploy_gold:
   image: hamravesh.hamdocker.ir/public/darkube-cli:v1.1
   only:
