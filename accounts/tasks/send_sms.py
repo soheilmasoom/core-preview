@@ -8,6 +8,7 @@ from django.template import TemplateDoesNotExist
 from django.template.loader import render_to_string
 from kavenegar import KavenegarAPI, APIException, HTTPException
 
+from accounts.models import SystemConfig
 from accounts.verifiers.finotech import token_cache
 
 logger = logging.getLogger(__name__)
@@ -17,28 +18,32 @@ SMS_IR_TOKEN_KEY = 'sms-ir-token'
 
 
 def send_message_by_kavenegar(phone: str, template: str, token: str, send_type: str = 'sms'):
-    # try:
-    #     return send_kavenegar_exclusive_sms(
-    #         phone=phone,
-    #         content=render_to_string(f"accounts/sms/{template}.txt", {'token': token, 'brand': settings.BRAND})
-    #     )
-    # except TemplateDoesNotExist:
-    #     pass
+    send_mode = SystemConfig.get_system_config().otp_send_mode
 
-    if not phone or settings.DEBUG_OR_TESTING_OR_STAGING:
-        return
+    if send_mode == SystemConfig.OTP_KAVENEGAR_EXCLUSIVE:
+        try:
+            return send_kavenegar_exclusive_sms(
+                phone=phone,
+                content=render_to_string(f"accounts/sms/{template}.txt", {'token': token, 'brand': settings.BRAND})
+            )
+        except TemplateDoesNotExist:
+            logger.info('Sending otp ignored due to no template found!')
 
-    client = get_kavenegar_client()
+    elif send_mode == SystemConfig.OTP_KAVENEGAR:
+        if not phone or settings.DEBUG_OR_TESTING_OR_STAGING:
+            return
 
-    try:
-        client.verify_lookup({
-            'receptor': phone,
-            'template': template,
-            'type': send_type,
-            'token': token,
-        })
-    except (APIException, HTTPException) as e:
-        logger.exception("Failed to send sms by kavenegar")
+        client = get_kavenegar_client()
+
+        try:
+            client.verify_lookup({
+                'receptor': phone,
+                'template': template,
+                'type': send_type,
+                'token': token,
+            })
+        except (APIException, HTTPException) as e:
+            logger.exception("Failed to send sms by kavenegar")
 
 
 def get_kavenegar_client() -> KavenegarAPI:
