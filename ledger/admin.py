@@ -1446,6 +1446,24 @@ class TokenDelistAdmin(admin.ModelAdmin):
         rows = [{'name': k, 'value': v} for (k, v) in token_delist.get_delist_info().__dict__.items()]
         return mark_safe(get_table_html(['name', 'value'], rows))
 
+class BalanceFilter(admin.SimpleListFilter):
+    title = 'Balance Mismatched'  # Display name for the filter
+    parameter_name = 'balance_mismatched'  # URL parameter name
+
+    def lookups(self, request, model_admin):
+        return [
+            ('1', 'بله'),
+            ('0', 'خیر'),
+        ]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == '1':
+            return queryset.filter(~Q(asset_wallet__balance=0) | ~Q(base_wallet__balance=0), status=MarginPosition.CLOSED)
+        elif value == '0':
+            return queryset.exclude(~Q(asset_wallet__balance=0) | ~Q(base_wallet__balance=0), status=MarginPosition.CLOSED)
+        return queryset
+
 
 @admin.register(MarginPosition)
 class MarginPositionAdmin(SimpleHistoryAdmin):
@@ -1453,7 +1471,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
                     'get_liquidation_price', 'get_average_price', 'get_orders', 'get_trades')
     readonly_fields = ('account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'average_price', 'side',
                        'liquidation_price', 'leverage', 'equity', 'group_id')
-    list_filter = ('side', 'symbol', 'status')
+    list_filter = (BalanceFilter, 'side', 'symbol', 'status')
     search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
     actions = ('convert_dust_close', 'force_convert_dust_close')
 
