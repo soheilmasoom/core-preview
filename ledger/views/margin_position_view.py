@@ -258,4 +258,3 @@ class MarginClosePositionView(APIView):
             return Response({'Error': 'به علت عمق کم بازار معامله انجام نشد'}, 400)
         except InsufficientBalance:
             return Response({'Error': 'Insufficient Balance'}, 400)
-        return Response(200)
