@@ -1446,6 +1446,24 @@ class TokenDelistAdmin(admin.ModelAdmin):
         rows = [{'name': k, 'value': v} for (k, v) in token_delist.get_delist_info().__dict__.items()]
         return mark_safe(get_table_html(['name', 'value'], rows))
 
+class BalanceFilter(admin.SimpleListFilter):
+    title = 'Balance Mismatched'  # Display name for the filter
+    parameter_name = 'balance_mismatched'  # URL parameter name
+
+    def lookups(self, request, model_admin):
+        return [
+            ('1', 'بله'),
+            ('0', 'خیر'),
+        ]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == '1':
+            return queryset.filter(~Q(asset_wallet__balance=0) | ~Q(base_wallet__balance=0), status=MarginPosition.CLOSED)
+        elif value == '0':
+            return queryset.exclude(~Q(asset_wallet__balance=0) | ~Q(base_wallet__balance=0), status=MarginPosition.CLOSED)
+        return queryset
+
 
 @admin.register(MarginPosition)
 class MarginPositionAdmin(SimpleHistoryAdmin):
@@ -1453,9 +1471,9 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
                     'get_liquidation_price', 'get_average_price', 'get_orders', 'get_trades')
     readonly_fields = ('account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'average_price', 'side',
                        'liquidation_price', 'leverage', 'equity', 'group_id')
-    list_filter = ('side', 'symbol', 'status')
+    list_filter = (BalanceFilter, 'side', 'symbol', 'status')
     search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
-    actions = ('convert_dust_close', 'force_convert_dust_close')
+    actions = ('convert_dust_close', 'force_convert_dust_close', 'pay_debt')
 
     @admin.display(description='Orders')
     def get_orders(self, obj):
@@ -1484,6 +1502,30 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         if price is not None:
             price = floor_precision(obj.average_price, obj.symbol.tick_size)
         return price
+
+    @admin.action(description='Pay Closed Position Debt', permissions=['change'])
+    def pay_debt(self, request, queryset):
+        q = (Q(base_wallet__balance__lt=0, asset_wallet__balance=0) |
+             Q(asset_wallet__balance__lt=0, base_wallet__balance=0))
+
+        with WalletPipeline() as pipeline:
+            for position in queryset.filter(q, status=MarginPosition.CLOSED):
+                if position.base_wallet.balance < 0:
+                    receiver = position.base_wallet
+                elif position.asset_wallet.balance < 0:
+                    receiver = position.asset_wallet
+                else:
+                    continue
+
+                sender = receiver.asset.get_wallet(account=settings.MARGIN_INSURANCE_ACCOUNT)
+                pipeline.new_trx(
+                    sender=sender,
+                    receiver=receiver,
+                    amount=-Decimal(receiver.balance),
+                    group_id=uuid4(),
+                    scope=Trx.MANUAL
+                )
+
 
     @admin.action(description='convert dust and close', permissions=['change'])
     def convert_dust_close(self, request, queryset):
