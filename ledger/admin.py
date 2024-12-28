@@ -1473,7 +1473,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
                        'liquidation_price', 'leverage', 'equity', 'group_id')
     list_filter = (BalanceFilter, 'side', 'symbol', 'status')
     search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
-    actions = ('convert_dust_close', 'force_convert_dust_close', 'pay_debt')
+    actions = ('convert_dust_close', 'force_convert_dust_close', 'pay_debt', 'fast_close')
 
     @admin.display(description='Orders')
     def get_orders(self, obj):
@@ -1502,6 +1502,11 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         if price is not None:
             price = floor_precision(obj.average_price, obj.symbol.tick_size)
         return price
+
+    @admin.action(description='Fast Close Position', permissions=['change'])
+    def fast_close(self, request, queryset):
+        for position in queryset.filter(status=MarginPosition.OPEN):
+            position.close()
 
     @admin.action(description='Pay Closed Position Debt', permissions=['change'])
     def pay_debt(self, request, queryset):
