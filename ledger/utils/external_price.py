@@ -86,7 +86,6 @@ def _get_redis_price_key(coin: str, market: str = None):
 
 
 def _check_price_dict_time_frame(data: dict, allow_stale: bool = False):
-    return True
     now = timezone.now().timestamp() + 1
     return allow_stale or data.get('s') == 'c' or not data.get('t') or now - 30 <= float(data.get('t')) <= now
 
