@@ -10,7 +10,8 @@ class PayIdGateway(models.Model):
 
     type = models.CharField(
         max_length=8,
-        choices=[(t, t) for t in TYPES]
+        choices=[(t, t) for t in TYPES],
+        default=JIBIT,
     )
 
     created = models.DateTimeField(auto_now_add=True)

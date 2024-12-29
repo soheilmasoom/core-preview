@@ -39,14 +39,14 @@ class PaymentId(models.Model):
     class Meta:
         constraints = [
             UniqueConstraint(
-                fields=('user', 'gateway'),
+                fields=('user', 'destination'),
                 condition=Q(deleted=False),
-                name='unique_financial_paymentid_user_gateway',
+                name='unique_financial_paymentid_user_destination',
             ),
             UniqueConstraint(
-                fields=('pay_id', 'gateway'),
+                fields=('pay_id', 'destination'),
                 condition=Q(deleted=False),
-                name='unique_financial_paymentid_pay_id_gateway',
+                name='unique_financial_paymentid_pay_id_destination',
             ),
         ]
 

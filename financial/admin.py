@@ -37,10 +37,10 @@ from ledger.utils.withdraw_verify import RiskFactor, get_risks_html
 class GatewayAdmin(admin.ModelAdmin):
     list_display = (
         'name', 'type', 'active', 'deposit_priority', 'withdraw_priority',
-        'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable', 'get_free', 'get_balance',
+        'ipg_deposit_enable', 'withdraw_enable', 'get_free', 'get_balance',
         'get_min_deposit_amount', 'get_max_deposit_amount', 'suspended', 'active_for_staff',
     )
-    list_editable = ('active', 'active_for_staff', 'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable',
+    list_editable = ('active', 'active_for_staff', 'ipg_deposit_enable', 'withdraw_enable',
                      'deposit_priority', 'withdraw_priority', 'suspended')
     readonly_fields = ('get_balance', 'get_min_deposit_amount', 'get_max_deposit_amount')
     list_filter = ('active', 'type', 'ipg_deposit_enable', 'withdraw_enable')
@@ -582,8 +582,9 @@ class PaymentIdAdmin(AdvancedAdmin):
 
 
 @admin.register(PayIdGateway)
-class GeneralBankAccountAdmin(admin.ModelAdmin):
-    list_display = ('created', 'name', 'iban', 'bank', 'deposit_address')
+class PayIdGatewayAdmin(admin.ModelAdmin):
+    list_display = ('created', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'deposit_priority', 'withdraw_priority')
+    ordering = ('-active', '-deposit_priority', '-withdraw_priority')
 
 
 class BankPaymentRequestAcceptFilter(SimpleListFilter):

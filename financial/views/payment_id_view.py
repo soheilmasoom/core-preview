@@ -9,7 +9,7 @@ from financial.utils.bank import get_bank_from_slug
 from financial.utils.payment_id_client import get_payment_id_client
 
 
-class GeneralBankAccountSerializer(serializers.ModelSerializer):
+class PayIdGatewaySerializer(serializers.ModelSerializer):
     bank = serializers.SerializerMethodField()
 
     def get_bank(self, general_bank: PayIdGateway):
@@ -47,7 +47,7 @@ class PaymentIdSerializer(serializers.ModelSerializer):
             return payment_id.pay_id
 
     def get_destination(self, payment_id: PaymentId):
-        return GeneralBankAccountSerializer(payment_id.destination).data
+        return PayIdGatewaySerializer(payment_id.destination).data
 
     class Meta:
         model = PaymentId
