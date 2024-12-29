@@ -45,6 +45,7 @@ from .models.user_feature_perm import UserFeaturePerm
 from .tasks import basic_verify_user
 from .utils.mask import get_masked_phone
 from .utils.validation import gregorian_to_jalali_datetime_str
+from _base.utils import admin_display_for_crypto
 
 MANUAL_VERIFY_CONDITION = Q(
     Q(first_name_verified=None) | Q(last_name_verified=None),
@@ -834,12 +835,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         link = url_to_admin_list(Prize) + '?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
-    @admin.display(description='لیست استیکینگ‌ (staking) کاربر')
+    @admin_display_for_crypto(description='لیست استیکینگ‌ (staking) کاربر')
     def get_staking_link(self, user: User):
         link = url_to_admin_list(StakeRequest) + '?account={}'.format(user.account.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
-    @admin.action(description='به روز رسانی واریزی‌های رمزارزی', permissions=['view'])
+    @admin_display_for_crypto(description='به روز رسانی واریزی‌های رمزارزی', permissions=['view'])
     def update_deposits(self, request, queryset):
         requester = get_blocklink_requester()
 
