@@ -25,7 +25,7 @@ from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAcc
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
 from financial.utils.interface import get_withdraw_channel
-from financial.utils.payment_id_client import get_payment_id_clients
+from financial.utils.payment_id_client import get_payment_id_client
 from gamify.utils import clone_model
 from ledger.utils.fields import PENDING, INIT, CANCELED, DONE, PROCESS
 from ledger.utils.precision import humanize_number
@@ -562,7 +562,7 @@ class PaymentIdAdmin(AdvancedAdmin):
     @admin.action(description='Check Status', permissions=['view'])
     def check_status(self, request, queryset):
         for payment_id in queryset.filter(verified=False):
-            client = get_payment_id_clients(payment_id.gateway).first()
+            client = get_payment_id_client(payment_id.gateway)
             client.check_payment_id_status(payment_id)
 
     @admin.action(description='Recreate', permissions=['change'])
@@ -570,12 +570,12 @@ class PaymentIdAdmin(AdvancedAdmin):
         for payment_id in queryset.filter(verified=False):
             with transaction.atomic():
                 payment_id.delete()
-                client = get_payment_id_clients(payment_id.destination).first()
+                client = get_payment_id_client(payment_id.destination)
                 client.create_payment_id(payment_id.user)
 
     def save_model(self, request, obj: PaymentId, form, change):
         if not obj.id:
-            client = get_payment_id_clients(obj.destination).first()
+            client = get_payment_id_client(obj.destination)
             client.create_payment_id(obj.user, obj.full_name)
         else:
             obj.save()

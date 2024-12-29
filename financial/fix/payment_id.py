@@ -1,5 +1,5 @@
 from financial.models import Gateway, PayIdGateway
-from financial.utils.payment_id_client import get_payment_id_clients
+from financial.utils.payment_id_client import get_payment_id_client
 
 
 def fix_payment_ids():
@@ -8,5 +8,5 @@ def fix_payment_ids():
     if not gateway:
         return
 
-    client = get_payment_id_clients(gateway).first()
+    client = get_payment_id_client(gateway)
     client.create_missing_payment_requests_from_list()

@@ -44,6 +44,9 @@ class BaseClient:
     def check_payment_id_status(self, payment_id: PaymentId):
         raise NotImplementedError
 
+    def create_payments_requests(self):
+        pass
+
 
 class JibitClient(BaseClient):
     BASE_URL = 'https://napi.jibit.ir/pip'
@@ -500,10 +503,13 @@ class JibitClientV2(JibitClient):
         pass
 
 
-def get_payment_id_clients(gateway: PayIdGateway) -> [BaseClient]:
+def get_payment_id_client(gateway: PayIdGateway) -> BaseClient:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return MockClient(gateway)
 
     assert gateway.type in (PayIdGateway.JIBIT_OLD, PayIdGateway.JIBIT_NEW)
 
-    return [JibitClientV2(gateway), JibitClient(gateway)]
+    if gateway.type == PayIdGateway.JIBIT_OLD:
+        return JibitClient(gateway)
+    else:
+        return JibitClientV2(gateway)
