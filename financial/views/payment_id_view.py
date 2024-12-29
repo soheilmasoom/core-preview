@@ -6,7 +6,7 @@ from rest_framework.viewsets import ModelViewSet
 from accounts.models import User
 from financial.models import PaymentId, Gateway, PayIdGateway, BankAccount
 from financial.utils.bank import get_bank_from_slug
-from financial.utils.payment_id_client import get_payment_id_client
+from financial.utils.payment_id_client import get_payment_id_clients
 
 
 class PayIdGatewaySerializer(serializers.ModelSerializer):
@@ -36,7 +36,7 @@ class PaymentIdSerializer(serializers.ModelSerializer):
 
         gateway = PayIdGateway.get_active_pay_id()
 
-        client = get_payment_id_client(gateway)
+        client = get_payment_id_clients(gateway).first()
 
         return client.create_payment_id(user)
 
