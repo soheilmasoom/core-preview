@@ -153,11 +153,10 @@ class JibitClient(BaseClient):
 
         payment_id = PaymentId.objects.create(
             user=user,
-            gateway=self.gateway,
             pay_id=resp.data['payId'],
             group_id=group_id,
             verified=resp.data['registryStatus'] == 'VERIFIED',
-            destination=destination,
+            gateway=destination,
             provider_status=resp.data['registryStatus'],
             provider_reason=resp.data.get('failReason') or '',
             full_name=full_name,
@@ -375,7 +374,7 @@ class JibitClientV2(JibitClient):
                 'pay_id': item['payId'],
                 'group_id': uuid.uuid4(),
                 'verified': True,
-                'destination': self.bank_account,
+                'gateway': self.bank_account,
                 'provider_status': True,
                 'provider_reason': '',
                 'full_name': '',
@@ -465,11 +464,10 @@ class JibitClientV2(JibitClient):
 
         payment_id = PaymentId.objects.create(
             user=user,
-            gateway=self.gateway,
             pay_id=user.national_code,
             group_id=group_id,
             verified=True,
-            destination=self.bank_account,
+            gateway=self.bank_account,
             provider_status=True,
             provider_reason='',
             full_name=full_name,
