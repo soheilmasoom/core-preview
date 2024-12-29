@@ -583,8 +583,8 @@ class PaymentIdAdmin(AdvancedAdmin):
 
 @admin.register(PayIdGateway)
 class PayIdGatewayAdmin(admin.ModelAdmin):
-    list_display = ('created', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'deposit_priority', 'withdraw_priority')
-    ordering = ('-active', '-deposit_priority', '-withdraw_priority')
+    list_display = ('created', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'priority')
+    ordering = ('-active', '-priority')
 
 
 class BankPaymentRequestAcceptFilter(SimpleListFilter):

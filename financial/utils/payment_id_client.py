@@ -272,6 +272,12 @@ class JibitClient(BaseClient):
         for data in resp.get_success_data()['content']:
             self._create_and_verify_payment_data(data)
 
+    def create_payment_requests(self):
+        self.create_missing_payment_requests()
+
+        for payment_id in PaymentId.objects.filter(verified=False, deleted=False):
+            self.check_payment_id_status(payment_id)
+
 
 class MockClient(BaseClient):
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
@@ -334,7 +340,7 @@ class JibitClientV2(JibitClient):
             self._token = resp_data['accessToken']
             return self._token
 
-    def create_payments_request(self):
+    def create_payments_requests(self):
         page_number = 1
         page_size = config('JIBIT_PAGE_SIZE', cast=int, default=100)
 
@@ -494,10 +500,10 @@ class JibitClientV2(JibitClient):
         pass
 
 
-def get_payment_id_client(gateway: PayIdGateway) -> BaseClient:
+def get_payment_id_clients(gateway: PayIdGateway) -> [BaseClient]:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return MockClient(gateway)
 
-    assert gateway.type == PayIdGateway.JIBIT
+    assert gateway.type in (PayIdGateway.JIBIT_OLD, PayIdGateway.JIBIT_NEW)
 
-    return JibitClientV2(gateway)
+    return [JibitClientV2(gateway), JibitClient(gateway)]

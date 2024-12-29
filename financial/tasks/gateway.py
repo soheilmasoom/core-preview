@@ -12,7 +12,7 @@ from financial.exceptions import NoChannelError
 from financial.interface.base_interface import WithdrawRefundedDTO
 from financial.models import Gateway, Payment, FiatWithdrawRequest, BankAccount, PayIdGateway
 from financial.utils.interface import get_withdraw_channel
-from financial.utils.payment_id_client import JibitClientV2
+from financial.utils.payment_id_client import get_payment_id_clients
 from ledger.utils.fields import PENDING, DONE, PROCESS, CANCELED
 
 logger = logging.getLogger(__name__)
@@ -45,13 +45,16 @@ def handle_missing_payments():
 
 @shared_task(queue='finance')
 def handle_jibit_payments():
-    gateway = PayIdGateway.get_active_pay_id_deposit()
+    gateway = PayIdGateway.get_active_pay_id()
 
     if not gateway:
         logger.error('No gateway')
         return
 
-    JibitClientV2(gateway).create_payments_request()
+    clients = get_payment_id_clients(gateway)
+
+    for client in clients:
+        client.create_payments_requests()
 
 
 @shared_task(queue='finance')

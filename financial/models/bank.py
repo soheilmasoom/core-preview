@@ -5,13 +5,13 @@ from financial.validators import iban_validator
 
 
 class PayIdGateway(models.Model):
-    TYPES = JIBIT, PARSIAN = \
-        'jibit', 'jibimo'
+    TYPES = JIBIT_OLD, JIBIT_NEW, PARSIAN = \
+        'jibit_old', 'jibit_new', 'parsian'
 
     type = models.CharField(
-        max_length=8,
+        max_length=16,
         choices=[(t, t) for t in TYPES],
-        default=JIBIT,
+        default=JIBIT_OLD,
     )
 
     created = models.DateTimeField(auto_now_add=True)
@@ -31,8 +31,7 @@ class PayIdGateway(models.Model):
     payment_id_api_key = models.CharField(max_length=1024, blank=True)
     payment_id_secret_encrypted = models.CharField(max_length=4096, blank=True)
 
-    deposit_priority = models.SmallIntegerField(default=1)
-    withdraw_priority = models.SmallIntegerField(default=1)
+    priority = models.SmallIntegerField(default=1)
 
     active = models.BooleanField(default=False)
 
@@ -44,6 +43,6 @@ class PayIdGateway(models.Model):
         return decrypt(self.payment_id_secret_encrypted)
 
     @classmethod
-    def get_active_pay_id_deposit(cls) -> 'PayIdGateway':
+    def get_active_pay_id(cls) -> 'PayIdGateway':
         return PayIdGateway.objects.filter(active=True).exclude(payment_id_api_key='').order_by(
-            'deposit_priority').first()
+            'priority').first()
