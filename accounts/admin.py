@@ -626,7 +626,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         link = url_to_admin_list(Trx) + f'?user={user.id}&scope__exact={Trx.DUST}'
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
-    @admin.display(description='لیست پوزیشن ها')
+    @admin_display_for_crypto(description='لیست پوزیشن ها')
     def get_positions(self, user: User):
         link = url_to_admin_list(MarginPosition) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
