@@ -4,7 +4,7 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import User
-from financial.models import PaymentId, Gateway, GeneralBankAccount, BankAccount
+from financial.models import PaymentId, Gateway, PayIdGateway, BankAccount
 from financial.utils.bank import get_bank_from_slug
 from financial.utils.payment_id_client import get_payment_id_client
 
@@ -12,12 +12,12 @@ from financial.utils.payment_id_client import get_payment_id_client
 class GeneralBankAccountSerializer(serializers.ModelSerializer):
     bank = serializers.SerializerMethodField()
 
-    def get_bank(self, general_bank: GeneralBankAccount):
+    def get_bank(self, general_bank: PayIdGateway):
         bank = get_bank_from_slug(general_bank.bank)
         return bank.as_dict()
 
     class Meta:
-        model = GeneralBankAccount
+        model = PayIdGateway
         fields = ('iban', 'name', 'bank', 'deposit_address')
 
 

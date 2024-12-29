@@ -14,8 +14,8 @@ from urllib3.exceptions import ReadTimeoutError
 
 from accounts.models import User
 from accounts.verifiers.jibit import Response
-from financial.models import BankAccount, PaymentIdRequest, PaymentId, Gateway
-from financial.models.bank import GeneralBankAccount
+from financial.models import BankAccount, PaymentIdRequest, PaymentId
+from financial.models.bank import PayIdGateway
 from financial.utils.bank import get_bank
 from ledger.utils.fields import PROCESS, PENDING, CANCELED
 
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class BaseClient:
-    def __init__(self, gateway):
+    def __init__(self, gateway: PayIdGateway):
         self.gateway = gateway
 
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
@@ -139,7 +139,7 @@ class JibitClient(BaseClient):
 
         assert resp.success
 
-        destination, _ = GeneralBankAccount.objects.get_or_create(
+        destination, _ = PayIdGateway.objects.get_or_create(
             iban=resp.data['destinationIban'],
             defaults={
                 'name': resp.data['destinationOwnerName'],
@@ -198,7 +198,8 @@ class JibitClient(BaseClient):
             return
 
         payment_id = PaymentId.objects.get(pay_id=data['paymentId'], group_id=merchant_ref)
-        deposit_time = jdatetime.datetime.strptime(data['rawBankTimestamp'], '%Y/%m/%d %H:%M:%S').togregorian().astimezone()
+        deposit_time = jdatetime.datetime.strptime(data['rawBankTimestamp'],
+                                                   '%Y/%m/%d %H:%M:%S').togregorian().astimezone()
 
         if data['status'] == 'SUCCESSFUL':
             status = PENDING
@@ -274,7 +275,7 @@ class JibitClient(BaseClient):
 
 class MockClient(BaseClient):
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
-        destination, _ = GeneralBankAccount.objects.get_or_create(
+        destination, _ = PayIdGateway.objects.get_or_create(
             iban='IR760120020000008992439961',
             defaults={
                 'name': 'ایوان رایان پیام',
@@ -305,11 +306,11 @@ class JibitClientV2(JibitClient):
     def __init__(self, gateway):
         super().__init__(gateway)
         try:
-            self.bank_account = GeneralBankAccount.objects.get(
+            self.bank_account = PayIdGateway.objects.get(
                 bank=config('JIBIT_BANK_NAME', default='bank'),
                 name=config('JIBIT_ACCOUNT_NAME', default='jibit'),
             )
-        except GeneralBankAccount.DoesNotExist:
+        except PayIdGateway.DoesNotExist:
             logger.error('Jibit config does not exist!')
             return
 
@@ -338,12 +339,13 @@ class JibitClientV2(JibitClient):
         page_size = config('JIBIT_PAGE_SIZE', cast=int, default=100)
 
         while True:
-            resp = self._collect_api(path=f'/v1/orders/aug-statement/{self.bank_account.iban}/variz-pid/waitingForVerify',
-                                     header={'iban': self.bank_account.iban},
-                                     data={
-                                         'pageNumber': page_number,
-                                         'pageSize': page_size,
-                                     })
+            resp = self._collect_api(
+                path=f'/v1/orders/aug-statement/{self.bank_account.iban}/variz-pid/waitingForVerify',
+                header={'iban': self.bank_account.iban},
+                data={
+                    'pageNumber': page_number,
+                    'pageSize': page_size,
+                })
 
             if resp.status_code != 200:
                 logger.error(f"Error while collecting Jibit payments: {resp.status_code}, {resp.text}")
@@ -361,7 +363,6 @@ class JibitClientV2(JibitClient):
         for item in data:
             payment_id = PaymentId.objects.get_or_create(pay_id=item['payId'], defaults={
                 'user': users_map[item['payId']],
-                'gateway': self.gateway,
                 'pay_id': item['payId'],
                 'group_id': uuid.uuid4(),
                 'verified': True,
@@ -425,7 +426,8 @@ class JibitClientV2(JibitClient):
         if payment_request.status != PROCESS:
             return
 
-        resp = self._collect_api(f'/v1/orders/aug-statement/{self.bank_account.iban}/{payment_request.external_ref}/fail')
+        resp = self._collect_api(
+            f'/v1/orders/aug-statement/{self.bank_account.iban}/{payment_request.external_ref}/fail')
 
         if resp.success:
             payment_request.status = CANCELED
@@ -492,11 +494,10 @@ class JibitClientV2(JibitClient):
         pass
 
 
-
-def get_payment_id_client(gateway: Gateway) -> BaseClient:
+def get_payment_id_client(gateway: PayIdGateway) -> BaseClient:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return MockClient(gateway)
 
-    assert gateway.type == Gateway.JIBIT
+    assert gateway.type == PayIdGateway.JIBIT
 
     return JibitClientV2(gateway)

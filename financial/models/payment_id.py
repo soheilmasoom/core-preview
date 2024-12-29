@@ -13,7 +13,6 @@ class PaymentId(models.Model):
     updated = models.DateTimeField(auto_now=True)
     deleted = models.BooleanField(default=False)
 
-    gateway = models.ForeignKey('financial.Gateway', on_delete=models.PROTECT)
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
     master = models.ForeignKey(
         to='accounts.User',
@@ -25,7 +24,7 @@ class PaymentId(models.Model):
     pay_id = models.CharField(max_length=32, validators=[validate_integer])
     verified = models.BooleanField(default=False)
 
-    destination = models.ForeignKey('financial.GeneralBankAccount', on_delete=models.PROTECT)
+    destination = models.ForeignKey('financial.PayIdGateway', on_delete=models.PROTECT)
 
     group_id = get_group_id_field()
 

@@ -3,8 +3,6 @@ from decimal import Decimal
 from typing import Type, Union
 
 from django.db import models
-from django.db.models import Sum
-from django.utils import timezone
 
 from accounting.models import VaultItem, Vault
 from accounts.models import User, SystemConfig, Account
@@ -13,7 +11,7 @@ from financial.utils.admin import MultiSelectArrayField
 from financial.utils.bank import BANK_INFO, get_bank_from_iban
 from financial.utils.encryption import decrypt
 from ledger.models import FastBuyToken
-from ledger.utils.fields import DONE, get_amount_field, CANCELED
+from ledger.utils.fields import get_amount_field, CANCELED
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +37,6 @@ class Gateway(models.Model):
     active_for_staff = models.BooleanField(default=False)
 
     ipg_deposit_enable = models.BooleanField(default=True)
-    pay_id_deposit_enable = models.BooleanField(default=False)
     widget_deposit_enable = models.BooleanField(default=False)
     withdraw_enable = models.BooleanField(default=False)
 
@@ -56,9 +53,6 @@ class Gateway(models.Model):
 
     deposit_api_key = models.CharField(max_length=1024, blank=True)
     deposit_api_secret_encrypted = models.CharField(max_length=4096, blank=True)
-
-    payment_id_api_key = models.CharField(max_length=1024, blank=True)
-    payment_id_secret_encrypted = models.CharField(max_length=4096, blank=True)
 
     wallet_id = models.CharField(blank=True, max_length=256)
 
@@ -99,10 +93,6 @@ class Gateway(models.Model):
     @property
     def deposit_api_secret(self):
         return decrypt(self.deposit_api_secret_encrypted)
-
-    @property
-    def payment_id_secret(self):
-        return decrypt(self.payment_id_secret_encrypted)
 
     def get_balance(self) -> Union[Decimal, None]:
         v = VaultItem.objects.filter(vault__type=Vault.GATEWAY, vault__key=self.id).first()
@@ -178,10 +168,6 @@ class Gateway(models.Model):
             return with_balance_gateways[0]
 
     @classmethod
-    def get_active_pay_id_deposit(cls) -> 'Gateway':
-        return Gateway.objects.filter(active=True, pay_id_deposit_enable=True).exclude(payment_id_api_key='').order_by('id').first()
-
-    @classmethod
     def get_gateway_class(cls, type: str) -> Type['Gateway']:
         from financial.models import ZarinpalGateway, PaydotirGateway, ZibalGateway, JibitGateway, PaystarGateway, \
             NovinpalGateway
@@ -209,7 +195,8 @@ class Gateway(models.Model):
     def get_payment_url(cls, payment_request: PaymentRequest):
         raise NotImplementedError
 
-    def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
+    def create_payment_request(self, user: User, amount: int, source: str,
+                               bank_card: Union['BankCard', None]) -> PaymentRequest:
         raise NotImplementedError
 
     def verify(self, payment: Payment):
