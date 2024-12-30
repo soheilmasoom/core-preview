@@ -57,12 +57,6 @@ class Migration(migrations.Migration):
             name='payidgateway',
             options={'ordering': ['priority']},
         ),
-        migrations.AlterModelManagers(
-            name='payidgateway',
-            managers=[
-                ('live_objects', django.db.models.manager.Manager()),
-            ],
-        ),
         migrations.AlterField(
             model_name='paymentid',
             name='destination',

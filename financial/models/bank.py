@@ -36,6 +36,7 @@ class PayIdGateway(models.Model):
 
     active = models.BooleanField(default=False)
     live_objects = LiveManager()
+    objects = models.Manager()
 
     def __str__(self):
         return self.iban
