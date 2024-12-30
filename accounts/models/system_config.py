@@ -16,6 +16,7 @@ class SystemConfig(models.Model):
     history = HistoricalRecords()
 
     TRANSFER_STATUS = ALLOW, BAN, BAN_CRYPTO, BAN_FIAT = 'allow', 'ban', 'ban_crypto', 'ban_fiat'
+    OTP_SEND_MODES = OTP_KAVENEGAR, OTP_KAVENEGAR_EXCLUSIVE = 'kavenegar', 'kavenegar_exclusive'
 
     name = models.CharField(max_length=32)
     active = models.BooleanField()
@@ -76,6 +77,12 @@ class SystemConfig(models.Model):
     check_national_code_for_widget = models.BooleanField(default=True)
 
     telegram_bot_username = models.CharField(max_length=256, blank=True)
+
+    otp_send_mode = models.CharField(
+        max_length=32,
+        choices=[(m, m) for m in OTP_SEND_MODES],
+        default=OTP_KAVENEGAR
+    )
 
     pay_id_enable = models.BooleanField(default=True)
 

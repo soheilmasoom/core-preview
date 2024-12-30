@@ -69,8 +69,8 @@ class Order(models.Model):
     MARKET_BORDER = Decimal('1e-2')
     MIN_IRT_ORDER_SIZE = Decimal('1e5')
     MIN_USDT_ORDER_SIZE = Decimal(5)
-    MAX_ORDER_DEPTH_SIZE_IRT = Decimal('9e7')
-    MAX_ORDER_DEPTH_SIZE_USDT = Decimal(2500)
+    MAX_ORDER_DEPTH_SIZE_IRT = Decimal('300_000_000')
+    MAX_ORDER_DEPTH_SIZE_USDT = Decimal(5000)
     MAKER_ORDERS_COUNT = 10 if settings.DEBUG_OR_TESTING else 50
 
     LIMIT, MARKET = 'limit', 'market'

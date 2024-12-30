@@ -112,7 +112,7 @@ class OrderAdmin(AdvancedAdmin):
     readonly_fields = [field.name for field in Order._meta.get_fields()]
     actions = ('cancel_order', )
 
-    list_permission_exclude_filters = ('id', 'account', 'group_id')
+    list_permission_exclude_filters = ('id', 'account', 'group_id', 'position')
 
     def get_queryset(self, request):
         return super(OrderAdmin, self).get_queryset(request).annotate(symbol_name=F('symbol__name'))
@@ -165,13 +165,13 @@ class TradePositionFilter(admin.SimpleListFilter):
 
 @admin.register(Trade)
 class TradeAdmin(AdvancedAdmin):
-    list_display = ('created', 'get_symbol', 'side', 'price', 'is_maker', 'market',
+    list_display = ('get_created', 'get_symbol', 'side', 'price', 'is_maker', 'market',
                     'amount', 'fee_amount', 'fee_revenue')
     list_filter = ('trade_source', AccountTradeFilter, 'symbol', 'market')
     # readonly_fields = [field.name for field in Order._meta.get_fields()]
     actions = ('revert', )
 
-    list_permission_exclude_filters = ('id', 'account', 'group_id')
+    list_permission_exclude_filters = ('id', 'account', 'group_id', 'position')
 
     def get_queryset(self, request):
         return super(TradeAdmin, self).get_queryset(request).annotate(symbol_name=F('symbol__name'))

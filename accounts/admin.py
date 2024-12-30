@@ -401,9 +401,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     )
     preserve_filters = ('archived', )
 
-    search_fields = (
-        'national_code', 'phone'
-    )
+    search_fields = ('national_code', 'phone', 'username')
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
@@ -746,23 +744,24 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     def get_selfie_image(self, user: User):
         return mark_safe("<img src='%s' width='200' height='200' />" % user.selfie_image.get_url())
 
+    @admin.display(description='جایزه‌های دریافتی کاربر')
     def get_user_prizes(self, user: User):
-        prizes = user.get_account().prize_set.all()
+        prizes = user.get_account().prize_set.filter(fake=False).all()
         prize_list = []
         for prize in prizes:
             prize_list.append(str(prize.achievement))
         return prize_list
 
-    get_user_prizes.short_description = 'جایزه‌های دریافتی کاربر'
-
+    @admin.display(description='تعداد دوستان دعوت شده')
     def get_referred_count(self, user: User):
         referrals = Referral.objects.filter(owner=user.get_account())
         referred_count = 0
         for referral in referrals:
             referred_count += Account.objects.filter(referred_by=referral).count()
         return referred_count
-    get_referred_count.short_description = ' تعداد دوستان دعوت شده'
+    get_referred_count.short_description = ' '
 
+    @admin.display(description='درآمد حاصل از دعوت دوستان')
     def get_revenue_of_referral(self, user: User):
         referrals = Referral.objects.filter(owner=user.get_account())
         revenues = 0
@@ -771,15 +770,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
             revenues += int(revenue['total'] or 0)
         return revenues
 
-    get_revenue_of_referral.short_description = 'درآمد حاصل از کدهای دعوت ارسال شده به دوستان '
-
+    @admin.display(description='درآمد حاصل از کد دعوت استفاده شده')
     def get_revenue_of_referred(self, user: User):
         referral = user.get_account().referred_by
 
         revenue = ReferralTrx.objects.filter(referral=referral).aggregate(total=Sum('trader_amount'))
         return int(revenue['total'] or 0)
-
-    get_revenue_of_referred.short_description = 'درآمد حاصل از کد دعوت استفاده شده'
 
     @admin.display(description='زمان آپلود عکس سلفی')
     def get_selfie_image_uploaded(self, user: User):
@@ -1016,11 +1012,12 @@ class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
 @admin.register(LoginActivity)
 class LoginActivityAdmin(admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'ip', 'country', 'city', 'device', 'os', 'browser', 'device_type', 'is_sign_up',
-                    'native_app', 'session', 'get_jalali_created')
+    list_display = ('created', 'get_username', 'ip', 'country', 'city', 'device', 'os', 'browser', 'device_type',
+                    'is_sign_up', 'native_app', 'get_jalali_created')
     search_fields = ('user__phone', 'ip', 'session__session_key')
-    readonly_fields = ('user', 'session', 'ip', 'refresh_token', 'get_jalali_created')
+    readonly_fields = ('user', 'ip', 'refresh_token', 'get_jalali_created')
     list_filter = ('is_sign_up', 'native_app',)
+    exclude = ('session',)
 
     @admin.display(description='user')
     def get_username(self, login_activity: LoginActivity):

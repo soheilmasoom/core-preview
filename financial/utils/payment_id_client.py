@@ -132,7 +132,8 @@ class JibitClient(BaseClient):
             'userMobile': '09121234567',
         })
 
-        assert resp.success
+        if not resp.ok:
+            return
 
         payment_id = PaymentId.objects.create(
             user=user,

@@ -4,6 +4,7 @@ from typing import Union
 from uuid import UUID
 
 from django.conf import settings
+from django.core.validators import RegexValidator
 from django.db import models
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
@@ -11,6 +12,7 @@ from simple_history.models import HistoricalRecords
 
 from ledger.models import Wallet
 from ledger.utils.fields import get_amount_field
+from ledger.validators import no_whitespace
 from multimedia.storage import PublicMediaStorage
 
 
@@ -41,12 +43,17 @@ class Asset(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
-    name = models.CharField(max_length=32, unique=True)
+    name = models.CharField(max_length=32, unique=True, validators=[no_whitespace])
     name_fa = models.CharField(max_length=32, blank=True)
     original_name_fa = models.CharField(max_length=32, blank=True)
 
-    symbol = models.CharField(max_length=16, unique=True, db_index=True)
-    original_symbol = models.CharField(max_length=16, blank=True)
+    symbol = models.CharField(
+        max_length=16,
+        unique=True,
+        db_index=True,
+        validators=[no_whitespace]
+    )
+    original_symbol = models.CharField(max_length=16, blank=True, validators=[no_whitespace])
     trading_view_symbol = models.CharField(max_length=32, blank=True)
 
     logo = models.ImageField(blank=True, null=True, storage=PublicMediaStorage(), upload_to='coins/logo/')
