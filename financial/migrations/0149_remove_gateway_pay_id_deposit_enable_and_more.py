@@ -12,8 +12,11 @@ def migrate_gateway_fields_to_payidgateway(apps, schema_editor):
     if not gateway:
         return
 
-    PayIdGateway.objects.update(payment_id_api_key=gateway.payment_id_api_key,
-                                payment_id_secret_encrypted=gateway.payment_id_secret_encrypted)
+    PayIdGateway.objects.update(
+        payment_id_api_key=gateway.payment_id_api_key,
+        payment_id_secret_encrypted=gateway.payment_id_secret_encrypted,
+        active=True,
+    )
 
 
 class Migration(migrations.Migration):

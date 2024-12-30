@@ -3,6 +3,7 @@ import logging
 from django.db import transaction
 from django.http import HttpResponseBadRequest
 from django.views.generic import TemplateView
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -62,8 +63,12 @@ class JibitPaymentIdCallbackView(APIView):
         external_ref = request.data['externalReferenceNumber']
 
         gateway = PayIdGateway.live_objects.filter(type=PayIdGateway.JIBIT_OLD).first()
+
+        if not gateway:
+            raise ValidationError('No gateway found')
+
         client = get_payment_id_client(gateway)
 
         client.create_payment_request(external_ref)
 
-        return Response(201)
+        return Response(status=201)
