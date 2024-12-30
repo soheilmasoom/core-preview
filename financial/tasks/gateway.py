@@ -42,16 +42,9 @@ def handle_missing_payments():
         except ServerError as e:
             logger.info(f'Failed to update missing payments due to {e}')
 
+
 @shared_task(queue='finance')
 def handle_missing_payment_ids():
-    gateway = PayIdGateway.get_active_pay_id()
-    if not gateway:
-        logger.error('No gateway')
-        return
-
-    client = get_payment_id_client(gateway)
-    client.create_missing_payment_requests()
-
     for payment_id in PaymentId.objects.filter(verified=False, deleted=False):
         client = get_payment_id_client(payment_id.gateway)
         client.check_payment_id_status(payment_id)
@@ -59,15 +52,16 @@ def handle_missing_payment_ids():
 
 @shared_task(queue='finance')
 def handle_jibit_payments():
-    gateway = PayIdGateway.get_active_pay_id()
+    gateways = PayIdGateway.get_active_pay_ids()
 
-    if not gateway:
+    if not gateways:
         logger.error('No gateway')
         return
 
-    client = get_payment_id_client(gateway)
+    for gateway in gateways:
+        client = get_payment_id_client(gateway)
 
-    client.create_payments_requests()
+        client.create_payments_requests()
 
 
 @shared_task(queue='finance')

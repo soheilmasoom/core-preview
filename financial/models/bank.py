@@ -43,5 +43,5 @@ class PayIdGateway(models.Model):
         return decrypt(self.payment_id_secret_encrypted)
 
     @classmethod
-    def get_active_pay_id(cls) -> 'PayIdGateway':
-        return PayIdGateway.objects.filter(active=True).order_by('priority').first()
+    def get_active_pay_ids(cls) -> ['PayIdGateway']:
+        return PayIdGateway.objects.filter(active=True).order_by('priority')

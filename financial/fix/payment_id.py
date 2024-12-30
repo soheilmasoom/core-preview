@@ -3,7 +3,7 @@ from financial.utils.payment_id_client import get_payment_id_client
 
 
 def fix_payment_ids():
-    gateway = PayIdGateway.get_active_pay_id()
+    gateway = PayIdGateway.get_active_pay_ids().first()
 
     if not gateway:
         return

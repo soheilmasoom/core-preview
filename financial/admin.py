@@ -570,7 +570,7 @@ class PaymentIdAdmin(AdvancedAdmin):
         for payment_id in queryset.filter(verified=False):
             with transaction.atomic():
                 payment_id.delete()
-                client = get_payment_id_client(payment_id.destination)
+                client = get_payment_id_client(payment_id.gateway)
                 client.create_payment_id(payment_id.user)
 
     def save_model(self, request, obj: PaymentId, form, change):

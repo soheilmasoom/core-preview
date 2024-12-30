@@ -35,9 +35,6 @@ class BaseClient:
     def verify_payment_request(self, payment_request: PaymentIdRequest):
         raise NotImplementedError
 
-    def create_missing_payment_requests(self):
-        pass
-
     def create_missing_payment_requests_from_list(self):
         pass
 
@@ -142,21 +139,12 @@ class JibitClient(BaseClient):
 
         assert resp.success
 
-        destination, _ = PayIdGateway.objects.get_or_create(
-            iban=resp.data['destinationIban'],
-            defaults={
-                'name': resp.data['destinationOwnerName'],
-                'deposit_address': resp.data['destinationDepositNumber'],
-                'bank': get_bank(swift_code=resp.data['destinationBank']).slug,
-            }
-        )
-
         payment_id = PaymentId.objects.create(
             user=user,
             pay_id=resp.data['payId'],
             group_id=group_id,
             verified=resp.data['registryStatus'] == 'VERIFIED',
-            gateway=destination,
+            gateway=self.gateway,
             provider_status=resp.data['registryStatus'],
             provider_reason=resp.data.get('failReason') or '',
             full_name=full_name,
@@ -261,7 +249,7 @@ class JibitClient(BaseClient):
             payment_request.save(update_fields=['status'])
             payment_request.reject()
 
-    def create_missing_payment_requests(self):
+    def create_payments_requests(self):
         resp = self._collect_api(f'/v1/payments/waitingForVerify?pageNumber=0&pageSize=100')
 
         for data in resp.get_success_data()['content']:
@@ -304,9 +292,6 @@ class MockClient(BaseClient):
 
 class JibitClientV2(JibitClient):
     BASE_URL = 'https://napi.jibit.ir/cobank/'
-
-    def __init__(self, gateway):
-        super().__init__(gateway)
 
     def _get_token(self, force_renew: bool = False):
         if not force_renew:
@@ -478,9 +463,6 @@ class JibitClientV2(JibitClient):
         pass
 
     def create_payment_request(self, external_ref: str) -> PaymentIdRequest:
-        pass
-
-    def create_missing_payment_requests(self):
         pass
 
     def create_missing_payment_requests_from_list(self):

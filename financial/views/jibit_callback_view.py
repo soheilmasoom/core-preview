@@ -61,7 +61,7 @@ class JibitPaymentIdCallbackView(APIView):
 
         external_ref = request.data['externalReferenceNumber']
 
-        gateway = PayIdGateway.get_active_pay_id()
+        gateway = PayIdGateway.get_active_pay_ids().first()
         client = get_payment_id_client(gateway)
 
         client.create_payment_request(external_ref)
