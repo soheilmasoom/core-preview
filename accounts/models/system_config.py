@@ -77,6 +77,8 @@ class SystemConfig(models.Model):
 
     telegram_bot_username = models.CharField(max_length=256, blank=True)
 
+    pay_id_enable = models.BooleanField(default=True)
+
     def __str__(self):
         return self.name
 
