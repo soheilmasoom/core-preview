@@ -7,7 +7,7 @@ from rest_framework.generics import RetrieveAPIView
 
 from accounts.models import SystemConfig
 from accounts.models.user_feature_perm import UserFeaturePerm
-from financial.models import Gateway, Payment, PayIdGateway
+from financial.models import Gateway, Payment, PaymentIdGateway
 from financial.utils.ach import next_ach_clear_time
 from financial.utils.user import get_today_fiat_ipg_deposits
 from ledger.utils.fields import DONE
@@ -52,7 +52,7 @@ class GatewaySerializer(serializers.ModelSerializer):
         return next_ach_clear_time()
 
     def get_pay_id_enable(self, gateway):
-        return PayIdGateway.live_objects.exists()
+        return PaymentIdGateway.live_objects.exists()
 
     def get_ipg_fee_percent(self, gateway: Gateway):
         return get_presentation_amount(gateway.ipg_fee_percent)
