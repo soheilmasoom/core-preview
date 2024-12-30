@@ -1,6 +1,7 @@
 from django.db import models
 
 from financial.utils.encryption import decrypt
+from financial.utils.manager import LiveManager
 from financial.validators import iban_validator
 
 
@@ -34,14 +35,14 @@ class PayIdGateway(models.Model):
     priority = models.SmallIntegerField(default=1)
 
     active = models.BooleanField(default=False)
+    live_objects = LiveManager()
 
     def __str__(self):
         return self.iban
 
+    class Meta:
+        ordering = ['priority']
+
     @property
     def payment_id_secret(self):
         return decrypt(self.payment_id_secret_encrypted)
-
-    @classmethod
-    def get_active_pay_ids(cls) -> ['PayIdGateway']:
-        return PayIdGateway.objects.filter(active=True).order_by('priority')

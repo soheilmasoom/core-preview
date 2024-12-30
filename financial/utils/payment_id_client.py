@@ -4,6 +4,7 @@ import time
 import uuid
 from datetime import timedelta
 from json import JSONDecodeError
+from typing import Union
 
 import jdatetime
 import requests
@@ -34,9 +35,6 @@ class BaseClient:
 
     def verify_payment_request(self, payment_request: PaymentIdRequest):
         raise NotImplementedError
-
-    def create_missing_payment_requests_from_list(self):
-        pass
 
     def check_payment_id_status(self, payment_id: PaymentId):
         raise NotImplementedError
@@ -255,13 +253,6 @@ class JibitClient(BaseClient):
         for data in resp.get_success_data()['content']:
             self._create_and_verify_payment_data(data)
 
-    def create_missing_payment_requests_from_list(self):
-        now = timezone.now().astimezone().date() + timedelta(days=1)
-        resp = self._collect_api(f'/v1/payments/list?fromDate={now - timedelta(days=7)}&toDate={now}')
-
-        for data in resp.get_success_data()['content']:
-            self._create_and_verify_payment_data(data)
-
 
 class MockClient(BaseClient):
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
@@ -456,17 +447,16 @@ class JibitClientV2(JibitClient):
     def create_payment_request(self, external_ref: str) -> PaymentIdRequest:
         pass
 
-    def create_missing_payment_requests_from_list(self):
-        pass
 
+_CLIENTS = {PayIdGateway.JIBIT: JibitClientV2,
+            PayIdGateway.JIBIT_OLD: JibitClient}
 
-def get_payment_id_client(gateway: PayIdGateway) -> BaseClient:
+def get_payment_id_client(gateway: PayIdGateway) -> Union[BaseClient, None]:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return MockClient(gateway)
 
-    assert gateway.type in (PayIdGateway.JIBIT, PayIdGateway.JIBIT)
+    client = _CLIENTS.get(gateway.type)
+    if client is None:
+        return None
 
-    if gateway.type == PayIdGateway.JIBIT:
-        return JibitClientV2(gateway)
-    else:
-        return JibitClient(gateway)
+    return client(gateway)

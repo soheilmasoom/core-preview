@@ -575,7 +575,7 @@ class PaymentIdAdmin(AdvancedAdmin):
 
     def save_model(self, request, obj: PaymentId, form, change):
         if not obj.id:
-            client = get_payment_id_client(obj.destination)
+            client = get_payment_id_client(obj.gateway)
             client.create_payment_id(obj.user, obj.full_name)
         else:
             obj.save()
