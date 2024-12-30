@@ -499,7 +499,7 @@ def get_payment_id_client(gateway: PayIdGateway) -> BaseClient:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return MockClient(gateway)
 
-    assert gateway.type in (PayIdGateway.JIBIT_OLD, PayIdGateway.JIBIT_NEW)
+    assert gateway.type in (PayIdGateway.JIBIT_OLD, PayIdGateway.JIBIT)
 
     if gateway.type == PayIdGateway.JIBIT_OLD:
         return JibitClient(gateway)

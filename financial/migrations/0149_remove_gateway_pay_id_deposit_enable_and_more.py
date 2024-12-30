@@ -50,13 +50,17 @@ class Migration(migrations.Migration):
             model_name='payidgateway',
             name='type',
             field=models.CharField(
-                choices=[('jibit_old', 'jibit_old'), ('jibit_new', 'jibit_new'), ('parsian', 'parsian')],
+                choices=[('jibit_old', 'jibit_old'), ('jibit', 'jibit'), ('parsian', 'parsian')],
                 default='jibit_old', max_length=16),
         ),
         migrations.AlterField(
             model_name='paymentid',
             name='destination',
             field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='financial.payidgateway'),
+        ),
+        migrations.RemoveField(
+            model_name='paymentid',
+            name='gateway',
         ),
         migrations.RenameField(
             model_name='paymentid',
@@ -75,10 +79,6 @@ class Migration(migrations.Migration):
         migrations.RemoveField(
             model_name='gateway',
             name='payment_id_secret_encrypted',
-        ),
-        migrations.RemoveField(
-            model_name='paymentid',
-            name='gateway',
         ),
         migrations.RemoveConstraint(
             model_name='paymentid',

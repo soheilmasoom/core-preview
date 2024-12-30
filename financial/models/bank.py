@@ -5,8 +5,8 @@ from financial.validators import iban_validator
 
 
 class PayIdGateway(models.Model):
-    TYPES = JIBIT_OLD, JIBIT_NEW, PARSIAN = \
-        'jibit_old', 'jibit_new', 'parsian'
+    TYPES = JIBIT_OLD, JIBIT, PARSIAN = \
+        'jibit_old', 'jibit', 'parsian'
 
     type = models.CharField(
         max_length=16,
@@ -44,5 +44,4 @@ class PayIdGateway(models.Model):
 
     @classmethod
     def get_active_pay_id(cls) -> 'PayIdGateway':
-        return PayIdGateway.objects.filter(active=True).exclude(payment_id_api_key='').order_by(
-            'priority').first()
+        return PayIdGateway.objects.filter(active=True).order_by('priority').first()
