@@ -52,7 +52,7 @@ def handle_missing_payment_ids():
 
 @shared_task(queue='finance')
 def handle_jibit_payments():
-    gateways = PayIdGateway.get_active_pay_ids()
+    gateways = PayIdGateway.live_objects.all()
 
     if not gateways:
         logger.error('No gateway')
