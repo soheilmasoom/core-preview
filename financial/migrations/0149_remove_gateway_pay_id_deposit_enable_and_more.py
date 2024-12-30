@@ -8,9 +8,8 @@ def migrate_gateway_fields_to_payidgateway(apps, schema_editor):
     Gateway = apps.get_model('financial', 'Gateway')
     PayIdGateway = apps.get_model('financial', 'PayIdGateway')
 
-    try:
-        gateway = Gateway.objects.exclude(payment_id_api_key='').first()
-    except PayIdGateway.DoesNotExist:
+    gateway = Gateway.objects.exclude(payment_id_api_key='').first()
+    if not gateway:
         return
 
     PayIdGateway.objects.update(payment_id_api_key=gateway.payment_id_api_key,
