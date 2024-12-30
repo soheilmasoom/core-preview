@@ -4,20 +4,20 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import User
-from financial.models import PaymentId, Gateway, GeneralBankAccount, BankAccount
+from financial.models import PaymentId, Gateway, PayIdGateway, BankAccount
 from financial.utils.bank import get_bank_from_slug
 from financial.utils.payment_id_client import get_payment_id_client
 
 
-class GeneralBankAccountSerializer(serializers.ModelSerializer):
+class PayIdGatewaySerializer(serializers.ModelSerializer):
     bank = serializers.SerializerMethodField()
 
-    def get_bank(self, general_bank: GeneralBankAccount):
+    def get_bank(self, general_bank: PayIdGateway):
         bank = get_bank_from_slug(general_bank.bank)
         return bank.as_dict()
 
     class Meta:
-        model = GeneralBankAccount
+        model = PayIdGateway
         fields = ('iban', 'name', 'bank', 'deposit_address')
 
 
@@ -34,7 +34,7 @@ class PaymentIdSerializer(serializers.ModelSerializer):
         if not BankAccount.objects.filter(user=user, verified=True, deleted=False):
             raise ValidationError({'iban': 'شما باید حداقل یک حساب بانکی تایید شده داشته باشید.'})
 
-        gateway = Gateway.get_active_pay_id_deposit()
+        gateway = PayIdGateway.live_objects.filter(type=PayIdGateway.JIBIT_OLD).first()
 
         client = get_payment_id_client(gateway)
 
@@ -47,7 +47,7 @@ class PaymentIdSerializer(serializers.ModelSerializer):
             return payment_id.pay_id
 
     def get_destination(self, payment_id: PaymentId):
-        return GeneralBankAccountSerializer(payment_id.destination).data
+        return PayIdGatewaySerializer(payment_id.gateway).data
 
     class Meta:
         model = PaymentId
@@ -58,5 +58,5 @@ class PaymentIdViewsSet(ModelViewSet):
     serializer_class = PaymentIdSerializer
 
     def get_object(self):
-        gateway = Gateway.get_active_pay_id_deposit()
+        gateway = PayIdGateway.live_objects.filter(type=PayIdGateway.JIBIT_OLD).first()
         return get_object_or_404(PaymentId, user=self.request.user, gateway=gateway, deleted=False)
