@@ -366,16 +366,15 @@ class JibitClientV2(JibitClient):
         for item in data:
             payment_id = PaymentId.objects.get_or_create(pay_id=item['payId'], defaults={
                 'user': users_map[item['payId']],
-                'pay_id': item['payId'],
                 'group_id': uuid.uuid4(),
                 'verified': True,
                 'gateway': self.gateway,
-                'provider_status': True,
+                'provider_status': item['merchantVerificationStatus'],
                 'provider_reason': '',
                 'full_name': '',
             })
 
-            merchant_ref = item['merchantReferenceNumber']
+            merchant_ref = item['referenceNumber']
 
             amount = item['balance'] // 10
             fee = math.ceil(item['balance'] / 10_000_000) * 250
@@ -388,7 +387,7 @@ class JibitClientV2(JibitClient):
             try:
                 merchant_ref = uuid.UUID(merchant_ref)
             except ValueError:
-                self._collect_api(f'/v1/payments/{merchant_ref}/fail')
+                self._collect_api(f'/v1/orders/aug-statement/{self.gateway.iban}/{merchant_ref}/fail')
                 return
 
             deposit_time = jdatetime.datetime.strptime(item['rawBankTimestamp'],
