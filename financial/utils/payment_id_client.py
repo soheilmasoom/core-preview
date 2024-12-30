@@ -441,12 +441,6 @@ class JibitClientV2(JibitClient):
     def check_payment_id_status(self, payment_id: PaymentId):
         return True
 
-    def _create_and_verify_payment_data(self, data: dict):
-        pass
-
-    def create_payment_request(self, external_ref: str) -> PaymentIdRequest:
-        pass
-
 
 _CLIENTS = {PayIdGateway.JIBIT: JibitClientV2,
             PayIdGateway.JIBIT_OLD: JibitClient}
