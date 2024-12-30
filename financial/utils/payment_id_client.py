@@ -267,7 +267,7 @@ class MockClient(BaseClient):
             user=user,
             defaults={
                 'pay_id': f'1111100000{user.id}',
-                'destination': destination
+                'gateway': destination
             }
         )
 
