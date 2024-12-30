@@ -112,7 +112,7 @@ class JibitClient(BaseClient):
         host_url = settings.HOST_URL
 
         bank_accounts = BankAccount.objects.filter(user=user, verified=True, deleted=False)
-        ibans = list(bank_accounts.values_list('Iban', flat=True))
+        ibans = list(bank_accounts.values_list('iban', flat=True))
 
         assert ibans
 
