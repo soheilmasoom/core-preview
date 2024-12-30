@@ -445,16 +445,6 @@ class JibitClientV2(JibitClient):
             full_name=full_name,
         )
 
-        if not payment_id.verified:
-            verified = self.check_payment_id_status(payment_id)
-
-            for i in range(4):
-                if verified:
-                    break
-
-                time.sleep(5)
-                verified = self.check_payment_id_status(payment_id)
-
         return payment_id
 
     def check_payment_id_status(self, payment_id: PaymentId):
