@@ -10,7 +10,7 @@ from accounts.utils.telegram import send_system_message
 from accounts.verifiers.utils import ServerError
 from financial.exceptions import NoChannelError
 from financial.interface.base_interface import WithdrawRefundedDTO
-from financial.models import Gateway, Payment, FiatWithdrawRequest, BankAccount, PayIdGateway, PaymentId
+from financial.models import Gateway, Payment, FiatWithdrawRequest, BankAccount, PaymentIdGateway, PaymentId
 from financial.utils.interface import get_withdraw_channel
 from financial.utils.payment_id_client import get_payment_id_client
 from ledger.utils.fields import PENDING, DONE, PROCESS, CANCELED
@@ -52,7 +52,7 @@ def handle_missing_payment_ids():
 
 @shared_task(queue='finance')
 def handle_jibit_payments():
-    gateways = PayIdGateway.live_objects.all()
+    gateways = PaymentIdGateway.live_objects.all()
 
     if not gateways:
         logger.error('No gateway')

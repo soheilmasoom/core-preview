@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from financial.models import Gateway, PayIdGateway
+from financial.models import Gateway, PaymentIdGateway
 from financial.utils.ipg import get_active_payment_request_by_authority
 from financial.utils.payment_id_client import get_payment_id_client
 from ledger.utils.fields import CANCELED, PENDING
@@ -62,7 +62,7 @@ class JibitPaymentIdCallbackView(APIView):
 
         external_ref = request.data['externalReferenceNumber']
 
-        gateway = PayIdGateway.live_objects.filter(type=PayIdGateway.JIBIT_OLD).first()
+        gateway = PaymentIdGateway.live_objects.filter(type=PaymentIdGateway.JIBIT_OLD).first()
 
         if not gateway:
             raise ValidationError('No gateway found')

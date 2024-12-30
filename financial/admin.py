@@ -21,7 +21,7 @@ from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.validation import gregorian_to_jalali_datetime
 from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAccount, \
     FiatWithdrawRequest, ManualTransfer, MarketingSource, MarketingCost, PaymentIdRequest, PaymentId, \
-    PayIdGateway, BankPaymentRequest, BankPaymentRequestReceipt
+    PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
 from financial.utils.interface import get_withdraw_channel
@@ -581,8 +581,8 @@ class PaymentIdAdmin(AdvancedAdmin):
             obj.save()
 
 
-@admin.register(PayIdGateway)
-class PayIdGatewayAdmin(admin.ModelAdmin):
+@admin.register(PaymentIdGateway)
+class PaymentIdGatewayAdmin(admin.ModelAdmin):
     list_display = ('title', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'priority')
     ordering = ('-active', 'priority')
     list_editable = ('active', 'priority')

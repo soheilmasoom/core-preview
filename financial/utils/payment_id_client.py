@@ -14,14 +14,14 @@ from urllib3.exceptions import ReadTimeoutError
 from accounts.models import User
 from accounts.verifiers.jibit import Response
 from financial.models import BankAccount, PaymentIdRequest, PaymentId
-from financial.models.bank import PayIdGateway
+from financial.models.bank import PaymentIdGateway
 from ledger.utils.fields import PROCESS, PENDING, CANCELED
 
 logger = logging.getLogger(__name__)
 
 
 class BaseClient:
-    def __init__(self, gateway: PayIdGateway):
+    def __init__(self, gateway: PaymentIdGateway):
         self.gateway = gateway
 
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
@@ -254,7 +254,7 @@ class JibitClient(BaseClient):
 
 class MockClient(BaseClient):
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
-        destination, _ = PayIdGateway.objects.get_or_create(
+        destination, _ = PaymentIdGateway.objects.get_or_create(
             iban='IR760120020000008992439961',
             defaults={
                 'name': 'ایوان رایان پیام',
@@ -423,12 +423,12 @@ class JibitClientV2(JibitClient):
 
 
 _CLIENTS = {
-    PayIdGateway.JIBIT_OLD: JibitClient,
-    PayIdGateway.JIBIT: JibitClientV2,
+    PaymentIdGateway.JIBIT_OLD: JibitClient,
+    PaymentIdGateway.JIBIT: JibitClientV2,
 }
 
 
-def get_payment_id_client(gateway: PayIdGateway) -> Union[BaseClient, None]:
+def get_payment_id_client(gateway: PaymentIdGateway) -> Union[BaseClient, None]:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return MockClient(gateway)
 

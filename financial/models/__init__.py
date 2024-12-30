@@ -1,4 +1,4 @@
-from .bank import PayIdGateway
+from .bank import PaymentIdGateway
 from .bank_card import BankCard
 from .bank_account import BankAccount
 from .payment import PaymentRequest, Payment

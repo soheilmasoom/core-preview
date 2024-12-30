@@ -24,7 +24,7 @@ class PaymentId(models.Model):
     pay_id = models.CharField(max_length=32, validators=[validate_integer])
     verified = models.BooleanField(default=False)
 
-    gateway = models.ForeignKey('financial.PayIdGateway', on_delete=models.PROTECT)
+    gateway = models.ForeignKey('financial.PaymentIdGateway', on_delete=models.PROTECT)
 
     group_id = get_group_id_field()
 

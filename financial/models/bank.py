@@ -5,7 +5,7 @@ from financial.utils.manager import ActiveManager
 from financial.validators import iban_validator
 
 
-class PayIdGateway(models.Model):
+class PaymentIdGateway(models.Model):
     TYPES = JIBIT_OLD, JIBIT, PARSIAN = \
         'jibit_old', 'jibit', 'parsian'
 
