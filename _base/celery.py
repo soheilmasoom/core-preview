@@ -201,6 +201,15 @@ app.conf.beat_schedule = {
         },
     },
 
+    'handle_missing_payment_ids': {
+        'task': 'financial.tasks.gateway.handle_missing_payment_ids',
+        'schedule': 60 * TASK_MULTIPLIER,
+        'options': {
+            'queue': 'finance',
+            'expires': 60 * TASK_MULTIPLIER
+        },
+    },
+
     'handle_jibit_payments': {
         'task': 'financial.tasks.gateway.handle_jibit_payments',
         'schedule': 60 * TASK_MULTIPLIER,

@@ -274,12 +274,6 @@ class JibitClient(BaseClient):
         for data in resp.get_success_data()['content']:
             self._create_and_verify_payment_data(data)
 
-    def create_payment_requests(self):
-        self.create_missing_payment_requests()
-
-        for payment_id in PaymentId.objects.filter(verified=False, deleted=False):
-            self.check_payment_id_status(payment_id)
-
 
 class MockClient(BaseClient):
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
@@ -394,10 +388,9 @@ class JibitClientV2(JibitClient):
                                                        '%Y/%m/%d %H:%M:%S').togregorian().astimezone()
 
             payment_request, created = PaymentIdRequest.objects.get_or_create(
-                external_ref=item['externalReferenceNumber'],
+                external_ref=item['referenceNumber'],
                 defaults={
                     'bank_ref': item['bankReferenceNumber'],
-                    'external_ref': item['referenceNumber'],
                     'amount': amount - fee,
                     'fee': fee,
                     'status': status,
@@ -462,7 +455,6 @@ class JibitClientV2(JibitClient):
             group_id=group_id,
             verified=True,
             gateway=self.gateway,
-            provider_status=True,
             provider_reason='',
             full_name=full_name,
         )
@@ -499,9 +491,9 @@ def get_payment_id_client(gateway: PayIdGateway) -> BaseClient:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return MockClient(gateway)
 
-    assert gateway.type in (PayIdGateway.JIBIT_OLD, PayIdGateway.JIBIT)
+    assert gateway.type in (PayIdGateway.JIBIT, PayIdGateway.JIBIT)
 
-    if gateway.type == PayIdGateway.JIBIT_OLD:
-        return JibitClient(gateway)
-    else:
+    if gateway.type == PayIdGateway.JIBIT:
         return JibitClientV2(gateway)
+    else:
+        return JibitClient(gateway)
