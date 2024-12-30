@@ -313,14 +313,6 @@ class JibitClientV2(JibitClient):
 
     def __init__(self, gateway):
         super().__init__(gateway)
-        try:
-            self.bank_account = PayIdGateway.objects.get(
-                bank=config('JIBIT_BANK_NAME', default='bank'),
-                name=config('JIBIT_ACCOUNT_NAME', default='jibit'),
-            )
-        except PayIdGateway.DoesNotExist:
-            logger.error('Jibit config does not exist!')
-            return
 
     def _get_token(self, force_renew: bool = False):
         if not force_renew:
@@ -348,8 +340,8 @@ class JibitClientV2(JibitClient):
 
         while True:
             resp = self._collect_api(
-                path=f'/v1/orders/aug-statement/{self.bank_account.iban}/variz-pid/waitingForVerify',
-                header={'iban': self.bank_account.iban},
+                path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
+                header={'iban': self.gateway.iban},
                 data={
                     'pageNumber': page_number,
                     'pageSize': page_size,
@@ -374,7 +366,7 @@ class JibitClientV2(JibitClient):
                 'pay_id': item['payId'],
                 'group_id': uuid.uuid4(),
                 'verified': True,
-                'gateway': self.bank_account,
+                'gateway': self.gateway,
                 'provider_status': True,
                 'provider_reason': '',
                 'full_name': '',
@@ -423,7 +415,7 @@ class JibitClientV2(JibitClient):
             return
 
         resp = self._collect_api(
-            f'/v1/orders/aug-statement/{self.bank_account}/{payment_request.external_ref}/verify')
+            f'/v1/orders/aug-statement/{self.gateway}/{payment_request.external_ref}/verify')
 
         if resp.success:
             payment_request.status = PENDING
@@ -435,7 +427,7 @@ class JibitClientV2(JibitClient):
             return
 
         resp = self._collect_api(
-            f'/v1/orders/aug-statement/{self.bank_account.iban}/{payment_request.external_ref}/fail')
+            f'/v1/orders/aug-statement/{self.gateway.iban}/{payment_request.external_ref}/fail')
 
         if resp.success:
             payment_request.status = CANCELED
@@ -467,7 +459,7 @@ class JibitClientV2(JibitClient):
             pay_id=user.national_code,
             group_id=group_id,
             verified=True,
-            gateway=self.bank_account,
+            gateway=self.gateway,
             provider_status=True,
             provider_reason='',
             full_name=full_name,
