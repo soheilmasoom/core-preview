@@ -1,7 +1,7 @@
 from django.db import models
 
 from financial.utils.encryption import decrypt
-from financial.utils.manager import LiveManager
+from financial.utils.manager import ActiveManager
 from financial.validators import iban_validator
 
 
@@ -35,8 +35,9 @@ class PayIdGateway(models.Model):
     priority = models.SmallIntegerField(default=1)
 
     active = models.BooleanField(default=False)
-    live_objects = LiveManager()
+
     objects = models.Manager()
+    live_objects = ActiveManager()
 
     def __str__(self):
         return self.iban

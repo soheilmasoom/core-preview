@@ -408,29 +408,11 @@ class JibitClientV2(JibitClient):
         if existing:
             return existing
 
-        bank_accounts = BankAccount.objects.filter(user=user, verified=True, deleted=False)
-        ibans = list(bank_accounts.values_list('iban', flat=True))
-
-        assert ibans
-
-        if not full_name:
-            owners = bank_accounts.order_by('owners')[0].owners
-            if owners:
-                owner = owners[0]
-                full_name = owner['firstName'] + ' ' + owner['lastName']
-            else:
-                full_name = user.get_full_name()
-
-        group_id = uuid.uuid4()
-
         payment_id = PaymentId.objects.create(
             user=user,
             pay_id=user.national_code,
-            group_id=group_id,
             verified=True,
             gateway=self.gateway,
-            provider_reason='',
-            full_name=full_name,
         )
 
         return payment_id
@@ -439,8 +421,10 @@ class JibitClientV2(JibitClient):
         return True
 
 
-_CLIENTS = {PayIdGateway.JIBIT: JibitClientV2,
-            PayIdGateway.JIBIT_OLD: JibitClient}
+_CLIENTS = {
+    PayIdGateway.JIBIT_OLD: JibitClient,
+    PayIdGateway.JIBIT: JibitClientV2,
+}
 
 
 def get_payment_id_client(gateway: PayIdGateway) -> Union[BaseClient, None]:

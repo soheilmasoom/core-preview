@@ -4,7 +4,7 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import User
-from financial.models import PaymentId, Gateway, PayIdGateway, BankAccount
+from financial.models import PaymentId, PayIdGateway, BankAccount
 from financial.utils.bank import get_bank_from_slug
 from financial.utils.payment_id_client import get_payment_id_client
 
