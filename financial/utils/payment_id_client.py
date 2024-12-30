@@ -63,7 +63,7 @@ class JibitClient(BaseClient):
             self._token = resp_data['accessToken']
             return self._token
 
-    def _collect_api(self, path: str, method: str = 'GET', header: dict = None, data: dict = None) -> Response:
+    def _collect_api(self, path: str, method: str = 'GET', headers: dict = None, data: dict = None) -> Response:
         if data is None:
             data = {}
 
@@ -74,13 +74,15 @@ class JibitClient(BaseClient):
         if not token:
             return Response(None, False, status_code=0)
 
-        header = {} if header is None else header
-        headers = {'Authorization': 'Bearer ' + token}.update(header)
+        headers = headers or {}
 
         request_kwargs = {
             'url': url,
             'timeout': 30,
-            'headers': headers,
+            'headers': {
+                'Authorization': 'Bearer ' + token,
+                **headers
+            }
         }
 
         try:
@@ -309,7 +311,7 @@ class JibitClientV2(JibitClient):
         while True:
             resp = self._collect_api(
                 path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
-                header={'Iban': self.gateway.iban},
+                headers={'Iban': self.gateway.iban},
                 data={
                     'pageNumber': page_number,
                     'pageSize': page_size,
