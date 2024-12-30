@@ -388,7 +388,8 @@ class JibitClientV2(JibitClient):
             if not created and payment_request.status == PENDING:
                 return
 
-            self.verify_payment_request(payment_request)
+            if data['merchantVerificationStatus'] == 'WAITING_FOR_MERCHANT_VERIFY':
+                self.verify_payment_request(payment_request)
 
     def verify_payment_request(self, payment_request: PaymentIdRequest):
         if payment_request.status != PROCESS:
