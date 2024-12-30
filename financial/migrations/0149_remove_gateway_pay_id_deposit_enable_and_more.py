@@ -90,12 +90,12 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='paymentid',
-            constraint=models.UniqueConstraint(condition=models.Q(('deleted', False)), fields=('user', 'destination'),
-                                               name='unique_financial_paymentid_user_destination'),
+            constraint=models.UniqueConstraint(condition=models.Q(('deleted', False)), fields=('user', 'gateway'),
+                                               name='unique_financial_paymentid_user_gateway'),
         ),
         migrations.AddConstraint(
             model_name='paymentid',
-            constraint=models.UniqueConstraint(condition=models.Q(('deleted', False)), fields=('pay_id', 'destination'),
-                                               name='unique_financial_paymentid_pay_id_destination'),
+            constraint=models.UniqueConstraint(condition=models.Q(('deleted', False)), fields=('pay_id', 'gateway'),
+                                               name='unique_financial_paymentid_pay_id_gateway'),
         ),
     ]
