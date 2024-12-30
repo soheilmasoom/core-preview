@@ -134,7 +134,8 @@ class JibitClient(BaseClient):
             'userMobile': '09121234567',
         })
 
-        assert resp.success
+        if not resp.ok:
+            return
 
         destination, _ = GeneralBankAccount.objects.get_or_create(
             iban=resp.data['destinationIban'],

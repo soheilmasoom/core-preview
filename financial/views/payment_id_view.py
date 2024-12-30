@@ -38,7 +38,12 @@ class PaymentIdSerializer(serializers.ModelSerializer):
 
         client = get_payment_id_client(gateway)
 
-        return client.create_payment_id(user)
+        payment_id = client.create_payment_id(user)
+
+        if not payment_id:
+            raise ValidationError('مشکلی در ساخت شناسه واریز به وجود آمد. لطفا پس از مدتی دوباره تلاش کنید.')
+
+        return payment_id
 
     def get_pay_id(self, payment_id: PaymentId):
         if not payment_id.verified:
