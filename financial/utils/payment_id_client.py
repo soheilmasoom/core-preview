@@ -2,7 +2,6 @@ import logging
 import math
 import time
 import uuid
-from datetime import timedelta
 from json import JSONDecodeError
 from typing import Union
 
@@ -10,14 +9,12 @@ import jdatetime
 import requests
 from decouple import config
 from django.conf import settings
-from django.utils import timezone
 from urllib3.exceptions import ReadTimeoutError
 
 from accounts.models import User
 from accounts.verifiers.jibit import Response
 from financial.models import BankAccount, PaymentIdRequest, PaymentId
 from financial.models.bank import PayIdGateway
-from financial.utils.bank import get_bank
 from ledger.utils.fields import PROCESS, PENDING, CANCELED
 
 logger = logging.getLogger(__name__)
@@ -444,6 +441,7 @@ class JibitClientV2(JibitClient):
 
 _CLIENTS = {PayIdGateway.JIBIT: JibitClientV2,
             PayIdGateway.JIBIT_OLD: JibitClient}
+
 
 def get_payment_id_client(gateway: PayIdGateway) -> Union[BaseClient, None]:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
