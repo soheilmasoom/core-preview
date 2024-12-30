@@ -115,7 +115,7 @@ class JibitClient(BaseClient):
         host_url = settings.HOST_URL
 
         bank_accounts = BankAccount.objects.filter(user=user, verified=True, deleted=False)
-        ibans = list(bank_accounts.values_list('iban', flat=True))
+        ibans = list(bank_accounts.values_list('Iban', flat=True))
 
         assert ibans
 
@@ -320,7 +320,7 @@ class JibitClientV2(JibitClient):
         while True:
             resp = self._collect_api(
                 path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
-                header={'iban': self.gateway.iban},
+                header={'Iban': self.gateway.iban},
                 data={
                     'pageNumber': page_number,
                     'pageSize': page_size,
