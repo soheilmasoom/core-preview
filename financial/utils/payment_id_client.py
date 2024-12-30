@@ -352,6 +352,9 @@ class JibitClientV2(JibitClient):
                 break
 
             data = resp.json()
+            if not data['hasNext']:
+                break
+
             elements = data.get("elements", [])
 
             self._create_and_verify_payments_data(elements)
