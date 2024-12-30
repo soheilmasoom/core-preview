@@ -63,7 +63,7 @@ class JibitClient(BaseClient):
             self._token = resp_data['accessToken']
             return self._token
 
-    def _collect_api(self, path: str, method: str = 'GET', header: dict = None, data: dict = None) -> Response:
+    def _collect_api(self, path: str, method: str = 'GET', headers: dict = None, data: dict = None) -> Response:
         if data is None:
             data = {}
 
@@ -74,13 +74,15 @@ class JibitClient(BaseClient):
         if not token:
             return Response(None, False, status_code=0)
 
-        header = {} if header is None else header
-        headers = {'Authorization': 'Bearer ' + token}.update(header)
+        headers = headers or {}
 
         request_kwargs = {
             'url': url,
             'timeout': 30,
-            'headers': headers,
+            'headers': {
+                'Authorization': 'Bearer ' + token,
+                **headers
+            }
         }
 
         try:
@@ -110,7 +112,7 @@ class JibitClient(BaseClient):
         host_url = settings.HOST_URL
 
         bank_accounts = BankAccount.objects.filter(user=user, verified=True, deleted=False)
-        ibans = list(bank_accounts.values_list('Iban', flat=True))
+        ibans = list(bank_accounts.values_list('iban', flat=True))
 
         assert ibans
 
@@ -303,29 +305,27 @@ class JibitClientV2(JibitClient):
             return self._token
 
     def create_payments_requests(self):
-        page_number = 1
         page_size = config('JIBIT_PAGE_SIZE', cast=int, default=100)
 
-        while True:
-            resp = self._collect_api(
-                path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
-                header={'Iban': self.gateway.iban},
-                data={
-                    'pageNumber': page_number,
-                    'pageSize': page_size,
-                })
+        resp = self._collect_api(
+            path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
+            headers={'Iban': self.gateway.iban},
+            data={
+                'pageNumber': 1,
+                'pageSize': page_size,
+            })
 
-            if resp.status_code != 200:
-                logger.error(f"Error while collecting Jibit payments: {resp.status_code}, {resp.text}")
-                break
+        if resp.status_code != 200:
+            logger.error(f"Error while collecting Jibit payments: {resp.status_code}")
+            return
 
-            data = resp.json()
-            if not data['hasNext']:
-                break
+        data = resp.data
+        if not data['hasNext']:
+            return
 
-            elements = data.get("elements", [])
+        elements = data.get("elements", [])
 
-            self._create_and_verify_payments_data(elements)
+        self._create_and_verify_payments_data(elements)
 
     def _create_and_verify_payments_data(self, data: list):
         payIds = [item['payId'] for item in data]
