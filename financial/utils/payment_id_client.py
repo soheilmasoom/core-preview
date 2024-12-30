@@ -346,6 +346,12 @@ class JibitClientV2(JibitClient):
 
             merchant_ref = item['referenceNumber']
 
+            try:
+                merchant_ref = uuid.UUID(merchant_ref)
+            except ValueError:
+                self._collect_api(f'/v1/orders/aug-statement/{self.gateway.iban}/{merchant_ref}/fail')
+                return
+
             amount = item['balance'] // 10
             fee = math.ceil(item['balance'] / 10_000_000) * 250
 
@@ -353,12 +359,6 @@ class JibitClientV2(JibitClient):
                 status = PENDING
             else:
                 status = PROCESS
-
-            try:
-                merchant_ref = uuid.UUID(merchant_ref)
-            except ValueError:
-                self._collect_api(f'/v1/orders/aug-statement/{self.gateway.iban}/{merchant_ref}/fail')
-                return
 
             deposit_time = jdatetime.datetime.strptime(item['rawBankTimestamp'],
                                                        '%Y/%m/%d %H:%M:%S').togregorian().astimezone()

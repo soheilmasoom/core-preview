@@ -53,6 +53,16 @@ class Migration(migrations.Migration):
                 choices=[('jibit_old', 'jibit_old'), ('jibit', 'jibit'), ('parsian', 'parsian')],
                 default='jibit_old', max_length=16),
         ),
+        migrations.AlterModelOptions(
+            name='payidgateway',
+            options={'ordering': ['priority']},
+        ),
+        migrations.AlterModelManagers(
+            name='payidgateway',
+            managers=[
+                ('live_objects', django.db.models.manager.Manager()),
+            ],
+        ),
         migrations.AlterField(
             model_name='paymentid',
             name='destination',
