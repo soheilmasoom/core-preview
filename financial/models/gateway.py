@@ -195,8 +195,7 @@ class Gateway(models.Model):
     def get_payment_url(cls, payment_request: PaymentRequest):
         raise NotImplementedError
 
-    def create_payment_request(self, user: User, amount: int, source: str,
-                               bank_card: Union['BankCard', None]) -> PaymentRequest:
+    def create_payment_request(self, user: User, amount: int, source: str, bank_card: Union['BankCard', None]) -> PaymentRequest:
         raise NotImplementedError
 
     def verify(self, payment: Payment):
