@@ -16,14 +16,6 @@ from ledger.models import NetworkAsset, MarginPosition, MarginHistoryModel, Wall
 from ledger.utils.external_price import fetch_external_price, SIDES
 
 
-class HealthView(APIView):
-    authentication_classes = ()
-    permission_classes = ()
-
-    def get(self, request):
-        return Response({'status': 'healthy!'})
-
-
 logger = logging.getLogger(__name__)
 
 

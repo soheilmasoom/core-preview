@@ -210,6 +210,15 @@ app.conf.beat_schedule = {
         },
     },
 
+    'handle_jibit_payments': {
+        'task': 'financial.tasks.gateway.handle_jibit_payments',
+        'schedule': 60 * TASK_MULTIPLIER,
+        'options': {
+            'queue': 'finance',
+            'expires': 60 * TASK_MULTIPLIER
+        },
+    },
+
     'check_withdraw_refunds': {
         'task': 'financial.tasks.gateway.check_withdraw_refunds',
         'schedule': crontab(minute=0),

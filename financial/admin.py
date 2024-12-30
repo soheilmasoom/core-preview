@@ -21,7 +21,7 @@ from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.validation import gregorian_to_jalali_datetime
 from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAccount, \
     FiatWithdrawRequest, ManualTransfer, MarketingSource, MarketingCost, PaymentIdRequest, PaymentId, \
-    GeneralBankAccount, BankPaymentRequest, BankPaymentRequestReceipt
+    PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
 from financial.utils.interface import get_withdraw_channel
@@ -37,10 +37,10 @@ from ledger.utils.withdraw_verify import RiskFactor, get_risks_html
 class GatewayAdmin(admin.ModelAdmin):
     list_display = (
         'name', 'type', 'active', 'deposit_priority', 'withdraw_priority',
-        'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable', 'get_free', 'get_balance',
+        'ipg_deposit_enable', 'withdraw_enable', 'get_free', 'get_balance',
         'get_min_deposit_amount', 'get_max_deposit_amount', 'suspended', 'active_for_staff',
     )
-    list_editable = ('active', 'active_for_staff', 'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable',
+    list_editable = ('active', 'active_for_staff', 'ipg_deposit_enable', 'withdraw_enable',
                      'deposit_priority', 'withdraw_priority', 'suspended')
     readonly_fields = ('get_balance', 'get_min_deposit_amount', 'get_max_deposit_amount')
     list_filter = ('active', 'type', 'ipg_deposit_enable', 'withdraw_enable')
@@ -581,9 +581,11 @@ class PaymentIdAdmin(AdvancedAdmin):
             obj.save()
 
 
-@admin.register(GeneralBankAccount)
-class GeneralBankAccountAdmin(admin.ModelAdmin):
-    list_display = ('created', 'name', 'iban', 'bank', 'deposit_address')
+@admin.register(PaymentIdGateway)
+class PaymentIdGatewayAdmin(admin.ModelAdmin):
+    list_display = ('title', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'priority')
+    ordering = ('-active', 'priority')
+    list_editable = ('active', 'priority')
 
 
 class BankPaymentRequestAcceptFilter(SimpleListFilter):

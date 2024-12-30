@@ -84,6 +84,8 @@ class SystemConfig(models.Model):
         default=OTP_KAVENEGAR
     )
 
+    pay_id_enable = models.BooleanField(default=True)
+
     def __str__(self):
         return self.name
 

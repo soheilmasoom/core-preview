@@ -11,11 +11,18 @@ from django.db.models.functions import Cast, TruncDate, Greatest
 from django.http import HttpResponse
 from django.shortcuts import render
 from openpyxl import Workbook
+from rest_framework import serializers
+from rest_framework.generics import ListAPIView
+from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.response import Response
+from rest_framework.utils.urls import replace_query_param
 
 from accounting.models import TradeRevenue
+from accounts.authentication import CustomTokenAuthentication
 from accounts.models import TrafficSource, User
 from analytics.models import ReportPermission
 from analytics.utils.list import join_lists_with_first_element
+from ledger.models import Trx, Wallet
 
 
 def _get_report_permission(user: User, group_id: str):
@@ -160,3 +167,64 @@ def queryset_to_workbook(headers: list, data: list):
             cell.value = row[col_num-1]
 
     return workbook
+
+
+class WalletSerializer(serializers.ModelSerializer):
+    symbol = serializers.CharField(source='asset.symbol')
+    user_id = serializers.CharField(source='account.user_id')
+
+    class Meta:
+        model = Wallet
+        fields = ['id', 'created', 'user_id', 'account_id', 'market', 'symbol']
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trx
+        fields = ['id', 'created', 'sender_id', 'receiver_id', 'amount', 'group_id']
+
+
+class NoCountLimitOffsetPagination(LimitOffsetPagination):
+    def paginate_queryset(self, queryset, request, view=None):
+        self.limit = self.get_limit(request)
+        if self.limit is None:
+            return None
+
+        self.count = None
+        self.offset = self.get_offset(request)
+        self.request = request
+
+        paginated_queryset = queryset[self.offset:self.offset + self.limit]
+
+        if not paginated_queryset:
+            return []
+
+        if self.template is not None and len(paginated_queryset) == self.limit:
+            self.display_page_controls = True
+
+        return paginated_queryset
+
+    def get_next_link(self):
+        url = self.request.build_absolute_uri()
+        url = replace_query_param(url, self.limit_query_param, self.limit)
+
+        offset = self.offset + self.limit
+        return replace_query_param(url, self.offset_query_param, offset)
+
+
+class TransactionView(ListAPIView):
+    authentication_classes = [CustomTokenAuthentication]
+    pagination_class = NoCountLimitOffsetPagination
+    serializer_class = TransactionSerializer
+
+    def get_queryset(self):
+        return Trx.objects.filter().order_by('id')
+
+
+class WalletView(ListAPIView):
+    authentication_classes = [CustomTokenAuthentication]
+    pagination_class = NoCountLimitOffsetPagination
+    serializer_class = WalletSerializer
+
+    def get_queryset(self):
+        return Wallet.objects.filter().order_by('id').prefetch_related('asset', 'account')

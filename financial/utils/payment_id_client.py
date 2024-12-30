@@ -2,28 +2,26 @@ import logging
 import math
 import time
 import uuid
-from datetime import timedelta
 from json import JSONDecodeError
+from typing import Union
 
 import jdatetime
 import requests
+from decouple import config
 from django.conf import settings
-from django.utils import timezone
 from urllib3.exceptions import ReadTimeoutError
 
 from accounts.models import User
 from accounts.verifiers.jibit import Response
-from accounts.verifiers.utils import Request
-from financial.models import BankAccount, PaymentIdRequest, PaymentId, Gateway
-from financial.models.bank import GeneralBankAccount
-from financial.utils.bank import get_bank
+from financial.models import BankAccount, PaymentIdRequest, PaymentId
+from financial.models.bank import PaymentIdGateway
 from ledger.utils.fields import PROCESS, PENDING, CANCELED
 
 logger = logging.getLogger(__name__)
 
 
 class BaseClient:
-    def __init__(self, gateway):
+    def __init__(self, gateway: PaymentIdGateway):
         self.gateway = gateway
 
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
@@ -35,14 +33,11 @@ class BaseClient:
     def verify_payment_request(self, payment_request: PaymentIdRequest):
         raise NotImplementedError
 
-    def create_missing_payment_requests(self):
-        pass
-
-    def create_missing_payment_requests_from_list(self):
-        pass
-
     def check_payment_id_status(self, payment_id: PaymentId):
         raise NotImplementedError
+
+    def create_payments_requests(self):
+        pass
 
 
 class JibitClient(BaseClient):
@@ -68,7 +63,7 @@ class JibitClient(BaseClient):
             self._token = resp_data['accessToken']
             return self._token
 
-    def _collect_api(self, path: str, method: str = 'GET', data: dict = None) -> Response:
+    def _collect_api(self, path: str, method: str = 'GET', header: dict = None, data: dict = None) -> Response:
         if data is None:
             data = {}
 
@@ -79,10 +74,13 @@ class JibitClient(BaseClient):
         if not token:
             return Response(None, False, status_code=0)
 
+        header = {} if header is None else header
+        headers = {'Authorization': 'Bearer ' + token}.update(header)
+
         request_kwargs = {
             'url': url,
             'timeout': 30,
-            'headers': {'Authorization': 'Bearer ' + token},
+            'headers': headers,
         }
 
         try:
@@ -112,7 +110,7 @@ class JibitClient(BaseClient):
         host_url = settings.HOST_URL
 
         bank_accounts = BankAccount.objects.filter(user=user, verified=True, deleted=False)
-        ibans = list(bank_accounts.values_list('iban', flat=True))
+        ibans = list(bank_accounts.values_list('Iban', flat=True))
 
         assert ibans
 
@@ -137,22 +135,12 @@ class JibitClient(BaseClient):
         if not resp.ok:
             return
 
-        destination, _ = GeneralBankAccount.objects.get_or_create(
-            iban=resp.data['destinationIban'],
-            defaults={
-                'name': resp.data['destinationOwnerName'],
-                'deposit_address': resp.data['destinationDepositNumber'],
-                'bank': get_bank(swift_code=resp.data['destinationBank']).slug,
-            }
-        )
-
         payment_id = PaymentId.objects.create(
             user=user,
-            gateway=self.gateway,
             pay_id=resp.data['payId'],
             group_id=group_id,
             verified=resp.data['registryStatus'] == 'VERIFIED',
-            destination=destination,
+            gateway=self.gateway,
             provider_status=resp.data['registryStatus'],
             provider_reason=resp.data.get('failReason') or '',
             full_name=full_name,
@@ -196,7 +184,8 @@ class JibitClient(BaseClient):
             return
 
         payment_id = PaymentId.objects.get(pay_id=data['paymentId'], group_id=merchant_ref)
-        deposit_time = jdatetime.datetime.strptime(data['rawBankTimestamp'], '%Y/%m/%d %H:%M:%S').togregorian().astimezone()
+        deposit_time = jdatetime.datetime.strptime(data['rawBankTimestamp'],
+                                                   '%Y/%m/%d %H:%M:%S').togregorian().astimezone()
 
         if data['status'] == 'SUCCESSFUL':
             status = PENDING
@@ -256,15 +245,8 @@ class JibitClient(BaseClient):
             payment_request.save(update_fields=['status'])
             payment_request.reject()
 
-    def create_missing_payment_requests(self):
+    def create_payments_requests(self):
         resp = self._collect_api(f'/v1/payments/waitingForVerify?pageNumber=0&pageSize=100')
-
-        for data in resp.get_success_data()['content']:
-            self._create_and_verify_payment_data(data)
-
-    def create_missing_payment_requests_from_list(self):
-        now = timezone.now().astimezone().date() + timedelta(days=1)
-        resp = self._collect_api(f'/v1/payments/list?fromDate={now - timedelta(days=7)}&toDate={now}')
 
         for data in resp.get_success_data()['content']:
             self._create_and_verify_payment_data(data)
@@ -272,7 +254,7 @@ class JibitClient(BaseClient):
 
 class MockClient(BaseClient):
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
-        destination, _ = GeneralBankAccount.objects.get_or_create(
+        destination, _ = PaymentIdGateway.objects.get_or_create(
             iban='IR760120020000008992439961',
             defaults={
                 'name': 'ایوان رایان پیام',
@@ -286,7 +268,7 @@ class MockClient(BaseClient):
             user=user,
             defaults={
                 'pay_id': f'1111100000{user.id}',
-                'destination': destination
+                'gateway': destination
             }
         )
 
@@ -297,10 +279,161 @@ class MockClient(BaseClient):
         payment_id.save(update_fields=['verified'])
 
 
-def get_payment_id_client(gateway: Gateway) -> BaseClient:
+class JibitClientV2(JibitClient):
+    BASE_URL = 'https://napi.jibit.ir/cobank/'
+
+    def _get_token(self, force_renew: bool = False):
+        if not force_renew:
+            if self._token:
+                return self._token
+
+        resp = requests.post(
+            url=self.BASE_URL + '/v1/tokens/generate',
+            json={
+                'apiKey': self.gateway.payment_id_api_key,
+                'secretKey': self.gateway.payment_id_secret,
+                'Scope': 'PID_VARIZ',
+            },
+            timeout=30,
+        )
+
+        if resp.ok:
+            resp_data = resp.json()
+            self._token = resp_data['accessToken']
+            return self._token
+
+    def create_payments_requests(self):
+        page_number = 1
+        page_size = config('JIBIT_PAGE_SIZE', cast=int, default=100)
+
+        while True:
+            resp = self._collect_api(
+                path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
+                header={'Iban': self.gateway.iban},
+                data={
+                    'pageNumber': page_number,
+                    'pageSize': page_size,
+                })
+
+            if resp.status_code != 200:
+                logger.error(f"Error while collecting Jibit payments: {resp.status_code}, {resp.text}")
+                break
+
+            data = resp.json()
+            if not data['hasNext']:
+                break
+
+            elements = data.get("elements", [])
+
+            self._create_and_verify_payments_data(elements)
+
+    def _create_and_verify_payments_data(self, data: list):
+        payIds = [item['payId'] for item in data]
+        users_map = {user.national_code: user for user in User.objects.filter(national_code__in=payIds)}
+
+        for item in data:
+            payment_id = PaymentId.objects.get_or_create(pay_id=item['payId'], defaults={
+                'user': users_map[item['payId']],
+                'group_id': uuid.uuid4(),
+                'verified': True,
+                'gateway': self.gateway,
+                'provider_status': item['merchantVerificationStatus'],
+                'provider_reason': '',
+                'full_name': '',
+            })
+
+            merchant_ref = item['referenceNumber']
+
+            try:
+                merchant_ref = uuid.UUID(merchant_ref)
+            except ValueError:
+                self._collect_api(f'/v1/orders/aug-statement/{self.gateway.iban}/{merchant_ref}/fail')
+                return
+
+            amount = item['balance'] // 10
+            fee = math.ceil(item['balance'] / 10_000_000) * 250
+
+            if item['merchantVerificationStatus'] == 'SUCCESSFUL':
+                status = PENDING
+            else:
+                status = PROCESS
+
+            deposit_time = jdatetime.datetime.strptime(item['rawBankTimestamp'],
+                                                       '%Y/%m/%d %H:%M:%S').togregorian().astimezone()
+
+            payment_request, created = PaymentIdRequest.objects.get_or_create(
+                external_ref=item['referenceNumber'],
+                defaults={
+                    'bank_ref': item['bankReferenceNumber'],
+                    'amount': amount - fee,
+                    'fee': fee,
+                    'status': status,
+                    'owner': payment_id,
+                    'source_iban': item['sourceIdentifier'],
+                    'deposit_time': deposit_time,
+                }
+            )
+
+            if not created and payment_request.status == PENDING:
+                return
+
+            if item['merchantVerificationStatus'] == 'WAITING_FOR_MERCHANT_VERIFY':
+                self.verify_payment_request(payment_request)
+
+    def verify_payment_request(self, payment_request: PaymentIdRequest):
+        if payment_request.status != PROCESS:
+            return
+
+        resp = self._collect_api(
+            f'/v1/orders/aug-statement/{self.gateway}/{payment_request.external_ref}/verify')
+
+        if resp.success:
+            payment_request.status = PENDING
+            payment_request.save(update_fields=['status'])
+            payment_request.accept()
+
+    def reject_payment_request(self, payment_request: PaymentIdRequest):
+        if payment_request.status != PROCESS:
+            return
+
+        resp = self._collect_api(
+            f'/v1/orders/aug-statement/{self.gateway.iban}/{payment_request.external_ref}/fail')
+
+        if resp.success:
+            payment_request.status = CANCELED
+            payment_request.save(update_fields=['status'])
+            payment_request.reject()
+
+    def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
+        existing = PaymentId.objects.filter(user=user, gateway=self.gateway, deleted=False).first()
+        if existing:
+            return existing
+
+        payment_id = PaymentId.objects.create(
+            user=user,
+            pay_id=user.national_code,
+            verified=True,
+            gateway=self.gateway,
+        )
+
+        return payment_id
+
+    def check_payment_id_status(self, payment_id: PaymentId):
+        return True
+
+
+_CLIENTS = {
+    PaymentIdGateway.JIBIT_OLD: JibitClient,
+    PaymentIdGateway.JIBIT: JibitClientV2,
+}
+
+
+def get_payment_id_client(gateway: PaymentIdGateway) -> Union[BaseClient, None]:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return MockClient(gateway)
 
-    assert gateway.type == Gateway.JIBIT
+    client = _CLIENTS.get(gateway.type, None)
+    if client is None:
+        return None
 
-    return JibitClient(gateway)
+    return client(gateway)
