@@ -1,69 +1,40 @@
 from django.db import models
-from django.db.models import UniqueConstraint, Q
-from simple_history.models import HistoricalRecords
 
-from financial.models.base_bank_entity import BaseBankEntity
-from financial.utils.bank import get_bank_from_iban
-from financial.validators import iban_validator
+from ledger.utils.fields import get_iban_field, get_bank_field, get_created_field
 
 
-class BankAccount(BaseBankEntity):
-    history = HistoricalRecords()
+class Account(models.Model):
+    title = models.CharField(max_length=256)
 
-    ACTIVE, DEPOSITABLE_SUSPENDED, NON_DEPOSITABLE_SUSPENDED, STAGNANT, UNKNOWN = 'active', 'suspend', 'nsuspend', 'stagnant', 'unknown'
+    name = models.CharField(max_length=256)
+    bank = get_bank_field()
+    iban = get_iban_field(unique=True, blank=True)
+    account_number = models.CharField(max_length=64, blank=True)
 
-    iban = models.CharField(
-        max_length=26,
-        validators=[iban_validator],
-        verbose_name='شبا'
-    )
 
-    bank = models.CharField(max_length=256, blank=True)
-    deposit_address = models.CharField(max_length=64, blank=True)
-    card_pan = models.CharField(max_length=20, blank=True)
+class BankTransaction(models.Model):
+    created = get_created_field()
+    account = models.ForeignKey('Account', on_delete=models.CASCADE)
 
-    deposit_status = models.CharField(
-        max_length=8,
-        blank=True,
-        choices=(
-            (ACTIVE, 'active'), (DEPOSITABLE_SUSPENDED, 'suspend'), (NON_DEPOSITABLE_SUSPENDED, 'nodep suspend'),
-            (STAGNANT, 'stagnant')
-        )
-    )
+    amount = models.PositiveBigIntegerField()
+    transaction_date = models.DateTimeField()
 
-    owners = models.JSONField(blank=True, null=True)
+    account_balance = models.PositiveBigIntegerField()
 
-    stake_holder = models.BooleanField(default=False)
+    sender_iban = get_iban_field(blank=True)
+    sender_name = models.CharField(max_length=256)
+    sender_deposit_number = models.CharField(max_length=256)
+    sender_bank = get_bank_field(blank=True)
 
-    def __str__(self):
-        return self.iban[:6] + '********' + self.iban[-5:] + ' ' + self.bank
+    reference_number = models.CharField(max_length=64)
+    tracking_id = models.CharField(max_length=64)
 
-    def save(self, *args, **kwargs):
-        if not self.id:
-            bank = get_bank_from_iban(self.iban)
-            if bank:
-                self.bank = bank.slug
+    bank_branch = models.CharField(max_length=256)
 
-        super(BankAccount, self).save(*args, **kwargs)
+    description = models.TextField()
 
-    class Meta:
-        verbose_name = 'حساب بانکی'
-        verbose_name_plural = 'حساب‌های بانکی'
 
-        constraints = [
-            UniqueConstraint(
-                fields=["iban", "user"],
-                name="unique_bank_account_iban",
-                condition=Q(deleted=False),
-            ),
-            UniqueConstraint(
-                fields=["iban"],
-                name="unique_bank_account_verified_iban",
-                condition=Q(verified=True, deleted=False),
-            )
-        ]
-
-        permissions = [
-            ("list_bankaccount", "Can list bank account"),
-        ]
+class BankStatement(models.Model):
+    created = get_created_field()
+    account = models.ForeignKey('Account', on_delete=models.CASCADE)
 

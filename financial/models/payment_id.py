@@ -4,7 +4,7 @@ from django.db.models import UniqueConstraint, Q
 
 from financial.models import Payment
 from financial.validators import iban_validator
-from ledger.utils.fields import get_status_field, DONE, PENDING, get_group_id_field, CANCELED
+from ledger.utils.fields import get_status_field, DONE, PENDING, get_group_id_field, CANCELED, get_iban_field
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 
@@ -63,11 +63,7 @@ class PaymentIdRequest(models.Model):
     bank_ref = models.CharField(max_length=64, blank=True)
     external_ref = models.CharField(max_length=64, blank=True, unique=True)
 
-    source_iban = models.CharField(
-        max_length=26,
-        validators=[iban_validator],
-        verbose_name='شبا',
-    )
+    source_iban = get_iban_field()
 
     deposit_time = models.DateTimeField()
 

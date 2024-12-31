@@ -2,7 +2,7 @@ from django.db import models
 
 from financial.utils.encryption import decrypt
 from financial.utils.manager import ActiveManager
-from financial.validators import iban_validator
+from ledger.utils.fields import get_iban_field
 
 
 class PaymentIdGateway(models.Model):
@@ -19,12 +19,7 @@ class PaymentIdGateway(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
 
-    iban = models.CharField(
-        max_length=26,
-        validators=[iban_validator],
-        verbose_name='شبا',
-        unique=True
-    )
+    iban = get_iban_field(unique=True)
 
     name = models.CharField(max_length=256, blank=True, verbose_name='نام صاحب حساب',)
 

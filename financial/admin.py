@@ -25,7 +25,7 @@ from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAcc
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
 from financial.utils.interface import get_withdraw_channel
-from financial.utils.payment_id_client import get_payment_id_client
+from financial.payment_id import get_payment_id_client
 from gamify.utils import clone_model
 from ledger.utils.fields import PENDING, INIT, CANCELED, DONE, PROCESS
 from ledger.utils.precision import humanize_number
@@ -79,7 +79,7 @@ class GatewayAdmin(admin.ModelAdmin):
             value = getattr(gateway, key)
 
             if getattr(old_gateway, key, '') != value:
-                setattr(gateway, key, encrypt(value))
+                setattr(gateway, key, encrypt(value.strip()))
 
         if gateway.ipg_callback_host.endswith('/'):
             gateway.ipg_callback_host = gateway.ipg_callback_host[:-1]
