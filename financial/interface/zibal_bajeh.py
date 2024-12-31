@@ -46,7 +46,16 @@ class ZibalBajehChannel(BaseChannel):
         return resp_data['data']
 
     def get_wallet_data(self) -> WalletDTO:
-        raise ServerError
+        balance_data = self.collect_api('/v1/account/balance/', method='GET', data={
+            'accountId': self.gateway.withdraw_api_key
+        })
+
+        balance = balance_data['balance'] // 10
+
+        return WalletDTO(
+            balance=balance,
+            free=balance
+        )
 
     def create_withdraw(self, transfer: BaseTransfer) -> WithdrawDTO:
         data = self.collect_api('/v1/account/checkout/create/', method='POST', data={
