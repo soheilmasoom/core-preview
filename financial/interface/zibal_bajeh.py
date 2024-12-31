@@ -45,8 +45,10 @@ class ZibalBajehChannel(BaseChannel):
                 'message': 'Zibal bajeh connection error'
             })
 
-        if self.verbose or not resp_data['result'] == 1:
-            print(resp_data)
+        if self.verbose:
+            logger.info(resp_data)
+
+        if resp_data['result'] != 1:
             raise ServerError(resp_data)
 
         return resp_data['data']
