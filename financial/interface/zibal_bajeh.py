@@ -34,6 +34,12 @@ class ZibalBajehChannel(BaseChannel):
 
             resp_data = resp.json()
 
+            if resp.ok and path == '/v1/account/balance/':
+                resp_data = {
+                    'result': 1,
+                    'data': resp_data
+                }
+
         except (requests.exceptions.ConnectionError, JSONDecodeError, TimeoutError):
             raise ServerError({
                 'message': 'Zibal bajeh connection error'
