@@ -49,7 +49,7 @@ class ZibalBajehChannel(BaseChannel):
         raise ServerError
 
     def create_withdraw(self, transfer: BaseTransfer) -> WithdrawDTO:
-        data = self.collect_api('/v1/account/checkout/create', method='POST', data={
+        data = self.collect_api('/v1/account/checkout/create/', method='POST', data={
             'accountId': self.gateway.withdraw_api_key,
             'amount': transfer.amount * 10,
             'iban': transfer.bank_account.iban,
