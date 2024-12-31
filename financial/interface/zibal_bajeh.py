@@ -54,7 +54,7 @@ class ZibalBajehChannel(BaseChannel):
             'amount': transfer.amount * 10,
             'iban': transfer.bank_account.iban,
             'uniqueCode': transfer.id,
-            'delay': 0,  # -1 for instant, 0 for paya
+            'delay': -1,  # -1 for instant, 0 for paya
         })
 
         checkouts = data['checkouts']
