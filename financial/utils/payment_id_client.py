@@ -304,29 +304,27 @@ class JibitClientV2(JibitClient):
             return self._token
 
     def create_payments_requests(self):
-        page_number = 1
         page_size = config('JIBIT_PAGE_SIZE', cast=int, default=100)
 
-        while True:
-            resp = self._collect_api(
-                path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
-                headers={'Iban': self.gateway.iban},
-                data={
-                    'pageNumber': page_number,
-                    'pageSize': page_size,
-                })
+        resp = self._collect_api(
+            path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
+            headers={'Iban': self.gateway.iban},
+            data={
+                'pageNumber': 1,
+                'pageSize': page_size,
+            })
 
-            if resp.status_code != 200:
-                logger.error(f"Error while collecting Jibit payments: {resp.status_code}, {resp.text}")
-                break
+        if resp.status_code != 200:
+            logger.error(f"Error while collecting Jibit payments: {resp.status_code}")
+            return
 
-            data = resp.json()
-            if not data['hasNext']:
-                break
+        data = resp.data
+        if not data['hasNext']:
+            return
 
-            elements = data.get("elements", [])
+        elements = data.get("elements", [])
 
-            self._create_and_verify_payments_data(elements)
+        self._create_and_verify_payments_data(elements)
 
     def _create_and_verify_payments_data(self, data: list):
         payIds = [item['payId'] for item in data]
