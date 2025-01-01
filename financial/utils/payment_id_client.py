@@ -408,6 +408,8 @@ class JibitClientV2(JibitClient):
         if existing:
             return existing
 
+        assert user.national_code
+
         payment_id = PaymentId.objects.create(
             user=user,
             pay_id=user.national_code,
