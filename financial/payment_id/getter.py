@@ -3,11 +3,12 @@ from typing import Union
 from django.conf import settings
 
 from financial.models import PaymentIdGateway
-from financial.payment_id import MockClient, JibitClient, JibitClientV2, BaseClient
+from financial.payment_id import MockClient, JibitClient, JibitClientV2, BaseClient, ManualClient
 
 _CLIENTS = {
     PaymentIdGateway.JIBIT_OLD: JibitClient,
     PaymentIdGateway.JIBIT: JibitClientV2,
+    PaymentIdGateway.MANUAL: ManualClient
 }
 
 

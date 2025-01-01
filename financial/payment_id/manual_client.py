@@ -3,39 +3,17 @@ import math
 import uuid
 
 import jdatetime
-import requests
 from decouple import config
 
 from accounts.models import User
 from financial.models import PaymentIdRequest, PaymentId
-from financial.payment_id.jibit_client import JibitClient
+from financial.payment_id import BaseClient
 from ledger.utils.fields import PROCESS, PENDING, CANCELED
 
 logger = logging.getLogger(__name__)
 
 
-class JibitClientV2(JibitClient):
-    BASE_URL = 'https://napi.jibit.ir/cobank/'
-
-    def _get_token(self, force_renew: bool = False):
-        if not force_renew:
-            if self._token:
-                return self._token
-
-        resp = requests.post(
-            url=self.BASE_URL + '/v1/tokens/generate',
-            json={
-                'apiKey': self.gateway.payment_id_api_key,
-                'secretKey': self.gateway.payment_id_secret,
-                'Scope': 'PID_VARIZ',
-            },
-            timeout=30,
-        )
-
-        if resp.ok:
-            resp_data = resp.json()
-            self._token = resp_data['accessToken']
-            return self._token
+class ManualClient(BaseClient):
 
     def create_payments_requests(self):
         page_number = 1

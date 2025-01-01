@@ -6,8 +6,8 @@ from ledger.utils.fields import get_iban_field
 
 
 class PaymentIdGateway(models.Model):
-    TYPES = JIBIT_OLD, JIBIT, PARSIAN = \
-        'jibit_old', 'jibit', 'parsian'
+    TYPES = JIBIT_OLD, JIBIT, MANUAL = \
+        'jibit_old', 'jibit', 'manual'
 
     title = models.CharField(max_length=16)
 
