@@ -103,12 +103,17 @@ class FiatWithdrawRequest(BaseTransfer):
 
         try:
             withdraw = api_handler.create_withdraw(transfer=self)
-            self.ref_id = withdraw.tracking_id
+            to_update = ['withdraw_datetime', 'receive_datetime']
+
+            if withdraw.tracking_id is not None:
+                self.ref_id = withdraw.tracking_id
+                to_update.append('ref_id')
+
             self.receive_datetime = withdraw.receive_datetime
 
             self.add_comment(withdraw.message)
 
-            self.save(update_fields=['ref_id', 'withdraw_datetime', 'receive_datetime'])
+            self.save(update_fields=to_update)
             self.change_status(withdraw.status)
 
         except ProviderError as e:
