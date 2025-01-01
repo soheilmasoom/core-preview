@@ -66,13 +66,22 @@ class ZibalBajehChannel(BaseChannel):
         )
 
     def create_withdraw(self, transfer: BaseTransfer) -> WithdrawDTO:
-        data = self.collect_api('/v1/account/checkout/create/', method='POST', data={
-            'accountId': self.gateway.withdraw_api_key,
-            'amount': transfer.amount * 10,
-            'iban': transfer.bank_account.iban,
-            'uniqueCode': transfer.id,
-            'delay': -1,  # -1 for instant, 0 for paya
-        })
+        try:
+            data = self.collect_api('/v1/account/checkout/create/', method='POST', data={
+                'accountId': self.gateway.withdraw_api_key,
+                'amount': transfer.amount * 10,
+                'iban': transfer.bank_account.iban,
+                'uniqueCode': transfer.id,
+                'delay': -1,  # -1 for instant, 0 for paya
+            })
+        except ServerError as e:
+            if e.args[0].get('result') == 16:
+                return WithdrawDTO(
+                    tracking_id=None,
+                    status=PENDING,
+                )
+            else:
+                raise
 
         checkouts = data['checkouts']
 
