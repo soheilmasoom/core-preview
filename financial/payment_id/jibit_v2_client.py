@@ -39,7 +39,7 @@ class JibitClientV2(JibitClient):
     def create_payments_requests(self):
         resp = self._collect_api(
             path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
-            headers={'Iban': self.gateway.iban},
+            headers={'iban': self.gateway.iban},
             data={
                 'pageNumber': 1,
                 'pageSize': 100,
