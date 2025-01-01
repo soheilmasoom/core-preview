@@ -51,7 +51,7 @@ def handle_missing_payment_ids():
 
 
 @shared_task(queue='finance')
-def handle_jibit_payments():
+def handle_waiting_payment_ids():
     gateways = PaymentIdGateway.live_objects.all()
 
     for gateway in gateways:
