@@ -14,4 +14,4 @@ from .withdraw_request import FiatWithdrawRequest
 from .manual_transfer import ManualTransfer
 from .bank_payment import BankPaymentRequest, BankPaymentRequestReceipt
 from .novinpal_gateway import NovinpalGateway
-# from .bank_account import Account, BankTransaction, BankStatement
+from .bank_account import Account, BankTransaction, BankStatement

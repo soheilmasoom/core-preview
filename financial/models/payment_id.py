@@ -67,7 +67,7 @@ class PaymentIdRequest(models.Model):
 
     deposit_time = models.DateTimeField()
 
-    group_id = get_group_id_field()
+    group_id = get_group_id_field(unique=True)
     payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.CASCADE)
 
     def __str__(self):
