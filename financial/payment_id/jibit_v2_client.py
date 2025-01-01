@@ -26,7 +26,7 @@ class JibitClientV2(JibitClient):
             json={
                 'apiKey': self.gateway.payment_id_api_key,
                 'secretKey': self.gateway.payment_id_secret,
-                'scopes': 'VARIZ_PID',
+                'scopes': ['VARIZ_PID'],
             },
             timeout=30,
         )
