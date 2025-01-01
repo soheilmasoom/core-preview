@@ -70,7 +70,7 @@ class GatewayAdmin(admin.ModelAdmin):
     def save_model(self, request, gateway: Gateway, form, change):
         encryption_fields = [
             'withdraw_api_key_encrypted', 'withdraw_api_secret_encrypted', 'withdraw_api_password_encrypted',
-            'withdraw_refresh_token_encrypted', 'deposit_api_secret_encrypted', 'payment_id_secret_encrypted'
+            'withdraw_refresh_token_encrypted', 'deposit_api_secret_encrypted',
         ]
 
         old_gateway = gateway.id and Gateway.objects.get(id=gateway.id)
@@ -586,6 +586,21 @@ class PaymentIdGatewayAdmin(admin.ModelAdmin):
     list_display = ('title', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'priority')
     ordering = ('-active', 'priority')
     list_editable = ('active', 'priority')
+
+    def save_model(self, request, gateway: PaymentIdGateway, form, change):
+        encryption_fields = [
+            'payment_id_secret_encrypted',
+        ]
+
+        old_gateway = gateway.id and PaymentIdGateway.objects.get(id=gateway.id)
+
+        for key in encryption_fields:
+            value = getattr(gateway, key)
+
+            if getattr(old_gateway, key, '') != value:
+                setattr(gateway, key, encrypt(value))
+
+        gateway.save()
 
 
 class BankPaymentRequestAcceptFilter(SimpleListFilter):
