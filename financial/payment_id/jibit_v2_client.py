@@ -93,7 +93,7 @@ class JibitClientV2(JibitClient):
             return
 
         resp = self._collect_api(
-            f'/v1/orders/aug-statement/{self.gateway.iban}/{payment_request.external_ref}/verify')
+            f'/v1/orders/aug-statement/{self.gateway.iban}/variz/{payment_request.external_ref}/verify')
 
         if resp.success:
             payment_request.status = PENDING
@@ -105,7 +105,7 @@ class JibitClientV2(JibitClient):
             return
 
         resp = self._collect_api(
-            f'/v1/orders/aug-statement/{self.gateway.iban}/{payment_request.external_ref}/fail')
+            f'/v1/orders/aug-statement/{self.gateway.iban}/variz/{payment_request.external_ref}/fail')
 
         if resp.success:
             payment_request.status = CANCELED
