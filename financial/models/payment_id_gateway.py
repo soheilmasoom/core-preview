@@ -2,7 +2,7 @@ from django.db import models
 
 from financial.utils.encryption import decrypt
 from financial.utils.manager import ActiveManager
-from ledger.utils.fields import get_iban_field
+from ledger.utils.fields import get_iban_field, get_bank_field
 
 
 class PaymentIdGateway(models.Model):
@@ -23,7 +23,7 @@ class PaymentIdGateway(models.Model):
 
     name = models.CharField(max_length=256, blank=True, verbose_name='نام صاحب حساب',)
 
-    bank = models.CharField(max_length=256, blank=True)
+    bank = get_bank_field()
     deposit_address = models.CharField(max_length=64, blank=True, verbose_name='شماره حساب')
 
     payment_id_api_key = models.CharField(max_length=1024, blank=True)
