@@ -19,6 +19,9 @@ class BaseClient:
     def verify_payment_request(self, payment_request: PaymentIdRequest):
         raise NotImplementedError
 
+    def reject_payment_request(self, payment_request: PaymentIdRequest):
+        raise NotImplementedError
+
     def check_payment_id_status(self, payment_id: PaymentId):
         raise NotImplementedError
 

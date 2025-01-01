@@ -96,8 +96,6 @@ class JibitClientV2(JibitClient):
             f'/v1/orders/aug-statement/{self.gateway.iban}/variz/{payment_request.external_ref}/verify')
 
         if resp.success:
-            payment_request.status = PENDING
-            payment_request.save(update_fields=['status'])
             payment_request.accept()
 
     def reject_payment_request(self, payment_request: PaymentIdRequest):
@@ -108,8 +106,6 @@ class JibitClientV2(JibitClient):
             f'/v1/orders/aug-statement/{self.gateway.iban}/variz/{payment_request.external_ref}/fail')
 
         if resp.success:
-            payment_request.status = CANCELED
-            payment_request.save(update_fields=['status'])
             payment_request.reject()
 
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:

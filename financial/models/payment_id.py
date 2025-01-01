@@ -4,7 +4,7 @@ from django.db.models import UniqueConstraint, Q
 
 from financial.models import Payment
 from financial.validators import iban_validator
-from ledger.utils.fields import get_status_field, DONE, PENDING, get_group_id_field, CANCELED, get_iban_field
+from ledger.utils.fields import get_status_field, DONE, PENDING, get_group_id_field, CANCELED, get_iban_field, PROCESS
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 
@@ -77,7 +77,7 @@ class PaymentIdRequest(models.Model):
         with WalletPipeline() as pipeline:
             req = PaymentIdRequest.objects.select_for_update().get(id=self.id)
 
-            if req.payment or req.status != PENDING:
+            if req.payment or req.status != PROCESS:
                 return
 
             payment_id = req.owner
@@ -95,4 +95,4 @@ class PaymentIdRequest(models.Model):
             req.save(update_fields=['status', 'payment'])
 
     def reject(self):
-        PaymentIdRequest.objects.filter(id=self.id, status=PENDING).update(status=CANCELED)
+        PaymentIdRequest.objects.filter(id=self.id, status=PROCESS).update(status=CANCELED)
