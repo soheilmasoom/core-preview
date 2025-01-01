@@ -11,8 +11,8 @@ from accounts.verifiers.utils import ServerError
 from financial.exceptions import NoChannelError
 from financial.interface.base_interface import WithdrawRefundedDTO
 from financial.models import Gateway, Payment, FiatWithdrawRequest, BankAccount, PaymentIdGateway, PaymentId
+from financial.payment_id import get_payment_id_client
 from financial.utils.interface import get_withdraw_channel
-from financial.utils.payment_id_client import get_payment_id_client
 from ledger.utils.fields import PENDING, DONE, PROCESS, CANCELED
 
 logger = logging.getLogger(__name__)

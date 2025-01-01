@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from financial.models import Gateway, PaymentIdGateway
 from financial.utils.ipg import get_active_payment_request_by_authority
-from financial.utils.payment_id_client import get_payment_id_client
+from financial.payment_id import get_payment_id_client
 from ledger.utils.fields import CANCELED, PENDING
 
 logger = logging.getLogger(__name__)

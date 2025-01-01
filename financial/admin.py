@@ -21,11 +21,11 @@ from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.validation import gregorian_to_jalali_datetime
 from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAccount, \
     FiatWithdrawRequest, ManualTransfer, MarketingSource, MarketingCost, PaymentIdRequest, PaymentId, \
-    PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt
+    PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt, Account, BankTransaction, BankStatement
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
 from financial.utils.interface import get_withdraw_channel
-from financial.utils.payment_id_client import get_payment_id_client
+from financial.payment_id import get_payment_id_client
 from gamify.utils import clone_model
 from ledger.utils.fields import PENDING, INIT, CANCELED, DONE, PROCESS
 from ledger.utils.precision import humanize_number
@@ -79,7 +79,7 @@ class GatewayAdmin(admin.ModelAdmin):
             value = getattr(gateway, key)
 
             if getattr(old_gateway, key, '') != value:
-                setattr(gateway, key, encrypt(value))
+                setattr(gateway, key, encrypt(value.strip()))
 
         if gateway.ipg_callback_host.endswith('/'):
             gateway.ipg_callback_host = gateway.ipg_callback_host[:-1]
@@ -698,3 +698,31 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
             q.ref_id = ''
             q.destination_id = None
             clone_model(q)
+
+
+@admin.register(Account)
+class AccountAdmin(admin.ModelAdmin):
+    list_display = ('title', 'bank', 'name', 'iban', 'account_number')
+    list_filter = ('bank', )
+
+
+@admin.register(BankTransaction)
+class BankTransactionAdmin(admin.ModelAdmin):
+    list_display = ('transaction_date', 'account', 'deposit_type', 'amount', 'sender_name', 'sender_iban', 'deposit_number', 'reference_number', 'sender_account')
+    list_filter = ('deposit_type', 'account')
+    ordering = ('-transaction_date', )
+
+    search_fields = ('reference_number', 'tracking_id', 'sender_name', 'sender_iban', 'sender_account', 'deposit_number',)
+
+
+@admin.register(BankStatement)
+class BankStatementAdmin(admin.ModelAdmin):
+    list_display = ('created', 'account', 'title', 'status')
+    list_filter = ('account', 'status')
+    readonly_fields = ('status', )
+    actions = ('process', )
+
+    @admin.action(description='Process')
+    def process(self, request, queryset):
+        for statement in queryset:
+            statement.process_file()

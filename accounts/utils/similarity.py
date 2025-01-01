@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 whitespace_regex = re.compile(r"\s+")
 
 
-def clean_persian_name(name: str):
+def clean_persian_word(name: str):
     if not name:
         return name
 
@@ -86,7 +86,7 @@ class Score:
 
 
 def name_similarity(name1, name2) -> Score:
-    name1, name2 = clean_persian_name(name1), clean_persian_name(name2)
+    name1, name2 = clean_persian_word(name1), clean_persian_word(name2)
     if len(name1.replace(' ', '')) < 4 or len(name2.replace(' ', '')) < 4:
         return Score(score=0, valid=False)
 
@@ -142,7 +142,7 @@ MULTI_WORD_NAMES = [
 
 
 def split_names(name: str) -> tuple:
-    name = clean_persian_name(name)
+    name = clean_persian_word(name)
     multi_word_names = list(map(lambda n: tuple(n.split(' ')), MULTI_WORD_NAMES))
 
     parts = name.split(' ')

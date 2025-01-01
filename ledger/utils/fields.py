@@ -7,6 +7,8 @@ from django.db import models
 from django.db.models import CharField
 from rest_framework import serializers
 
+from financial.utils.bank import BANK_INFO
+from financial.validators import iban_validator
 from ledger.utils.cache import cache_for
 from ledger.utils.precision import normalize_fraction, AMOUNT_PRECISION
 
@@ -124,3 +126,21 @@ def get_irt_margin_enable_coins():
         base_asset__symbol=Asset.IRT,
         margin_enable=True
     ).values_list('asset__symbol', flat=True))
+
+
+def get_bank_field(blank: bool = False):
+    return models.CharField(
+        max_length=16,
+        choices=[(b.slug, b.name) for b in BANK_INFO],
+        blank=blank
+    )
+
+
+def get_iban_field(unique: bool = False, blank: bool = False):
+    return models.CharField(
+        max_length=26,
+        validators=[iban_validator],
+        verbose_name='شبا',
+        unique=unique,
+        blank=blank,
+    )
