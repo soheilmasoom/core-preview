@@ -49,7 +49,7 @@ class JibitClientV2(JibitClient):
 
         data = resp.get_success_data()
 
-        for element in data.get("elements", []):
+        for element in reversed(data.get("elements", [])):
             self._create_and_verify_payments_data(element)
 
     def _create_and_verify_payments_data(self, item: dict):
