@@ -4,7 +4,6 @@ import uuid
 
 import jdatetime
 import requests
-from decouple import config
 
 from accounts.models import User
 from financial.models import PaymentIdRequest, PaymentId
@@ -38,14 +37,12 @@ class JibitClientV2(JibitClient):
             return self._token
 
     def create_payments_requests(self):
-        page_size = config('JIBIT_PAGE_SIZE', cast=int, default=100)
-
         resp = self._collect_api(
             path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
             headers={'Iban': self.gateway.iban},
             data={
                 'pageNumber': 1,
-                'pageSize': page_size,
+                'pageSize': 100,
             })
 
         if resp.status_code != 200:
