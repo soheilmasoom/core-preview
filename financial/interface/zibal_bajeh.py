@@ -90,7 +90,7 @@ class ZibalBajehChannel(BaseChannel):
 
         checkout = checkouts[0]
 
-        receive_datetime = datetime.strptime(checkout['settledAt'], '%Y/%m/%d-%H:%M:%S.%f').astimezone()
+        receive_datetime = datetime.strptime(checkout['settledAt'], '%Y-%m-%dT%H:%M:%S.%f').astimezone()
 
         return WithdrawDTO(
             tracking_id=checkout['refCode'] or '',
