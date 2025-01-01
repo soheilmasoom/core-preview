@@ -14,6 +14,8 @@ class AddressBookTestCase(TestCase):
     def setUp(self):
         self.account = new_account()
         self.user = self.account.user
+        self.user.phone = '0123456789'
+        self.user.save()
         self.client = Client()
         self.client.force_login(self.user)
         self.network = new_network()
@@ -35,6 +37,14 @@ class AddressBookTestCase(TestCase):
             'address': 'test'
         })
         self.assertEqual(resp.status_code, 400)
+
+    def test_create_address_book_with_phone(self):
+        resp = self.client.post('/api/v1/addressbook/', {
+            'name': 'test_addressbook',
+            'phone': '0123456789',
+        })
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.json()['type'], 'internal')
 
     def test_list_address_book(self):
         resp = self.client.get('/api/v1/addressbook/')

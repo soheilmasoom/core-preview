@@ -6,17 +6,28 @@ from simple_history.models import HistoricalRecords
 
 from .asset import Asset
 from .network import Network
-from accounts.models import Account
+from accounts.models import Account, User
 from ledger.models.transfer import Transfer
 
 
 class AddressBook(models.Model):
     history = HistoricalRecords()
 
+    INTERNAL, EXTERNAL = 'internal', 'external'
+    ADDRESSES = (INTERNAL, EXTERNAL)
+    ADDRESS_CHOICES = tuple((m, m) for m in ADDRESSES)
+
+    type = models.CharField(
+        max_length=8,
+        choices=ADDRESS_CHOICES,
+        default=EXTERNAL,
+    )
+
+    dest_user = models.ForeignKey(to=User, blank=True, null=True, on_delete=models.CASCADE, verbose_name='صاحب آدرس')
     name = models.CharField(max_length=100, verbose_name='نام')
-    address = models.CharField(max_length=100, verbose_name='آدرس')
+    address = models.CharField(max_length=100, blank=True, verbose_name='آدرس')
     account = models.ForeignKey(to=Account, on_delete=models.CASCADE, verbose_name='حساب')
-    network = models.ForeignKey(to=Network, on_delete=models.CASCADE, verbose_name='شبکه')
+    network = models.ForeignKey(to=Network, null=True, blank=True, on_delete=models.CASCADE, verbose_name='شبکه')
     asset = models.ForeignKey(to=Asset, blank=True, null=True, on_delete=models.CASCADE, verbose_name='رمزارز')
     deleted = models.BooleanField(default=False)
     whitelist = models.BooleanField(default=False)
