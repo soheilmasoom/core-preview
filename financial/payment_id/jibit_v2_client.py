@@ -53,9 +53,13 @@ class JibitClientV2(JibitClient):
             self._create_and_verify_payments_data(element)
 
     def _create_and_verify_payments_data(self, item: dict):
-        payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=item['payId'])
-
         ref_number = item['referenceNumber']
+
+        payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=item['payId']).first()
+
+        if not payment_id:
+            logger.info(f'Creating {ref_number} payment id request failed to due not found payment_id')
+            return
 
         amount = item['creditAmount'] // 10
         fee = 0
