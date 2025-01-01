@@ -22,7 +22,7 @@ class JibitClient(BaseClient):
     BASE_URL = 'https://napi.jibit.ir/pip'
     _token = None
 
-    def _get_token(self, force_renew: bool = False):
+    def get_token(self, force_renew: bool = False):
         if not force_renew:
             if self._token:
                 return self._token
@@ -47,7 +47,7 @@ class JibitClient(BaseClient):
 
         url = self.BASE_URL + path
 
-        token = self._get_token()
+        token = self.get_token()
 
         if not token:
             return Response(None, False, status_code=0)

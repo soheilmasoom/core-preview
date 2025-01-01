@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class JibitClientV2(JibitClient):
     BASE_URL = 'https://napi.jibit.ir/cobank'
 
-    def _get_token(self, force_renew: bool = False):
+    def get_token(self, force_renew: bool = False):
         if not force_renew:
             if self._token:
                 return self._token
