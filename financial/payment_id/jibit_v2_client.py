@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class JibitClientV2(JibitClient):
-    BASE_URL = 'https://napi.jibit.ir/cobank/'
+    BASE_URL = 'https://napi.jibit.ir/cobank'
 
     def _get_token(self, force_renew: bool = False):
         if not force_renew:
@@ -26,7 +26,6 @@ class JibitClientV2(JibitClient):
             json={
                 'apiKey': self.gateway.payment_id_api_key,
                 'secretKey': self.gateway.payment_id_secret,
-                'Scope': 'PID_VARIZ',
             },
             timeout=30,
         )
