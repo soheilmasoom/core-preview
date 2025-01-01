@@ -39,7 +39,7 @@ def parse_parsian_statement(statement) -> List[TransactionInfo]:
         tracking_id = row[8]
         branch_name = clean_persian_word(row[9])
 
-        data = parse_parsian_description(description)
+        data = parse_parsian_description(description) or {}
 
         transactions.append(
             TransactionInfo(
