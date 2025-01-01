@@ -28,7 +28,7 @@ class JibitClientV2(JibitClient):
             json={
                 'apiKey': self.gateway.payment_id_api_key,
                 'secretKey': self.gateway.payment_id_secret,
-                'scopes': ['VARIZ_PID'],
+                'scopes': ['VARIZ_PID', 'AUG_STATEMENT_VARIZ'],
             },
             timeout=30,
         )
@@ -59,6 +59,7 @@ class JibitClientV2(JibitClient):
 
         if not payment_id:
             logger.info(f'Creating {ref_number} payment id request failed to due not found payment_id')
+            logger.info(item)
             return
 
         amount = item['creditAmount'] // 10
