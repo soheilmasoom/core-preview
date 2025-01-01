@@ -1,14 +1,16 @@
 import logging
 import math
 import uuid
+from datetime import datetime
 
 import jdatetime
+import pytz
 import requests
 
 from accounts.models import User
 from financial.models import PaymentIdRequest, PaymentId
 from financial.payment_id.jibit_client import JibitClient
-from ledger.utils.fields import PROCESS, PENDING, CANCELED
+from ledger.utils.fields import PROCESS, PENDING, CANCELED, INIT
 
 logger = logging.getLogger(__name__)
 
@@ -41,81 +43,53 @@ class JibitClientV2(JibitClient):
             path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
             headers={'iban': self.gateway.iban},
             data={
-                'pageNumber': 1,
+                'pageNumber': 0,
                 'pageSize': 100,
             })
 
-        if resp.status_code != 200:
-            logger.error(f"Error while collecting Jibit payments: {resp.status_code}")
-            return
+        data = resp.get_success_data()
 
-        data = resp.data
-        if not data['hasNext']:
-            return
+        for element in data.get("elements", []):
+            self._create_and_verify_payments_data(element)
 
-        elements = data.get("elements", [])
+    def _create_and_verify_payments_data(self, item: dict):
+        payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=item['payId'])
 
-        self._create_and_verify_payments_data(elements)
+        ref_number = item['referenceNumber']
 
-    def _create_and_verify_payments_data(self, data: list):
-        payIds = [item['payId'] for item in data]
-        users_map = {user.national_code: user for user in User.objects.filter(national_code__in=payIds)}
+        amount = item['creditAmount'] // 10
+        fee = 0
+        # fee = math.ceil(item['balance'] / 10_000_000) * 250
 
-        for item in data:
-            payment_id = PaymentId.objects.get_or_create(pay_id=item['payId'], defaults={
-                'user': users_map[item['payId']],
-                'group_id': uuid.uuid4(),
-                'verified': True,
-                'gateway': self.gateway,
-                'provider_status': item['merchantVerificationStatus'],
-                'provider_reason': '',
-                'full_name': '',
-            })
+        if item['kytStatus'] == 'MATCH_IBAN_AND_NATIONAL_ID':
+            status = PROCESS
+        else:
+            status = INIT
 
-            merchant_ref = item['referenceNumber']
+        deposit_time = datetime.strptime(item['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc)
 
-            try:
-                merchant_ref = uuid.UUID(merchant_ref)
-            except ValueError:
-                self._collect_api(f'/v1/orders/aug-statement/{self.gateway.iban}/{merchant_ref}/fail')
-                return
+        payment_request, created = PaymentIdRequest.objects.get_or_create(
+            external_ref=ref_number,
+            defaults={
+                'bank_ref': item['bankReferenceNumber'],
+                'amount': amount - fee,
+                'fee': fee,
+                'status': status,
+                'owner': payment_id,
+                'source_iban': item['sourceIdentifier'],
+                'deposit_time': deposit_time,
+            }
+        )
 
-            amount = item['balance'] // 10
-            fee = math.ceil(item['balance'] / 10_000_000) * 250
-
-            if item['merchantVerificationStatus'] == 'SUCCESSFUL':
-                status = PENDING
-            else:
-                status = PROCESS
-
-            deposit_time = jdatetime.datetime.strptime(item['rawBankTimestamp'],
-                                                       '%Y/%m/%d %H:%M:%S').togregorian().astimezone()
-
-            payment_request, created = PaymentIdRequest.objects.get_or_create(
-                external_ref=item['referenceNumber'],
-                defaults={
-                    'bank_ref': item['bankReferenceNumber'],
-                    'amount': amount - fee,
-                    'fee': fee,
-                    'status': status,
-                    'owner': payment_id,
-                    'source_iban': item['sourceIdentifier'],
-                    'deposit_time': deposit_time,
-                }
-            )
-
-            if not created and payment_request.status == PENDING:
-                return
-
-            if item['merchantVerificationStatus'] == 'WAITING_FOR_MERCHANT_VERIFY':
-                self.verify_payment_request(payment_request)
+        if status == PROCESS:
+            self.verify_payment_request(payment_request)
 
     def verify_payment_request(self, payment_request: PaymentIdRequest):
         if payment_request.status != PROCESS:
             return
 
         resp = self._collect_api(
-            f'/v1/orders/aug-statement/{self.gateway}/{payment_request.external_ref}/verify')
+            f'/v1/orders/aug-statement/{self.gateway.iban}/{payment_request.external_ref}/verify')
 
         if resp.success:
             payment_request.status = PENDING
