@@ -13,8 +13,7 @@ from urllib3.exceptions import ReadTimeoutError
 
 from accounts.models import User
 from accounts.verifiers.jibit import Response
-from financial.models import BankAccount, PaymentIdRequest, PaymentId
-from financial.models.bank import PaymentIdGateway
+from financial.models import BankAccount, PaymentIdRequest, PaymentId, PaymentIdGateway
 from ledger.utils.fields import PROCESS, PENDING, CANCELED
 
 logger = logging.getLogger(__name__)

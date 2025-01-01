@@ -54,13 +54,8 @@ def handle_missing_payment_ids():
 def handle_jibit_payments():
     gateways = PaymentIdGateway.live_objects.all()
 
-    if not gateways:
-        logger.error('No gateway')
-        return
-
     for gateway in gateways:
         client = get_payment_id_client(gateway)
-
         client.create_payments_requests()
 
 
