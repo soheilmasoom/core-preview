@@ -88,7 +88,7 @@ class JibitClientV2(JibitClient):
             self.verify_payment_request(payment_request)
 
     def verify_payment_request(self, payment_request: PaymentIdRequest):
-        if payment_request.status != PROCESS:
+        if payment_request.status not in PaymentIdRequest.PENDING_STATES:
             return
 
         resp = self._verify(payment_request.external_ref)
