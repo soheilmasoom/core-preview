@@ -25,15 +25,14 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
     sms_code = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
     totp = serializers.CharField(write_only=True, allow_null=True, allow_blank=True, required=False)
     phone = serializers.CharField(write_only=True, allow_null=True, allow_blank=True, required=False)
-    address_type = serializers.CharField(read_only=True, allow_blank=True, required=False)
+    address_type = serializers.CharField(write_only=True, allow_blank=True, required=False)
 
     def validate(self, attrs):
         user = self.context['request'].user
         account = user.get_account()
         name = attrs.get('name')
         phone = attrs.get('phone')
-        address_type = attrs.get('type')
-
+        address_type = attrs.get('address_type')
 
         if address_type == AddressBook.TYPE_INTERNAL:
             if phone:
@@ -200,7 +199,7 @@ class AddressBookView(ModelViewSet):
 
         if query_params.get('general') in ['0', '1']:
             general = query_params['general'] == '1'
-            address_books = address_books.filter(type=AddressBook.TYPE_NETWORK, asset__isnull=general)
+            address_books = address_books.filter(asset__isnull=general)
 
         if query_params.get('whitelist') in ['0', '1']:
             whitelist = query_params['whitelist'] == '1'

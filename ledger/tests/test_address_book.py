@@ -42,9 +42,10 @@ class AddressBookTestCase(TestCase):
         resp = self.client.post('/api/v1/addressbook/', {
             'name': 'test_addressbook',
             'phone': '0123456789',
+            'address_type': 'internal',
         })
         self.assertEqual(resp.status_code, 201)
-        self.assertEqual(resp.json()['type'], 'internal')
+        self.assertEqual(resp.json()['address_type'], 'internal')
 
     def test_list_address_book(self):
         resp = self.client.get('/api/v1/addressbook/')
