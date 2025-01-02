@@ -55,7 +55,8 @@ class ZibalBajehChannel(BaseChannel):
 
     def get_wallet_data(self) -> WalletDTO:
         balance_data = self.collect_api('/v1/account/balance/', method='GET', data={
-            'accountId': self.gateway.withdraw_api_key
+            'accountId': self.gateway.withdraw_api_key,
+            'update': 'true'
         })
 
         balance = balance_data['balance'] // 10
