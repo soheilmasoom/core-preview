@@ -57,7 +57,7 @@ class JibitClientV2(JibitClient):
         if not payment_id:
             logger.info(f'Creating {ref_number} payment id request failed to due not found payment_id')
             logger.info(item)
-            self._fail(ref_number)
+            # self._fail(ref_number)
             return
 
         amount = item['creditAmount'] // 10
@@ -105,15 +105,6 @@ class JibitClientV2(JibitClient):
         return self._collect_api(
             f'/v1/orders/aug-statement/{self.gateway.iban}/variz/{external_ref}/fail'
         )
-
-    def reject_payment_request(self, payment_request: PaymentIdRequest):
-        if payment_request.status != PROCESS:
-            return
-
-        resp = self._fail(payment_request.external_ref)
-
-        if resp.success:
-            payment_request.reject()
 
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
         existing = PaymentId.objects.filter(user=user, gateway=self.gateway, deleted=False).first()

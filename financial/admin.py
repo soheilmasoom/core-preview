@@ -522,15 +522,13 @@ class PaymentIdRequestAdmin(admin.ModelAdmin):
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
-        for payment_request in queryset.filter(status=PROCESS):
-            client = get_payment_id_client(payment_request.owner.gateway)
-            client.verify_payment_request(payment_request)
+        for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):
+            payment_request.accept()
 
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
-        for payment_request in queryset.filter(status=PROCESS):  # type: PaymentIdRequest
-            client = get_payment_id_client(payment_request.owner.gateway)
-            client.reject_payment_request(payment_request)
+        for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):  # type: PaymentIdRequest
+            payment_request.reject()
 
     @admin.display(description='user')
     def get_user(self, payment_id_request: PaymentIdRequest):
