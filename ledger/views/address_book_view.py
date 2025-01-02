@@ -25,23 +25,31 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
     sms_code = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
     totp = serializers.CharField(write_only=True, allow_null=True, allow_blank=True, required=False)
     phone = serializers.CharField(write_only=True, allow_null=True, allow_blank=True, required=False)
-    type = serializers.CharField(read_only=True, allow_blank=True, required=False)
+    address_type = serializers.CharField(read_only=True, allow_blank=True, required=False)
 
     def validate(self, attrs):
         user = self.context['request'].user
         account = user.get_account()
         name = attrs.get('name')
         phone = attrs.get('phone')
+        address_type = attrs.get('type')
 
-        if phone:
-            dest_user = get_object_or_404(User, phone=phone)
 
-            return {
-                'account': account,
-                'dest_user': dest_user,
-                'name': name if name else dest_user.first_name + ' ' + dest_user.last_name,
-                'type': AddressBook.INTERNAL,
-            }
+        if address_type == AddressBook.TYPE_INTERNAL:
+            if phone:
+                try:
+                    dest_user = User.objects.get(phone=phone)
+
+                    return {
+                        'account': account,
+                        'dest_user': dest_user,
+                        'name': name if name else dest_user.first_name + ' ' + dest_user.last_name,
+                        'type': AddressBook.TYPE_INTERNAL,
+                    }
+                except User.DoesNotExist:
+                    raise ValidationError('کاربر با این شماره در سیستم وجود ندارد.')
+            else:
+                raise ValidationError({'phone': 'فیلد شماره کاربر نیاز است.'})
 
         address = attrs.get('address')
         network = get_object_or_404(Network, symbol=attrs['network'], can_withdraw=True)
@@ -79,7 +87,7 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
             'address': address,
             'memo': memo,
             'whitelist': attrs.get('whitelist', False),
-            'type': AddressBook.EXTERNAL,
+            'type': AddressBook.TYPE_NETWORK,
         }
 
     def get_network_info(self, address_book: AddressBook):
@@ -94,7 +102,7 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
         model = AddressBook
         fields = (
             'id', 'name', 'account', 'network', 'asset', 'coin', 'address', 'deleted', 'network_info', 'sms_code',
-            'totp', 'whitelist', 'memo', 'phone', 'type')
+            'totp', 'whitelist', 'memo', 'phone', 'address_type')
 
 
 class AddressBookDestroySerializer(serializers.Serializer):
@@ -186,11 +194,13 @@ class AddressBookView(ModelViewSet):
                 network_id__in=can_withdraw_networks
             )
 
-        if query_params.get('internal') == '1':
-            address_books = address_books.filter(type=AddressBook.INTERNAL)
-        elif query_params.get('general') in ['0', '1']:
+        if query_params.get('internal') in ['0', '1']:
+            address_type = AddressBook.TYPE_INTERNAL if query_params.get('internal') == '1' else AddressBook.TYPE_NETWORK
+            address_books = address_books.filter(type=address_type)
+
+        if query_params.get('general') in ['0', '1']:
             general = query_params['general'] == '1'
-            address_books = address_books.filter(type=AddressBook.EXTERNAL, asset__isnull=general)
+            address_books = address_books.filter(type=AddressBook.TYPE_NETWORK, asset__isnull=general)
 
         if query_params.get('whitelist') in ['0', '1']:
             whitelist = query_params['whitelist'] == '1'
