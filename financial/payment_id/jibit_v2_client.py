@@ -1,16 +1,13 @@
 import logging
-import math
-import uuid
 from datetime import datetime
 
-import jdatetime
 import pytz
 import requests
 
 from accounts.models import User
 from financial.models import PaymentIdRequest, PaymentId
 from financial.payment_id.jibit_client import JibitClient
-from ledger.utils.fields import PROCESS, PENDING, CANCELED, INIT
+from ledger.utils.fields import PROCESS, INIT
 
 logger = logging.getLogger(__name__)
 
