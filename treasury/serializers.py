@@ -23,7 +23,7 @@ class TreasurySerializer(serializers.ModelSerializer):
 class PhysicalWithdrawSerializer(serializers.ModelSerializer):
     class Meta:
         model = PhysicalWithdraw
-        fields = ['asset', 'amount']
+        fields = ['id', 'asset', 'amount']
 
     asset = serializers.SlugRelatedField(
         queryset=Asset.objects.all(),
