@@ -514,11 +514,15 @@ class ManualTransferAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentIdRequest)
 class PaymentIdRequestAdmin(admin.ModelAdmin):
-    list_display = ('created', 'owner', 'status', 'amount', 'get_user', 'external_ref', 'source_iban', 'deposit_time')
+    list_display = ('created', 'owner', 'status', 'get_amount', 'get_user', 'external_ref', 'source_iban', 'deposit_time')
     search_fields = ('owner__pay_id', 'owner__user__phone', 'external_ref', 'source_iban', 'bank_ref', 'group_id')
     list_filter = ('status',)
     actions = ('accept', 'reject')
     readonly_fields = ('owner', 'get_user', 'payment', 'group_id')
+
+    @admin.display(description='amount', ordering='amount')
+    def get_amount(self, obj: PaymentIdRequest):
+        return humanize_number(obj.amount)
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
