@@ -72,6 +72,8 @@ class PaymentIdRequest(models.Model):
     group_id = get_group_id_field(unique=True)
     payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.CASCADE)
 
+    comment = models.TextField(blank=True)
+
     class Meta:
         constraints = [
             CheckConstraint(
