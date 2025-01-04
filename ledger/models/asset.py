@@ -135,6 +135,10 @@ class Asset(models.Model):
     def otc_trade_active(self) -> bool:
         return self.otc_status in self.OTC_TRADE_ACTIVE_STATUSES
 
+    @property
+    def is_xau_milligrams(self):
+        return self.symbol == 'XAUM'
+
     @classmethod
     def get(cls, symbol: str):
         return Asset.objects.get(symbol=symbol)
