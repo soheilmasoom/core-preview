@@ -6,7 +6,7 @@ import requests
 
 from accounts.models import User
 from financial.models import PaymentIdRequest, PaymentId
-# from financial.parser.base_parser import TransactionInfo
+from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
 from ledger.utils.fields import PROCESS, INIT
 
@@ -46,56 +46,74 @@ class JibitClientV2(JibitClient):
         count = 0
 
         for element in reversed(data.get("elements", [])):
-            if self._create_and_verify_payments_data(element):
+            transaction = self._parse_transaction(element)
+            if self._create_and_verify_payments_data(transaction):
                 count += 1
 
         logger.info(f'{count} payment requests created!')
 
-    # def _parse_transaction(self, item: dict) -> TransactionInfo:
-    #     credit_amount = item['creditAmount']
-    #     debit_amount = item['debitAmount']
-    #
-    #     assert debit_amount == 0
-    #
-    #     return TransactionInfo(
-    #         reference_number=item['referenceNumber'],
-    #         account_iban=item['accountIban'],
-    #         bank_reference_number=item['bankReferenceNumber'],
-    #         bank_transaction_id=item['bankTransactionId'],
-    #         amount=credit_amount,
-    #         deposit_type=TransactionInfo.DEPOSIT,
-    #         balance=item['balance'],
-    #         created=datetime.strptime(item['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
-    #         deposit_number=item['payId'],
-    #         description=item['rawData'],
-    #     )
+    def _parse_transaction(self, item: dict) -> TransactionInfo:
+        credit_amount = item['creditAmount']
+        debit_amount = item['debitAmount']
 
-    def _create_and_verify_payments_data(self, item: dict) -> bool:
-        ref_number = item['referenceNumber']
+        assert debit_amount == 0
 
-        payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=item['payId']).first()
+        record_type = item['recordType']
+        if record_type.startswith('VARIZ_'):
+            record_type = record_type[6:]
 
-        amount = item['creditAmount'] // 10
+        return TransactionInfo(
+            reference_number=item['referenceNumber'],
+            account_iban=item['accountIban'],
+            bank_reference_number=item['bankReferenceNumber'],
+            bank_transaction_id=item['bankTransactionId'],
+            amount=credit_amount // 10,
+            deposit_type=TransactionInfo.DEPOSIT,
+            balance=item['balance'],
+            created=datetime.strptime(item['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
+            deposit_number=item['payId'],
+            raw_data=item['rawData'],
+            sender_identifier=item['sourceIdentifier'],
+            sender_iban=item['sourceIban'],
+            sender_name=item['sourceName'],
+            record_type=record_type.lower(),
+            receiver_iban=item['destinationIban'],
+            kyt_passed=item['kytStatus'] == 'MATCH_IBAN_AND_NATIONAL_ID'
+        )
+
+    def _create_and_verify_payments_data(self, transaction: TransactionInfo) -> bool:
+        assert transaction.receiver_iban == self.gateway.iban
+
+        ref_number = transaction.reference_number
+
+        payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=transaction.deposit_number).first()
+
+        amount = transaction.amount
         fee = 0
         # fee = math.ceil(item['balance'] / 10_000_000) * 250
 
-        if payment_id and item['kytStatus'] == 'MATCH_IBAN_AND_NATIONAL_ID':
+        if payment_id and transaction.kyt_passed:
             status = PROCESS
         else:
             status = INIT
 
-        deposit_time = datetime.strptime(item['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc)
-
         payment_request, created = PaymentIdRequest.objects.get_or_create(
             external_ref=ref_number,
             defaults={
-                'bank_ref': item['bankReferenceNumber'],
+                'bank_ref': transaction.bank_reference_number,
+                'bank_transaction_id': transaction.bank_transaction_id,
                 'amount': amount - fee,
                 'fee': fee,
                 'status': status,
                 'owner': payment_id,
-                'source_iban': item['sourceIdentifier'],
-                'deposit_time': deposit_time,
+                'sender_iban': transaction.sender_iban,
+                'sender_name': transaction.sender_name,
+                'sender_identifier': transaction.sender_identifier,
+                'record_type': transaction.record_type,
+                'kyt_passed': transaction.kyt_passed,
+                'deposit_time': transaction.created,
+                'raw_payment_id': transaction.deposit_number,
+                'raw_data': transaction.raw_data,
             }
         )
 
@@ -144,7 +162,7 @@ class JibitClientV2(JibitClient):
     def check_payment_id_status(self, payment_id: PaymentId):
         return True
 
-    def traverse_all_payment_requests(self):
+    def _traverse_all_payment_requests(self):
         days_count = 10
         from_date = date.today() - timedelta(days=days_count)
 
@@ -167,7 +185,8 @@ class JibitClientV2(JibitClient):
                 data = resp.get_success_data()
 
                 for element in reversed(data.get("elements", [])):
-                    if self._create_and_verify_payments_data(element):
+                    transaction = self._parse_transaction(element)
+                    if self._create_and_verify_payments_data(transaction):
                         count =+ 1
 
                 if not data['hasNext']:
@@ -177,3 +196,6 @@ class JibitClientV2(JibitClient):
 
             logger.info(f'{count} payment requests created')
             from_date = tomorrow
+
+    def _get_payment_id_details(self, external_ref: str):
+        return self._collect_api(f'/v1/orders/aug-statement/{self.gateway.iban}/variz/{external_ref}')

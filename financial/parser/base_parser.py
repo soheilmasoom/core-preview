@@ -17,12 +17,11 @@ class TransactionInfo:
     sender_iban: str
     receiver_iban: str
     record_type: str
+    kyt_passed: bool
     deposit_number: str = ''
-    sender_account: str = ''
+    sender_identifier: str = ''
     sender_name: str = ''
-    sender_bank: str = ''
-    bank_branch: str = ''
-    description: str = ''
+    raw_data: str = ''
 
 
 class ParseError(Exception):

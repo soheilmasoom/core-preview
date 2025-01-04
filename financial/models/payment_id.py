@@ -62,12 +62,20 @@ class PaymentIdRequest(models.Model):
     amount = models.PositiveBigIntegerField()
     fee = models.PositiveBigIntegerField()
 
-    bank_ref = models.CharField(max_length=64, blank=True)
     external_ref = models.CharField(max_length=64, blank=True, unique=True)
+    bank_ref = models.CharField(max_length=64, blank=True)
+    bank_transaction_id = models.CharField(max_length=64, blank=True)
 
-    source_iban = get_iban_field()
+    sender_iban = get_iban_field()
+    sender_name = models.CharField(max_length=256, blank=True)
+    sender_identifier = models.CharField(max_length=256, blank=True)
+    record_type = models.CharField(max_length=256, blank=True)
 
+    kyt_passed = models.BooleanField(null=True, blank=True)
     deposit_time = models.DateTimeField()
+
+    raw_payment_id = models.CharField(max_length=64, blank=True)
+    raw_data = models.TextField(blank=True)
 
     group_id = get_group_id_field(unique=True)
     payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.CASCADE)
