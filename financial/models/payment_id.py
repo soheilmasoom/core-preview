@@ -1,6 +1,6 @@
 from django.core.validators import validate_integer
 from django.db import models
-from django.db.models import UniqueConstraint, Q
+from django.db.models import UniqueConstraint, Q, CheckConstraint
 
 from financial.models import Payment
 from ledger.utils.fields import get_status_field, DONE, get_group_id_field, CANCELED, get_iban_field, PROCESS, \
@@ -56,7 +56,7 @@ class PaymentIdRequest(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
 
-    owner = models.ForeignKey(PaymentId, on_delete=models.PROTECT)
+    owner = models.ForeignKey(PaymentId, on_delete=models.PROTECT, null=True, blank=True)
     status = get_status_field()
 
     amount = models.PositiveBigIntegerField()
@@ -71,6 +71,14 @@ class PaymentIdRequest(models.Model):
 
     group_id = get_group_id_field(unique=True)
     payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            CheckConstraint(
+                check=Q(status=INIT) | Q(owner__isnull=False),
+                name='payment_id_request_owner_null_condition'
+            ),
+        ]
 
     def __str__(self):
         return '%s ref=%s' % (self.amount, self.bank_ref)

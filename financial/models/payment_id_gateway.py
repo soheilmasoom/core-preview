@@ -36,6 +36,8 @@ class PaymentIdGateway(models.Model):
     objects = models.Manager()
     live_objects = ActiveManager()
 
+    can_add_statement = models.BooleanField(default=False)
+
     def __str__(self):
         return self.title
 

@@ -6,6 +6,7 @@ import requests
 
 from accounts.models import User
 from financial.models import PaymentIdRequest, PaymentId
+# from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
 from ledger.utils.fields import PROCESS, INIT
 
@@ -49,22 +50,35 @@ class JibitClientV2(JibitClient):
         for element in reversed(data.get("elements", [])):
             self._create_and_verify_payments_data(element)
 
+    # def _parse_transaction(self, item: dict) -> TransactionInfo:
+    #     credit_amount = item['creditAmount']
+    #     debit_amount = item['debitAmount']
+    #
+    #     assert debit_amount == 0
+    #
+    #     return TransactionInfo(
+    #         reference_number=item['referenceNumber'],
+    #         account_iban=item['accountIban'],
+    #         bank_reference_number=item['bankReferenceNumber'],
+    #         bank_transaction_id=item['bankTransactionId'],
+    #         amount=credit_amount,
+    #         deposit_type=TransactionInfo.DEPOSIT,
+    #         balance=item['balance'],
+    #         created=datetime.strptime(item['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
+    #         deposit_number=item['payId'],
+    #         description=item['rawData'],
+    #     )
+
     def _create_and_verify_payments_data(self, item: dict):
         ref_number = item['referenceNumber']
 
         payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=item['payId']).first()
 
-        if not payment_id:
-            logger.info(f'Creating {ref_number} payment id request failed to due not found payment_id')
-            logger.info(item)
-            # self._fail(ref_number)
-            return
-
         amount = item['creditAmount'] // 10
         fee = 0
         # fee = math.ceil(item['balance'] / 10_000_000) * 250
 
-        if item['kytStatus'] == 'MATCH_IBAN_AND_NATIONAL_ID':
+        if payment_id and item['kytStatus'] == 'MATCH_IBAN_AND_NATIONAL_ID':
             status = PROCESS
         else:
             status = INIT

@@ -21,7 +21,7 @@ from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.validation import gregorian_to_jalali_datetime
 from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAccount, \
     FiatWithdrawRequest, ManualTransfer, MarketingSource, MarketingCost, PaymentIdRequest, PaymentId, \
-    PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt, Account, BankTransaction, BankStatement
+    PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt, BankStatement
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
 from financial.utils.interface import get_withdraw_channel
@@ -518,7 +518,7 @@ class PaymentIdRequestAdmin(admin.ModelAdmin):
     search_fields = ('owner__pay_id', 'owner__user__phone', 'external_ref', 'source_iban', 'bank_ref', 'group_id')
     list_filter = ('status',)
     actions = ('accept', 'reject')
-    readonly_fields = ('owner', 'get_user', 'payment')
+    readonly_fields = ('owner', 'get_user', 'payment', 'group_id')
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -700,25 +700,10 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
             clone_model(q)
 
 
-@admin.register(Account)
-class AccountAdmin(admin.ModelAdmin):
-    list_display = ('title', 'bank', 'name', 'iban', 'account_number')
-    list_filter = ('bank', )
-
-
-@admin.register(BankTransaction)
-class BankTransactionAdmin(admin.ModelAdmin):
-    list_display = ('transaction_date', 'account', 'deposit_type', 'amount', 'sender_name', 'sender_iban', 'deposit_number', 'reference_number', 'sender_account')
-    list_filter = ('deposit_type', 'account')
-    ordering = ('-transaction_date', )
-
-    search_fields = ('reference_number', 'tracking_id', 'sender_name', 'sender_iban', 'sender_account', 'deposit_number',)
-
-
 @admin.register(BankStatement)
 class BankStatementAdmin(admin.ModelAdmin):
-    list_display = ('created', 'account', 'title', 'status')
-    list_filter = ('account', 'status')
+    list_display = ('created', 'gateway', 'title', 'status')
+    list_filter = ('gateway', 'status')
     readonly_fields = ('status', )
     actions = ('process', )
 
