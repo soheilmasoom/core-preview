@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, date
 
 import pytz
 import requests
@@ -40,15 +40,16 @@ class JibitClientV2(JibitClient):
         resp = self._collect_api(
             path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
             headers={'iban': self.gateway.iban},
-            data={
-                'pageNumber': 0,
-                'pageSize': 100,
-            })
+        )
 
         data = resp.get_success_data()
+        count = 0
 
         for element in reversed(data.get("elements", [])):
-            self._create_and_verify_payments_data(element)
+            if self._create_and_verify_payments_data(element):
+                count += 1
+
+        logger.info(f'{count} payment requests created!')
 
     # def _parse_transaction(self, item: dict) -> TransactionInfo:
     #     credit_amount = item['creditAmount']
@@ -69,7 +70,7 @@ class JibitClientV2(JibitClient):
     #         description=item['rawData'],
     #     )
 
-    def _create_and_verify_payments_data(self, item: dict):
+    def _create_and_verify_payments_data(self, item: dict) -> bool:
         ref_number = item['referenceNumber']
 
         payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=item['payId']).first()
@@ -102,6 +103,8 @@ class JibitClientV2(JibitClient):
             self.verify_payment_request(payment_request)
         else:
             self._fail(external_ref=ref_number)
+
+        return created
 
     def verify_payment_request(self, payment_request: PaymentIdRequest):
         if payment_request.status not in PaymentIdRequest.PENDING_STATES:
@@ -140,3 +143,37 @@ class JibitClientV2(JibitClient):
 
     def check_payment_id_status(self, payment_id: PaymentId):
         return True
+
+    def traverse_all_payment_requests(self):
+        days_count = 10
+        from_date = date.today() - timedelta(days=days_count)
+
+        for i in range(days_count):
+            tomorrow = from_date + timedelta(days=1)
+            logger.info(f'Fetching payment requests of {from_date}')
+
+            page_number = 0
+            count = 0
+            while True:
+                resp = self._collect_api(
+                    path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/list',
+                    headers={'iban': self.gateway.iban},
+                    data={
+                        'fromDate': str(from_date),
+                        'toDate': str(tomorrow),
+                        'pageNumber': page_number
+                    })
+
+                data = resp.get_success_data()
+
+                for element in reversed(data.get("elements", [])):
+                    if self._create_and_verify_payments_data(element):
+                        count =+ 1
+
+                if not data['hasNext']:
+                    break
+
+                page_number += 1
+
+            logger.info(f'{count} payment requests created')
+            from_date = tomorrow
