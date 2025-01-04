@@ -46,7 +46,8 @@ class Treasury(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name_plural = "Treasuries"
+        verbose_name = "خزانه"
+        verbose_name_plural = "خزانه"
 
     def __str__(self):
         return f"{self.get_metal_type_display()} Treasury"

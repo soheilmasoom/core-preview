@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from rest_framework import serializers
 
-from ledger.models import Wallet
+from ledger.models import Wallet, Asset
 from ledger.utils.wallet_pipeline import WalletPipeline
 from .models import Treasury, PhysicalWithdraw
 
@@ -24,6 +24,11 @@ class PhysicalWithdrawSerializer(serializers.ModelSerializer):
     class Meta:
         model = PhysicalWithdraw
         fields = ['asset', 'amount']
+
+    asset = serializers.SlugRelatedField(
+        queryset=Asset.objects.all(),
+        slug_field='symbol'
+    )
 
     def validate_amount(self, value):
         if value % 5 != 0:
