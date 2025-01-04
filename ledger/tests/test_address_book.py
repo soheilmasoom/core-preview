@@ -1,12 +1,10 @@
 from django.test import Client
 from django.test import TestCase
 
-from accounts.utils.test import generate_otp_code
-from ledger.models import Asset, NetworkAsset
-from ledger.utils.test import new_account, new_address_book, new_network, new_network_asset
 from accounts.models.phone_verification import VerificationCode
-from django.urls import reverse
-from ledger.models.address_book import AddressBook
+from accounts.utils.test import generate_otp_code
+from ledger.models import Asset
+from ledger.utils.test import new_account, new_address_book, new_network, new_network_asset
 
 
 class AddressBookTestCase(TestCase):
