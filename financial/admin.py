@@ -205,7 +205,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     @admin.action(description='آپدیت درگاه برداشت', permissions=['change'])
     def change_to_active_gateway(self, request, queryset):
         with transaction.atomic():
-            for withdraw in queryset.filter(status=PROCESS).select_for_update():  # type: FiatWithdrawRequest
+            for withdraw in queryset.filter(status__in=[INIT, PROCESS]).select_for_update():  # type: FiatWithdrawRequest
                 withdraw.gateway = Gateway.get_active_withdraw(withdraw.bank_account.iban, withdraw.amount)
                 withdraw.save(update_fields=['gateway'])
 
