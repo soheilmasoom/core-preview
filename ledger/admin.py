@@ -27,6 +27,7 @@ from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.admin_guard.utils.html import get_table_html
 from accounts.models import Account
 from accounts.models.user_feature_perm import UserFeaturePerm
+from accounts.utils.telegram import send_system_message
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from financial.models import Payment
 from gamify.utils import clone_model
@@ -701,7 +702,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     readonly_fields = (
         'deposit_address', 'network', 'receiver_account', 'wallet', 'created', 'accepted_datetime', 'finished_datetime', 'get_risks',
         'out_address', 'memo', 'amount', 'irt_value', 'usdt_value', 'deposit', 'group_id', 'login_activity',
-        'address_book', 'accepted_by', 'block_number', 'last_block_number'
+        'address_book', 'accepted_by', 'block_number', 'last_block_number', 'whitelist'
     )
     exclude = ('risks',)
 
@@ -865,7 +866,7 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
             'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp', 'status', 'trx_hash'
         )}),
     )
-    actions = ('accept', 'reject')
+    actions = ('accept', 'reject', 'terminate_withdraw')
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -874,6 +875,12 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
         queryset.filter(status__in=[PROCESS, INIT]).update(status=CANCELED)
+
+    @admin.action(description='Terminate', permissions=['change'])
+    def terminate_withdraw(self, request, queryset):
+        requester = get_blocklink_requester()
+        for transfer in queryset.filter(status=PENDING):
+            requester.terminate_withdraw(transfer.id, is_manual=True)
 
     def save_model(self, request, obj, form, change):
         totp = form.cleaned_data.pop('otp', None)
@@ -986,6 +993,15 @@ class AddressKeyAdmin(admin.ModelAdmin):
     readonly_fields = ('address', 'account', 'memo')
     search_fields = ('address', 'public_address', 'account__user__phone', 'memo')
     list_filter = ('architecture', 'deleted', 'architecture')
+    actions = ('safe_delete', 'revert_delete')
+
+    @admin.action(description='Safe Delete', permissions=['change'])
+    def safe_delete(self, request, queryset):
+        queryset.update(deleted=True)
+
+    @admin.action(description='Revert delete', permissions=['change'])
+    def revert_delete(self, request, queryset):
+        queryset.update(deleted=False)
 
 
 @admin.register(models.AssetSpreadCategory)
@@ -1300,13 +1316,15 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, user))
         return ''
 
-    @admin.action(description='تایید اولیه', permissions=['change'])
+    @admin.action(description='تایید اولیه', permissions=['view'])
     def verify_requests(self, request, queryset):
         qs = queryset.filter(status=PROCESS, user__isnull=False, asset__isnull=False, network__isnull=False)
 
         for req in qs:
             if not req.verify(request.user):
                 self.message_user(request, f'Can not verify {req}', messages.ERROR)
+            else:
+                send_system_message("Accept deposit recovery: %s" % req, link=url_to_admin_list(self, {'status': 'pending'}))
 
     @admin.action(description='تایید نهایی', permissions=['change'])
     def accept_requests(self, request, queryset):
@@ -1441,6 +1459,24 @@ class TokenDelistAdmin(admin.ModelAdmin):
         rows = [{'name': k, 'value': v} for (k, v) in token_delist.get_delist_info().__dict__.items()]
         return mark_safe(get_table_html(['name', 'value'], rows))
 
+class BalanceFilter(admin.SimpleListFilter):
+    title = 'Balance Mismatched'  # Display name for the filter
+    parameter_name = 'balance_mismatched'  # URL parameter name
+
+    def lookups(self, request, model_admin):
+        return [
+            ('1', 'بله'),
+            ('0', 'خیر'),
+        ]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == '1':
+            return queryset.filter(~Q(asset_wallet__balance=0) | ~Q(base_wallet__balance=0), status=MarginPosition.CLOSED)
+        elif value == '0':
+            return queryset.exclude(~Q(asset_wallet__balance=0) | ~Q(base_wallet__balance=0), status=MarginPosition.CLOSED)
+        return queryset
+
 
 @admin.register(MarginPosition)
 class MarginPositionAdmin(SimpleHistoryAdmin):
@@ -1448,9 +1484,9 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
                     'get_liquidation_price', 'get_average_price', 'get_orders', 'get_trades')
     readonly_fields = ('account', 'asset_wallet', 'base_wallet', 'symbol', 'amount', 'average_price', 'side',
                        'liquidation_price', 'leverage', 'equity', 'group_id')
-    list_filter = ('side', 'symbol', 'status')
+    list_filter = (BalanceFilter, 'side', 'symbol', 'status')
     search_fields = ('symbol__name', 'status', 'account__user__phone', 'group_id')
-    actions = ('convert_dust_close', 'force_convert_dust_close')
+    actions = ('convert_dust_close', 'force_convert_dust_close', 'pay_debt', 'fast_close')
 
     @admin.display(description='Orders')
     def get_orders(self, obj):
@@ -1479,6 +1515,35 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         if price is not None:
             price = floor_precision(obj.average_price, obj.symbol.tick_size)
         return price
+
+    @admin.action(description='Fast Close Position', permissions=['change'])
+    def fast_close(self, request, queryset):
+        for position in queryset.filter(status=MarginPosition.OPEN):
+            position.close()
+
+    @admin.action(description='Pay Closed Position Debt', permissions=['change'])
+    def pay_debt(self, request, queryset):
+        q = (Q(base_wallet__balance__lt=0, asset_wallet__balance=0) |
+             Q(asset_wallet__balance__lt=0, base_wallet__balance=0))
+
+        with WalletPipeline() as pipeline:
+            for position in queryset.filter(q, status=MarginPosition.CLOSED):
+                if position.base_wallet.balance < 0:
+                    receiver = position.base_wallet
+                elif position.asset_wallet.balance < 0:
+                    receiver = position.asset_wallet
+                else:
+                    continue
+
+                sender = receiver.asset.get_wallet(account=settings.MARGIN_INSURANCE_ACCOUNT)
+                pipeline.new_trx(
+                    sender=sender,
+                    receiver=receiver,
+                    amount=-Decimal(receiver.balance),
+                    group_id=uuid4(),
+                    scope=Trx.MANUAL
+                )
+
 
     @admin.action(description='convert dust and close', permissions=['change'])
     def convert_dust_close(self, request, queryset):

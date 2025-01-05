@@ -11,23 +11,16 @@ from ledger.utils.cache import cache_for
 
 logger = logging.getLogger(__name__)
 
-_price_redis = None
+_price_redis = Redis.from_url(settings.PRICE_CACHE_LOCATION, decode_responses=True)
 _master_price_redis = None
+
+if settings.MASTER_PRICE_CACHE_LOCATION:
+    _master_price_redis = Redis.from_url(settings.MASTER_PRICE_CACHE_LOCATION, decode_responses=True)
 
 
 def get_price_redis(allow_stale: bool):
-    global _price_redis
-    global _master_price_redis
-
-    if _price_redis is None:
-        _price_redis = Redis.from_url(settings.PRICE_CACHE_LOCATION, decode_responses=True)
-
-    if settings.MASTER_PRICE_CACHE_LOCATION and _master_price_redis is None:
-        _master_price_redis = Redis.from_url(settings.MASTER_PRICE_CACHE_LOCATION, decode_responses=True)
-
-    if not allow_stale:
-        if _master_price_redis and not _price_redis.hgetall('price:btcusdt'):
-            return _master_price_redis
+    if _master_price_redis and not allow_stale:
+        return _master_price_redis
 
     return _price_redis
 

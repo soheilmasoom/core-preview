@@ -34,7 +34,7 @@ class ProviderRequester(BaseRequester):
     CACHE_PREFIX = 'provider'
 
     def get_base_url(self):
-        return config('PROVIDER_BASE_URL', default='https://provider.raastinwallet.com')
+        return config('PROVIDER_BASE_URL', default='https://prv.raastinwallet.com')
 
     def get_auth_token(self):
         return config('PROVIDER_TOKEN', '')
@@ -42,8 +42,13 @@ class ProviderRequester(BaseRequester):
     def __bool__(self):
         return bool(self.get_auth_token())
 
-    def get_market_info(self, asset: Asset, side: str) -> MarketInfo:
-        data = self.collect_api('/api/v1/market/', data={'coin': asset.symbol, 'side': side}, cache_timeout=60).data
+    def get_market_info(self, asset: Asset, side: str) -> Union[MarketInfo, None]:
+        resp = self.collect_api('/api/v1/market/', data={'coin': asset.symbol, 'side': side}, cache_timeout=60)
+        data = resp.get_success_data(raise_exp=False)
+
+        if not data:
+            return
+
         return MarketInfo(
             id=data['id'],
             coin=asset.symbol,
@@ -90,6 +95,10 @@ class ProviderRequester(BaseRequester):
         side = BUY if buy_amount > 0 else SELL
 
         market_info = self.get_market_info(asset, side=side)
+
+        if not market_info:
+            logger.info('ignored due to no market_info fetched')
+            return
 
         step_size = market_info.step_size
 

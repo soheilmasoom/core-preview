@@ -47,7 +47,7 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
             suspended = user.get_fiat_deposits() < 1_000_000
 
         if suspended:
-            raise ValidationError('در حال حاضر امکان واریز ریال، فقط به صورت شناسه واریز وجود دارد. برای استفاده از این امکان از نسخه وب صرافی استفاده کنید.')
+            raise ValidationError('در حال حاضر امکان واریز ریال، فقط به صورت شناسه واریز وجود دارد.')
 
         if amount < gateway.min_deposit_amount:
             raise ValidationError('حداقل میزان واریز {} تومان است.'.format(humanize_number(gateway.min_deposit_amount)))

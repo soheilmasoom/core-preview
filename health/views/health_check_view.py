@@ -16,14 +16,6 @@ from ledger.models import NetworkAsset, MarginPosition, MarginHistoryModel, Wall
 from ledger.utils.external_price import fetch_external_price, SIDES
 
 
-class HealthView(APIView):
-    authentication_classes = ()
-    permission_classes = ()
-
-    def get(self, request):
-        return Response({'status': 'healthy!'})
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -133,7 +125,7 @@ def get_positions_unhealthy() -> List[MonitorDTO]:
         ).values_list('position_id', flat=True)
     )
 
-    missed_interest_fee_positions = list(
+    missed_interest_fee_positions = set(
         MarginPosition.objects.filter(
             status=MarginPosition.OPEN,
             liquidation_price__isnull=False,
@@ -176,7 +168,9 @@ def get_positions_unhealthy() -> List[MonitorDTO]:
         dead_monitors.append(
             MonitorDTO(
                 title='Closed Positions with Asset',
-                detail=f'Closed positions non zero wallets: {short_join(closed_positions_wallets, 50)}'
+                detail=f'Closed positions non zero wallets: {short_join(closed_positions_wallets, 50)}',
+                link=f'{settings.HOST_URL}/admin/ledger/marginposition/?balance_mismatched=1'
+
             )
         )
 

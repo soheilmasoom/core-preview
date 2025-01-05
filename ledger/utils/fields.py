@@ -15,6 +15,8 @@ INIT, REJECTED, VERIFIED = 'init', 'rejected', 'verified'
 
 STATUS_CHOICES = (INIT, INIT), (PROCESS, PROCESS), (PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE)
 
+SEND_STATES = SEND_WAITING, SENT, SEND_CANCELED, SEND_EXPIRED = 'w', 's', 'c', 'e'
+
 
 def get_amount_field(default: Union[Decimal, int] = None, max_digits: int = None, decimal_places: int = None,
                      null: bool = False, validators: tuple = (MinValueValidator(0),), verbose_name: str = None):
@@ -53,6 +55,17 @@ def get_status_field(default=PENDING):
         choices=[
             (INIT, INIT), (PROCESS, PROCESS), (PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE),
             (REFUND, REFUND)
+        ]
+    )
+
+
+def get_send_status_field(default=SEND_WAITING):
+    return models.CharField(
+        default=default,
+        max_length=8,
+        db_index=True,
+        choices=[
+            (SEND_WAITING, 'waiting'), (SENT, 'sent'), (SEND_CANCELED, 'canceled'), (SEND_EXPIRED, 'expired')
         ]
     )
 

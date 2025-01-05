@@ -210,6 +210,15 @@ app.conf.beat_schedule = {
         },
     },
 
+    'handle_jibit_payments': {
+        'task': 'financial.tasks.gateway.handle_jibit_payments',
+        'schedule': 60 * TASK_MULTIPLIER,
+        'options': {
+            'queue': 'finance',
+            'expires': 60 * TASK_MULTIPLIER
+        },
+    },
+
     'check_withdraw_refunds': {
         'task': 'financial.tasks.gateway.check_withdraw_refunds',
         'schedule': crontab(minute=0),
@@ -275,7 +284,7 @@ app.conf.beat_schedule = {
         'schedule': 10 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 60 * TASK_MULTIPLIER
+            'expires': 600 * TASK_MULTIPLIER
         },
     },
     'send_telegram_bot_notifications': {
@@ -299,7 +308,7 @@ app.conf.beat_schedule = {
         'schedule': 30 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 60 * TASK_MULTIPLIER
+            'expires': 600 * TASK_MULTIPLIER
         },
     },
     'send_email_notifications': {
@@ -307,7 +316,7 @@ app.conf.beat_schedule = {
         'schedule': 30 * TASK_MULTIPLIER,
         'options': {
             'queue': 'notif-manager',
-            'expires': 60 * TASK_MULTIPLIER
+            'expires': 600 * TASK_MULTIPLIER
         },
     },
     'ban_credit_deposits': {

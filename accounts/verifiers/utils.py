@@ -151,9 +151,12 @@ class Response:
     success: bool = True
     status_code: int = 200
 
-    def get_success_data(self, err: str = None):
+    def get_success_data(self, err: str = None, raise_exp: bool = True):
         if not self.success:
-            raise ServerError(err)
+            if raise_exp:
+                raise ServerError(err)
+            else:
+                return
 
         return self.data
 
