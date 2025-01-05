@@ -15,7 +15,3 @@ class ManualAddressBook(models.Model):
     def __str__(self):
         return self.name
 
-    # class Meta:
-    #     unique_together = ('address', 'network')
-    # verbose_name = 'دفترچه آدرس‌ها '
-    # verbose_name_plural = 'دفترچه‌های آدرس'
