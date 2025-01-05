@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, date
 
 import pytz
 import requests
+from django.utils import timezone
 
 from accounts.models import User
 from accounts.utils.similarity import clean_persian_word
@@ -120,7 +121,7 @@ class JibitClientV2(JibitClient):
 
         if status == PROCESS:
             self.verify_payment_request(payment_request)
-        else:
+        elif transaction.created < timezone.now() - timedelta(minutes=30):  # give time to jibit to verify
             self._fail(external_ref=ref_number)
 
         return created
