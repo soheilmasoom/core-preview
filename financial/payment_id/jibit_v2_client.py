@@ -5,6 +5,7 @@ import pytz
 import requests
 
 from accounts.models import User
+from accounts.utils.similarity import clean_persian_word
 from financial.models import PaymentIdRequest, PaymentId
 from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
@@ -75,7 +76,7 @@ class JibitClientV2(JibitClient):
             raw_data=item['rawData'],
             sender_identifier=item['sourceIdentifier'],
             sender_iban=item['sourceIban'],
-            sender_name=item['sourceName'],
+            sender_name=clean_persian_word(item['sourceName']),
             record_type=record_type.lower(),
             receiver_iban=item['destinationIban'],
             kyt_passed=item['kytStatus'] == 'MATCH_IBAN_AND_NATIONAL_ID'
