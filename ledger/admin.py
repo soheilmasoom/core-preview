@@ -1324,7 +1324,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             if not req.verify(request.user):
                 self.message_user(request, f'Can not verify {req}', messages.ERROR)
             else:
-                send_system_message("Accept deposit recovery: %s" % req, link=url_to_admin_list(self, {'status': 'pending'}))
+                send_system_message("Accept deposit recovery: %s" % req, link=url_to_admin_list(req, {'status': 'pending'}))
 
     @admin.action(description='تایید نهایی', permissions=['change'])
     def accept_requests(self, request, queryset):

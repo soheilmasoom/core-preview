@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from accounts.admin_guard.html_tags import url_to_edit_object
-from accounts.utils.similarity import str_similar_rate, clean_persian_name, rotate_words
+from accounts.utils.similarity import str_similar_rate, clean_persian_word, rotate_words
 from accounts.utils.telegram import send_support_message
 from accounts.verifiers.finotech import FinotechRequester, ServerError
 from financial.models import BankCard, BankAccount
@@ -230,7 +230,7 @@ def verify_bank_account(bank_account: BankAccount, retry: int = 5) -> bool:
         owner = owners[0]
         owner_full_name = owner['firstName'] + ' ' + owner['lastName']
 
-        name1, name2 = clean_persian_name(owner_full_name), clean_persian_name(user.get_legal_name())
+        name1, name2 = clean_persian_word(owner_full_name), clean_persian_word(user.get_legal_name())
 
         verified = str_similar_rate(name1, name2) >= IBAN_NAME_SIMILARITY_THRESHOLD
 

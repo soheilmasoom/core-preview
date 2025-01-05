@@ -1,10 +1,10 @@
 from django.core.validators import validate_integer
 from django.db import models
-from django.db.models import UniqueConstraint, Q
+from django.db.models import UniqueConstraint, Q, CheckConstraint
 
 from financial.models import Payment
-from financial.validators import iban_validator
-from ledger.utils.fields import get_status_field, DONE, PENDING, get_group_id_field, CANCELED
+from ledger.utils.fields import get_status_field, DONE, get_group_id_field, CANCELED, get_iban_field, PROCESS, \
+    INIT
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 
@@ -52,27 +52,43 @@ class PaymentId(models.Model):
 
 
 class PaymentIdRequest(models.Model):
+    PENDING_STATES = [INIT, PROCESS]
+
     created = models.DateTimeField(auto_now_add=True)
 
-    owner = models.ForeignKey(PaymentId, on_delete=models.PROTECT)
+    owner = models.ForeignKey(PaymentId, on_delete=models.PROTECT, null=True, blank=True)
     status = get_status_field()
 
     amount = models.PositiveBigIntegerField()
     fee = models.PositiveBigIntegerField()
 
-    bank_ref = models.CharField(max_length=64, blank=True)
     external_ref = models.CharField(max_length=64, blank=True, unique=True)
+    bank_ref = models.CharField(max_length=64, blank=True)
+    bank_transaction_id = models.CharField(max_length=64, blank=True)
 
-    source_iban = models.CharField(
-        max_length=26,
-        validators=[iban_validator],
-        verbose_name='شبا',
-    )
+    sender_iban = get_iban_field()
+    sender_name = models.CharField(max_length=256, blank=True)
+    sender_identifier = models.CharField(max_length=256, blank=True)
+    record_type = models.CharField(max_length=256, blank=True)
 
+    kyt_passed = models.BooleanField(null=True, blank=True)
     deposit_time = models.DateTimeField()
 
-    group_id = get_group_id_field()
+    raw_payment_id = models.CharField(max_length=64, blank=True)
+    raw_data = models.TextField(blank=True)
+
+    group_id = get_group_id_field(unique=True)
     payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.CASCADE)
+
+    comment = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            CheckConstraint(
+                check=Q(status=INIT) | Q(owner__isnull=False),
+                name='payment_id_request_owner_null_condition'
+            ),
+        ]
 
     def __str__(self):
         return '%s ref=%s' % (self.amount, self.bank_ref)
@@ -81,7 +97,7 @@ class PaymentIdRequest(models.Model):
         with WalletPipeline() as pipeline:
             req = PaymentIdRequest.objects.select_for_update().get(id=self.id)
 
-            if req.payment or req.status != PENDING:
+            if req.payment or req.status not in self.PENDING_STATES:
                 return
 
             payment_id = req.owner
@@ -99,4 +115,4 @@ class PaymentIdRequest(models.Model):
             req.save(update_fields=['status', 'payment'])
 
     def reject(self):
-        PaymentIdRequest.objects.filter(id=self.id, status=PENDING).update(status=CANCELED)
+        PaymentIdRequest.objects.filter(id=self.id, status__in=self.PENDING_STATES).update(status=CANCELED)
