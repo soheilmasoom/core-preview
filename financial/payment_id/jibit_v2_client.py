@@ -75,9 +75,9 @@ class JibitClientV2(JibitClient):
             created=datetime.strptime(item['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
             deposit_number=item['payId'],
             raw_data=item['rawData'],
-            sender_identifier=item['sourceIdentifier'],
-            sender_iban=item['sourceIban'],
-            sender_name=clean_persian_word(item['sourceName']),
+            sender_identifier=item['sourceIdentifier'] or '',
+            sender_iban=item['sourceIban'] or '',
+            sender_name=clean_persian_word(item['sourceName'] or ''),
             record_type=record_type.lower(),
             receiver_iban=item['destinationIban'],
             kyt_passed=item['kytStatus'] == 'MATCH_IBAN_AND_NATIONAL_ID'
@@ -99,13 +99,24 @@ class JibitClientV2(JibitClient):
         else:
             status = INIT
 
+        if PaymentIdRequest.objects.filter(
+            bank_transaction_id=transaction.bank_transaction_id
+        ).exclude(
+            external_ref=ref_number
+        ).exists():
+            logger.info('Reject due to duplicate bank_transaction_id')
+            self._fail(external_ref=ref_number)
+            return False
+
         payment_request, created = PaymentIdRequest.objects.get_or_create(
             external_ref=ref_number,
             defaults={
                 'bank_ref': transaction.bank_reference_number,
                 'bank_transaction_id': transaction.bank_transaction_id,
+                'gateway': self.gateway,
                 'amount': amount - fee,
                 'fee': fee,
+                'balance': transaction.balance,
                 'status': status,
                 'owner': payment_id,
                 'sender_iban': transaction.sender_iban,

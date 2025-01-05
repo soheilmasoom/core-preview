@@ -2,7 +2,8 @@ from .payment_id_gateway import PaymentIdGateway
 from .bank_card import BankCard
 from .user_bank_account import BankAccount
 from .payment import PaymentRequest, Payment
-from .payment_id import PaymentId, PaymentIdRequest
+from .payment_id import PaymentId
+from .payment_id_request import PaymentIdRequest
 from .gateway import Gateway
 from .zarinpal_gateway import ZarinpalGateway
 from .paydotir_gateway import PaydotirGateway

@@ -515,8 +515,8 @@ class ManualTransferAdmin(admin.ModelAdmin):
 @admin.register(PaymentIdRequest)
 class PaymentIdRequestAdmin(AdvancedAdmin):
     list_display = ('created', 'owner', 'status', 'get_amount', 'get_user', 'bank_ref', 'sender_iban', 'deposit_time',  'external_ref')
-    search_fields = ('owner__pay_id', 'owner__user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id')
-    list_filter = ('status',)
+    search_fields = ('raw_payment_id', 'owner__user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id', 'bank_transaction_id', 'sender_name', 'sender_identifier')
+    list_filter = ('status', 'kyt_passed')
     actions = ('accept', 'reject')
     readonly_fields = ('get_user', 'payment', 'group_id')
     raw_id_fields = ('owner', )
