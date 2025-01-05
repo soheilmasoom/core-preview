@@ -9,6 +9,7 @@ from . import M
 from .urls import AdminUrl
 from .utils import BoolNode
 from .utils.array_utils import append, append_list
+from ..models.admin_tracker import AdminTracker
 
 
 def evaluate_admin_condition(request, admin, model, condition):
@@ -39,6 +40,15 @@ class AdvancedAdmin(ModelAdmin):
         self.request = None
         super(AdvancedAdmin, self).__init__(model, admin_site)
 
+    def log_action(self, request, object_id=None):
+        if getattr(self, "track_model", False):
+            AdminTracker.objects.create(
+                admin=request.user,
+                model_name=self.model._meta.verbose_name,
+                object_id=object_id,
+                url=request.get_full_path()
+            )
+
     @property
     def current_list_page_full_path(self):
         if not self.request:
@@ -53,10 +63,12 @@ class AdvancedAdmin(ModelAdmin):
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
+        self.log_action(request, object_id)
         self.request = request
         return super(AdvancedAdmin, self).change_view(request, object_id, form_url, extra_context)
 
     def changelist_view(self, request, extra_context=None):
+        self.log_action(request)
         self.request = request
         return super(AdvancedAdmin, self).changelist_view(request, extra_context)
 

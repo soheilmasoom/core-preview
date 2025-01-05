@@ -107,6 +107,8 @@ class OrderPositionFilter(admin.SimpleListFilter):
 
 @admin.register(Order)
 class OrderAdmin(AdvancedAdmin):
+    track_model = True
+
     list_display = ('get_created', 'side', 'get_symbol', 'fill_type', 'status', 'price', 'amount')
     list_filter = (TypeFilter, AccountOrderFilter, 'side', 'fill_type', 'status', 'symbol')
     readonly_fields = [field.name for field in Order._meta.get_fields()]
@@ -165,6 +167,8 @@ class TradePositionFilter(admin.SimpleListFilter):
 
 @admin.register(Trade)
 class TradeAdmin(AdvancedAdmin):
+    track_model = True
+
     list_display = ('created', 'get_symbol', 'side', 'price', 'is_maker', 'market',
                     'amount', 'fee_amount', 'fee_revenue')
     list_filter = ('trade_source', AccountTradeFilter, 'symbol', 'market')

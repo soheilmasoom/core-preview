@@ -104,6 +104,7 @@ class UserRialWithdrawRequestFilter(SimpleListFilter):
 
 @admin.register(FiatWithdrawRequest)
 class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
+    track_model = True
 
     fieldsets = (
         ('اطلاعات درخواست', {'fields': ('created', 'status', 'amount', 'fee_amount', 'ref_id', 'bank_account',
@@ -288,6 +289,8 @@ class PaymentGatewayFilter(SimpleListFilter):
 
 @admin.register(Payment)
 class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
+    track_model = True
+
     list_display = ('created', 'get_amount', 'get_fee', 'status', 'ref_id', 'ref_status',
                     'source', 'get_card_pan', 'get_user',)
     list_filter = (PaymentGatewayFilter, 'status', 'source', PaymentUserFilter, )
@@ -361,6 +364,7 @@ class BankCardUserFilter(SimpleListFilter):
 @admin.register(BankCard)
 class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
+    track_model = True
 
     list_display = ('created', 'card_pan', 'get_username', 'type', 'verified', 'deleted')
     list_filter = (BankCardUserFilter, 'deleted', 'verified')
