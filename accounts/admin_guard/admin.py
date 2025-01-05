@@ -9,7 +9,7 @@ from . import M
 from .urls import AdminUrl
 from .utils import BoolNode
 from .utils.array_utils import append, append_list
-from ..models.admin_tracker import AdminTracker
+from accounts.models.admin_tracker import AdminTracker
 
 
 def evaluate_admin_condition(request, admin, model, condition):
