@@ -1,5 +1,6 @@
 import copy
 
+from celery.worker.consumer.mingle import exception
 from django.contrib.admin import ModelAdmin
 from django.contrib.auth import get_permission_codename
 from django.core.exceptions import PermissionDenied
@@ -40,13 +41,33 @@ class AdvancedAdmin(ModelAdmin):
         self.request = None
         super(AdvancedAdmin, self).__init__(model, admin_site)
 
+    def get_user(self, object_id):
+        try:
+            instance = self.model.objects.filter(pk=object_id).first()
+
+            if hasattr(instance, 'account') and instance.account:
+                return getattr(instance.account, 'user', None)
+            elif hasattr(instance, 'user'):
+                return instance.user
+            elif self.model._meta.model_name == 'user':
+                return instance
+            else:
+                return None
+        except Exception as e:
+            return None
+
     def log_action(self, request, object_id=None):
-        if getattr(self, "track_model", False):
+        tracked_user = None
+        if object_id:
+            tracked_user = self.get_user(object_id)
+
+        if getattr(self, "track_admin_activity", False):
             AdminTracker.objects.create(
                 admin=request.user,
-                model_name=self.model._meta.verbose_name,
+                model_name=self.model._meta.model_name,
                 object_id=object_id,
-                url=request.get_full_path()
+                url=request.get_full_path(),
+                user=tracked_user,
             )
 
     @property

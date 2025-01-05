@@ -258,8 +258,8 @@ class ChangePhoneAdmin(BaseChangeAdmin):
 
 @admin.register(AdminTracker)
 class AdminTrackerAdmin(AdvancedAdmin):
-    list_display = ('created', 'admin', 'model_name', 'object_id', 'url')
-    readonly_fields = ('created', 'admin', 'model_name', 'object_id', 'url')
+    list_display = ('created', 'admin', 'model_name', 'object_id', 'url', 'user')
+    readonly_fields = ('created', 'admin', 'model_name', 'object_id', 'url', 'user')
     list_filter = ('model_name', 'created')
 
 
@@ -294,7 +294,7 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, UserAdmin):
     default_edit_condition = M.superuser
     list_per_page = 20
-    track_model = True
+    track_admin_activity = True
 
     fields_view_conditions = {
         'get_selfie_image': M.has_perm('accounts.can_view_user_selfie'),
@@ -950,7 +950,7 @@ class FinotechRequestUserFilter(SimpleListFilter):
 
 @admin.register(UserAuthRequest)
 class UserAuthRequestAdmin(AdvancedAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ('created', 'get_username', 'url', 'status_code')
     list_filter = (FinotechRequestUserFilter, 'status_code', 'service')
@@ -1008,7 +1008,7 @@ class EmailNotificationAdmin(admin.ModelAdmin):
 
 @admin.register(UserComment)
 class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ['get_username', 'created']
     readonly_fields = ('user',)

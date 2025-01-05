@@ -51,7 +51,7 @@ class StakeStatusFilter(SimpleListFilter):
 
 @admin.register(StakeRequest)
 class StakeRequestAdmin(AdvancedAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ['get_stake_option_asset', 'get_stake_option_apr', 'created', 'get_amount', 'get_user', 'status',
                     'start_at', 'cancel_request_at', 'cancel_pending_at', 'end_at', 'get_stake_revenue']

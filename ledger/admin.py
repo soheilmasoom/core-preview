@@ -338,7 +338,7 @@ class DepositAddressUserFilter(admin.SimpleListFilter):
 
 @admin.register(models.DepositAddress)
 class DepositAddressAdmin(AdvancedAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     readonly_fields = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
@@ -373,7 +373,7 @@ class OTCRequestUserFilter(SimpleListFilter):
 
 @admin.register(models.OTCRequest)
 class OTCRequestAdmin(AdvancedAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ('created', 'get_username', 'symbol', 'side', 'price', 'amount', 'fee_amount', 'fee_revenue')
     readonly_fields = ('account', 'login_activity', 'token')
@@ -438,7 +438,7 @@ class OrderTypeOTCFilter(SimpleListFilter):
 
 @admin.register(models.OTCTrade)
 class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ('created', 'get_username', 'otc_request', 'get_order_type', 'status', 'get_value', 'get_value_irt',
                     'execution_type', 'gap_revenue', 'hedged')
@@ -525,7 +525,7 @@ class TrxWalletFilter(SimpleListFilter):
 
 @admin.register(models.Trx)
 class TrxAdmin(AdvancedAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ('created', 'get_masked_sender', 'get_masked_receiver', 'amount', 'scope', 'group_id')
     search_fields = ('sender__asset__symbol', 'sender__account__user__phone', 'receiver__account__user__phone',
@@ -600,7 +600,7 @@ class WalletBalanceFilter(SimpleListFilter):
 
 @admin.register(models.Wallet)
 class WalletAdmin(AdvancedAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ('created', 'get_username', 'asset', 'market', 'get_free', 'locked', 'get_value_usdt', 'get_value_irt',
                     'credit', 'variant')
@@ -684,7 +684,7 @@ class TransferUserFilter(SimpleListFilter):
 @admin.register(models.Transfer)
 class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
-    track_model = True
+    track_admin_activity = True
 
     fields_edit_conditions = {
         'comment': True,
@@ -954,7 +954,7 @@ class PrizeUserFilter(admin.SimpleListFilter):
 
 @admin.register(models.Prize)
 class PrizeAdmin(AdvancedAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ('created', 'achievement', 'get_username', 'get_asset_amount', 'redeemed', 'value')
     readonly_fields = ('account', 'asset',)

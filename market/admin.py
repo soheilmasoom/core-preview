@@ -107,7 +107,7 @@ class OrderPositionFilter(admin.SimpleListFilter):
 
 @admin.register(Order)
 class OrderAdmin(AdvancedAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ('get_created', 'side', 'get_symbol', 'fill_type', 'status', 'price', 'amount')
     list_filter = (TypeFilter, AccountOrderFilter, 'side', 'fill_type', 'status', 'symbol')
@@ -167,7 +167,7 @@ class TradePositionFilter(admin.SimpleListFilter):
 
 @admin.register(Trade)
 class TradeAdmin(AdvancedAdmin):
-    track_model = True
+    track_admin_activity = True
 
     list_display = ('get_created', 'get_symbol', 'side', 'price', 'is_maker', 'market',
                     'amount', 'fee_amount', 'fee_revenue')
