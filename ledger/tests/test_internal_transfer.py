@@ -110,7 +110,6 @@ class InternalTransferTestCase(TestCase):
         self.assertEqual(receiver_wallet.balance, Decimal('0.001'))
 
     def test_internal_transfer_insufficient_balance(self):
- 
         code = generate_otp_code(self.user1, 'withdraw')
 
         url = '/api/v1/withdraw/'
