@@ -32,3 +32,4 @@ from .convert_dust_trx import ConvertDustTrx
 from .network_schedule import NetworkSchedule
 from .proxy_wallet import ProxyWallet
 from .cold_wallet import ColdWallet
+from .manual_address_book import ManualAddressBook
