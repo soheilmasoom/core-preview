@@ -6,6 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.admin_guard.html_tags import url_to_edit_object
+from accounts.models import SystemConfig
 from accounts.utils.telegram import send_system_message
 from accounts.verifiers.utils import ServerError
 from financial.exceptions import NoChannelError
@@ -52,6 +53,9 @@ def handle_missing_payment_ids():
 
 @shared_task(queue='finance')
 def handle_waiting_payment_ids():
+    if not SystemConfig.get_system_config().pay_id_requests_process:
+        return
+
     gateways = PaymentIdGateway.live_objects.all()
 
     for gateway in gateways:
