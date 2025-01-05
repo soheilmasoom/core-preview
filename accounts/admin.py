@@ -417,6 +417,14 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
+    def _get_user(self, object_id):
+        if not object_id:
+            return None
+        try:
+            return self.model.objects.filter(pk=object_id).first()
+        except Exception as e:
+            return None
+
     def has_manage_users_permission(self, request):
         opts = self.opts
         codename = get_permission_codename("manage_users", opts)
@@ -966,6 +974,14 @@ class UserAuthRequestAdmin(AdvancedAdmin):
             f'<span dir="ltr">{req.user}</span>'
         )
 
+    def _get_user(self, object_id):
+        if not object_id:
+            return None
+        try:
+            return self.model.objects.filter(pk=object_id).first().user
+        except Exception as e:
+            return None
+
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
@@ -1018,6 +1034,14 @@ class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
         return mark_safe(
             f'<span dir="ltr">{user_comment.user}</span>'
         )
+
+    def _get_user(self, object_id):
+        if not object_id:
+            return None
+        try:
+            return self.model.objects.filter(pk=object_id).first().user
+        except Exception as e:
+            return None
 
 
 @admin.register(TrafficSource)

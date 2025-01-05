@@ -302,6 +302,14 @@ class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
 
     list_permission_exclude_filters = ('id', 'user')
 
+    def _get_user(self, object_id):
+        if not object_id:
+            return None
+        try:
+            return self.model.objects.filter(pk=object_id).first().user
+        except Exception as e:
+            return None
+
     @admin.display(description='مقدار')
     def get_amount(self, payment: Payment):
         return humanize_number(payment.amount)
@@ -379,6 +387,14 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     }
 
     list_permission_exclude_filters = ('id', 'user')
+
+    def _get_user(self, object_id):
+        if not object_id:
+            return None
+        try:
+            return self.model.objects.filter(pk=object_id).first().user
+        except Exception as e:
+            return None
 
     @admin.action(description='تایید خودکار شماره کارت', permissions=['change'])
     def verify_bank_cards(self, request, queryset):
@@ -597,6 +613,8 @@ class PaymentIdAdmin(AdvancedAdmin):
 
 @admin.register(PaymentIdGateway)
 class PaymentIdGatewayAdmin(admin.ModelAdmin):
+    track_admin_activity = True
+
     list_display = ('title', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'priority')
     ordering = ('-active', 'priority')
     list_editable = ('active', 'priority')

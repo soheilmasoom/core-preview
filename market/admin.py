@@ -134,6 +134,14 @@ class OrderAdmin(AdvancedAdmin):
     def cancel_order(self, request, queryset):
         Order.cancel_orders(queryset.filter(status=Order.NEW))
 
+    def _get_user(self, object_id):
+        if not object_id:
+            return None
+        try:
+            return self.model.objects.filter(pk=object_id).first().account.user
+        except Exception as e:
+            return None
+
 
 @admin.register(CancelRequest)
 class CancelRequestAdmin(admin.ModelAdmin):
@@ -196,6 +204,14 @@ class TradeAdmin(AdvancedAdmin):
     def revert(self, request, queryset):
         for trade in queryset:
             trade.revert()
+
+    def _get_user(self, object_id):
+        if not object_id:
+            return None
+        try:
+            return self.model.objects.filter(pk=object_id).first().account.user
+        except Exception as e:
+            return None
 
 
 @admin.register(ReferralTrx)

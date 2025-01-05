@@ -41,25 +41,11 @@ class AdvancedAdmin(ModelAdmin):
         self.request = None
         super(AdvancedAdmin, self).__init__(model, admin_site)
 
-    def get_user(self, object_id):
-        try:
-            instance = self.model.objects.filter(pk=object_id).first()
-
-            if hasattr(instance, 'account') and instance.account:
-                return getattr(instance.account, 'user', None)
-            elif hasattr(instance, 'user'):
-                return instance.user
-            elif self.model._meta.model_name == 'user':
-                return instance
-            else:
-                return None
-        except Exception as e:
-            return None
+    def _get_user(self, object_id):
+        return None
 
     def log_action(self, request, object_id=None):
-        tracked_user = None
-        if object_id:
-            tracked_user = self.get_user(object_id)
+        tracked_user = self._get_user(object_id)
 
         if getattr(self, "track_admin_activity", False):
             AdminTracker.objects.create(
