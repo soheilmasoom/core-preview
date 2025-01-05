@@ -258,9 +258,9 @@ class ChangePhoneAdmin(BaseChangeAdmin):
 
 @admin.register(AdminTracker)
 class AdminTrackerAdmin(AdvancedAdmin):
-    list_display = ('admin', 'model_name', 'object_id', 'timestamp', 'url')
-    readonly_fields = ('admin', 'model_name', 'object_id', 'timestamp', 'url')
-    list_filter = ('model_name', 'timestamp')
+    list_display = ('created', 'admin', 'model_name', 'object_id', 'url')
+    readonly_fields = ('created', 'admin', 'model_name', 'object_id', 'url')
+    list_filter = ('model_name', 'created')
 
 
 @admin.register(SystemConfig)
