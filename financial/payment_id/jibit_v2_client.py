@@ -69,19 +69,19 @@ class JibitClientV2(JibitClient):
         return TransactionInfo(
             reference_number=item['referenceNumber'],
             account_iban=item['accountIban'],
-            bank_reference_number=item['bankReferenceNumber'],
+            bank_reference_number=item['bankReferenceNumber'] or '',
             bank_transaction_id=item['bankTransactionId'],
             amount=credit_amount // 10,
             deposit_type=TransactionInfo.DEPOSIT,
             balance=item['balance'],
             created=datetime.strptime(item['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
-            deposit_number=item['payId'],
-            raw_data=item['rawData'],
+            deposit_number=item['payId'] or '',
+            raw_data=item['rawData'] or '',
             sender_identifier=item['sourceIdentifier'] or '',
             sender_iban=item['sourceIban'] or '',
             sender_name=clean_persian_word(item['sourceName'] or ''),
             record_type=record_type.lower(),
-            receiver_iban=item['destinationIban'],
+            receiver_iban=item['destinationIban'] or '',
             kyt_passed=item['kytStatus'] == 'MATCH_IBAN_AND_NATIONAL_ID'
         )
 
