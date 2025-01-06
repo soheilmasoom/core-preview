@@ -15,17 +15,17 @@ from simple_history.admin import SimpleHistoryAdmin
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
 from accounts.admin_guard.html_tags import anchor_tag, admin_page_anchor
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import User
 from accounts.models.user_feature_perm import UserFeaturePerm
-from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.validation import gregorian_to_jalali_datetime
 from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAccount, \
     FiatWithdrawRequest, ManualTransfer, MarketingSource, MarketingCost, PaymentIdRequest, PaymentId, \
     PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt, BankStatement
+from financial.payment_id import get_payment_id_client
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
 from financial.utils.interface import get_withdraw_channel
-from financial.payment_id import get_payment_id_client
 from gamify.utils import clone_model
 from ledger.utils.fields import PENDING, INIT, CANCELED, DONE, PROCESS
 from ledger.utils.precision import humanize_number
@@ -47,6 +47,8 @@ class GatewayAdmin(admin.ModelAdmin):
 
     ordering = ('-active', '-ipg_deposit_enable', '-deposit_priority', '-withdraw_enable', '-withdraw_priority')
 
+    actions = ('clone_gateway', )
+
     @admin.display(description='balance')
     def get_balance(self, gateway: Gateway):
         balance = gateway.get_balance()
@@ -66,6 +68,13 @@ class GatewayAdmin(admin.ModelAdmin):
     @admin.display(description='max deposit')
     def get_max_deposit_amount(self, gateway: Gateway):
         return humanize_number(Decimal(gateway.max_deposit_amount))
+
+    @admin.action(description='Clone', permissions=['change'])
+    def clone_gateway(self, request, queryset):
+        for gateway in queryset:
+            gateway.name += 'cloned'
+            gateway.active = False
+            clone_model(gateway)
 
     def save_model(self, request, gateway: Gateway, form, change):
         encryption_fields = [
