@@ -13,8 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ledger.models import NetworkAsset, MarginPosition, MarginHistoryModel, Wallet
-from ledger.utils.external_price import fetch_external_price, SIDES
-
+from ledger.utils.external_price import SIDES, fetch_external_price_by_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ def get_prices_unhealthy() -> List[MonitorDTO]:
 
     for s in symbols:
         side = random.choice(SIDES)
-        if not fetch_external_price(symbol=s, side=side, allow_stale=False):
+        if not fetch_external_price_by_symbol(symbol=s, side=side, allow_stale=False):
             missing_prices.append(s)
 
     if missing_prices:

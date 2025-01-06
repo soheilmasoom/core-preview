@@ -10,8 +10,9 @@ from django.utils import timezone
 
 from accounts.utils.push_notif import send_push_notif
 from ledger.models import AlertTrigger, Asset, AssetAlert
+from ledger.utils.external_price import split_symbol
 from ledger.utils.precision import get_presentation_amount
-from ledger.utils.price import USDT_IRT, get_symbol_parts, get_coins_symbols, get_last_prices
+from ledger.utils.price import USDT_IRT, get_coins_symbols, get_last_prices
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +182,7 @@ def get_ratio_alerts(current_cycle_prices: dict, current_cycle: int, symbol_to_a
 
         current_price = current_cycle_prices[symbol]
         past_price = past_cycle_prices[symbol]
-        coin, base_coin = get_symbol_parts(symbol)
+        coin, base_coin = split_symbol(symbol)
 
         ratio = math.floor(Decimal(current_price / past_price - Decimal(1)) * 100)
 
@@ -217,7 +218,7 @@ def get_channel_change_alerts(current_cycle_prices: dict, current_cycle: int, sy
 
         current_price = current_cycle_prices[symbol]
         past_price = past_cycle_prices[symbol]
-        coin, base_coin = get_symbol_parts(symbol)
+        coin, base_coin = split_symbol(symbol)
 
         channel_change_data = get_channel_change_trigger_data(asset, old_price=past_price, new_price=current_price)
 

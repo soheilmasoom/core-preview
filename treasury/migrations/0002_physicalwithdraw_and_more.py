@@ -9,7 +9,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('ledger', '0302_alter_otctrade_group_id'),
-        ('accounts', '0234_merge_20241019_1146'),
         ('treasury', '0001_initial'),
     ]
 
