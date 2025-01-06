@@ -107,6 +107,8 @@ class OrderPositionFilter(admin.SimpleListFilter):
 
 @admin.register(Order)
 class OrderAdmin(AdvancedAdmin):
+    track_admin_activity = True
+
     list_display = ('get_created', 'side', 'get_symbol', 'fill_type', 'status', 'price', 'amount')
     list_filter = (TypeFilter, AccountOrderFilter, 'side', 'fill_type', 'status', 'symbol')
     readonly_fields = [field.name for field in Order._meta.get_fields()]
@@ -132,6 +134,9 @@ class OrderAdmin(AdvancedAdmin):
     def cancel_order(self, request, queryset):
         Order.cancel_orders(queryset.filter(status=Order.NEW))
 
+    def _get_user(self, obj):
+        if obj.account:
+            return obj.account.user
 
 @admin.register(CancelRequest)
 class CancelRequestAdmin(admin.ModelAdmin):
@@ -165,6 +170,8 @@ class TradePositionFilter(admin.SimpleListFilter):
 
 @admin.register(Trade)
 class TradeAdmin(AdvancedAdmin):
+    track_admin_activity = True
+
     list_display = ('get_created', 'get_symbol', 'side', 'price', 'is_maker', 'market',
                     'amount', 'fee_amount', 'fee_revenue')
     list_filter = ('trade_source', AccountTradeFilter, 'symbol', 'market')
@@ -193,6 +200,9 @@ class TradeAdmin(AdvancedAdmin):
         for trade in queryset:
             trade.revert()
 
+    def _get_user(self, obj):
+        if obj.account:
+            return obj.account.user
 
 @admin.register(ReferralTrx)
 class ReferralTrxAdmin(admin.ModelAdmin):
