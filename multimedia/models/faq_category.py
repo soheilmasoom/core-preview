@@ -24,6 +24,10 @@ class FAQ(models.Model):
     title = models.CharField(max_length=255, blank=True)
     answer = models.TextField(blank=True)
     link = models.URLField(blank=True, null=True)
+    order = models.PositiveSmallIntegerField(default=0)
 
     def __str__(self):
         return self.title
+
+    class Meta:
+        ordering = ('order', 'id')

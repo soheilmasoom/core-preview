@@ -133,7 +133,7 @@ class SectionAdmin(SimpleHistoryAdmin):
 
 
 class FAQTabularInline(admin.TabularInline):
-    fields = ('get_id', 'title', 'answer', 'link',)
+    fields = ('get_id', 'title', 'answer', 'link', 'order')
     readonly_fields = ('get_id', )
     model = FAQ
     extra = 1
@@ -185,4 +185,5 @@ class GuidAdmin(SimpleHistoryAdmin):
 
 @admin.register(FAQ)
 class FAQAdmin(admin.ModelAdmin):
-    list_display = ('category', 'title', 'answer', 'created',)
+    list_display = ('category', 'title', 'answer', 'created', 'order')
+    list_editable = ('order', )
