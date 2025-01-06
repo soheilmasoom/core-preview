@@ -50,10 +50,10 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='addressbook',
-            constraint=models.CheckConstraint(check=models.Q(models.Q(('dest_user__isnull', False), ('type', 'internal')), models.Q(('type', 'internal'), _negated=True), _connector='OR'), name='check_internal_requires_dest_user'),
-        ),
-        migrations.AddConstraint(
-            model_name='addressbook',
-            constraint=models.CheckConstraint(check=models.Q(models.Q(('address__isnull', False), ('network__isnull', False), ('type', 'network')), models.Q(('type', 'network'), _negated=True), _connector='OR'), name='check_network_requires_address_and_network'),
+            constraint=models.CheckConstraint(
+                check=models.Q(models.Q(('dest_user__isnull', False), ('type', 'internal')),
+                               models.Q(('network__isnull', False), ('type', 'network'),
+                                        models.Q(('address', ''), _negated=True)), _connector='OR'),
+                name='check_type_address_book'),
         ),
     ]
