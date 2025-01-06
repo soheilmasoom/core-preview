@@ -313,7 +313,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'birth_date': M.has_perm('accounts.manage_users') | ~M('birth_date_verified'),
         'selfie_image_verified': M.has_perm('accounts.manage_users') | M('selfie_image'),
         'selfie_image_discard_text': M.has_perm('accounts.manage_users') | (
-                    M('selfie_image') & M.is_none('selfie_image_verified')),
+                M('selfie_image') & M.is_none('selfie_image_verified')),
         'first_name_verified': M.has_perm('accounts.manage_users') | M.is_none('first_name_verified'),
         'last_name_verified': M.has_perm('accounts.manage_users') | M.is_none('last_name_verified'),
         'national_code_verified': M.has_perm('accounts.manage_users') | ~M('national_code_verified'),
@@ -417,13 +417,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first()
-        except Exception as e:
-            return None
+    def _get_user(self, obj):
+        return obj
 
     def has_manage_users_permission(self, request):
         opts = self.opts
@@ -504,7 +499,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         writer.writerow(['id', 'date', 'wallet', 'coin', 'amount', 'reason'])
         for user in queryset:
             for trx in export_transactions(user.get_account()):
-                writer.writerow([trx['id'], trx['created'], trx['wallet_type'], trx['coin'], trx['amount'], trx['scope']])
+                writer.writerow(
+                    [trx['id'], trx['created'], trx['wallet_type'], trx['coin'], trx['amount'], trx['scope']])
 
         return response
 
@@ -544,7 +540,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         return super(CustomUserAdmin, self).save_model(request, user, form, change)
 
     def get_payment_address(self, user: User):
-        link = url_to_admin_list(Payment)+'?user={}'.format(user.id)
+        link = url_to_admin_list(Payment) + '?user={}'.format(user.id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
     get_payment_address.short_description = 'واریزهای ریالی'
@@ -787,6 +783,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         for referral in referrals:
             referred_count += Account.objects.filter(referred_by=referral).count()
         return referred_count
+
     get_referred_count.short_description = ' '
 
     @admin.display(description='درآمد حاصل از دعوت دوستان')
@@ -974,14 +971,8 @@ class UserAuthRequestAdmin(AdvancedAdmin):
             f'<span dir="ltr">{req.user}</span>'
         )
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().user
-        except Exception as e:
-            return None
-
+    def _get_user(self, obj):
+        return obj.user
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
@@ -1035,14 +1026,8 @@ class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
             f'<span dir="ltr">{user_comment.user}</span>'
         )
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().user
-        except Exception as e:
-            return None
-
+    def _get_user(self, obj):
+        return obj.user
 
 @admin.register(TrafficSource)
 class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):

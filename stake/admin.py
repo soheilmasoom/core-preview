@@ -63,13 +63,9 @@ class StakeRequestAdmin(AdvancedAdmin):
     search_fields = ('account__user__phone', 'stake_option__asset__symbol')
     list_permission_exclude_filters = ('id', 'account')
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().account.user
-        except Exception as e:
-            return None
+    def _get_user(self, obj):
+        if obj.account:
+            return obj.account.user
 
     def get_stake_option_asset(self, stake_request: StakeRequest):
         return stake_request.stake_option.asset

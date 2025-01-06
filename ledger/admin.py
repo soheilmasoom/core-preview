@@ -381,13 +381,9 @@ class OTCRequestAdmin(AdvancedAdmin):
     list_filter = (OTCRequestUserFilter, 'type')
     list_permission_exclude_filters = ('id', 'user')
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().account.user
-        except Exception as e:
-            return None
+    def _get_user(self, obj):
+        if obj.account:
+            return obj.account.user
 
     @admin.display(description='user')
     def get_username(self, otc_request: models.OTCRequest):
@@ -457,13 +453,9 @@ class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     list_permission_exclude_filters = ('id', 'user')
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().account.user
-        except Exception as e:
-            return None
+    def _get_user(self, obj):
+        if obj.account:
+            return obj.account.user
 
     def get_queryset(self, request):
         return super(OTCTradeAdmin, self).get_queryset(request).prefetch_related('otc_request__account__user')
@@ -552,13 +544,9 @@ class TrxAdmin(AdvancedAdmin):
 
     list_permission_exclude_filters = ('id', 'user')
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().sender.account.user
-        except Exception as e:
-            return None
+    def _get_user(self, obj):
+        if obj.sender.account:
+            return obj.sender.account.user
 
     @admin.display(description='sender')
     def get_masked_sender(self, trx: Trx):
@@ -639,13 +627,9 @@ class WalletAdmin(AdvancedAdmin):
     actions = ('sync_wallet_lock', 'clear_debt')
     list_permission_exclude_filters = ('id', 'account')
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().account.user
-        except Exception as e:
-            return None
+    def _get_user(self, obj):
+        if obj.account:
+            return obj.account.user
 
     def get_queryset(self, request):
         qs = super(WalletAdmin, self).get_queryset(request)
@@ -743,13 +727,9 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     list_permission_exclude_filters = ('id', 'user')
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().receiver_account.account.user
-        except Exception as e:
-            return None
+    def _get_user(self, obj):
+        if obj.receiver_account.account:
+            return obj.receiver_account.account.user
 
     def save_model(self, request, obj: models.Transfer, form, change):
         if obj.id and obj.status == DONE:
@@ -1001,13 +981,9 @@ class PrizeAdmin(AdvancedAdmin):
     list_filter = ('achievement', 'redeemed', PrizeUserFilter)
     list_permission_exclude_filters = ('id', 'user')
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().account.user
-        except Exception as e:
-            return None
+    def _get_user(self, obj):
+        if obj.account:
+            return obj.account.user
 
     @admin.display(description='amount')
     def get_asset_amount(self, prize: Prize):

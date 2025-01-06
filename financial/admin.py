@@ -302,13 +302,8 @@ class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
 
     list_permission_exclude_filters = ('id', 'user')
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().user
-        except Exception as e:
-            return None
+    def _get_user(self, obj):
+        return obj.user
 
     @admin.display(description='مقدار')
     def get_amount(self, payment: Payment):
@@ -388,13 +383,8 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     list_permission_exclude_filters = ('id', 'user')
 
-    def _get_user(self, object_id):
-        if not object_id:
-            return None
-        try:
-            return self.model.objects.filter(pk=object_id).first().user
-        except Exception as e:
-            return None
+    def _get_user(self, obj):
+        return obj.user
 
     @admin.action(description='تایید خودکار شماره کارت', permissions=['change'])
     def verify_bank_cards(self, request, queryset):
