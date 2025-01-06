@@ -181,7 +181,7 @@ class ReserveWallet(models.Model):
     receiver = models.ForeignKey('ledger.Wallet', on_delete=models.PROTECT, related_name='reserved_wallet')
     amount = get_amount_field()
 
-    group_id = get_group_id_field(db_index=True)
+    group_id = get_group_id_field(unique=True)
 
     refund_completed = models.BooleanField(default=False)
 

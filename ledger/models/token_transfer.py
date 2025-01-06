@@ -25,7 +25,7 @@ class TokenTransfer(models.Model):
 
     status = get_status_field(default=PENDING)
 
-    group_id = get_group_id_field()
+    group_id = get_group_id_field(unique=True)
 
     description = models.TextField(blank=True)
 
