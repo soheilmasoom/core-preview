@@ -1,7 +1,9 @@
 from rest_framework import serializers
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
+from accounts.authentication import CustomJWTAuthentication, TelegramJWTAuthentication
 from accounts.models import Account
 from ledger.models.asset import CoinField
 
@@ -32,6 +34,7 @@ class BookmarkAssetsSerializer(serializers.ModelSerializer):
 
 class BookmarkAssetsViewSet(ModelViewSet):
     serializer_class = BookmarkAssetsSerializer
+    authentication_classes = [SessionAuthentication, CustomJWTAuthentication, TelegramJWTAuthentication]
 
     def list(self, request, *args, **kwargs):
         account = self.request.user.get_account()

@@ -7,8 +7,8 @@ from rest_framework.pagination import LimitOffsetPagination
 from accounts.models import LoginActivity, SystemConfig
 from accounts.permissions import IsBasicVerified
 from financial.models import BankCard, PaymentRequest, Payment
-from financial.models.bank_card import BankCardSerializer
 from financial.models.gateway import GatewayFailed
+from financial.serializers import BankCardSerializer
 from financial.utils.bank import get_bank_from_iban
 from ledger.utils.precision import humanize_number
 
@@ -47,7 +47,7 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
             suspended = user.get_fiat_deposits() < 1_000_000
 
         if suspended:
-            raise ValidationError('در حال حاضر امکان واریز ریال، فقط به صورت شناسه واریز وجود دارد. برای استفاده از این امکان از نسخه وب صرافی استفاده کنید.')
+            raise ValidationError('در حال حاضر امکان واریز ریال، فقط به صورت شناسه واریز وجود دارد.')
 
         if amount < gateway.min_deposit_amount:
             raise ValidationError('حداقل میزان واریز {} تومان است.'.format(humanize_number(gateway.min_deposit_amount)))
@@ -96,11 +96,11 @@ class PaymentHistorySerializer(serializers.ModelSerializer):
         payment_id_request = getattr(payment, 'paymentidrequest', None)
 
         if payment_id_request:
-            bank = get_bank_from_iban(payment_id_request.source_iban)
+            bank = get_bank_from_iban(payment_id_request.sender_iban)
 
             return {
                 'info': bank and bank.as_dict(),
-                'iban': payment_id_request.source_iban,
+                'iban': payment_id_request.sender_iban,
             }
 
     class Meta:

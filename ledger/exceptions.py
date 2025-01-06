@@ -1,3 +1,5 @@
+from rest_framework.exceptions import ValidationError
+
 
 class InsufficientBalance(Exception):
     pass
@@ -19,7 +21,7 @@ class SmallAmountTrade(Exception):
     pass
 
 
-class LargeAmountTrade(Exception):
+class LargeAmountTrade(ValidationError):
     pass
 
 

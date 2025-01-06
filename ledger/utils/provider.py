@@ -34,7 +34,7 @@ class ProviderRequester(BaseRequester):
     CACHE_PREFIX = 'provider'
 
     def get_base_url(self):
-        return config('PROVIDER_BASE_URL', default='https://provider.raastinwallet.com')
+        return config('PROVIDER_BASE_URL', default='https://prv.raastinwallet.com')
 
     def get_auth_token(self):
         return config('PROVIDER_TOKEN', '')
@@ -42,8 +42,13 @@ class ProviderRequester(BaseRequester):
     def __bool__(self):
         return bool(self.get_auth_token())
 
-    def get_market_info(self, asset: Asset, side: str) -> MarketInfo:
-        data = self.collect_api('/api/v1/market/', data={'coin': asset.symbol, 'side': side}, cache_timeout=60).data
+    def get_market_info(self, asset: Asset, side: str) -> Union[MarketInfo, None]:
+        resp = self.collect_api('/api/v1/market/', data={'coin': asset.symbol, 'side': side}, cache_timeout=60)
+        data = resp.get_success_data(raise_exp=False)
+
+        if not data:
+            return
+
         return MarketInfo(
             id=data['id'],
             coin=asset.symbol,
@@ -57,12 +62,6 @@ class ProviderRequester(BaseRequester):
             min_quantity=data['min_quantity'],
             max_quantity=data['max_quantity'],
         )
-
-    def get_spot_balance_map(self, exchange: str, market: str = 'trade') -> dict:
-        resp = self.collect_api('/api/v1/spot/balance/', data={'exchange': exchange, 'market': market})
-        if not resp.success:
-            return {}
-        return resp.data
 
     def get_futures_info(self, exchange: str) -> dict:
         resp = self.collect_api('/api/v1/futures/', timeout=30, data={'exchange': exchange})
@@ -96,6 +95,10 @@ class ProviderRequester(BaseRequester):
         side = BUY if buy_amount > 0 else SELL
 
         market_info = self.get_market_info(asset, side=side)
+
+        if not market_info:
+            logger.info('ignored due to no market_info fetched')
+            return
 
         step_size = market_info.step_size
 
@@ -133,35 +136,20 @@ class ProviderRequester(BaseRequester):
             logger.info('ignored due to small order')
             return
 
-        if market_info.type == 'spot' and side == SELL:
+        if market_info.type == 'spot' and side == SELL:  # todo: remove this
             balance_map = self.get_balances(market_info.id, market_info.type)['balances']
-            balance = Decimal(balance_map.get(asset.symbol, 0))
+            if balance_map:
+                balance = Decimal(balance_map.get(asset.symbol, 0))
 
-            if balance < order_amount:
-                diff = order_amount - balance
+                if balance < order_amount:
+                    diff = order_amount - balance
 
-                if diff * price < min_notional:
-                    order_amount = floor_precision(balance, round_digits)
+                    if diff * price < min_notional:
+                        order_amount = floor_precision(balance, round_digits)
 
-                    if order_amount * price < min_notional:
-                        logger.info('ignored due to small order')
-                        return
-
-        if side == BUY and market_info.base_coin == 'BUSD':
-            busd_balance = Decimal(self.get_spot_balance_map(market_info.exchange)['BUSD'])
-            needed_busd = order_amount * price
-
-            if needed_busd > busd_balance:
-                logger.info('providing busd for order')
-                to_buy_busd = max(math.ceil((needed_busd - busd_balance) * Decimal('1.01')), min_notional)
-
-                self.new_order(
-                    request_id=request_id,
-                    asset=Asset.get('BUSD'),
-                    side=BUY,
-                    amount=Decimal(to_buy_busd),
-                    scope='prv-base',
-                )
+                        if order_amount * price < min_notional:
+                            logger.info('ignored due to small order')
+                            return
 
         if hedge_price:
             hedge_price = floor_precision(hedge_price, min(-int(log10(market_info.tick_size)), 8))
@@ -245,17 +233,6 @@ class ProviderRequester(BaseRequester):
 
         return resp.data
 
-    def get_price(self, symbol: str, side: str, delay: int = 300, when: datetime = None) -> Decimal:
-        resp = self.collect_api('/api/v1/market/price/history/', data={
-            'symbol': symbol,
-            'side': side,
-            'delay': delay,
-            'datetime': when
-        })
-
-        if resp.success:
-            return Decimal(resp.data['price'])
-
     def get_avg_trade_price(self, symbol: str, start: datetime, end: datetime) -> Decimal:
         resp = self.collect_api('/api/v1/market/price/trade/avg/', data={
             'symbol': symbol,
@@ -316,10 +293,6 @@ class MockProviderRequester(ProviderRequester):
             max_quantity=Decimal(1000),
             min_notional=Decimal(10)
         )
-
-    def get_spot_balance_map(self, exchange: str, market: str = 'trade') -> dict:
-        self._collect_api('/')
-        return {}
 
     def get_futures_info(self, exchange: str) -> dict:
         self._collect_api('/')
@@ -404,8 +377,11 @@ class MockProviderRequester(ProviderRequester):
         ]
 
 
+_requester = ProviderRequester()  # to maintain tcp session
+
+
 def get_provider_requester() -> ProviderRequester:
     if settings.DEBUG_OR_TESTING_OR_STAGING:
         return MockProviderRequester()
     else:
-        return ProviderRequester()
+        return _requester

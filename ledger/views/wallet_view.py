@@ -1,13 +1,13 @@
 import logging
 from decimal import Decimal
 from uuid import uuid4
-from django.utils import timezone
 
 import django_filters
-from django.conf import settings
 from django.db.models import Q
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.generics import get_object_or_404
@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from _base.settings import SYSTEM_ACCOUNT_ID
+from accounts.authentication import CustomJWTAuthentication, TelegramJWTAuthentication
 from accounts.models import SystemConfig
 from accounts.views.jwt_views import DelegatedAccountMixin
 from ledger.models import Wallet, DepositAddress, NetworkAsset, Trx, Network, ConvertDust, ConvertDustTrx
@@ -26,7 +27,7 @@ from ledger.utils.fields import get_irt_market_asset_symbols
 from ledger.utils.precision import get_presentation_amount, get_symbol_presentation_price, \
     get_coin_presentation_balance
 from ledger.utils.price import get_prices, get_coins_symbols, get_last_prices, get_price
-from ledger.utils.wallet_pipeline import WalletPipeline, DECIMAL
+from ledger.utils.wallet_pipeline import WalletPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +191,8 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     memo_name_fa = serializers.CharField(source='network.memo_name_fa')
     memo_name = serializers.CharField(source='network.memo_name')
 
+    contract_link = serializers.SerializerMethodField()
+
     def get_can_deposit(self, network_asset: NetworkAsset):
         return network_asset.can_deposit_enabled()
 
@@ -221,11 +224,14 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
     def get_slow_withdraw(self, network_asset: NetworkAsset):
         return not network_asset.network.can_deposit
 
+    def get_contract_link(self, network_asset: NetworkAsset):
+        return network_asset.get_contract_link()
+
     class Meta:
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
                   'min_deposit', 'network_name', 'address_regex', 'memo_regex', 'withdraw_precision', 'need_memo', 'min_confirm',
                   'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name', 'deposit_need_memo',
-                  'withdraw_allow_memo', 'contract')
+                  'withdraw_allow_memo', 'contract', 'contract_link')
         model = NetworkAsset
 
 
@@ -259,6 +265,7 @@ class AssetRetrieveSerializer(AssetListSerializer):
 
 
 class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
+    authentication_classes = [SessionAuthentication, CustomJWTAuthentication, TelegramJWTAuthentication]
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -305,7 +312,7 @@ class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
             return AssetRetrieveSerializer
 
     def get_object(self):
-        return get_object_or_404(Asset, symbol=self.kwargs['symbol'].upper())
+        return get_object_or_404(Asset, symbol=self.kwargs['symbol'].upper(), enable=True)
 
     def get_queryset(self):
         account = self.request.user.get_account()
@@ -373,7 +380,7 @@ class WalletBalanceView(APIView, DelegatedAccountMixin):
         if market not in Wallet.MARKETS:
             return Response({'error': 'Invalid market'}, status=status.HTTP_400_BAD_REQUEST)
 
-        asset = get_object_or_404(Asset, symbol=kwargs['symbol'].upper())
+        asset = get_object_or_404(Asset, symbol=kwargs['symbol'].upper(), enable=True)
         account, variant = self.get_account_variant(self.request)
         wallet = asset.get_wallet(account, market=market, variant=variant)
 
@@ -515,32 +522,31 @@ class ConvertDustView(APIView):
 class ConvertDustViewV2(APIView):
     def get(self, *args):
         account = self.request.user.get_account()
+        irt = Asset.get(Asset.IRT)
 
-        irt_asset = Asset.get(Asset.IRT)
-
-        spot_wallets = list(Wallet.objects.filter(
+        spot_wallets = Wallet.objects.filter(
             account=account,
             market=Wallet.SPOT,
             balance__gt=0,
             variant__isnull=True
-        ).exclude(asset=irt_asset).prefetch_related('asset'))
+        ).exclude(asset=irt)
 
         allowed_conversion = []
 
-        for wallet in spot_wallets:
-            price = get_price(
-                wallet.asset.symbol + Asset.IRT,
-                side=BUY
-            )
-            usdt_irt_price = get_price(Asset.USDT + Asset.IRT, side=BUY)
+        coins = list(spot_wallets.values_list('asset__symbol', flat=True).distinct())
+        prices = get_prices([c + Asset.IRT for c in coins], side=BUY)
 
-            if price is None or usdt_irt_price is None:
+        dust_threshold = Decimal(SystemConfig.get_system_config().dust_convert_threshold)
+
+        for (coin, balance) in spot_wallets.values_list('asset__symbol', 'balance'):
+            price = prices.get(coin + Asset.IRT)
+            if price is None:
                 continue
 
-            asset_irt_balance = wallet.balance * price
+            asset_irt_balance = balance * price
 
-            if Decimal(0) < asset_irt_balance < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
-                allowed_conversion.append(wallet.asset.symbol)
+            if Decimal(0) < asset_irt_balance < dust_threshold:
+                allowed_conversion.append(coin)
 
         return Response({'symbols': allowed_conversion}, status=status.HTTP_200_OK)
 
@@ -706,10 +712,10 @@ class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
     converted_amount = serializers.SerializerMethodField()
     amount = serializers.SerializerMethodField()
 
-    def get_converted_amount(self, convert_dust: ConvertDust):
+    def get_converted_amount(self, convert_dust: ConvertDustTrx):
         return get_presentation_amount(convert_dust.converted_amount)
 
-    def get_amount(self, convert_dust: ConvertDust):
+    def get_amount(self, convert_dust: ConvertDustTrx):
         return get_presentation_amount(convert_dust.amount)
 
     class Meta:

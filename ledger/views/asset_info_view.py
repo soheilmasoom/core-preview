@@ -17,7 +17,7 @@ from ledger.models import Asset, NetworkAsset, CoinCategory, TokenDelist
 from ledger.models.asset import AssetSerializerMini
 from ledger.utils.coins_info import get_coins_info
 from ledger.utils.external_price import SELL
-from ledger.utils.fields import get_irt_market_asset_symbols
+from ledger.utils.fields import get_irt_market_asset_symbols, get_irt_margin_enable_coins
 from ledger.utils.precision import get_symbol_presentation_price, get_presentation_amount
 from ledger.utils.price import get_prices, get_coins_symbols, get_price
 from ledger.utils.provider import CoinInfo
@@ -44,6 +44,7 @@ class AssetSerializerBuilder(AssetSerializerMini):
     min_withdraw_amount = serializers.SerializerMethodField()
     min_withdraw_fee = serializers.SerializerMethodField()
     market_irt_enable = serializers.SerializerMethodField()
+    margin_enable = serializers.SerializerMethodField()
 
     can_deposit = serializers.SerializerMethodField()
     can_withdraw = serializers.SerializerMethodField()
@@ -60,6 +61,9 @@ class AssetSerializerBuilder(AssetSerializerMini):
 
     def get_market_irt_enable(self, asset: Asset):
         return asset.symbol in self.context['enable_irt_market_list']
+
+    def get_margin_enable(self, asset: Asset):
+        return asset.symbol in self.context['irt_margin_coins']
 
     def get_cap(self, asset) -> CoinInfo:
         return self.context['cap_info'].get(asset.symbol, CoinInfo())
@@ -159,7 +163,10 @@ class AssetSerializerBuilder(AssetSerializerMini):
         new_fields = []
 
         if prices:
-            new_fields = ['price_usdt', 'price_irt', 'trend_url', 'change_24h', 'volume_24h', 'market_irt_enable']
+            new_fields = [
+                'price_usdt', 'price_irt', 'trend_url', 'change_24h', 'volume_24h', 'market_irt_enable',
+                'margin_enable',
+            ]
 
         if extra_info:
             new_fields = [
@@ -187,6 +194,7 @@ class AssetsViewSet(ModelViewSet):
         ctx = super().get_serializer_context()
 
         ctx['enable_irt_market_list'] = get_irt_market_asset_symbols()
+        ctx['irt_margin_coins'] = get_irt_margin_enable_coins()
 
         if self.get_options('prices') or self.get_options('extra_info'):
             coins = list(self.get_queryset().values_list('symbol', flat=True))
@@ -230,24 +238,6 @@ class AssetsViewSet(ModelViewSet):
         else:
             queryset = Asset.live_objects.all()
 
-        if self.get_options('category'):
-            category_name = self.get_options('category')
-
-            if category_name == 'new-coins':
-                queryset = queryset.exclude(otc_status=Asset.COMING_SOON).order_by(F('publish_date').desc(nulls_last=True))[:100]
-                hide_coming_soon = False
-
-            elif category_name == 'coming-soon':
-                queryset = queryset.filter(otc_status=Asset.COMING_SOON).order_by('publish_date')
-                hide_coming_soon = False
-
-            else:
-                category = get_object_or_404(CoinCategory, name=category_name)
-                queryset = queryset.filter(coincategory=category)
-
-        if hide_coming_soon:
-            queryset = queryset.exclude(otc_status=Asset.COMING_SOON)
-
         if self.get_options('is_base'):
             queryset = queryset.filter(symbol__in=(Asset.IRT, Asset.USDT))
 
@@ -282,6 +272,26 @@ class AssetsViewSet(ModelViewSet):
                 networkasset__network__can_withdraw=True
             ).distinct()
 
+        if self.get_options('category'):
+            category_name = self.get_options('category')
+
+            if category_name == 'new-coins':
+                queryset = queryset.exclude(
+                    otc_status=Asset.COMING_SOON
+                ).order_by(F('publish_date').desc(nulls_last=True))[:100]  # no filter should apply after this
+                hide_coming_soon = False
+
+            elif category_name == 'coming-soon':
+                queryset = queryset.filter(otc_status=Asset.COMING_SOON).order_by('publish_date')
+                hide_coming_soon = False
+
+            else:
+                category = get_object_or_404(CoinCategory, name=category_name)
+                queryset = queryset.filter(coincategory=category)
+
+        if hide_coming_soon:
+            queryset = queryset.exclude(otc_status=Asset.COMING_SOON)
+
         return queryset
 
     def get_object(self):
@@ -293,6 +303,7 @@ class AssetsViewSet(ModelViewSet):
         return asset
 
 
+@method_decorator(cache_page(60), name='dispatch')
 class AssetOverviewAPIView(APIView):
     permission_classes = []
 
@@ -355,6 +366,7 @@ class AssetOverviewAPIView(APIView):
         return Response(self.get_coins())
 
 
+@method_decorator(cache_page(60), name='dispatch')
 class AssetOverviewAPIV2View(AssetOverviewAPIView):
     def get(self, request):
         coins = self.get_coins()
@@ -362,8 +374,8 @@ class AssetOverviewAPIV2View(AssetOverviewAPIView):
         data = []
 
         headers = {
-            'high_volume': 'بیشترین سود',
-            'high_24h_change': 'بیشترین حجم',
+            'high_24h_change': 'بیشترین سود',
+            'high_volume': 'بیشترین حجم',
             'newest': 'جدیدترین'
         }
 

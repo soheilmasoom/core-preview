@@ -136,15 +136,7 @@ def verify_name_by_bank_card(bank_card: BankCard, retry: int = 2) -> Union[bool,
                 return
 
         elif data.code == 'INVALID_DATA':
-            bank_card.verified = False
-            bank_card.reject_reason = data.code
-            bank_card.save(update_fields=['verified', 'reject_reason'])
-
-            logger.info('card verification failed', extra={
-                'bank_card': bank_card,
-                'code': resp.data.code,
-            })
-
+            bank_card.reject(data.code)
             bank_card.user.change_status(User.REJECTED)
             return False
 
@@ -187,7 +179,7 @@ def verify_bank_card(bank_card: BankCard, retry: int = 2) -> Union[bool, None]:
                 return False
 
             else:
-                verified = name_similarity(bank_card.user.get_legal_name(), bank_card.owner_name)
+                verified = name_similarity(bank_card.user.get_legal_name(), bank_card.owner_name).valid
                 if not verified:
                     bank_card.reject(BankCard.NAME_MISMATCH)
                 else:
@@ -226,8 +218,7 @@ DEPOSIT_STATUS_MAP = {
 def verify_bank_account(bank_account: BankAccount, retry: int = 2) -> Union[bool, None]:
     if BankAccount.live_objects.filter(iban=bank_account.iban, verified=True).exclude(id=bank_account.id).exists():
         logger.info('rejecting bank account because of duplication')
-        bank_account.verified = False
-        bank_account.save(update_fields=['verified'])
+        bank_account.reject(BankAccount.DUPLICATED)
         return False
 
     requester = JibitRequester(bank_account.user)
@@ -244,8 +235,7 @@ def verify_bank_account(bank_account: BankAccount, retry: int = 2) -> Union[bool
 
     if not iban_info.success:
         if iban_info.data.code == 'INVALID_IBAN':
-            bank_account.verified = False
-            bank_account.save(update_fields=['verified'])
+            bank_account.reject(iban_info.data.code)
             return False
 
         else:
@@ -267,7 +257,7 @@ def verify_bank_account(bank_account: BankAccount, retry: int = 2) -> Union[bool
     if bank_account.deposit_status == BankAccount.ACTIVE and len(owners) >= 1:
         owner = owners[0]
         owner_full_name = owner['firstName'] + ' ' + owner['lastName']
-        verified = name_similarity(owner_full_name, user.get_legal_name())
+        verified = name_similarity(owner_full_name, user.get_legal_name()).valid
 
     bank_account.verified = verified
     bank_account.save(update_fields=['verified', 'bank', 'deposit_address', 'deposit_status', 'owners'])

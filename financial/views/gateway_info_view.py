@@ -7,7 +7,7 @@ from rest_framework.generics import RetrieveAPIView
 
 from accounts.models import SystemConfig
 from accounts.models.user_feature_perm import UserFeaturePerm
-from financial.models import Gateway, Payment
+from financial.models import Gateway, Payment, PaymentIdGateway
 from financial.utils.ach import next_ach_clear_time
 from financial.utils.user import get_today_fiat_ipg_deposits
 from ledger.utils.fields import DONE
@@ -17,6 +17,7 @@ from ledger.utils.precision import get_presentation_amount
 class GatewaySerializer(serializers.ModelSerializer):
     next_ach_time = serializers.SerializerMethodField()
     pay_id_enable = serializers.SerializerMethodField()
+    pay_id_suspended = serializers.SerializerMethodField()
     max_deposit_amount = serializers.SerializerMethodField()
     ipg_fee_percent = serializers.SerializerMethodField()
 
@@ -52,10 +53,10 @@ class GatewaySerializer(serializers.ModelSerializer):
         return next_ach_clear_time()
 
     def get_pay_id_enable(self, gateway):
-        user = self.context['request'].user
+        return SystemConfig.get_system_config().pay_id_enable
 
-        gateway = Gateway.get_active_pay_id_deposit()
-        return bool(gateway) and (SystemConfig.get_system_config().open_pay_id_to_all or user.has_feature_perm(UserFeaturePerm.PAY_ID))
+    def get_pay_id_suspended(self, gateway):
+        return not PaymentIdGateway.live_objects.exists()
 
     def get_ipg_fee_percent(self, gateway: Gateway):
         return get_presentation_amount(gateway.ipg_fee_percent)
@@ -77,8 +78,8 @@ class GatewaySerializer(serializers.ModelSerializer):
     class Meta:
         model = Gateway
         fields = (
-            'id', 'min_deposit_amount', 'max_deposit_amount', 'next_ach_time', 'pay_id_enable', 'ipg_fee_min',
-            'ipg_fee_max', 'ipg_fee_percent', 'suspended',
+            'id', 'min_deposit_amount', 'max_deposit_amount', 'next_ach_time', 'pay_id_enable', 'pay_id_suspended',
+            'ipg_fee_min', 'ipg_fee_max', 'ipg_fee_percent', 'suspended',
             'withdraw_fee_min', 'withdraw_fee_max', 'withdraw_fee_percent', 'withdraw_fee_percent_after_max'
         )
 

@@ -6,9 +6,10 @@ from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import User, UserAuthRequest
 from accounts.tasks import basic_verify_user
-from accounts.utils.similarity import clean_persian_name
+from accounts.utils.similarity import clean_persian_word
 from analytics.utils.yandex import send_yandex_event
-from financial.models.bank_card import BankCard, BankCardSerializer
+from financial.models import BankCard
+from financial.serializers import BankCardSerializer
 from financial.validators import bank_card_pan_validator
 
 
@@ -94,12 +95,12 @@ class BasicInfoSerializer(serializers.ModelSerializer):
             to_update_user_fields.extend(['national_code', 'national_code_verified'])
 
         if not user.first_name_verified and validated_data.get('first_name'):
-            user.first_name = clean_persian_name(validated_data['first_name'])
+            user.first_name = clean_persian_word(validated_data['first_name'])
             user.first_name_verified = None
             to_update_user_fields.extend(['first_name', 'first_name_verified'])
 
         if not user.last_name_verified and validated_data.get('last_name'):
-            user.last_name = clean_persian_name(validated_data['last_name'])
+            user.last_name = clean_persian_word(validated_data['last_name'])
             user.last_name_verified = None
             to_update_user_fields.extend(['last_name', 'last_name_verified'])
 

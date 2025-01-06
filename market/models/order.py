@@ -18,7 +18,7 @@ from accounts.models import SystemConfig
 from ledger.models import Wallet
 from ledger.models.asset import Asset
 from ledger.models.balance_lock import BalanceLock
-from ledger.utils.external_price import BUY, SELL, SIDE_VERBOSE
+from ledger.utils.external_price import SIDE_VERBOSE, SHORT, BUY, SELL
 from ledger.utils.fields import get_amount_field, get_group_id_field
 from ledger.utils.precision import floor_precision, decimal_to_str
 from ledger.utils.wallet_pipeline import WalletPipeline
@@ -69,8 +69,8 @@ class Order(models.Model):
     MARKET_BORDER = Decimal('1e-2')
     MIN_IRT_ORDER_SIZE = Decimal('1e5')
     MIN_USDT_ORDER_SIZE = Decimal(5)
-    MAX_ORDER_DEPTH_SIZE_IRT = Decimal('9e7')
-    MAX_ORDER_DEPTH_SIZE_USDT = Decimal(2500)
+    MAX_ORDER_DEPTH_SIZE_IRT = Decimal('300_000_000')
+    MAX_ORDER_DEPTH_SIZE_USDT = Decimal(5000)
     MAKER_ORDERS_COUNT = 10 if settings.DEBUG_OR_TESTING else 50
 
     LIMIT, MARKET = 'limit', 'market'
@@ -117,7 +117,7 @@ class Order(models.Model):
     oco = models.ForeignKey(to='market.OCO', on_delete=models.SET_NULL, null=True, blank=True)
 
     is_open_position = models.BooleanField(null=True, default=None)
-    position = models.ForeignKey(to='ledger.MarginPosition', on_delete=models.CASCADE, null=True)
+    position = models.ForeignKey(to='ledger.MarginPosition', on_delete=models.SET_NULL, null=True, blank=True)
 
     time_in_force = models.CharField(
         max_length=6,
@@ -131,7 +131,6 @@ class Order(models.Model):
         return f'({self.id}) {self.symbol}-{self.side} [p:{self.price:.2f}] (u:{self.unfilled_amount:.5f}/{self.amount:.5f})'
 
     class Meta:
-        ordering = ['status']
         indexes = [
             models.Index(fields=['symbol', 'type', 'status', 'created']),
             models.Index(fields=['symbol', 'status']),
@@ -342,10 +341,25 @@ class Order(models.Model):
             if free_amount > Decimal('0.95') * lock_amount:
                 lock_amount = min(lock_amount, free_amount)
 
+        margin_locked_amount = 0
+        if self.position and not is_open_position and self.wallet.market == Wallet.MARGIN:
+            if self.side == BUY:
+                q = Sum(F('amount') * F('price') - F('filled_amount') * F('price'))
+            else:
+                q = Sum(F('amount') - F('filled_amount'))
+
+            margin_locked_amount = Order.open_objects.filter(
+                position=self.position,
+                side=self.side
+            ).exclude(id=self.id).annotate(
+                unfilled_amount=q
+            ).aggregate(sum=Sum('unfilled_amount'))['sum'] or 0
+
         to_lock_wallet.has_balance(
             lock_amount,
             raise_exception=True,
-            pipeline_balance_diff=pipeline.get_wallet_free_balance_diff(to_lock_wallet.id)
+            pipeline_balance_diff=pipeline.get_wallet_free_balance_diff(to_lock_wallet.id),
+            margin_locked_amount=margin_locked_amount
         )
 
         pipeline.new_lock(key=self.group_id, wallet=to_lock_wallet, amount=lock_amount, reason=WalletPipeline.TRADE)

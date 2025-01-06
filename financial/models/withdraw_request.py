@@ -10,17 +10,19 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import Account, EmailNotification, SmsNotification
 from accounts.models import Notification
 from accounts.tasks.send_sms import send_message_by_kavenegar
-from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_system_message
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
-from financial.models import BankAccount
+from financial.exceptions import NoChannelError, ProviderError
+from financial.models.base_transfer import BaseTransfer
+from financial.utils.interface import get_withdraw_channel
 from ledger.models import Trx, Asset
-from ledger.utils.fields import get_group_id_field, get_status_field, PENDING, CANCELED, DONE, REFUND, PROCESS
+from ledger.utils.fields import get_status_field, PENDING, CANCELED, DONE, REFUND, PROCESS, UNKNOWN
 from ledger.utils.fraud import verify_fiat_withdraw
 from ledger.utils.precision import humanize_number
 from ledger.utils.price import get_last_price, USDT_IRT
@@ -28,18 +30,6 @@ from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 logger = logging.getLogger(__name__)
-
-
-class BaseTransfer(models.Model):
-    created = models.DateTimeField(auto_now_add=True, db_index=True)
-    amount = models.PositiveIntegerField(verbose_name='میزان برداشت')
-    gateway = models.ForeignKey('Gateway', on_delete=models.PROTECT)
-    bank_account = models.ForeignKey(to=BankAccount, on_delete=models.PROTECT, verbose_name='حساب بانکی')
-    group_id = get_group_id_field(unique=True)
-    ref_id = models.CharField(max_length=128, blank=True, verbose_name='شماره پیگیری')
-
-    class Meta:
-        abstract = True
 
 
 class FiatWithdrawRequest(BaseTransfer):
@@ -92,7 +82,6 @@ class FiatWithdrawRequest(BaseTransfer):
             )
 
     def create_withdraw_request(self):
-        from financial.utils.withdraw import NoChannelError
 
         if not verify_fiat_withdraw(self):
             logger.info('Ignoring fiat withdraw due to not verified')
@@ -105,11 +94,8 @@ class FiatWithdrawRequest(BaseTransfer):
             self.save(update_fields=['status'])
             return
 
-        from financial.utils.withdraw import ProviderError
-        from financial.utils.withdraw import FiatWithdraw
-
         try:
-            api_handler = FiatWithdraw.get_withdraw_channel(self.gateway)
+            api_handler = get_withdraw_channel(self.gateway)
         except NoChannelError:
             return
 
@@ -117,25 +103,46 @@ class FiatWithdrawRequest(BaseTransfer):
 
         try:
             withdraw = api_handler.create_withdraw(transfer=self)
-            self.ref_id = withdraw.tracking_id
-            self.receive_datetime = withdraw.receive_datetime
-            self.comment = withdraw.message
+            to_update = ['withdraw_datetime', 'receive_datetime']
 
-            self.save(update_fields=['ref_id', 'withdraw_datetime', 'receive_datetime', 'comment'])
+            if withdraw.tracking_id is not None:
+                self.ref_id = withdraw.tracking_id
+                to_update.append('ref_id')
+
+            self.receive_datetime = withdraw.receive_datetime
+
+            self.add_comment(withdraw.message)
+
+            self.save(update_fields=to_update)
             self.change_status(withdraw.status)
 
         except ProviderError as e:
-            self.comment = str(e)
-            self.save(update_fields=['comment', 'withdraw_datetime'])
+            self.add_comment(str(e))
+            self.save(update_fields=['withdraw_datetime'])
 
-            send_system_message("Manual fiat withdraw", link=url_to_edit_object(self))
+            # send_system_message("Manual fiat withdraw", link=url_to_edit_object(self))
+
+    def add_comment(self, s: str):
+        if not s:
+            return
+
+        s = timezone.now().astimezone().strftime('%Y-%m-%d %H:%M:%S') + ' > ' + s
+
+        if self.comment:
+            self.comment += '\n' + s
+        else:
+            self.comment = s
+
+        self.save(update_fields=['comment'])
 
     def update_status(self):
-        from financial.utils.withdraw import FiatWithdraw
-
-        withdraw_handler = FiatWithdraw.get_withdraw_channel(self.gateway)
+        withdraw_handler = get_withdraw_channel(self.gateway)
         withdraw_data = withdraw_handler.get_withdraw_status(self)
         status = withdraw_data.status
+
+        if status == UNKNOWN:
+            logger.info(f'Updating fiat withdraw {self.id} ignored due to unknown status')
+            return
 
         logger.info(f'FiatRequest {self.id} status: {status}')
 
@@ -188,7 +195,7 @@ class FiatWithdrawRequest(BaseTransfer):
             }
         )
 
-    def refund(self):
+    def refund(self) -> bool:
         assert self.status == DONE
 
         content = render_to_string('accounts/notif/sms/withdraw_refund.txt', context={
@@ -214,30 +221,31 @@ class FiatWithdrawRequest(BaseTransfer):
             self.status = REFUND
             self.save(update_fields=['status'])
 
-    def change_status(self, new_status: str):
-        with transaction.atomic():
+        return True
+
+    def change_status(self, new_status: str) -> bool:
+        with WalletPipeline() as pipeline:  # type: WalletPipeline
             withdraw = FiatWithdrawRequest.objects.select_for_update().get(id=self.id)
 
             old_status = withdraw.status
 
-            if old_status == new_status:
-                return
+            if old_status in (CANCELED, DONE) or old_status == new_status:
+                return False
 
-            assert old_status not in (CANCELED, DONE)
+            if new_status in (CANCELED, DONE):
+                pipeline.release_lock(withdraw.group_id)
 
-            with WalletPipeline() as pipeline:  # type: WalletPipeline
-                if new_status in (CANCELED, DONE):
-                    pipeline.release_lock(withdraw.group_id)
+            if (old_status, new_status) in (PROCESS, PENDING):
+                withdraw.withdraw_datetime = timezone.now()
+            elif new_status == DONE:
+                withdraw.build_trx(pipeline)
 
-                if (old_status, new_status) in (PROCESS, PENDING):
-                    withdraw.withdraw_datetime = timezone.now()
-                elif new_status == DONE:
-                    withdraw.build_trx(pipeline)
-
-                withdraw.status = new_status
-                withdraw.save(update_fields=['status'])
+            withdraw.status = new_status
+            withdraw.save(update_fields=['status'])
 
         self.alert_withdraw_verify_status()
+
+        return True
 
     def clean(self):
         old = None

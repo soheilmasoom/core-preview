@@ -36,6 +36,7 @@ class Trx(models.Model):
     DELIST = 'dl'
     REBRAND = 'rb'
     TOKEN_TRANSFER = 'tt'
+    INTERNAL_TRANSFER = 'it'
 
     SCOPES_VERBOSE = {
         TRADE: 'trade',
@@ -63,7 +64,8 @@ class Trx(models.Model):
         MANUAL: 'manual',
         DELIST: 'delist',
         REBRAND: 'rebrand',
-        TOKEN_TRANSFER: 'token_transfer'
+        TOKEN_TRANSFER: 'token_transfer',
+        INTERNAL_TRANSFER: 'internal_transfer',
     }
 
     created = models.DateTimeField(auto_now_add=True)

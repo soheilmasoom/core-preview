@@ -22,8 +22,8 @@ MIN_PRECISION_AMOUNT = Decimal('0.00000001')
 class NetworkAsset(models.Model):
     history = HistoricalRecords()
 
-    asset = models.ForeignKey('ledger.Asset', on_delete=models.PROTECT)
-    network = models.ForeignKey('ledger.Network', on_delete=models.PROTECT)
+    asset = models.ForeignKey('ledger.Asset', on_delete=models.CASCADE)
+    network = models.ForeignKey('ledger.Network', on_delete=models.CASCADE)
 
     withdraw_fee = get_amount_field()
     withdraw_min = get_amount_field()
@@ -130,6 +130,9 @@ class NetworkAsset(models.Model):
             to_update_fields.extend(['withdraw_fee', 'withdraw_min', 'withdraw_max'])
 
         self.save(update_fields=to_update_fields)
+
+    def get_contract_link(self) -> str:
+        return self.network.contract_link.format(contract=self.contract)
 
     def update_info_with_blocklink(self):
         resp = get_blocklink_requester().get_contract_info(

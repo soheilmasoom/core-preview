@@ -4,6 +4,7 @@ from typing import Union
 from uuid import UUID
 
 from django.conf import settings
+from django.core.validators import RegexValidator
 from django.db import models
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
@@ -11,6 +12,7 @@ from simple_history.models import HistoricalRecords
 
 from ledger.models import Wallet
 from ledger.utils.fields import get_amount_field
+from ledger.validators import no_whitespace
 from multimedia.storage import PublicMediaStorage
 
 
@@ -41,15 +43,19 @@ class Asset(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
-    name = models.CharField(max_length=32, unique=True)
+    name = models.CharField(max_length=32, unique=True, validators=[no_whitespace])
     name_fa = models.CharField(max_length=32, blank=True)
     original_name_fa = models.CharField(max_length=32, blank=True)
 
-    symbol = models.CharField(max_length=16, unique=True, db_index=True)
-    original_symbol = models.CharField(max_length=16, blank=True)
+    symbol = models.CharField(
+        max_length=16,
+        unique=True,
+        db_index=True,
+        validators=[no_whitespace]
+    )
+    original_symbol = models.CharField(max_length=16, blank=True, validators=[no_whitespace])
 
     external_price_symbol = models.CharField(max_length=16, blank=True, db_index=True)
-
     trading_view_symbol = models.CharField(max_length=32, blank=True)
 
     logo = models.ImageField(blank=True, null=True, storage=PublicMediaStorage(), upload_to='coins/logo/')
@@ -61,6 +67,7 @@ class Asset(models.Model):
     pin_to_top = models.BooleanField(default=False)
 
     hedge = models.BooleanField(default=True)
+    do_care_hedge = models.BooleanField(default=True, help_text='To be affected in hedge calculations')
 
     spread_category = models.ForeignKey('ledger.AssetSpreadCategory', on_delete=models.SET_NULL, null=True, blank=True)
 
@@ -72,9 +79,11 @@ class Asset(models.Model):
         choices=[(s, s) for s in OTC_STATUSES],
     )
 
+    max_otc_irt_value = models.PositiveIntegerField(null=True, blank=True)
+
     price_page = models.BooleanField(default=True)
 
-    price_alert_chanel_sensitivity = get_amount_field(null=True)
+    price_alert_channel_sensitivity = get_amount_field(null=True)
 
     distribution_factor = models.FloatField(default=0)
 
@@ -83,6 +92,8 @@ class Asset(models.Model):
     margin_interest_fee = get_amount_field(default=Decimal('0.00015'))
 
     rebranded_to = models.OneToOneField('Asset', on_delete=models.SET_NULL, null=True, blank=True)
+
+    default_price_alert = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         ordering = ('-pin_to_top', '-trend', 'otc_status', 'order',)
@@ -202,6 +213,14 @@ class AssetSerializerMini(serializers.ModelSerializer):
 
 
 class CoinField(serializers.CharField):
+    def __init__(self, **kwargs):
+        coins = kwargs.pop('coins', None)
+        self.limit_to = {}
+        if coins:
+            self.limit_to['symbol__in'] = coins
+
+        super(CoinField, self).__init__(**kwargs)
+
     def to_representation(self, value: Asset):
         if value:
             return value.symbol
@@ -210,4 +229,4 @@ class CoinField(serializers.CharField):
         if not data:
             return
         else:
-            return get_object_or_404(Asset, symbol=data)
+            return get_object_or_404(Asset, symbol=data, enable=True, **self.limit_to)

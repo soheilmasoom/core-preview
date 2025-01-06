@@ -16,6 +16,7 @@ class SystemConfig(models.Model):
     history = HistoricalRecords()
 
     TRANSFER_STATUS = ALLOW, BAN, BAN_CRYPTO, BAN_FIAT = 'allow', 'ban', 'ban_crypto', 'ban_fiat'
+    OTP_SEND_MODES = OTP_KAVENEGAR, OTP_KAVENEGAR_EXCLUSIVE = 'kavenegar', 'kavenegar_exclusive'
 
     PLATFORM_TYPES = CRYPTO, GOLD = 'crypto', 'gold'
 
@@ -74,7 +75,21 @@ class SystemConfig(models.Model):
     min_fast_buy_irt = models.PositiveIntegerField(default=50_000)
     max_fast_buy_irt = models.PositiveIntegerField(default=25_000_000)
 
+    min_otc_irt = models.PositiveIntegerField(default=10_000)
+    max_otc_irt = models.PositiveIntegerField(default=1_000_000_000)
+
     check_national_code_for_widget = models.BooleanField(default=True)
+
+    telegram_bot_username = models.CharField(max_length=256, blank=True)
+
+    otp_send_mode = models.CharField(
+        max_length=32,
+        choices=[(m, m) for m in OTP_SEND_MODES],
+        default=OTP_KAVENEGAR
+    )
+
+    pay_id_enable = models.BooleanField(default=True)
+    pay_id_requests_process = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name

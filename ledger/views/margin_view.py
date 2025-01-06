@@ -68,7 +68,7 @@ class MarginInfoView(APIView):
 class AssetMarginInfoView(APIView):
     def get(self, request: Request, symbol):
         account = request.user.get_account()
-        asset = get_object_or_404(Asset, symbol=symbol.upper())
+        asset = get_object_or_404(Asset, symbol=symbol.upper(), enable=True)
 
         margin_info = MarginInfo.get(account)
 

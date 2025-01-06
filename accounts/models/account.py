@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Union
 
 from django.conf import settings
 from django.db import models
@@ -19,7 +18,7 @@ class Account(models.Model):
 
     name = models.CharField(max_length=16, blank=True)
 
-    user = models.OneToOneField('User', on_delete=models.CASCADE, null=True, blank=True)
+    user = models.OneToOneField('User', on_delete=models.SET_NULL, null=True, blank=True)
 
     type = models.CharField(
         max_length=1,
@@ -187,6 +186,7 @@ class Account(models.Model):
                 ~Q(balance=Decimal(0)),
                 account=self,
                 ).exists()
+
     class Meta:
         constraints = [
             UniqueConstraint(

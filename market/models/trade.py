@@ -36,7 +36,7 @@ class Trade(BaseTrade):
         db_index=True,
         default=MARKET
     )
-    position = models.ForeignKey(to='ledger.MarginPosition', on_delete=models.CASCADE, null=True)
+    position = models.ForeignKey(to='ledger.MarginPosition', on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         indexes = [
@@ -73,21 +73,6 @@ class Trade(BaseTrade):
             'price': decimal_to_str(floor_precision(self.price, self.symbol.tick_size)),
             'total': decimal_to_str(floor_precision(self.amount * self.price, self.symbol.tick_size)),
         }
-
-    @classmethod
-    def get_grouped_by_count(cls, symbol_id: int, interval_in_secs: int, start: datetime, end: datetime,
-                             count_back=None):
-        results = Trade.get_grouped_by_interval(symbol_id, interval_in_secs, start, end)
-        if not count_back:
-            return results
-        # TODO: clean it later.
-        try_count = 0
-        while try_count < 3 and len(results) < count_back:
-            try_count += 1
-            shift = (end - start) * try_count
-            older_results = Trade.get_grouped_by_interval(symbol_id, interval_in_secs, start - shift, end - shift)
-            results = older_results[(len(results)) - count_back:] + results
-        return results
 
     @classmethod
     def get_grouped_by_interval(cls, symbol_id: int, interval_in_secs: int, start: datetime, end: datetime):

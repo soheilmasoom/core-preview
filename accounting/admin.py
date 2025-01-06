@@ -1,6 +1,9 @@
+import operator
+from functools import reduce
+
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from simple_history.admin import SimpleHistoryAdmin
@@ -59,6 +62,7 @@ class VaultAdmin(admin.ModelAdmin):
     ordering = ('-real_value', )
     list_filter = ('market', 'type', 'should_be_updated')
     list_editable = ('expected_max_value', 'should_be_updated')
+    search_fields = ('name', )
 
     @admin.display(description='usdt')
     def get_usdt(self, vault: Vault):
@@ -77,7 +81,7 @@ class VaultAdmin(admin.ModelAdmin):
 @admin.register(VaultItem)
 class VaultItemAdmin(SimpleHistoryAdmin):
     list_display = ('coin', 'vault', 'balance', 'free', 'value_usdt', 'value_irt', 'expected_min_balance', 'updated')
-    search_fields = ('coin', 'vault__name')
+    search_fields = ('coin', )
     list_filter = ('vault__name', 'vault__type', 'vault__market')
     ordering = ('-value_usdt', )
     readonly_fields = ('value_usdt', 'value_irt')
@@ -87,6 +91,30 @@ class VaultItemAdmin(SimpleHistoryAdmin):
         obj.updated = timezone.now()
         super(VaultItemAdmin, self).save_model(request, obj, form, change)
         obj.vault.update_real_value(timezone.now())
+
+    def get_search_results(self, request, queryset, search_term):
+        if search_term:
+            # Fields that need exact matching
+            exact_fields = ['coin']
+
+            orm_lookups = []
+            for search_field in self.search_fields:
+                if search_field in exact_fields:
+                    orm_lookup = '{}__iexact'.format(search_field)
+                else:
+                    orm_lookup = '{}__icontains'.format(search_field)
+
+                orm_lookups.append(orm_lookup)
+
+            # Build Q objects
+            or_queries = [Q(**{orm_lookup: search_term}) for orm_lookup in orm_lookups]
+
+            # Combine queries with OR
+            queryset = queryset.filter(reduce(operator.or_, or_queries))
+        else:
+            queryset = queryset.all()
+
+        return queryset, False
 
 
 @admin.register(ReservedAsset)

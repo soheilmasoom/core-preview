@@ -61,7 +61,8 @@ class OTPSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         scope = validated_data['scope']
-        user = validated_data['user']
+        request = self.context['request']
+        user = request.user
 
         if scope in VerificationCode.RESTRICTED_SEND_SCOPES:
             raise ValidationError({'scope': f'restricted {scope}'})
@@ -81,7 +82,12 @@ class OTPSerializer(serializers.ModelSerializer):
         if not phone:
             raise ValidationError('امکان ارسال کد وجود ندارد.')
 
-        VerificationCode.send_otp_code(request=self.context['request'], phone=phone, scope=scope, user=user)
+        VerificationCode.send_otp_code(
+            request=request,
+            phone=phone,
+            scope=scope,
+            user=user
+        )
 
         return {}
 
@@ -99,6 +105,3 @@ class OTPSerializer(serializers.ModelSerializer):
 class SendOTPView(CreateAPIView):
     serializer_class = OTPSerializer
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)

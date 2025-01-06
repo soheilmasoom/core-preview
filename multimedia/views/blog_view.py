@@ -1,10 +1,15 @@
 import requests
+from decouple import config
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 
-def get_blog_summary(limit: int = 3):
-    url = f'https://blog.raastin.com/wp-json/wp/v2/posts?page=1&per_page={limit}&_fields=yoast_head_json'
+def get_blog_summary(limit: int = 3) -> list:
+    blog_url = config('WP_BLOG_URL', '')
+    if not blog_url:
+        return []
+
+    url = f'{blog_url}/wp-json/wp/v2/posts?page=1&per_page={limit}&_fields=yoast_head_json'
     resp = requests.get(url, timeout=10)
     posts = resp.json()
 

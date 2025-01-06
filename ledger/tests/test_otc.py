@@ -36,7 +36,6 @@ class OTCTestCase(TestCase):
         self.system_wallet_usdt = self.usdt.get_wallet(Account.system())
         self.system_wallet_btc = self.btc.get_wallet(Account.system())
 
-
     def test_market_otc_trade(self):
         self.wallet_usdt.airdrop(10)
 
@@ -53,7 +52,6 @@ class OTCTestCase(TestCase):
         resp = self.client.post('/api/v1/trade/otc/', {
             'token': token,
         })
-
 
         self.assertEqual(resp.status_code, 201)
 

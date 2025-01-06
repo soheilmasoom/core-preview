@@ -7,6 +7,7 @@ from typing import List
 from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.admin_guard.html_tags import admin_page_anchor
+from multimedia.models.faq_category import FAQ, FAQCategory
 from multimedia.utils.backoffice_content import BackofficeContent
 from multimedia.models import Image, PublicVideo, Banner, CoinPriceContent, Article, Section, File, Guide, GuideGroup
 from markdown import markdown
@@ -131,7 +132,31 @@ class SectionAdmin(SimpleHistoryAdmin):
     }
 
 
-class GuidTabularInline(admin.TabularInline):
+class FAQTabularInline(admin.TabularInline):
+    fields = ('get_id', 'title', 'answer', 'link', 'order')
+    readonly_fields = ('get_id', )
+    model = FAQ
+    extra = 1
+
+    @admin.display(description="id")
+    def get_id(self, faq: FAQ):
+        return admin_page_anchor(faq, faq.id or '')
+
+
+@admin.register(FAQCategory)
+class FAQCategoryAdmin(SimpleHistoryAdmin):
+    list_display = ('slug', 'title', 'type', 'get_items')
+    search_fields = ('slug', 'title',)
+    list_filter = ('type',)
+
+    inlines = (FAQTabularInline, )
+
+    @admin.display(description="Items")
+    def get_items(self, category: FAQCategory):
+        return category.faqs.count()
+
+
+class GuideTabularInline(admin.TabularInline):
     fields = ('get_id', 'title', 'image', 'description', 'link', 'video')
     readonly_fields = ('get_id', )
     model = Guide
@@ -139,7 +164,7 @@ class GuidTabularInline(admin.TabularInline):
 
     @admin.display(description="id")
     def get_id(self, guide: Guide):
-        return admin_page_anchor(guide.id or '', guide)
+        return admin_page_anchor(guide, guide.id or '')
 
 
 @admin.register(GuideGroup)
@@ -147,7 +172,7 @@ class GuideGroupAdmin(SimpleHistoryAdmin):
     list_display = ('slug', 'title',)
     search_fields = ('slug', 'title',)
 
-    inlines = (GuidTabularInline, )
+    inlines = (GuideTabularInline, )
 
 
 @admin.register(Guide)
@@ -155,4 +180,10 @@ class GuidAdmin(SimpleHistoryAdmin):
     list_display = ('title', 'group', 'order')
     list_filter = ('group', )
     search_fields = ('title', )
+    list_editable = ('order', )
+
+
+@admin.register(FAQ)
+class FAQAdmin(admin.ModelAdmin):
+    list_display = ('category', 'title', 'answer', 'created', 'order')
     list_editable = ('order', )

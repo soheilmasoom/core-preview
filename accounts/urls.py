@@ -72,7 +72,6 @@ urlpatterns = [
     path('quiz/passed/', views.QuizPassedView.as_view()),
 
     path('phone/init/', views.InitiateChangePhone.as_view()),
-
     path('phone/',   views.ChangePhoneView.as_view()),
 
     path('phone/change/', views.ChangePhoneBeforeVerifyView.as_view()),
@@ -121,4 +120,8 @@ urlpatterns = [
     path('notify/', views.NotifyView.as_view()),
 
     path('consultation/', views.ConsultationView.as_view()),
+
+    path('telegram/bot/start/', views.GenerateTelegramLinkAPIView.as_view()),
+    path('telegram/bot/user/', views.TelegramUserView.as_view()),
+    path('telegram/bot/login/', views.GenerateTelegramAccessTokenView.as_view()),
 ]

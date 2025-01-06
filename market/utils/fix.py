@@ -1,10 +1,10 @@
 import math
 from decimal import Decimal
 
+from accounts.models import SystemConfig
 from ledger.models import Asset
 from ledger.utils.precision import log10_round
 from ledger.utils.price import get_last_price
-from market.consts import OTC_MIN_HARD_FIAT_VALUE
 from market.models import PairSymbol
 
 
@@ -22,7 +22,9 @@ def create_symbols_for_asset(asset: Asset):
 
     price_irt = get_last_price(asset.symbol + Asset.IRT)
 
-    step_size = min(max(math.ceil(math.log10(price_irt / OTC_MIN_HARD_FIAT_VALUE)), 0), 8)
+    config = SystemConfig.get_system_config()
+
+    step_size = min(max(math.ceil(math.log10(price_irt / config.min_otc_irt)), 0), 8)
 
     for base_asset in base_assets:
         price = get_last_price(asset.symbol + base_asset.symbol)

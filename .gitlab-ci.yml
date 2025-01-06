@@ -12,6 +12,9 @@ raastin_build:
   script:
     - export IMAGE="registry.hamdocker.ir/raastin/core"
     - 'darkube build --push -t $IMAGE:$CI_COMMIT_SHORT_SHA -t $IMAGE:$CI_COMMIT_REF_SLUG'
+  retry:
+    max: 2
+
   stage: build
   tags:
     - hamravesh
@@ -34,6 +37,9 @@ deploy_staging:
     - 'darkube deploy --token ${STAGING_SOCKET_SYNCHRONIZER_DEPLOY_TOKEN}
       --app-id ${STAGING_SOCKET_SYNCHRONIZER_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
       --job-id "${CI_JOB_ID}"'
+  retry:
+    max: 2
+
   stage: deploy
   tags:
     - hamravesh
@@ -68,6 +74,9 @@ arzplus_deploy_production:
     - 'darkube deploy --token ${ARZPLUS_CELERY_MARGIN_DEPLOY_TOKEN}
       --app-id ${ARZPLUS_CELERY_MARGIN_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
       --job-id "${CI_JOB_ID}"'
+
+  retry:
+    max: 2
 
   stage: deploy
   tags:
@@ -104,6 +113,9 @@ raastin_deploy_production:
       --app-id ${RAASTIN_CELERY_MARGIN_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
       --job-id "${CI_JOB_ID}"'
 
+  retry:
+    max: 2
+
   stage: deploy
   tags:
     - hamravesh
@@ -139,6 +151,26 @@ tgju_deploy_production:
 #    - 'darkube deploy --token ${TGJU_CELERY_MARGIN_DEPLOY_TOKEN}
 #      --app-id ${TGJU_CELERY_MARGIN_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
 #      --job-id "${CI_JOB_ID}"'
+
+  retry:
+    max: 2
+
+  stage: deploy
+  tags:
+    - hamravesh
+
+
+ramzio_deploy_production:
+  image: hamravesh.hamdocker.ir/public/darkube-cli:v1.1
+  only:
+    refs:
+    - main
+  script:
+    - 'darkube deploy --token ${RAMZIO_API_DEPLOY_TOKEN}
+      --app-id ${RAMZIO_API_APP_ID}  --image-tag "${CI_COMMIT_SHORT_SHA}"
+      --job-id "${CI_JOB_ID}"'
+  retry:
+    max: 2
 
   stage: deploy
   tags:

@@ -11,6 +11,7 @@ class AddressKey(models.Model):
     memo = models.CharField(max_length=256, blank=True, db_index=True)
 
     deleted = models.BooleanField(default=False)
+    accept_deposits = models.BooleanField(null=True, blank=True)
 
     class Meta:
         unique_together = ('account', 'address', 'memo')

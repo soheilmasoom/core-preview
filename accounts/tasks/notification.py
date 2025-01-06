@@ -1,14 +1,18 @@
 import logging
+import time
 from datetime import timedelta
 
+import requests
 from celery import shared_task
+from django.conf import settings
 from django.utils import timezone
 
 from accounts.models import Notification, BulkNotification, User, EmailNotification
 from accounts.models.sms_notification import SmsNotification
 from accounts.tasks.send_sms import send_kavenegar_exclusive_sms
 from accounts.utils.email import send_email, EmailInfo
-from accounts.utils.push_notif import send_push_notif_to_user
+from accounts.utils.fcm_topic import fcm_topic_manager
+from accounts.utils.push_notif import send_push_notif_to_user, trigger_topic_subscriptions
 from ledger.utils.fields import PENDING, DONE
 
 logger = logging.getLogger(__name__)
@@ -34,6 +38,40 @@ def send_notifications_push():
 
         notif.push_status = Notification.PUSH_SENT
         notif.save(update_fields=['push_status'])
+
+
+@shared_task(queue='notif-manager')
+def send_telegram_bot_notifications():
+    if not settings.KAFTAR_TOKEN:
+        return
+
+    notifs_to_send = list(Notification.objects.filter(
+        sent_telegram=False,
+    ).order_by('id')[:1000])
+
+    data = {
+        "notifs": [
+            {
+                "id": notif.id,
+                "user_id": notif.recipient_id,
+                "title": notif.title,
+                "message": notif.message,
+                "link": notif.link,
+                "level": notif.level,
+                "image": notif.image,
+            }
+            for notif in notifs_to_send
+        ]
+    }
+    headers = {
+        "Authorization": f"Token {settings.KAFTAR_TOKEN}"
+    }
+    url = settings.KAFTAR_HOST_URL + '/api/v1/bot/notif/'
+
+    resp = requests.post(url, json=data, headers=headers)
+
+    if resp.ok:
+        Notification.objects.filter(id__in=[notif.id for notif in notifs_to_send]).update(sent_telegram=True)
 
 
 @shared_task(queue='notif-manager')
@@ -101,9 +139,12 @@ def send_email_notifications():
 
 
 @shared_task(queue='notif-manager')
-def manage_user_topic_subscription_task(user_id, topic, action):
-    from accounts.utils.push_notif import manage_user_topic_subscription
-    from accounts.models import User
+def trigger_fcm_topic_subscriptions(iterations: int = 1000):
+    for i in range(iterations):
+        pending_tokens = fcm_topic_manager.get_pending_tokens()
 
-    user = User.objects.get(id=user_id)
-    manage_user_topic_subscription(user, topic, action)
+        if not pending_tokens:
+            return
+
+        trigger_topic_subscriptions(pending_tokens)
+        time.sleep(0.1)

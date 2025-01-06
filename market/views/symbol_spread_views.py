@@ -1,3 +1,4 @@
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -8,10 +9,9 @@ from market.models import PairSymbol
 
 
 class SymbolSpreadListView(APIView):
-    authentication_classes = (CustomTokenAuthentication, )
+    authentication_classes = (CustomTokenAuthentication, SessionAuthentication)
 
     def get(self, request):
-
         spreads = []
 
         for symbol in PairSymbol.objects.filter(enable=True):

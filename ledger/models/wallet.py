@@ -80,13 +80,13 @@ class Wallet(models.Model):
         return self.balance - self.locked
 
     def has_balance(self, amount: Decimal, raise_exception: bool = False, check_system_wallets: bool = False,
-                    pipeline_balance_diff=Decimal(0)) -> bool:
+                    pipeline_balance_diff=Decimal(0), margin_locked_amount=Decimal(0)) -> bool:
         assert amount >= 0 and self.market not in Wallet.NEGATIVE_MARKETS
 
         if not check_system_wallets and not self.check_balance:
             can = True
         else:
-            can = self.get_free() + pipeline_balance_diff - amount >= -self.credit
+            can = self.get_free() + pipeline_balance_diff - amount - margin_locked_amount >= -self.credit
 
         if raise_exception and not can:
             raise InsufficientBalance()
@@ -181,7 +181,7 @@ class ReserveWallet(models.Model):
     receiver = models.ForeignKey('ledger.Wallet', on_delete=models.PROTECT, related_name='reserved_wallet')
     amount = get_amount_field()
 
-    group_id = get_group_id_field(db_index=True)
+    group_id = get_group_id_field(unique=True)
 
     refund_completed = models.BooleanField(default=False)
 

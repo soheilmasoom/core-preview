@@ -12,7 +12,7 @@ class ReportPermission(models.Model):
     referral_percent_revenue = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(100)])
 
     enable = models.BooleanField(default=True)
-    group_id = get_group_id_field()
+    group_id = get_group_id_field(unique=True)
 
     user = models.OneToOneField('accounts.User', on_delete=models.CASCADE, null=True, blank=True)
 

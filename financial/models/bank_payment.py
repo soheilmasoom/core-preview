@@ -12,7 +12,7 @@ class BankPaymentRequest(models.Model):
     DESTINATION_TYPES = JIBIMO, = 'jibimo',
 
     created = models.DateTimeField(auto_now_add=True)
-    group_id = get_group_id_field()
+    group_id = get_group_id_field(unique=True)
 
     destination_type = models.CharField(max_length=16, default=JIBIMO, choices=[(d, d) for d in DESTINATION_TYPES])
     amount = models.PositiveBigIntegerField()

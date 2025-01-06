@@ -21,7 +21,8 @@ class Network(models.Model):
     min_confirm = models.PositiveIntegerField(default=100, validators=[MinValueValidator(1)])
     unlock_confirm = models.PositiveIntegerField(default=0)
 
-    explorer_link = models.CharField(max_length=128, blank=True)
+    explorer_link = models.URLField(max_length=128, blank=True)
+    contract_link = models.URLField(max_length=128, blank=True)
     address_regex = models.CharField(max_length=128, blank=True)
     memo_regex = models.CharField(max_length=128, blank=True)
 

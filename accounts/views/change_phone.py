@@ -61,19 +61,26 @@ class InitiateChangePhone(APIView):
         return Response({'token': serializer.validated_data['token']})
 
 
-class UserVerifySerializer(serializers.Serializer):
+class ChangePhoneSerializer(serializers.Serializer):
     new_phone = serializers.CharField(write_only=True, validators=[mobile_number_validator], trim_whitespace=True)
     token = serializers.CharField(write_only=True)
 
     def validate(self, data):
         new_phone = data.get('new_phone')
         token = data.get('token')
+        request = self.context['request']
+
         token_verification = VerificationCode.get_by_token(token, VerificationCode.SCOPE_CHANGE_PHONE_INIT)
         if not token_verification:
             raise ValidationError('توکن نامعتبر است.')
 
         token_verification.set_token_used()
-        VerificationCode.send_otp_code(self.context['request'], new_phone, VerificationCode.SCOPE_NEW_PHONE)
+        VerificationCode.send_otp_code(
+            request=request,
+            phone=new_phone,
+            scope=VerificationCode.SCOPE_NEW_PHONE,
+            user=request.user
+        )
         return data
 
 
@@ -118,7 +125,7 @@ class NewPhoneVerifySerializer(serializers.Serializer):
 
 class ChangePhoneView(APIView):
     def post(self, request):
-        serializer = UserVerifySerializer(data=request.data, context={'request': request})
+        serializer = ChangePhoneSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         return Response({'msg': 'کد باموفقیت ارسال شد.'})
 

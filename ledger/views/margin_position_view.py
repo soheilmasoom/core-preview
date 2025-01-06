@@ -99,7 +99,10 @@ class MarginPositionSerializer(AssetSerializerMini):
         return amount
 
     def get_free_amount(self, instance):
-        return floor_precision(abs(instance.asset_wallet.get_free()), instance.symbol.step_size)
+        unfilled_amount = Order.open_objects.filter(position=instance, side=BUY if instance.side == SHORT else SELL).annotate(
+                unfilled_amount=Sum(F('amount') - F('filled_amount'))
+            ).aggregate(sum=Sum('unfilled_amount'))['sum'] or 0
+        return max(floor_precision(abs(instance.asset_wallet.get_free()) - unfilled_amount, instance.symbol.step_size), 0)
 
     def get_liquidation_price(self, instance):
         if instance.liquidation_price:
@@ -255,4 +258,3 @@ class MarginClosePositionView(APIView):
             return Response({'Error': 'به علت عمق کم بازار معامله انجام نشد'}, 400)
         except InsufficientBalance:
             return Response({'Error': 'Insufficient Balance'}, 400)
-        return Response(200)

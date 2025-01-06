@@ -31,3 +31,5 @@ from .convert_dust import ConvertDust
 from .convert_dust_trx import ConvertDustTrx
 from .network_schedule import NetworkSchedule
 from .transaction_history import TransactionHistory
+from .proxy_wallet import ProxyWallet
+from .cold_wallet import ColdWallet

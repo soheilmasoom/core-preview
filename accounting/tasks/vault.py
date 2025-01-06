@@ -18,7 +18,7 @@ def update_vaults():
     update_provider_vaults(now, prices)
     update_hot_wallet_vault(now, prices)
     update_gateway_vaults(now, prices)
-    update_bank_vaults(now, prices)
+    # update_bank_vaults(now, prices)
     update_cold_wallet_vaults(now, prices)
     update_service_vaults(now, prices)
 

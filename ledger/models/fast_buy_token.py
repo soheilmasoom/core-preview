@@ -5,6 +5,7 @@ from django.db import models
 from uuid import uuid4
 
 from accounts.models import Notification
+from accounts.models.sms_notification import SmsNotification
 from ledger.models import OTCRequest, Asset, Wallet, OTCTrade
 from ledger.utils.fields import DONE
 from ledger.utils.fields import get_amount_field
@@ -67,6 +68,12 @@ class FastBuyToken(models.Model):
                     message='خرید {} {} با موفقیت انجام شد.'.format(humanize_number(otc_request.amount), self.asset.name_fa),
                     level=Notification.SUCCESS
                 )
+                if payment.card_pan:
+                    SmsNotification.objects.create(
+                    recipient=self.user,
+                    content='خرید {} {} با موفقیت انجام شد.'.format(humanize_number(otc_request.amount), self.asset.name_fa)
+                    )
+
                 return otc_trade
 
             except Exception as exp:

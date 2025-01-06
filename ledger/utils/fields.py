@@ -7,13 +7,17 @@ from django.db import models
 from django.db.models import CharField
 from rest_framework import serializers
 
+from financial.utils.bank import BANK_INFO
+from financial.validators import iban_validator
 from ledger.utils.cache import cache_for
 from ledger.utils.precision import normalize_fraction, AMOUNT_PRECISION
 
-PROCESS, PENDING, CANCELED, DONE, REFUND = 'process', 'pending', 'canceled', 'done', 'refund'
+PROCESS, PENDING, CANCELED, DONE, REFUND, UNKNOWN = 'process', 'pending', 'canceled', 'done', 'refund', 'unknown'
 INIT, REJECTED, VERIFIED = 'init', 'rejected', 'verified'
 
 STATUS_CHOICES = (INIT, INIT), (PROCESS, PROCESS), (PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE)
+
+SEND_STATES = SEND_WAITING, SENT, SEND_CANCELED, SEND_EXPIRED = 'w', 's', 'c', 'e'
 
 
 def get_amount_field(default: Union[Decimal, int] = None, max_digits: int = None, decimal_places: int = None,
@@ -57,6 +61,17 @@ def get_status_field(default=PENDING):
     )
 
 
+def get_send_status_field(default=SEND_WAITING):
+    return models.CharField(
+        default=default,
+        max_length=8,
+        db_index=True,
+        choices=[
+            (SEND_WAITING, 'waiting'), (SENT, 'sent'), (SEND_CANCELED, 'canceled'), (SEND_EXPIRED, 'expired')
+        ]
+    )
+
+
 def get_verify_status_field(default=INIT):
     return models.CharField(
         default=default,
@@ -96,7 +111,36 @@ class SerializerDecimalField(serializers.DecimalField):
 def get_irt_market_asset_symbols():
     from market.models import PairSymbol
     from ledger.models import Asset
-    return set(PairSymbol.objects.select_related('base_asset').filter(
+    return set(PairSymbol.objects.filter(
         enable=True,
         base_asset__symbol=Asset.IRT
     ).values_list('asset__symbol', flat=True))
+
+
+@cache_for(time=600)
+def get_irt_margin_enable_coins():
+    from market.models import PairSymbol
+    from ledger.models import Asset
+    return set(PairSymbol.objects.filter(
+        enable=True,
+        base_asset__symbol=Asset.IRT,
+        margin_enable=True
+    ).values_list('asset__symbol', flat=True))
+
+
+def get_bank_field(blank: bool = False):
+    return models.CharField(
+        max_length=16,
+        choices=[(b.slug, b.name) for b in BANK_INFO],
+        blank=blank
+    )
+
+
+def get_iban_field(unique: bool = False, blank: bool = False):
+    return models.CharField(
+        max_length=26,
+        validators=[iban_validator],
+        verbose_name='شبا',
+        unique=unique,
+        blank=blank,
+    )

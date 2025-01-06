@@ -17,13 +17,12 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 from jalali_date.admin import ModelAdminJalaliMixin
 from simple_history.admin import SimpleHistoryAdmin
 
+from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object, admin_page_anchor
 from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationCode, \
     UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
     AttributionTracker, AppConfig, SpamPhone
 from accounts.models import UserComment, TrafficSource, Referral
-from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object, admin_page_anchor
-from financial.models.bank_card import BankCard, BankAccount
-from financial.models.payment import Payment
+from financial.models import BankCard, BankAccount, Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
 from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_crypto_withdraw_irt_value
 from gamify.utils import check_prize_achievements
@@ -31,7 +30,7 @@ from ledger.models import AddressKey
 from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx, MarginLeverage, MarginPosition
 from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.external_price import BUY
-from ledger.utils.fields import PENDING, DONE
+from ledger.utils.fields import PENDING, DONE, CANCELED
 from ledger.utils.precision import humanize_number
 from ledger.utils.report import export_transactions
 from market.models import Trade, ReferralTrx, Order
@@ -182,6 +181,15 @@ class ConsultationAdmin(admin.ModelAdmin):
     readonly_fields = ('created', 'user')
     list_filter = ('status',)
     search_fields = ('user__phone', 'user__email',)
+    actions = ('cancel_consultation', 'done_consultation',)
+
+    @admin.action(description='Reject', permissions=['change'])
+    def cancel_consultation(self, request, queryset):
+        queryset.filter(status=PENDING).update(status=CANCELED)
+
+    @admin.action(description='Accept', permissions=['change'])
+    def done_consultation(self, request, queryset):
+        queryset.filter(status=PENDING).update(status=DONE)
 
     @admin.display(description='description')
     def get_description(self, consultation: Consultation):
@@ -226,6 +234,7 @@ class BaseChangeAdmin(admin.ModelAdmin):
 class Forget2FAAdmin(BaseChangeAdmin):
     list_display = ('created', 'status', 'get_username',)
     readonly_fields = ('created', 'status', 'user', 'selfie_image',)
+    search_fields = ('user__phone', )
 
     @admin.display(description='user')
     def get_username(self, forget_2fa: Forget2FA):
@@ -238,6 +247,7 @@ class Forget2FAAdmin(BaseChangeAdmin):
 class ChangePhoneAdmin(BaseChangeAdmin):
     list_display = ('created', 'status', 'get_username', 'new_phone')
     readonly_fields = ('created', 'status', 'user', 'new_phone', 'selfie_image',)
+    search_fields = ('user__phone', )
 
     @admin.display(description='user')
     def get_username(self, change_phone: ChangePhone):
@@ -278,9 +288,11 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 @admin.register(User)
 class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, UserAdmin):
     default_edit_condition = M.superuser
+    list_per_page = 20
 
     fields_view_conditions = {
         'get_selfie_image': M.has_perm('accounts.can_view_user_selfie'),
+        'password': M.superuser
     }
 
     fields_edit_conditions = {
@@ -302,6 +314,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'can_withdraw': True,
         'can_withdraw_crypto': True,
         'can_trade': True,
+        'disable_trade_with_api': True,
         'show_margin': True,
         'withdraw_limit_whitelist': M.has_perm('accounts.manage_users'),
         'withdraw_risk_level_multiplier': M.has_perm('accounts.manage_users'),
@@ -323,7 +336,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
             'fields': (
                 'is_active', 'is_staff', 'is_superuser',
                 'groups', 'user_permissions', 'show_margin', 'show_strategy_bot', 'show_staking', 'show_community',
-                'can_trade', 'can_withdraw', 'can_withdraw_crypto',
+                'can_trade', 'disable_trade_with_api', 'can_withdraw', 'can_withdraw_crypto',
                 'withdraw_limit_whitelist', 'withdraw_risk_level_multiplier', 'custom_crypto_withdraw_ceil',
                 'ban_deposit_with_credit_bank_cards',
             ),
@@ -359,9 +372,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         )})
     )
 
-    list_display = ('get_date_joined_jalali', 'get_username', 'first_name', 'last_name', 'level', 'archived', 'get_user_reject_reason',
-                    'verify_status', 'get_promotion', 'get_source_medium', 'get_referrer_user', 'is_price_notif_on',
-                    'get_suspended',)
+    list_display = ('get_date_joined_jalali', 'get_username', 'first_name', 'last_name', 'level', 'archived',
+                    'get_user_reject_reason', 'verify_status', )
     list_filter = (
         'archived', ManualNameVerifyFilter, 'level', 'national_code_phone_verified', 'date_joined', 'verify_status', 'level_2_verify_datetime',
         'level_3_verify_datetime', UserStatusFilter, UserNationalCodeFilter, AnotherUserFilter, UserPendingStatusFilter,
@@ -392,9 +404,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     )
     preserve_filters = ('archived', )
 
-    search_fields = (
-        *UserAdmin.search_fields, 'national_code', 'phone', 'traffic_source__utm_source', 'traffic_source__utm_medium',
-    )
+    search_fields = ('national_code', 'phone', 'username')
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
@@ -522,12 +532,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     get_payment_address.short_description = 'واریزهای ریالی'
 
     def get_fill_order_address(self, user: User):
-        link = url_to_admin_list(Trade) + '?user={}'.format(user.id)
+        link = url_to_admin_list(Trade) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_fill_order_address.short_description = 'معاملات'
 
     def get_order_link(self, user: User):
-        link = url_to_admin_list(Order) + '?user={}'.format(user.id)
+        link = url_to_admin_list(Order) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_order_link.short_description = 'سفارشات'
 
@@ -538,7 +548,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     get_bots_link.short_description = 'لیست ربات‌ها'
 
     def get_open_order_address(self, user: User):
-        link = url_to_admin_list(Order) +'?status=new&user={}'.format(user.id)
+        link = url_to_admin_list(Order) +'?status__exact=new&account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
     get_open_order_address.short_description = 'سفارشات باز'
 
@@ -737,23 +747,24 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     def get_selfie_image(self, user: User):
         return mark_safe("<img src='%s' width='200' height='200' />" % user.selfie_image.get_url())
 
+    @admin.display(description='جایزه‌های دریافتی کاربر')
     def get_user_prizes(self, user: User):
-        prizes = user.get_account().prize_set.all()
+        prizes = user.get_account().prize_set.filter(fake=False).all()
         prize_list = []
         for prize in prizes:
             prize_list.append(str(prize.achievement))
         return prize_list
 
-    get_user_prizes.short_description = 'جایزه‌های دریافتی کاربر'
-
+    @admin.display(description='تعداد دوستان دعوت شده')
     def get_referred_count(self, user: User):
         referrals = Referral.objects.filter(owner=user.get_account())
         referred_count = 0
         for referral in referrals:
             referred_count += Account.objects.filter(referred_by=referral).count()
         return referred_count
-    get_referred_count.short_description = ' تعداد دوستان دعوت شده'
+    get_referred_count.short_description = ' '
 
+    @admin.display(description='درآمد حاصل از دعوت دوستان')
     def get_revenue_of_referral(self, user: User):
         referrals = Referral.objects.filter(owner=user.get_account())
         revenues = 0
@@ -762,15 +773,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
             revenues += int(revenue['total'] or 0)
         return revenues
 
-    get_revenue_of_referral.short_description = 'درآمد حاصل از کدهای دعوت ارسال شده به دوستان '
-
+    @admin.display(description='درآمد حاصل از کد دعوت استفاده شده')
     def get_revenue_of_referred(self, user: User):
         referral = user.get_account().referred_by
 
         revenue = ReferralTrx.objects.filter(referral=referral).aggregate(total=Sum('trader_amount'))
         return int(revenue['total'] or 0)
-
-    get_revenue_of_referred.short_description = 'درآمد حاصل از کد دعوت استفاده شده'
 
     @admin.display(description='زمان آپلود عکس سلفی')
     def get_selfie_image_uploaded(self, user: User):
@@ -992,11 +1000,11 @@ class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
 @admin.register(TrafficSource)
 class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
-                    'gps_adid', 'yandex_profile_id')
+    list_display = ('created', 'get_username', 'signup_source', 'utm_source', 'utm_medium', 'utm_campaign',
+                    'utm_content', 'utm_term', 'gps_adid', 'yandex_profile_id')
     search_fields = ('user__phone', 'gps_adid', 'ip', 'profile_id')
     readonly_fields = ('user', )
-    list_filter = ('utm_source', 'utm_medium')
+    list_filter = ('signup_source', 'utm_source', 'utm_medium')
 
     @admin.display(description='user')
     def get_username(self, traffic_source: TrafficSource):
@@ -1007,11 +1015,12 @@ class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
 @admin.register(LoginActivity)
 class LoginActivityAdmin(admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'ip', 'country', 'city', 'device', 'os', 'browser', 'device_type', 'is_sign_up',
-                    'native_app', 'session', 'get_jalali_created')
+    list_display = ('created', 'get_username', 'ip', 'country', 'city', 'device', 'os', 'browser', 'device_type',
+                    'is_sign_up', 'native_app', 'get_jalali_created')
     search_fields = ('user__phone', 'ip', 'session__session_key')
-    readonly_fields = ('user', 'session', 'ip', 'refresh_token', 'get_jalali_created')
+    readonly_fields = ('user', 'ip', 'refresh_token', 'get_jalali_created')
     list_filter = ('is_sign_up', 'native_app',)
+    exclude = ('session',)
 
     @admin.display(description='user')
     def get_username(self, login_activity: LoginActivity):
@@ -1026,9 +1035,9 @@ class LoginActivityAdmin(admin.ModelAdmin):
 
 @admin.register(FirebaseToken)
 class FirebaseTokenAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ['user', 'ip', 'native_app']
+    list_display = ['created', 'user', 'active', 'ip']
     readonly_fields = ('created', 'user')
-    list_filter = ('native_app', )
+    list_filter = ('active', 'native_app', )
     search_fields = ('user__phone', 'token')
 
 
@@ -1067,7 +1076,7 @@ class AppStatusAdmin(admin.ModelAdmin):
 
 @admin.register(VerificationCode)
 class VerificationCodeAdmin(admin.ModelAdmin):
-    list_display = ('created', 'phone', 'user', 'scope', 'expiration', 'code_used', 'ip', 'user_agent')
+    list_display = ('created', 'phone', 'user', 'scope', 'expiration', 'code_used', 'missed_checks', 'ip', 'user_agent')
     search_fields = ('user__phone', 'phone', 'user__first_name', 'user__last_name')
     list_filter = ('scope', )
     readonly_fields = ('user', )
@@ -1130,5 +1139,3 @@ class LevelGrantsAdmin(admin.ModelAdmin):
 class SpamPhoneAdmin(admin.ModelAdmin):
     list_display = ('created', 'phone')
     search_fields = ('phone', )
-
-

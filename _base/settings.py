@@ -28,12 +28,17 @@ BACKOFFICE_BASE_URL = config('BACKOFFICE_BASE_URL', default="")
 DEBUG_OR_TESTING = DEBUG or TESTING
 DEBUG_OR_TESTING_OR_STAGING = DEBUG or TESTING or STAGING
 
+GENERATE_FAKE_OTP = DEBUG_OR_TESTING_OR_STAGING
+
 HOST_URL = config('HOST_URL', default='https://api.raastin.com')
 PANEL_URL = config('PANEL_URL', default='https://raastin.com')
 
 CELERY_TASK_ALWAYS_EAGER = config('CELERY_ALWAYS_EAGER', default=False)
 
 KAFKA_HOST_URL = config('KAFKA_HOST_URL', default='')
+
+KAFTAR_HOST_URL = config('KAFTAR_HOST_URL', default='https://kaftar.raastinwallet.com')
+KAFTAR_TOKEN = config('KAFTAR_TOKEN', default='')
 
 BRAND_EN = config('BRAND_EN', default='')
 BRAND = config('BRAND', default='')
@@ -172,6 +177,7 @@ CACHES = {
 
 MARKET_CACHE_LOCATION = LOCAL_REDIS_URL + '/3'
 METRICS_CACHE_LOCATION = LOCAL_REDIS_URL + '/4'
+FCM_CACHE_LOCATION = LOCAL_REDIS_URL + '/5'
 
 PRICE_CACHE_LOCATION = config('PRICE_CACHE_LOCATION', default='redis://127.0.0.1:6379/2')
 MASTER_PRICE_CACHE_LOCATION = config('MASTER_PRICE_CACHE_LOCATION', default=None)

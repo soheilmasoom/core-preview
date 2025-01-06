@@ -11,15 +11,17 @@ from rest_framework.views import APIView
 from accounts.models import Account, LoginActivity, SystemConfig
 from accounts.permissions import can_trade
 from analytics.utils.yandex import send_yandex_event
-from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecrease, HedgeError, LargeAmountTrade, \
-    SmallDepthError, NoPriceError
+from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecrease, HedgeError, SmallDepthError, \
+    NoPriceError
 from ledger.models import OTCRequest, Asset, OTCTrade, Wallet
 from ledger.models.asset import InvalidAmount
 from ledger.models.otc_trade import TokenExpired
-from ledger.utils.external_price import BUY, SIDE_VERBOSE
+from ledger.utils.external_price import BUY, SIDE_VERBOSE, SELL
 from ledger.utils.fields import get_serializer_amount_field
 from ledger.utils.otc import get_trading_pair
+from ledger.utils.precision import get_precision
 from ledger.utils.precision import get_symbol_presentation_amount, get_symbol_presentation_price
+from market.models import PairSymbol
 
 TARGETED_TRADE_VALUE = Decimal(15e6)  # IRT
 
@@ -52,8 +54,8 @@ class OTCInfoView(APIView):
                 'amount': 'مقدار نامعتبر است.'
             })
 
-        from_asset = get_object_or_404(Asset, symbol=from_symbol)
-        to_asset = get_object_or_404(Asset, symbol=to_symbol)
+        from_asset = get_object_or_404(Asset, symbol=from_symbol, enable=True)
+        to_asset = get_object_or_404(Asset, symbol=to_symbol, enable=True)
 
         if from_amount and to_amount:
             raise ValidationError({'amount': 'دقیقا یکی از این مقادیر می‌تواند پر باشد.'})
@@ -179,6 +181,16 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         if not from_amount and not to_amount or (from_amount and to_amount):
             raise ValidationError('دقیقا یکی از مقادیر از و به باید وارد شود.')
 
+        pair = get_trading_pair(attrs['from_asset'], attrs['to_asset'], from_amount, to_amount)
+
+        symbol = PairSymbol.objects.get(asset=pair.coin, base_asset=pair.base)
+        if pair.side == BUY:
+            if (from_amount and get_precision(from_amount) > Asset.PRECISION) or (to_amount and get_precision(to_amount) > symbol.step_size):
+                raise ValidationError('اعشار درست وارد نشده است.')
+        elif pair.side == SELL:
+            if (from_amount and get_precision(from_amount) > symbol.step_size) or (to_amount and get_precision(to_amount) > Asset.PRECISION):
+                raise ValidationError('اعشار درست وارد نشده است.')
+
         return attrs
 
     def create(self, validated_data):
@@ -221,8 +233,6 @@ class OTCRequestSerializer(serializers.ModelSerializer):
             raise ValidationError(str(e))
         except SmallAmountTrade:
             raise ValidationError('ارزش معامله، باید حداقل ۱۰,۰۰۰ تومان باشد.')
-        except LargeAmountTrade:
-            raise ValidationError('ارزش معامله، حداکثر ۲ میلیارد تومان می‌تواند باشد.')
         except InsufficientBalance:
             raise ValidationError({'amount': 'موجودی کافی نیست.'})
         except SmallDepthError as exp:

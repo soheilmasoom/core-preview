@@ -4,7 +4,6 @@ from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import SimpleListFilter
-from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from django.utils.safestring import mark_safe
@@ -13,7 +12,6 @@ from import_export import resources
 from import_export.admin import ExportMixin
 from simple_history.admin import SimpleHistoryAdmin
 
-from accounting.models import VaultItem, Vault
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
 from accounts.admin_guard.html_tags import anchor_tag, admin_page_anchor
@@ -23,12 +21,11 @@ from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.validation import gregorian_to_jalali_datetime
 from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAccount, \
     FiatWithdrawRequest, ManualTransfer, MarketingSource, MarketingCost, PaymentIdRequest, PaymentId, \
-    GeneralBankAccount, BankPaymentRequest, BankPaymentRequestReceipt
+    PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt, BankStatement
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
-from financial.utils.payment_id_client import get_payment_id_client
-from financial.utils.response import get_file_response
-from financial.utils.withdraw import FiatWithdraw
+from financial.utils.interface import get_withdraw_channel
+from financial.payment_id import get_payment_id_client
 from gamify.utils import clone_model
 from ledger.utils.fields import PENDING, INIT, CANCELED, DONE, PROCESS
 from ledger.utils.precision import humanize_number
@@ -40,10 +37,10 @@ from ledger.utils.withdraw_verify import RiskFactor, get_risks_html
 class GatewayAdmin(admin.ModelAdmin):
     list_display = (
         'name', 'type', 'active', 'deposit_priority', 'withdraw_priority',
-        'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable', 'get_free', 'get_balance',
+        'ipg_deposit_enable', 'withdraw_enable', 'get_free', 'get_balance',
         'get_min_deposit_amount', 'get_max_deposit_amount', 'suspended', 'active_for_staff',
     )
-    list_editable = ('active', 'active_for_staff', 'ipg_deposit_enable', 'pay_id_deposit_enable', 'withdraw_enable',
+    list_editable = ('active', 'active_for_staff', 'ipg_deposit_enable', 'withdraw_enable',
                      'deposit_priority', 'withdraw_priority', 'suspended')
     readonly_fields = ('get_balance', 'get_min_deposit_amount', 'get_max_deposit_amount')
     list_filter = ('active', 'type', 'ipg_deposit_enable', 'withdraw_enable')
@@ -73,7 +70,7 @@ class GatewayAdmin(admin.ModelAdmin):
     def save_model(self, request, gateway: Gateway, form, change):
         encryption_fields = [
             'withdraw_api_key_encrypted', 'withdraw_api_secret_encrypted', 'withdraw_api_password_encrypted',
-            'withdraw_refresh_token_encrypted', 'deposit_api_secret_encrypted', 'payment_id_secret_encrypted'
+            'withdraw_refresh_token_encrypted', 'deposit_api_secret_encrypted',
         ]
 
         old_gateway = gateway.id and Gateway.objects.get(id=gateway.id)
@@ -82,7 +79,7 @@ class GatewayAdmin(admin.ModelAdmin):
             value = getattr(gateway, key)
 
             if getattr(old_gateway, key, '') != value:
-                setattr(gateway, key, encrypt(value))
+                setattr(gateway, key, encrypt(value.strip()))
 
         if gateway.ipg_callback_host.endswith('/'):
             gateway.ipg_callback_host = gateway.ipg_callback_host[:-1]
@@ -112,21 +109,21 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         ('اطلاعات درخواست', {'fields': ('created', 'status', 'amount', 'fee_amount', 'ref_id', 'bank_account',
          'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time', 'gateway', 'get_risks', 'accepted_by')}),
         ('اطلاعات کاربر', {'fields': (
-            'get_withdraw_request_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
+            'get_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
         )}),
         ('نظر', {'fields': ('comment',)})
     )
     list_filter = ('status', UserRialWithdrawRequestFilter, )
     ordering = ('-created', )
     readonly_fields = (
-        'created', 'bank_account', 'amount', 'get_withdraw_request_iban', 'fee_amount', 'get_risks',
+        'created', 'bank_account', 'amount', 'get_iban', 'fee_amount', 'get_risks',
         'get_withdraw_request_user', 'get_withdraw_request_receive_time', 'get_user', 'login_activity',
-        'get_withdraw_request_receive_time', 'get_withdraw_request_withdraw_time', 'status',
-        'accepted_by', 'accepted_datetime'
+        'get_withdraw_request_receive_time', 'get_withdraw_request_withdraw_time',
+        'accepted_by', 'accepted_datetime', 'get_gateway'
     )
     search_fields = ('bank_account__iban', 'bank_account__user__phone', 'group_id', 'ref_id')
 
-    list_display = ('created', 'bank_account', 'get_user', 'status', 'amount', 'gateway', 'ref_id')
+    list_display = ('created', 'get_iban', 'get_user', 'status', 'get_amount', 'get_gateway', 'ref_id')
 
     actions = ('accept_withdraw_request', 'reject_withdraw_request', 'refund', 'resend_withdraw_request',
                'change_to_active_gateway', 'accept_manual')
@@ -139,12 +136,19 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.display(description='کاربر')
     def get_user(self, withdraw_request: FiatWithdrawRequest):
-        link = url_to_edit_object(withdraw_request.bank_account.user)
-        return mark_safe("<span dir=\"ltr\"> <a href='%s'>%s</a></span>" % (link, withdraw_request.bank_account.user))
+        return admin_page_anchor(withdraw_request.bank_account.user)
 
     @admin.display(description='شماره شبا')
-    def get_withdraw_request_iban(self, withdraw_request: FiatWithdrawRequest):
-        return withdraw_request.bank_account.iban
+    def get_iban(self, withdraw_request: FiatWithdrawRequest):
+        return admin_page_anchor(withdraw_request.bank_account)
+
+    @admin.display(description='درگاه')
+    def get_gateway(self, withdraw_request: FiatWithdrawRequest):
+        return admin_page_anchor(withdraw_request.gateway)
+
+    @admin.display(description='مقدار')
+    def get_amount(self, withdraw_request: FiatWithdrawRequest):
+        return humanize_number(withdraw_request.amount)
 
     @admin.display(description='risks')
     def get_risks(self, transfer):
@@ -201,7 +205,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     @admin.action(description='آپدیت درگاه برداشت', permissions=['change'])
     def change_to_active_gateway(self, request, queryset):
         with transaction.atomic():
-            for withdraw in queryset.filter(status=PROCESS).select_for_update():  # type: FiatWithdrawRequest
+            for withdraw in queryset.filter(status__in=[INIT, PROCESS]).select_for_update():  # type: FiatWithdrawRequest
                 withdraw.gateway = Gateway.get_active_withdraw(withdraw.bank_account.iban, withdraw.amount)
                 withdraw.save(update_fields=['gateway'])
 
@@ -289,7 +293,7 @@ class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
     list_filter = (PaymentGatewayFilter, 'status', 'source', PaymentUserFilter, )
     search_fields = ('ref_id', 'paymentrequest__bank_card__card_pan', 'amount', 'paymentrequest__authority',
                      'user__phone', 'user__first_name', 'user__last_name')
-    readonly_fields = ('group_id', 'user', 'amount', 'fee', 'source')
+    readonly_fields = ('group_id',)
     actions = ('refund', 'accept_deposit', 'reject_deposit')
     raw_id_fields = ('user', )
 
@@ -362,6 +366,7 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_filter = (BankCardUserFilter, 'deleted', 'verified')
     search_fields = ('card_pan', )
     raw_id_fields = ('user',)
+    readonly_fields = ('verifier', 'reject_reason')
 
     actions = ['verify_bank_cards', 'verify_bank_cards_manual', 'reject_bank_cards_manual']
 
@@ -378,16 +383,14 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='تایید شماره کارت', permissions=['change'])
     def verify_bank_cards_manual(self, request, queryset):
-        for card in queryset:
-            card.verified = True
-            card.save()
+        for card in queryset:  # type: BankCard
+            card.accept(verifier=request.user)
             card.user.verify_level2_if_not()
 
     @admin.action(description='رد شماره کارت', permissions=['change'])
     def reject_bank_cards_manual(self, request, queryset):
-        for card in queryset:
-            card.verified = False
-            card.save()
+        for card in queryset:  # type: BankCard
+            card.reject(BankCard.MANUAL, request.user)
 
             user = card.user
 
@@ -424,7 +427,7 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_filter = (BankUserFilter, )
     search_fields = ('iban', )
     raw_id_fields = ('user', )
-    readonly_fields = ('rejected_by', )
+    readonly_fields = ('verifier', 'reject_reason')
 
     actions = ['verify_bank_accounts_manual', 'verify_bank_accounts_auto', 'reject_bank_accounts_manual']
 
@@ -448,10 +451,8 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='رد شماره شبا', permissions=['change'])
     def reject_bank_accounts_manual(self, request, queryset):
-        for bank_account in queryset:
-            bank_account.verified = False
-            bank_account.rejected_by = request.user
-            bank_account.save(update_fields=['verified', 'rejected_by'])
+        for bank_account in queryset:  # type: BankAccount
+            bank_account.reject(BankAccount.MANUAL, verifier=request.user)
 
             user = bank_account.user
 
@@ -503,7 +504,7 @@ class ManualTransferAdmin(admin.ModelAdmin):
         obj.save()
 
         if obj.status == ManualTransfer.PROCESS:
-            handler = FiatWithdraw.get_withdraw_channel(obj.gateway)
+            handler = get_withdraw_channel(obj.gateway)
 
             handler.create_withdraw(transfer=obj)
 
@@ -512,28 +513,40 @@ class ManualTransferAdmin(admin.ModelAdmin):
 
 
 @admin.register(PaymentIdRequest)
-class PaymentIdRequestAdmin(admin.ModelAdmin):
-    list_display = ('created', 'owner', 'status', 'amount', 'get_user', 'external_ref', 'source_iban', 'deposit_time')
-    search_fields = ('owner__pay_id', 'owner__user__phone', 'external_ref', 'source_iban', 'bank_ref', 'group_id')
-    list_filter = ('status',)
+class PaymentIdRequestAdmin(AdvancedAdmin):
+    list_display = ('created', 'owner', 'status', 'get_amount', 'get_user', 'sender_iban', 'deposit_time',
+                    'bank_transaction_id', 'bank_ref', 'external_ref')
+    search_fields = ('raw_payment_id', 'owner__user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id',
+                     'bank_transaction_id', 'sender_name', 'sender_identifier')
+    list_filter = ('status', 'kyt_passed')
     actions = ('accept', 'reject')
-    readonly_fields = ('owner', 'get_user', 'payment')
+    readonly_fields = ('get_user', 'payment', 'group_id')
+    raw_id_fields = ('owner', )
+
+    fields_edit_conditions = {
+        'owner': M.superuser | M.is_none('owner')
+    }
+
+    @admin.display(description='amount', ordering='amount')
+    def get_amount(self, obj: PaymentIdRequest):
+        return humanize_number(obj.amount)
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
-        for payment_request in queryset.filter(status=PENDING):
+        for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):
             payment_request.accept()
 
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
-        for payment_request in queryset.filter(status=PENDING):
+        for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):  # type: PaymentIdRequest
             payment_request.reject()
 
     @admin.display(description='user')
     def get_user(self, payment_id_request: PaymentIdRequest):
-        user = payment_id_request.owner.user
-        link = url_to_edit_object(user)
-        return mark_safe("<a href='%s'>%s</a>" % (link, user.get_full_name()))
+        if payment_id_request.owner:
+            user = payment_id_request.owner.user
+            link = url_to_edit_object(user)
+            return mark_safe("<a href='%s'>%s</a>" % (link, user.get_full_name()))
 
 
 @admin.register(PaymentId)
@@ -580,9 +593,26 @@ class PaymentIdAdmin(AdvancedAdmin):
             obj.save()
 
 
-@admin.register(GeneralBankAccount)
-class GeneralBankAccountAdmin(admin.ModelAdmin):
-    list_display = ('created', 'name', 'iban', 'bank', 'deposit_address')
+@admin.register(PaymentIdGateway)
+class PaymentIdGatewayAdmin(admin.ModelAdmin):
+    list_display = ('title', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'priority')
+    ordering = ('-active', 'priority')
+    list_editable = ('active', 'priority')
+
+    def save_model(self, request, gateway: PaymentIdGateway, form, change):
+        encryption_fields = [
+            'payment_id_secret_encrypted',
+        ]
+
+        old_gateway = gateway.id and PaymentIdGateway.objects.get(id=gateway.id)
+
+        for key in encryption_fields:
+            value = getattr(gateway, key)
+
+            if getattr(old_gateway, key, '') != value:
+                setattr(gateway, key, encrypt(value))
+
+        gateway.save()
 
 
 class BankPaymentRequestAcceptFilter(SimpleListFilter):
@@ -680,3 +710,16 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
             q.ref_id = ''
             q.destination_id = None
             clone_model(q)
+
+
+@admin.register(BankStatement)
+class BankStatementAdmin(admin.ModelAdmin):
+    list_display = ('created', 'gateway', 'title', 'status')
+    list_filter = ('gateway', 'status')
+    readonly_fields = ('status', )
+    actions = ('process', )
+
+    @admin.action(description='Process')
+    def process(self, request, queryset):
+        for statement in queryset:
+            statement.process_file()

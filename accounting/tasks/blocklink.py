@@ -16,6 +16,7 @@ def blocklink_income_fetcher(start: datetime, end: datetime):
     result_list = list(Transfer.objects.filter(
         finished_datetime__range=(start, end),
         deposit=False,
+        network__isnull=False
     ).values('wallet__asset__symbol', 'network__symbol').annotate(
         total=Sum(F('usdt_value') / (F('amount') + F('fee_amount')) * F('fee_amount'))
     ))

@@ -6,9 +6,8 @@ from typing import Dict, Tuple
 from decouple import config
 from django.conf import settings
 
-from ledger.exceptions import FetchError
-from accounts.models import Account
 from accounts.verifiers.jibit import Response
+from ledger.exceptions import FetchError
 from ledger.utils.base_requester import BaseRequester
 
 __all__ = ('get_blocklink_requester', )
@@ -24,13 +23,10 @@ class BlocklinkRequester(BaseRequester):
     def get_auth_token(self):
         return config('BLOCKLINK_TOKEN')
 
-    def create_wallet(self, account: Account, arch: str) -> Response:
+    def create_wallet(self, arch: str, tag: str) -> Response:
         data = {
             'architecture': arch,
-            'tag': '{brand}-base-{account_id}'.format(
-                brand=settings.BRAND_EN.lower(),
-                account_id=account.id,
-            )
+            'tag': tag
         }
 
         return self.collect_api(
@@ -124,9 +120,10 @@ class BlocklinkRequester(BaseRequester):
             data=data
         )
 
-    def terminate_withdraw(self, transfer_id) -> Response:
+    def terminate_withdraw(self, transfer_id, is_manual:bool = False) -> Response:
         data = {
             'requester_id': transfer_id,
+            'is_manual': is_manual
         }
 
         return self.collect_api(
@@ -153,8 +150,31 @@ class BlocklinkRequester(BaseRequester):
             }
         )
 
+    def submit_cold_wallet(self, arch:str, address:str):
+        data = {
+            'architecture': arch,
+            'address': address
+        }
+
+        status_code = self.collect_api(
+            path='/api/v1/tracker/cold-wallets/submit/',
+            method='POST',
+            data=data
+        ).status_code
+
+        return status_code and status_code in [200, 201]
+
+    def get_cold_wallets(self):
+        return self.collect_api(
+            path='/api/v1/tracker/cold-wallets/',
+            method='GET',
+        )
+
 
 class MockBlocklinkRequester(BlocklinkRequester):
+    def collect_api(self, path: str, method: str = 'GET', data: dict = None, cache_timeout: int = None, timeout: float = ...) -> Response:
+        pass
+
     def get_network_arch(self, network: str) -> str:
         if network == 'XRP':
             return 'XRP'
@@ -162,8 +182,11 @@ class MockBlocklinkRequester(BlocklinkRequester):
             return 'ETH'
 
 
+_requester = BlocklinkRequester()  # to maintain tcp session
+
+
 def get_blocklink_requester() -> BlocklinkRequester:
     if settings.DEBUG_OR_TESTING:
         return MockBlocklinkRequester()
     else:
-        return BlocklinkRequester()
+        return _requester

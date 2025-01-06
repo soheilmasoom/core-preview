@@ -164,6 +164,7 @@ class User(AbstractUser):
     can_withdraw = models.BooleanField(default=True)
     can_withdraw_crypto = models.BooleanField(default=True)
     can_trade = models.BooleanField(default=True)
+    disable_trade_with_api = models.BooleanField(default=False)
 
     withdraw_limit_whitelist = models.BooleanField(default=False)
     withdraw_risk_level_multiplier = models.PositiveIntegerField(
@@ -182,6 +183,10 @@ class User(AbstractUser):
     suspension_reason = models.CharField(max_length=128, blank=True, null=True)
 
     ban_deposit_with_credit_bank_cards = models.BooleanField(default=False)
+
+    send_notifs_to_telegram_bot = models.BooleanField(default=False)
+
+    ban_sms_otp_until = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         name = get_masked_phone(self.username)
@@ -269,7 +274,7 @@ class User(AbstractUser):
 
     @property
     def kyc_bank_card(self):
-        return self.bankcard_set.filter(kyc=True).first()
+        return self.bankcard_set.filter(kyc=True, deleted=False).first()
 
     def get_verify_weight(self) -> int:
         from accounts.models import UserAuthRequest
@@ -295,6 +300,7 @@ class User(AbstractUser):
             ("manage_users", "Manage Users Info"),
             ("list_user", "Can list user"),
             ("can_view_user_selfie", "Can view user selfie"),
+            ("can_generate_telegram_jwt_token", "Can generate telegram jwt token"),
         ]
 
     def change_status(self, status: str, reason: str = ''):
@@ -479,6 +485,9 @@ class User(AbstractUser):
             for card in cards.filter(type=''):
                 card.verified = None
                 card.save(update_fields=['verified'])
+
+    def does_sms_otp_banned(self) -> bool:
+        return self.ban_sms_otp_until and timezone.now() <= self.ban_sms_otp_until
 
 
 @receiver(post_save, sender=User)

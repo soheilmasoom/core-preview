@@ -15,9 +15,7 @@ from ledger.utils.precision import floor_precision, ceil_precision
 USDT_IRT = 'USDTIRT'
 
 
-def _get_external_last_prices(coins: Union[list, set], allow_stale: bool = False) -> Dict[str, Decimal]:
-    allow_stale = True
-
+def _get_external_last_prices(coins: Union[list, set], allow_stale: bool = True) -> Dict[str, Decimal]:
     prices = fetch_external_redis_prices(coins, allow_stale=allow_stale)
 
     last_prices = {}
@@ -50,8 +48,6 @@ def get_all_otc_spreads(side):
 
 
 def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict[str, Decimal]:
-    allow_stale = True
-
     assert side in (BUY, SELL)
     from market.models import Order
 
@@ -78,7 +74,7 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
     ).values('symbol__name').annotate(p=annotate_func('price')).values_list('symbol__name', 'p'))
 
     if USDT_IRT not in prices:
-        prices[USDT_IRT] = fetch_external_price_by_symbol(USDT_IRT, side=side)
+        prices[USDT_IRT] = fetch_external_price_by_symbol(USDT_IRT, side=side, allow_stale=allow_stale)
 
     if len(symbols) != len(prices):
         otc_spreads = get_all_otc_spreads(side)
@@ -122,13 +118,13 @@ def get_last_prices(symbols: List[str]):
     ).values_list('name', 'last_trade_price'))
 
     if USDT_IRT not in last_prices:
-        last_prices[USDT_IRT] = fetch_external_price_by_symbol(USDT_IRT, side=SELL)
+        last_prices[USDT_IRT] = fetch_external_price_by_symbol(USDT_IRT, side=SELL, allow_stale=True)
 
     remaining_symbols = set(symbols) - set(last_prices)
 
     if remaining_symbols:
         remaining_coins = set([split_symbol(symbol)[0] for symbol in remaining_symbols])
-        external_prices = _get_external_last_prices(remaining_coins, allow_stale=True)
+        external_prices = _get_external_last_prices(remaining_coins)
 
         for symbol in remaining_symbols:
             coin, base = split_symbol(symbol)
@@ -172,8 +168,6 @@ def get_coins_symbols(coins: List[str], only_base: str = None) -> List[str]:
 
 
 def get_price(symbol: str, side: str, allow_stale: bool = False):
-    allow_stale = True
-
     prices = get_prices([symbol], side, allow_stale)
     return prices.get(symbol)
 

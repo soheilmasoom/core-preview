@@ -9,7 +9,8 @@ from accounting.models.vault import VaultData, AssetPrice, VaultItem, ReservedAs
 from accounts.tasks.send_sms import get_kavenegar_client
 from accounts.verifiers.utils import ServerError
 from financial.models import Gateway
-from financial.utils.withdraw import FiatWithdraw
+
+from financial.utils.interface import get_withdraw_channel
 from ledger.exceptions import FetchError
 from ledger.models import Asset
 from ledger.utils.blocklink import get_blocklink_requester
@@ -132,7 +133,7 @@ def update_hot_wallet_vault(now: datetime, prices: dict):
 
 
 def update_gateway_vaults(now: datetime, prices: dict):
-    for gateway in Gateway.objects.exclude(withdraw_api_secret_encrypted=''):
+    for gateway in Gateway.objects.filter(active=True).exclude(withdraw_api_secret_encrypted=''):
         vault, _ = Vault.objects.get_or_create(
             type=Vault.GATEWAY,
             market=Vault.SPOT,
@@ -143,7 +144,7 @@ def update_gateway_vaults(now: datetime, prices: dict):
             }
         )
 
-        handler = FiatWithdraw.get_withdraw_channel(gateway)
+        handler = get_withdraw_channel(gateway)
 
         try:
             wallet = handler.get_wallet_data()

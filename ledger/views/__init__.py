@@ -28,4 +28,5 @@ from .withdraw_view import WithdrawView, FeedbackCategories, WithdrawFeedbackVie
 from .withdraw_viewset import WithdrawViewSet
 from .manaul_withdraw_request_view import ManualWithdrawUpdateView
 from .widget import FastBuyWidgetView, WidgetConfigView
+from .asset_alert_rule_view import AssetAlertRuleViewSet
 from .transaction_history_view import TransactionHistoryView, TransactionDetailView

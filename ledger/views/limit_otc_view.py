@@ -3,6 +3,7 @@ import logging
 from rest_framework import serializers
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -22,17 +23,9 @@ class CancelLimitOTCView(APIView):
         serializer.is_valid(raise_exception=True)
         cancel_id = serializer.data.get('id')
 
-        try:
-            cancel_otc = OTCTrade.get_untriggered_otc_trade_queryset().filter(id=cancel_id).first()
-            if cancel_otc:
-                cancel_otc.reject(is_user_canceled=True)
-            else:
-                return Response({"message": 'not found'}, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.exception(f'failed cancel limit otc due to {e}', extra={
-                'e': e
-            })
-            return Response({"message": 'failed'}, status.HTTP_400_BAD_REQUEST)
+        account = self.request.user.get_account()
+        otc = get_object_or_404(OTCTrade, status=OTCTrade.PENDING, id=cancel_id, otc_request__account=account)
+        otc.reject(is_user_canceled=True)
 
         return Response({'message': 'done'}, status=status.HTTP_200_OK)
 

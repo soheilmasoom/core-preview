@@ -25,7 +25,6 @@ from .shahkar_view import ShahkarCheckView, ShahkarStatusView
 from .attribution_view import AttributionAPIView
 
 from .auht2fa_view import TOTPView, Forget2FAView, Forget2FAInitView
-from .health_view import HealthView, PriceHealthView
 from .user_digest_view import UserDigestView
 from .feedback_view import UserFeedbackView
 
@@ -39,3 +38,5 @@ from .system_config_view import SystemConfigView
 from .signup_widget_view import SignupWidgetView, InitiateSignupWidgetView
 from .user_widget_view import UserWidgetView
 from .set_password import SetPasswordView
+
+from .telegram_view import GenerateTelegramLinkAPIView, TelegramUserView, GenerateTelegramAccessTokenView

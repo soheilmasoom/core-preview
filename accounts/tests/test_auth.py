@@ -3,7 +3,6 @@ import json
 from django.test import TestCase
 
 from accounts.models import VerificationCode
-from ledger.models import AssetAlert
 
 
 class AuthTests(TestCase):

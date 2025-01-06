@@ -27,6 +27,7 @@ from market.serializers.stop_loss_serializer import StopLossSerializer
 
 logger = logging.getLogger(__name__)
 
+
 class OrderFilter(django_filters.FilterSet):
     symbol = django_filters.CharFilter(field_name='symbol__name', lookup_expr='iexact')
     market = django_filters.CharFilter(field_name='wallet__market')
