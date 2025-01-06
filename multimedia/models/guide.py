@@ -5,10 +5,16 @@ from multimedia.storage import PublicMediaStorage
 
 
 class GuideGroup(models.Model):
+    TYPES = EDU, FAST = 'edu', 'fast'
+
     history = HistoricalRecords()
 
     title = models.CharField(max_length=256)
-    slug = models.SlugField(max_length=256, unique=True, db_index=True)
+    slug = models.SlugField(max_length=256, unique=True)
+    type = models.CharField(max_length=8, default=EDU, choices=[
+        (EDU, 'آموزشی'),
+        (FAST, 'تصویر محور'),
+    ])
 
     def __str__(self):
         return self.slug
@@ -16,6 +22,24 @@ class GuideGroup(models.Model):
     class Meta:
         verbose_name = 'دسته راهنما'
         verbose_name_plural = 'دسته راهنما‌ها'
+
+
+class GuideVariant(models.Model):
+    history = HistoricalRecords()
+
+    title = models.CharField(max_length=256)
+    slug = models.SlugField(max_length=256, unique=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    group = models.ForeignKey(GuideGroup, on_delete=models.CASCADE, related_name='variants')
+
+    def __str__(self):
+        return self.slug
+
+    class Meta:
+        ordering = ('order', 'id')
+        verbose_name = 'گونه راهنما'
+        verbose_name_plural = 'گونه راهنما‌ها'
 
 
 class Guide(models.Model):
@@ -28,7 +52,7 @@ class Guide(models.Model):
     video = models.URLField(blank=True)
 
     order = models.PositiveSmallIntegerField(default=0)
-    group = models.ForeignKey(GuideGroup, on_delete=models.CASCADE, related_name='guides')
+    variant = models.ForeignKey(GuideGroup, on_delete=models.CASCADE, related_name='guides')
 
     class Meta:
         ordering = ('order', 'id')

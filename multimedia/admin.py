@@ -7,9 +7,9 @@ from typing import List
 from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.admin_guard.html_tags import admin_page_anchor
-from multimedia.models.faq_category import FAQ, FAQCategory
 from multimedia.utils.backoffice_content import BackofficeContent
-from multimedia.models import Image, PublicVideo, Banner, CoinPriceContent, Article, Section, File, Guide, GuideGroup
+from multimedia.models import Image, PublicVideo, Banner, CoinPriceContent, Article, Section, File, Guide, GuideGroup, \
+    FAQ, FAQCategory
 from markdown import markdown
 
 
@@ -172,13 +172,13 @@ class GuideGroupAdmin(SimpleHistoryAdmin):
     list_display = ('slug', 'title',)
     search_fields = ('slug', 'title',)
 
-    inlines = (GuideTabularInline, )
+    # inlines = (GuideTabularInline, )
 
 
 @admin.register(Guide)
 class GuidAdmin(SimpleHistoryAdmin):
-    list_display = ('title', 'group', 'order')
-    list_filter = ('group', )
+    list_display = ('title', 'variant', 'order')
+    list_filter = ('variant', )
     search_fields = ('title', )
     list_editable = ('order', )
 

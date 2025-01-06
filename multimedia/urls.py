@@ -2,8 +2,7 @@ from django.urls import path
 from django.views.decorators.cache import cache_page
 
 from multimedia.views import ImageCreateView, BannerListView, SectionsView, ArticleView, ArticleSearchView, \
-    PinnedArticlesView, FileCreateView, LatestBlogPostsView, FAQByCategoryView
-from multimedia.views.guide_view import GuideGroupView
+    PinnedArticlesView, FileCreateView, LatestBlogPostsView, FAQByCategoryView, GuideGroupView
 
 urlpatterns = [
     path('image/', ImageCreateView.as_view()),
