@@ -42,7 +42,7 @@ class JibitClientV2(JibitClient):
 
     def create_payments_requests(self):
         resp = self._collect_api(
-            path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/waitingForVerify',
+            path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz/waitingForVerify',
             headers={'iban': self.gateway.iban},
         )
 
@@ -199,7 +199,7 @@ class JibitClientV2(JibitClient):
             count = 0
             while True:
                 resp = self._collect_api(
-                    path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz-pid/list',
+                    path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz/list',
                     headers={'iban': self.gateway.iban},
                     data={
                         'fromDate': str(from_date),
