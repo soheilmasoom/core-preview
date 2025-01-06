@@ -14,7 +14,7 @@ def populate_variants(apps, schema_editor):
     for group in GuideGroup.objects.all():
         variant = GuideVariant.objects.create(
             title='پیش فرض',
-            slug='default',
+            slug='',
             group=group,
         )
         Guide.objects.filter(group=group).update(variant=variant)
