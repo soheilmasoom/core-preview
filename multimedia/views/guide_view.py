@@ -7,7 +7,7 @@ from multimedia.models import GuideGroup, Guide, GuideVariant
 class GuideSerializer(serializers.ModelSerializer):
     class Meta:
         model = Guide
-        fields = ('title', 'image', 'description', 'link', 'video')
+        fields = ('id', 'title', 'image', 'description', 'link', 'video')
 
 
 class GuidesSerializer(serializers.ModelSerializer):
@@ -15,13 +15,13 @@ class GuidesSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GuideVariant
-        fields = ('slug', 'title', 'guides')
+        fields = ('id', 'slug', 'title', 'guides')
 
 
 class GuideVariantSerializer(serializers.ModelSerializer):
     class Meta:
         model = GuideVariant
-        fields = ('slug', 'title')
+        fields = ('id', 'slug', 'title')
 
 
 class GuidesView(RetrieveAPIView):
