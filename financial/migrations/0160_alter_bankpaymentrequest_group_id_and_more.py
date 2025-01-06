@@ -3,6 +3,27 @@
 from django.db import migrations, models
 import uuid
 
+from django.db.models import Count
+
+
+def fix_duplicate_group_ids(apps, schema_editor):
+    PaymentRequest = apps.get_model('financial', 'PaymentRequest')
+    ManualTransfer = apps.get_model('financial', 'ManualTransfer')
+
+    duplicated_group_ids = list(PaymentRequest.objects.values('group_id').annotate(c=Count('*')).filter(c__gt=1).values_list('group_id', flat=True))
+
+    for group_id in duplicated_group_ids:
+        for p in PaymentRequest.objects.filter(group_id=group_id).order_by('id')[1:]:
+            p.group_id = uuid.uuid4()
+            p.save()
+
+    duplicated_group_ids = list(ManualTransfer.objects.values('group_id').annotate(c=Count('*')).filter(c__gt=1).values_list('group_id', flat=True))
+
+    for group_id in duplicated_group_ids:
+        for p in ManualTransfer.objects.filter(group_id=group_id).order_by('id')[1:]:
+            p.group_id = uuid.uuid4()
+            p.save()
+
 
 class Migration(migrations.Migration):
 
@@ -11,6 +32,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(code=fix_duplicate_group_ids, reverse_code=migrations.RunPython.noop),
+
         migrations.AlterField(
             model_name='bankpaymentrequest',
             name='group_id',
