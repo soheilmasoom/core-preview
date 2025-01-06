@@ -72,7 +72,7 @@ class GatewayAdmin(admin.ModelAdmin):
     @admin.action(description='Clone', permissions=['change'])
     def clone_gateway(self, request, queryset):
         for gateway in queryset:
-            gateway.name += 'cloned'
+            gateway.name += ' cloned'
             gateway.active = False
             clone_model(gateway)
 
