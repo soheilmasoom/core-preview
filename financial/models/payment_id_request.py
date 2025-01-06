@@ -4,6 +4,7 @@ from django.db.models import Q, CheckConstraint, UniqueConstraint
 from financial.models import Payment
 from ledger.utils.fields import get_status_field, DONE, get_group_id_field, CANCELED, get_iban_field, PROCESS, \
     INIT
+from ledger.utils.precision import humanize_number
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 
@@ -56,7 +57,7 @@ class PaymentIdRequest(models.Model):
         ]
 
     def __str__(self):
-        return '%s ref=%s' % (self.amount, self.bank_ref)
+        return f'{self.id}- {humanize_number(self.amount)} IRT ({self.status})'
 
     def accept(self):
         with WalletPipeline() as pipeline:

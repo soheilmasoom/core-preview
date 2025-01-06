@@ -5,8 +5,10 @@ import pytz
 import requests
 from django.utils import timezone
 
+from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import User
 from accounts.utils.similarity import clean_persian_word
+from accounts.utils.telegram import send_system_message
 from financial.models import PaymentIdRequest, PaymentId
 from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
@@ -134,6 +136,10 @@ class JibitClientV2(JibitClient):
             self.verify_payment_request(payment_request)
         elif transaction.created < timezone.now() - timedelta(minutes=30):  # give time to jibit to verify
             self._fail(external_ref=ref_number)
+            send_system_message(
+                message=f'PaymentIdRequest {payment_request} changed to INIT due to kyt failed',
+                link=url_to_edit_object(payment_request),
+            )
 
         return created
 
