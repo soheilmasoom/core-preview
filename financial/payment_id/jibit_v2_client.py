@@ -12,7 +12,7 @@ from accounts.utils.telegram import send_system_message
 from financial.models import PaymentIdRequest, PaymentId
 from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
-from ledger.utils.fields import PROCESS, INIT
+from ledger.utils.fields import PROCESS, INIT, CANCELED
 
 logger = logging.getLogger(__name__)
 
@@ -132,14 +132,20 @@ class JibitClientV2(JibitClient):
             }
         )
 
-        if status == PROCESS:
+        if status == PROCESS:  # kyt passed
             self.verify_payment_request(payment_request)
-        elif transaction.created < timezone.now() - timedelta(minutes=30):  # give time to jibit to verify
-            self._fail(external_ref=ref_number)
-            send_system_message(
-                message=f'PaymentIdRequest {payment_request} changed to INIT due to kyt failed',
-                link=url_to_edit_object(payment_request),
-            )
+        elif payment_request.status == INIT:  # kyt not passed
+            if transaction.created < timezone.now() - timedelta(minutes=120):  # give time to jibit to verify
+                self._fail(external_ref=ref_number)
+                send_system_message(
+                    message=f'PaymentIdRequest {payment_request} changed to INIT due to kyt failed',
+                    link=url_to_edit_object(payment_request),
+                )
+        else:  # kyt not passed, but handled manually
+            if payment_request.status == CANCELED:
+                self._fail(external_ref=ref_number)
+            else:
+                self._verify(external_ref=ref_number)
 
         return created
 
