@@ -28,7 +28,7 @@ class GuideVariant(models.Model):
     history = HistoricalRecords()
 
     title = models.CharField(max_length=256)
-    slug = models.SlugField(max_length=256, unique=True)
+    slug = models.SlugField(max_length=256, default='default')
     order = models.PositiveSmallIntegerField(default=0)
 
     group = models.ForeignKey(GuideGroup, on_delete=models.CASCADE, related_name='variants')
@@ -37,6 +37,7 @@ class GuideVariant(models.Model):
         return self.slug
 
     class Meta:
+        unique_together = ('group', 'slug')
         ordering = ('order', 'id')
         verbose_name = 'گونه راهنما'
         verbose_name_plural = 'گونه راهنما‌ها'
@@ -52,7 +53,7 @@ class Guide(models.Model):
     video = models.URLField(blank=True)
 
     order = models.PositiveSmallIntegerField(default=0)
-    variant = models.ForeignKey(GuideGroup, on_delete=models.CASCADE, related_name='guides')
+    variant = models.ForeignKey(GuideVariant, on_delete=models.CASCADE, related_name='guides')
 
     class Meta:
         ordering = ('order', 'id')
