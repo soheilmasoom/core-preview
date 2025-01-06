@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigIntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID')),
                 ('title', models.CharField(max_length=256)),
-                ('slug', models.SlugField(max_length=256)),
+                ('slug', models.SlugField(max_length=256, blank=True)),
                 ('order', models.PositiveSmallIntegerField(default=0)),
                 ('history_id', models.AutoField(primary_key=True, serialize=False)),
                 ('history_date', models.DateTimeField()),
@@ -54,7 +54,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('title', models.CharField(max_length=256)),
-                ('slug', models.SlugField(max_length=256, unique=True)),
+                ('slug', models.SlugField(max_length=256, blank=True)),
                 ('order', models.PositiveSmallIntegerField(default=0)),
                 ('group', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='variants', to='multimedia.guidegroup')),
             ],
@@ -104,5 +104,9 @@ class Migration(migrations.Migration):
             model_name='historicalguidegroup',
             name='type',
             field=models.CharField(choices=[('edu', 'آموزشی'), ('fast', 'تصویر محور')], default='edu', max_length=8),
+        ),
+        migrations.AlterUniqueTogether(
+            name='guidevariant',
+            unique_together={('group', 'slug')},
         ),
     ]

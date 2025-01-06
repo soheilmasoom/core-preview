@@ -28,7 +28,7 @@ class GuideVariant(models.Model):
     history = HistoricalRecords()
 
     title = models.CharField(max_length=256)
-    slug = models.SlugField(max_length=256, default='default')
+    slug = models.SlugField(max_length=256, blank=True)
     order = models.PositiveSmallIntegerField(default=0)
 
     group = models.ForeignKey(GuideGroup, on_delete=models.CASCADE, related_name='variants')

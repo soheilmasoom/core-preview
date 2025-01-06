@@ -29,7 +29,7 @@ class GuidesView(RetrieveAPIView):
     serializer_class = GuidesSerializer
 
     def get_object(self):
-        variant = self.request.query_params.get('variant', 'default')
+        variant = self.request.query_params.get('variant', '')
         return get_object_or_404(GuideVariant, group__slug=self.kwargs['slug'], slug=variant)
 
 
