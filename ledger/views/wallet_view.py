@@ -522,32 +522,31 @@ class ConvertDustView(APIView):
 class ConvertDustViewV2(APIView):
     def get(self, *args):
         account = self.request.user.get_account()
+        irt = Asset.get(Asset.IRT)
 
-        irt_asset = Asset.get(Asset.IRT)
-
-        spot_wallets = list(Wallet.objects.filter(
+        spot_wallets = Wallet.objects.filter(
             account=account,
             market=Wallet.SPOT,
             balance__gt=0,
             variant__isnull=True
-        ).exclude(asset=irt_asset).prefetch_related('asset'))
+        ).exclude(asset=irt)
 
         allowed_conversion = []
 
-        for wallet in spot_wallets:
-            price = get_price(
-                wallet.asset.symbol + Asset.IRT,
-                side=BUY
-            )
-            usdt_irt_price = get_price(Asset.USDT + Asset.IRT, side=BUY)
+        coins = list(spot_wallets.values_list('asset__symbol', flat=True).distinct())
+        prices = get_prices([c + Asset.IRT for c in coins], side=BUY)
 
-            if price is None or usdt_irt_price is None:
+        dust_threshold = Decimal(SystemConfig.get_system_config().dust_convert_threshold)
+
+        for (coin, balance) in spot_wallets.values_list('asset__symbol', 'balance'):
+            price = prices.get(coin + Asset.IRT)
+            if price is None:
                 continue
 
-            asset_irt_balance = wallet.balance * price
+            asset_irt_balance = balance * price
 
-            if Decimal(0) < asset_irt_balance < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
-                allowed_conversion.append(wallet.asset.symbol)
+            if Decimal(0) < asset_irt_balance < dust_threshold:
+                allowed_conversion.append(coin)
 
         return Response({'symbols': allowed_conversion}, status=status.HTTP_200_OK)
 
@@ -713,10 +712,10 @@ class DustHistoryDetailSerializerV2(serializers.ModelSerializer):
     converted_amount = serializers.SerializerMethodField()
     amount = serializers.SerializerMethodField()
 
-    def get_converted_amount(self, convert_dust: ConvertDust):
+    def get_converted_amount(self, convert_dust: ConvertDustTrx):
         return get_presentation_amount(convert_dust.converted_amount)
 
-    def get_amount(self, convert_dust: ConvertDust):
+    def get_amount(self, convert_dust: ConvertDustTrx):
         return get_presentation_amount(convert_dust.amount)
 
     class Meta:

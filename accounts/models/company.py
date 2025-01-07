@@ -3,7 +3,7 @@ import json
 from django.db import models, transaction
 from simple_history.models import HistoricalRecords
 
-from accounts.utils.similarity import clean_persian_name
+from accounts.utils.similarity import clean_persian_word
 from accounts.validators import company_national_id_validator
 from accounts.models import User
 from accounts.verifiers.utils import ServerError
@@ -44,11 +44,11 @@ class Company(models.Model):
         try:
             data = requester.company_information(self.national_id).data
             if data.code == "SUCCESSFUL":
-                self.name = clean_persian_name(data.title)
-                self.address = clean_persian_name(data.address)
+                self.name = clean_persian_word(data.title)
+                self.address = clean_persian_word(data.address)
                 self.postal_code = data.postal_code
                 self.registration_id = data.registration_id
-                self.is_active = clean_persian_name(data.status) == 'فعال'
+                self.is_active = clean_persian_word(data.status) == 'فعال'
                 self.company_registration_date = data.establishment_date
                 self.provider_data = json.dumps(data, default=lambda o: o.__dict__)
                 self.save(

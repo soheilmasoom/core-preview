@@ -50,7 +50,7 @@ class PaymentRequest(models.Model):
 
     login_activity = models.ForeignKey('accounts.LoginActivity', on_delete=models.SET_NULL, null=True, blank=True)
 
-    group_id = get_group_id_field()
+    group_id = get_group_id_field(unique=True)
     payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.SET_NULL)
 
     details = models.TextField(blank=True)

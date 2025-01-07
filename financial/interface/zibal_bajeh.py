@@ -55,7 +55,8 @@ class ZibalBajehChannel(BaseChannel):
 
     def get_wallet_data(self) -> WalletDTO:
         balance_data = self.collect_api('/v1/account/balance/', method='GET', data={
-            'accountId': self.gateway.withdraw_api_key
+            'accountId': self.gateway.withdraw_api_key,
+            'update': 'true'
         })
 
         balance = balance_data['balance'] // 10
@@ -66,13 +67,22 @@ class ZibalBajehChannel(BaseChannel):
         )
 
     def create_withdraw(self, transfer: BaseTransfer) -> WithdrawDTO:
-        data = self.collect_api('/v1/account/checkout/create/', method='POST', data={
-            'accountId': self.gateway.withdraw_api_key,
-            'amount': transfer.amount * 10,
-            'iban': transfer.bank_account.iban,
-            'uniqueCode': transfer.id,
-            'delay': -1,  # -1 for instant, 0 for paya
-        })
+        try:
+            data = self.collect_api('/v1/account/checkout/create/', method='POST', data={
+                'accountId': self.gateway.withdraw_api_key,
+                'amount': transfer.amount * 10,
+                'iban': transfer.bank_account.iban,
+                'uniqueCode': transfer.id,
+                'delay': -1,  # -1 for instant, 0 for paya
+            })
+        except ServerError as e:
+            if e.args[0].get('result') == 16:
+                return WithdrawDTO(
+                    tracking_id=None,
+                    status=PENDING,
+                )
+            else:
+                raise
 
         checkouts = data['checkouts']
 
@@ -81,7 +91,7 @@ class ZibalBajehChannel(BaseChannel):
 
         checkout = checkouts[0]
 
-        receive_datetime = datetime.strptime(checkout['settledAt'], '%Y/%m/%d-%H:%M:%S.%f').astimezone()
+        receive_datetime = datetime.strptime(checkout['settledAt'], '%Y-%m-%dT%H:%M:%S.%f').astimezone()
 
         return WithdrawDTO(
             tracking_id=checkout['refCode'] or '',

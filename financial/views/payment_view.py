@@ -96,11 +96,11 @@ class PaymentHistorySerializer(serializers.ModelSerializer):
         payment_id_request = getattr(payment, 'paymentidrequest', None)
 
         if payment_id_request:
-            bank = get_bank_from_iban(payment_id_request.source_iban)
+            bank = get_bank_from_iban(payment_id_request.sender_iban)
 
             return {
                 'info': bank and bank.as_dict(),
-                'iban': payment_id_request.source_iban,
+                'iban': payment_id_request.sender_iban,
             }
 
     class Meta:

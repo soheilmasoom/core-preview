@@ -31,7 +31,7 @@ class TokenRebrand(models.Model):
 
     testers = models.ManyToManyField(User, limit_choices_to={'is_staff': True}, blank=True)
 
-    group_id = get_group_id_field()
+    group_id = get_group_id_field(unique=True)
 
     def clean(self):
         if self.new_asset and self.new_asset == self.old_asset:

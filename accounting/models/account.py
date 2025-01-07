@@ -1,13 +1,13 @@
 from django.db import models
 from django.db.models import Case, When, Sum, F, IntegerField
 
-from financial.validators import iban_validator
+from ledger.utils.fields import get_iban_field
 from ledger.utils.precision import humanize_number
 
 
 class Account(models.Model):
     name = models.CharField(max_length=64, verbose_name='نام')
-    iban = models.CharField(max_length=26, verbose_name='شماره شبا', validators=[iban_validator],)
+    iban = get_iban_field()
     description = models.TextField(verbose_name='توضیحات', blank=True)
     create_vault = models.BooleanField(default=True)
 

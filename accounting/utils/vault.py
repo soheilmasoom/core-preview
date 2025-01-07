@@ -133,7 +133,7 @@ def update_hot_wallet_vault(now: datetime, prices: dict):
 
 
 def update_gateway_vaults(now: datetime, prices: dict):
-    for gateway in Gateway.objects.exclude(withdraw_api_secret_encrypted=''):
+    for gateway in Gateway.objects.filter(active=True).exclude(withdraw_api_secret_encrypted=''):
         vault, _ = Vault.objects.get_or_create(
             type=Vault.GATEWAY,
             market=Vault.SPOT,

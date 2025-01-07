@@ -2,12 +2,12 @@ from django.db import models
 
 from financial.utils.encryption import decrypt
 from financial.utils.manager import ActiveManager
-from financial.validators import iban_validator
+from ledger.utils.fields import get_iban_field, get_bank_field
 
 
 class PaymentIdGateway(models.Model):
-    TYPES = JIBIT_OLD, JIBIT, PARSIAN = \
-        'jibit_old', 'jibit', 'parsian'
+    TYPES = JIBIT_OLD, JIBIT, MANUAL = \
+        'jibit_old', 'jibit', 'manual'
 
     title = models.CharField(max_length=16)
 
@@ -19,16 +19,11 @@ class PaymentIdGateway(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
 
-    iban = models.CharField(
-        max_length=26,
-        validators=[iban_validator],
-        verbose_name='شبا',
-        unique=True
-    )
+    iban = get_iban_field(unique=True)
 
     name = models.CharField(max_length=256, blank=True, verbose_name='نام صاحب حساب',)
 
-    bank = models.CharField(max_length=256, blank=True)
+    bank = get_bank_field()
     deposit_address = models.CharField(max_length=64, blank=True, verbose_name='شماره حساب')
 
     payment_id_api_key = models.CharField(max_length=1024, blank=True)
@@ -40,6 +35,8 @@ class PaymentIdGateway(models.Model):
 
     objects = models.Manager()
     live_objects = ActiveManager()
+
+    can_add_statement = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title
