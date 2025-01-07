@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta, date
+from typing import Union
 
 import pytz
 import requests
@@ -56,41 +57,41 @@ class JibitClientV2(JibitClient):
 
         logger.info(f'{count} payment requests created!')
 
-    def _parse_transaction(self, item: dict) -> TransactionInfo:
-        credit_amount = item['creditAmount']
-        debit_amount = item['debitAmount']
+    def _parse_transaction(self, data: dict) -> TransactionInfo:
+        credit_amount = data['creditAmount']
+        debit_amount = data['debitAmount']
 
         assert debit_amount == 0
 
-        record_type = item['recordType']
+        record_type = data['recordType']
         if record_type.startswith('VARIZ_'):
             record_type = record_type[6:]
 
         return TransactionInfo(
-            reference_number=item['referenceNumber'],
-            account_iban=item['accountIban'],
-            bank_reference_number=item['bankReferenceNumber'] or '',
-            bank_transaction_id=item['bankTransactionId'],
+            reference_number=data['referenceNumber'],
+            account_iban=data['accountIban'],
+            bank_reference_number=data['bankReferenceNumber'] or '',
+            bank_transaction_id=data['bankTransactionId'],
             amount=credit_amount // 10,
             deposit_type=TransactionInfo.DEPOSIT,
-            balance=item['balance'],
-            created=datetime.strptime(item['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
-            deposit_number=item['payId'] or '',
-            raw_data=item['rawData'] or '',
-            sender_identifier=item['sourceIdentifier'] or '',
-            sender_iban=item['sourceIban'] or '',
-            sender_name=clean_persian_word(item['sourceName'] or ''),
+            balance=data['balance'],
+            created=datetime.strptime(data['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
+            deposit_number=data['payId'] or '',
+            raw_data=data['rawData'] or '',
+            sender_identifier=data['sourceIdentifier'] or '',
+            sender_iban=data['sourceIban'] or '',
+            sender_name=clean_persian_word(data['sourceName'] or ''),
             record_type=record_type.lower(),
-            receiver_iban=item['destinationIban'] or '',
-            kyt_passed=item['kytStatus'] == 'MATCH_IBAN_AND_NATIONAL_ID'
+            receiver_iban=data['destinationIban'] or '',
+            kyt_passed=data['kytStatus'] == 'MATCH_IBAN_AND_NATIONAL_ID'
         )
 
-    def _create_and_verify_payments_data(self, transaction: TransactionInfo) -> bool:
+    def _create_and_verify_payments_data(self, transaction: TransactionInfo, update_provider: bool = True) -> bool:
         assert transaction.receiver_iban == self.gateway.iban
 
         ref_number = transaction.reference_number
 
-        payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=transaction.deposit_number).first()
+        payment_id = self.get_payment_id(transaction.deposit_number)
 
         amount = transaction.amount
         fee = 0
@@ -133,30 +134,26 @@ class JibitClientV2(JibitClient):
         )
 
         if status == PROCESS:  # kyt passed
-            self.verify_payment_request(payment_request)
-        elif payment_request.status == INIT:  # kyt not passed
-            if transaction.created < timezone.now() - timedelta(minutes=120):  # give time to jibit to verify
-                self._fail(external_ref=ref_number)
-                send_system_message(
-                    message=f'PaymentIdRequest {payment_request} changed to INIT due to kyt failed',
-                    link=url_to_edit_object(payment_request),
-                )
-        else:  # kyt not passed, but handled manually
-            if payment_request.status == CANCELED:
-                self._fail(external_ref=ref_number)
-            else:
-                self._verify(external_ref=ref_number)
+            payment_request.accept()
+
+        if update_provider:
+            if status == PROCESS:  # kyt passed
+                self._verify(payment_request.external_ref)
+
+            elif payment_request.status == INIT:  # kyt not passed
+                if transaction.created < timezone.now() - timedelta(minutes=120):  # give time to jibit to verify
+                    self._fail(external_ref=ref_number)
+                    send_system_message(
+                        message=f'PaymentIdRequest {payment_request} changed to INIT due to kyt failed',
+                        link=url_to_edit_object(payment_request),
+                    )
+            else:  # kyt not passed, but handled manually
+                if payment_request.status == CANCELED:
+                    self._fail(external_ref=ref_number)
+                else:
+                    self._verify(external_ref=ref_number)
 
         return created
-
-    def verify_payment_request(self, payment_request: PaymentIdRequest):
-        if payment_request.status not in PaymentIdRequest.PENDING_STATES:
-            return
-
-        resp = self._verify(payment_request.external_ref)
-
-        if resp.success:
-            payment_request.accept()
 
     def _verify(self, external_ref: str):
         return self._collect_api(
@@ -173,7 +170,8 @@ class JibitClientV2(JibitClient):
         if existing:
             return existing
 
-        assert user.national_code
+        if user.level < User.LEVEL2 or not user.national_code:
+            return
 
         payment_id = PaymentId.objects.create(
             user=user,
@@ -222,5 +220,22 @@ class JibitClientV2(JibitClient):
             logger.info(f'{count} payment requests created')
             from_date = tomorrow
 
-    def _get_payment_id_details(self, external_ref: str):
-        return self._collect_api(f'/v1/orders/aug-statement/{self.gateway.iban}/variz/{external_ref}')
+    def _fetch_transaction(self, external_ref: str) -> TransactionInfo:
+        resp = self._collect_api(f'/v1/orders/aug-statement/{self.gateway.iban}/variz/{external_ref}')
+        data = resp.get_success_data()
+        return self._parse_transaction(data)
+
+    def update_payment_request(self, payment_request: PaymentIdRequest):
+        transaction = self._fetch_transaction(payment_request.external_ref)
+        self._create_and_verify_payments_data(transaction)
+
+    def get_payment_id(self, deposit_number: str) -> Union[PaymentId, None]:
+        payment_id = super(JibitClientV2, self).get_payment_id(deposit_number)
+
+        if not payment_id:
+            user = User.objects.filter(level__gte=User.LEVEL2, national_code=deposit_number).first()
+
+            if user:
+                payment_id = self.create_payment_id(user)
+
+        return payment_id

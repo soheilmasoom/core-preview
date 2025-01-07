@@ -538,7 +538,7 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
     search_fields = ('raw_payment_id', 'owner__user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id',
                      'bank_transaction_id', 'sender_name', 'sender_identifier')
     list_filter = ('status', 'kyt_passed')
-    actions = ('accept', 'reject')
+    actions = ('accept', 'reject', 'update_with_provider')
     readonly_fields = ('get_user', 'payment', 'group_id')
     raw_id_fields = ('owner', )
 
@@ -559,6 +559,12 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
     def reject(self, request, queryset):
         for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):  # type: PaymentIdRequest
             payment_request.reject()
+
+    @admin.action(description='Update with Provider', permissions=['change'])
+    def update_with_provider(self, request, queryset):
+        for payment_request in queryset.filter(status__in=INIT):  # type: PaymentIdRequest
+            client = get_payment_id_client(payment_request.gateway)
+            client.update_payment_request(payment_request)
 
     @admin.display(description='user')
     def get_user(self, payment_id_request: PaymentIdRequest):
