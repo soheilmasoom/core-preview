@@ -9,7 +9,8 @@ class AdminTracker(models.Model):
     model_name = models.CharField(max_length=255, verbose_name="Model")
     object_id = models.CharField(max_length=255, null=True, blank=True, verbose_name="Object ID")
     url = models.CharField(max_length=1024, verbose_name="URL")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="User", related_name='tracked_by_admin')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="User",
+                             related_name='tracked_by_admin')
 
     def __str__(self):
         return f"{self.admin} {self.model_name} at {self.created}"
