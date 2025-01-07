@@ -157,7 +157,7 @@ class FAQCategoryAdmin(SimpleHistoryAdmin):
 
 
 class GuideVariantTabularInline(admin.TabularInline):
-    fields = ('get_id', 'title', 'slug')
+    fields = ('get_id', 'title', 'slug', 'order')
     readonly_fields = ('get_id', )
     model = GuideVariant
     extra = 1
@@ -194,7 +194,7 @@ class GuideGroupAdmin(SimpleHistoryAdmin):
 
 @admin.register(GuideVariant)
 class GuideVariantAdmin(SimpleHistoryAdmin):
-    list_display = ('slug', 'title', 'group')
+    list_display = ('slug', 'title', 'group', 'order')
     search_fields = ('slug', 'title',)
     list_filter = ('group', )
     inlines = (GuideTabularInline, )
