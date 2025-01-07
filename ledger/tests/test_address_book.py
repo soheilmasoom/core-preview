@@ -1,12 +1,10 @@
 from django.test import Client
 from django.test import TestCase
 
-from accounts.utils.test import generate_otp_code
-from ledger.models import Asset, NetworkAsset
-from ledger.utils.test import new_account, new_address_book, new_network, new_network_asset
 from accounts.models.phone_verification import VerificationCode
-from django.urls import reverse
-from ledger.models.address_book import AddressBook
+from accounts.utils.test import generate_otp_code
+from ledger.models import Asset
+from ledger.utils.test import new_account, new_address_book, new_network, new_network_asset
 
 
 class AddressBookTestCase(TestCase):
@@ -14,6 +12,8 @@ class AddressBookTestCase(TestCase):
     def setUp(self):
         self.account = new_account()
         self.user = self.account.user
+        self.user.phone = '0123456789'
+        self.user.save()
         self.client = Client()
         self.client.force_login(self.user)
         self.network = new_network()
@@ -35,6 +35,14 @@ class AddressBookTestCase(TestCase):
             'address': 'test'
         })
         self.assertEqual(resp.status_code, 400)
+
+    def test_create_address_book_with_phone(self):
+        resp = self.client.post('/api/v1/addressbook/', {
+            'name': 'test_addressbook',
+            'phone': '0123456789',
+            'address_type': 'internal',
+        })
+        self.assertEqual(resp.status_code, 201)
 
     def test_list_address_book(self):
         resp = self.client.get('/api/v1/addressbook/')

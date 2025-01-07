@@ -35,8 +35,19 @@ class FastBuyTestCase(TestCase):
         self.system_wallet_btc = self.btc.get_wallet(Account.system())
         self.gateway = new_zibal_gateway()
 
+    @mock.patch('requests.post')
     @mock.patch('financial.models.zibal_gateway.ZibalGateway._verify', side_effect=mocked__verify)
-    def test_payment_generate_link(self, *args, **kwargs):
+    def test_payment_generate_link(self, mock_verify, mock_post):
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "message": "Mocked payment request successful",
+            "trackId": "12345",
+            "result": 100
+        }
+        mock_post.return_value = mock_response
+
         self.wallet_usdt.airdrop(100)
         resp = self.client.post('/api/v1/fast_buy/', {
             'coin': 'BTC',

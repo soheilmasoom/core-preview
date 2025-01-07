@@ -74,11 +74,15 @@ class WithdrawSerializer(serializers.ModelSerializer):
 
         if attrs['address_book_id'] and from_panel:
             address_book = get_object_or_404(AddressBook, id=attrs['address_book_id'], account=account)
-            network = address_book.network
+            if address_book.type == AddressBook.TYPE_INTERNAL:
+                receiver_phone = address_book.dest_user.phone
+                is_via_network = False
+            else:
+                network = address_book.network
 
-            if address_book.asset:
-                if asset != address_book.asset:
-                    raise ValidationError('دفترچه آدرس برای این برداشت معتبر نیست.')
+                if address_book.asset:
+                    if asset != address_book.asset:
+                        raise ValidationError('دفترچه آدرس برای این برداشت معتبر نیست.')
 
             address = address_book.address
             whitelist = address_book.whitelist
