@@ -117,7 +117,6 @@ class PhysicalWithdraw(models.Model):
                 user_wallet = self.asset.get_wallet(self.account, market=Wallet.SPOT, variant=None)
                 out_wallet = self.asset.get_wallet(Account.out(), market=Wallet.SPOT, variant=None)
 
-                # Create the transaction
                 pipeline.new_trx(
                     sender=user_wallet,
                     receiver=out_wallet,

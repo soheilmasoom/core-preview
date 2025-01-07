@@ -11,7 +11,7 @@ class Command(BaseCommand):
             'username',
             type=str,
             help='Username to create OTP for',
-            nargs='?'  # Makes the argument optional
+            nargs='?'
         )
 
     def handle(self, *args, **kwargs):
