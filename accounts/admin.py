@@ -17,7 +17,7 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 from jalali_date.admin import ModelAdminJalaliMixin
 from simple_history.admin import SimpleHistoryAdmin
 
-from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object, admin_page_anchor
+from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object, admin_page_anchor, anchor_tag
 from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationCode, \
     UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
     AttributionTracker, AppConfig, SpamPhone
@@ -258,9 +258,25 @@ class ChangePhoneAdmin(BaseChangeAdmin):
 
 @admin.register(AdminTracker)
 class AdminTrackerAdmin(AdvancedAdmin):
-    list_display = ('created', 'admin', 'model_name', 'object_id', 'url', 'user')
-    readonly_fields = ('created', 'admin', 'model_name', 'object_id', 'url', 'user')
-    list_filter = ('model_name', 'created')
+    list_display = ('created', 'admin_link', 'model_name', 'object_id', 'url_link', 'user_link')
+    readonly_fields = ('created', 'admin_link', 'model_name', 'object_id', 'url_link', 'user_link')
+    list_filter = ('model_name', 'created', 'admin')
+
+    def admin_link(self, obj):
+        return admin_page_anchor(obj.admin, change=True)
+
+    admin_link.short_description = "Admin"
+
+    def user_link(self, obj):
+        return admin_page_anchor(obj.user, change=True)
+
+    user_link.short_description = "User"
+
+    def url_link(self, obj):
+        if obj.url:
+            return anchor_tag(f'{obj.model_name}{(" " + obj.object_id) if obj.object_id else "s"}', obj.url, target="_blank")
+
+    url_link.short_description = "Visited Url"
 
 
 @admin.register(SystemConfig)
