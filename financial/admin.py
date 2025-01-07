@@ -572,9 +572,9 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
 class PaymentIdAdmin(AdvancedAdmin):
     list_display = ('created', 'updated', 'user', 'master', 'pay_id', 'verified', 'deleted')
     search_fields = ('user__phone', 'pay_id', 'master__phone', )
-    list_filter = ('verified',)
+    list_filter = ('verified', 'deleted')
     readonly_fields = ('group_id', )
-    actions = ('check_status', 'recreate')
+    actions = ('check_status', 'recreate', 'delete_payment_ids', 'undelete_payment_ids')
     raw_id_fields = ('user',)
 
     default_edit_condition = M('id')
@@ -595,6 +595,14 @@ class PaymentIdAdmin(AdvancedAdmin):
         for payment_id in queryset.filter(verified=False):
             client = get_payment_id_client(payment_id.gateway)
             client.check_payment_id_status(payment_id)
+
+    @admin.action(description='Delete', permissions=['change'])
+    def delete_payment_ids(self, request, queryset):
+        queryset.update(deleted=True)
+
+    @admin.action(description='Undelete', permissions=['change'])
+    def undelete_payment_ids(self, request, queryset):
+        queryset.update(deleted=False)
 
     @admin.action(description='Recreate', permissions=['change'])
     def recreate(self, request, queryset):
