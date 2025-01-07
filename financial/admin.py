@@ -72,7 +72,7 @@ class GatewayAdmin(admin.ModelAdmin):
     @admin.action(description='Clone', permissions=['change'])
     def clone_gateway(self, request, queryset):
         for gateway in queryset:
-            gateway.name += 'cloned'
+            gateway.name += ' cloned'
             gateway.active = False
             clone_model(gateway)
 
@@ -113,6 +113,7 @@ class UserRialWithdrawRequestFilter(SimpleListFilter):
 
 @admin.register(FiatWithdrawRequest)
 class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
+    track_admin_activity = True
 
     fieldsets = (
         ('اطلاعات درخواست', {'fields': ('created', 'status', 'amount', 'fee_amount', 'ref_id', 'bank_account',
@@ -297,6 +298,8 @@ class PaymentGatewayFilter(SimpleListFilter):
 
 @admin.register(Payment)
 class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
+    track_admin_activity = True
+
     list_display = ('created', 'get_amount', 'get_fee', 'status', 'ref_id', 'ref_status',
                     'source', 'get_card_pan', 'get_user',)
     list_filter = (PaymentGatewayFilter, 'status', 'source', PaymentUserFilter, )
@@ -307,6 +310,9 @@ class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
     raw_id_fields = ('user', )
 
     list_permission_exclude_filters = ('id', 'user')
+
+    def _get_user(self, obj):
+        return obj.user
 
     @admin.display(description='مقدار')
     def get_amount(self, payment: Payment):
@@ -370,6 +376,7 @@ class BankCardUserFilter(SimpleListFilter):
 @admin.register(BankCard)
 class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
+    track_admin_activity = True
 
     list_display = ('created', 'card_pan', 'get_username', 'type', 'verified', 'deleted')
     list_filter = (BankCardUserFilter, 'deleted', 'verified')
@@ -384,6 +391,9 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     }
 
     list_permission_exclude_filters = ('id', 'user')
+
+    def _get_user(self, obj):
+        return obj.user
 
     @admin.action(description='تایید خودکار شماره کارت', permissions=['change'])
     def verify_bank_cards(self, request, queryset):
@@ -604,6 +614,8 @@ class PaymentIdAdmin(AdvancedAdmin):
 
 @admin.register(PaymentIdGateway)
 class PaymentIdGatewayAdmin(admin.ModelAdmin):
+    track_admin_activity = True
+
     list_display = ('title', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'priority')
     ordering = ('-active', 'priority')
     list_editable = ('active', 'priority')
