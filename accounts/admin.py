@@ -262,21 +262,19 @@ class AdminTrackerAdmin(AdvancedAdmin):
     readonly_fields = ('created', 'admin_link', 'model_name', 'object_id', 'url_link', 'user_link')
     list_filter = ('model_name', 'created', 'admin')
 
+    @admin.display(description='Admin')
     def admin_link(self, obj):
         return admin_page_anchor(obj.admin, change=True)
 
-    admin_link.short_description = "Admin"
-
+    @admin.display(description='User')
     def user_link(self, obj):
         return admin_page_anchor(obj.user, change=True)
 
-    user_link.short_description = "User"
-
+    @admin.display(description='Visited Url')
     def url_link(self, obj):
         if obj.url:
-            return anchor_tag(f'{obj.model_name}{(" " + obj.object_id) if obj.object_id else "s"}', obj.url, target="_blank")
-
-    url_link.short_description = "Visited Url"
+            return anchor_tag(f'{obj.model_name}{(" " + obj.object_id) if obj.object_id else "s"}', obj.url,
+                              target="_blank")
 
 
 @admin.register(SystemConfig)
@@ -715,7 +713,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     def get_transfer_link(self, user: User):
         link = url_to_admin_list(Transfer) + '?user={}'.format(user.id)
-        return mark_safe("<a href='%s'>دیدن</a>" % link) \
+        return mark_safe("<a href='%s'>دیدن</a>" % link)
 
     get_transfer_link.short_description = 'تراکنش‌های رمزارزی'
 
@@ -990,6 +988,7 @@ class UserAuthRequestAdmin(AdvancedAdmin):
     def _get_user(self, obj):
         return obj.user
 
+
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
     list_display = ('created', 'get_username', 'level', 'title', 'message', 'push_status')
@@ -1044,6 +1043,7 @@ class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
     def _get_user(self, obj):
         return obj.user
+
 
 @admin.register(TrafficSource)
 class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
