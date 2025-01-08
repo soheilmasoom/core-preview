@@ -452,8 +452,9 @@ class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     list_permission_exclude_filters = ('id', 'user')
 
-    def _get_user(self, obj):
-        return obj.account and obj.account.user
+    def _get_user(self, obj: models.OTCTrade):
+        account = obj.otc_request.account
+        return account and account.user
 
     def get_queryset(self, request):
         return super(OTCTradeAdmin, self).get_queryset(request).prefetch_related('otc_request__account__user')
