@@ -30,7 +30,7 @@ class GuidesView(RetrieveAPIView):
 
     def get_object(self):
         variant = self.request.query_params.get('variant', '')
-        return get_object_or_404(GuideVariant, group__slug=self.kwargs['slug'], slug=variant)
+        return get_object_or_404(GuideVariant, group__slug=self.kwargs['slug'], slug=variant, enable=True)
 
 
 class GuideVariantsView(ListAPIView):
@@ -39,4 +39,4 @@ class GuideVariantsView(ListAPIView):
 
     def get_queryset(self):
         guide_group = get_object_or_404(GuideGroup, slug=self.kwargs['slug'])
-        return GuideVariant.objects.filter(group=guide_group)
+        return GuideVariant.objects.filter(group=guide_group, enable=True)
