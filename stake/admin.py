@@ -64,8 +64,7 @@ class StakeRequestAdmin(AdvancedAdmin):
     list_permission_exclude_filters = ('id', 'account')
 
     def _get_user(self, obj):
-        if obj.account:
-            return obj.account.user
+        return obj.account and obj.account.user
 
     def get_stake_option_asset(self, stake_request: StakeRequest):
         return stake_request.stake_option.asset
