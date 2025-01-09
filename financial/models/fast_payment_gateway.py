@@ -1,11 +1,11 @@
 from django.db import models
 
-from financial.utils.encryption import decrypt
-from financial.utils.manager import LiveManager
+from financial.utils.encryption import decrypt, encrypt
+from financial.utils.manager import ActiveManager
 
 
 class FastPaymentGateway(models.Model):
-    TYPES = VANDAR = 'vandar'
+    TYPES = VANDAR, OTHER = 'vandar', 'other'
 
     title = models.CharField(max_length=16)
 
@@ -16,7 +16,7 @@ class FastPaymentGateway(models.Model):
     )
 
     objects = models.Manager()
-    live_objects = LiveManager()
+    live_objects = ActiveManager()
 
     created = models.DateTimeField(auto_now_add=True)
     business_name = models.CharField(max_length=56)
@@ -34,3 +34,7 @@ class FastPaymentGateway(models.Model):
     @property
     def refresh_token(self):
         return decrypt(self.refresh_token_encrypted)
+
+    def set_refresh_token(self, new_token: str):
+        self.refresh_token_encrypted = encrypt(new_token.strip())
+        self.save(update_fields=['refresh_token_encrypted'])

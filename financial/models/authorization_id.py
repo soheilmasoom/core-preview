@@ -12,12 +12,18 @@ class AuthorizationId(models.Model):
 
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
 
-    auth_id = models.CharField(max_length=32, validators=[validate_integer])
+    auth_id = models.CharField(max_length=32, blank=True, validators=[validate_integer])
     verified = models.BooleanField(default=False)
 
     bank = models.ForeignKey('financial.FastPaymentBank', on_delete=models.CASCADE)
 
-    group_id = get_group_id_field(unique=True)
+    token = models.CharField(max_length=255,)
+
+    # gateway = models.ForeignKey('financial.FastPaymentGateway', on_delete=models.CASCADE) # this to think
+    # bank_code = models.CharField(max_length=50, verbose_name="کد") # this to think
+    # bank_name = models.CharField(blank=True, null=True, max_length=255, verbose_name="نام") # this to think
+
+    # group_id = get_group_id_field(unique=True)
 
     def __str__(self):
         return self.auth_id

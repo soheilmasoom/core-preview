@@ -1,20 +1,15 @@
 import logging
-import math
-import time
-import uuid
 from json import JSONDecodeError
 
-import jdatetime
 import requests
 from django.conf import settings
 from urllib3.exceptions import ReadTimeoutError
 
 from accounts.models import User
 from accounts.verifiers.jibit import Response
-from financial.models import BankAccount, PaymentIdRequest, PaymentId
 from financial.fast_payment.base_client import BaseClient
+from financial.models.authorization_id import AuthorizationId
 from financial.models.fast_payment_bank import FastPaymentBank
-from ledger.utils.fields import PROCESS, PENDING, CANCELED
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +29,16 @@ class VandarClient(BaseClient):
                 'Content-Type': 'application/json'
             },
             json={
-                'refreshtoken': f'{self.gateway.refresh_token()}',
+                'refreshtoken': f'{self.gateway.refresh_token}',
             },
             timeout=30,
         )
 
         if resp.ok:
             resp_data = resp.json()
-            self._token = resp_data['accessToken']
+            print(resp_data['refresh_token'])
+            self.gateway.set_refresh_token(resp_data['refresh_token'])
+            self._token = resp_data['access_token']
             return self._token
 
     def _collect_api(self, path: str, method: str = 'GET', headers: dict = None, data: dict = None) -> Response:
@@ -85,189 +82,90 @@ class VandarClient(BaseClient):
 
         return Response(data=resp_json, success=resp.ok, status_code=resp.status_code)
 
+    def update_banks(self):
+        banks = self.get_banks()
+
+        if not banks:
+            return
+
+        for bank in banks:
+            FastPaymentBank.objects.update_or_create(
+                code=bank['code'],
+                gateway=self.gateway,
+                defaults={
+                    'name': bank['name'],
+                    'is_healthy_on_direct_debit': bank['is_healthy_on_direct_debit'],
+                    'max_withdrawal_amount': bank['max_withdrawal_amount'],
+                    'max_withdrawal_amount_per_transaction': bank['max_withdrawal_amount_per_transaction'],
+                    'withdrawal_amount_currency': bank['withdrawal_amount_currency'],
+                    'max_withdrawal_daily_count': bank['max_withdrawal_daily_count'],
+                    'max_mandate_validity_duration': bank['max_mandate_validity_duration'],
+                    'mandate_validity_duration_unit': bank['mandate_validity_duration_unit'],
+                    'payer_authentication_type': bank['payer_authentication_type'],
+                }
+            )
+
     def get_banks(self):
         resp = self._collect_api(
             path=f'/v3/business/{self.gateway.business_name}/subscription/banks/actives',
             headers={'Accept': 'application/json', 'Content-Type': 'application/json'}
         )
 
-        return resp.data
+        if resp.ok:
+            return resp.data['result']['banks']
 
-    def get_authorization_create_url(self):
-        pass
+    def get_authorization_create_url(self, user: User, bank: FastPaymentBank):
+        auth_token = self.get_authorization_token(user, bank)
 
-    def get_authorization_token(self, user: User, bank_id):
-        bank = FastPaymentBank.objects.filter(bank_id=bank_id).delete()
+        return f'https://subscription.vandar.io/authorizations/{auth_token}'
+
+    def get_authorization_token(self, user: User, bank: FastPaymentBank):
+        host_url = settings.HOST_URL
         payload = {
             "bank_code": bank.code,
             "mobile": user.phone,
-            "callback_url": "https://yourdomain.com",
-            "count": bank.max_withdrawal_daily_count * 30,
+            "callback_url": host_url + f'/api/v1/finance/fastPayment/authId/callback/vandar/',
+            "count": (bank.max_withdrawal_daily_count or 100) * 30,
             "limit": bank.max_withdrawal_amount_per_transaction,
-            "expiration_date": "2026-01-01", # fix this
+            "expiration_date": "2026-01-01",  # fix this
             "name": user.get_full_name(),
             "email": user.email,
             "wage_type": "APPLICATION_USER"
         }
 
-        response = self._collect_api(
+        resp = self._collect_api(
             path=f'/v3/business/{self.gateway.business_name}/subscription/authorization/store',
             method='POST',
             headers={'Content-Type': 'application/json'},
             data=payload
         )
 
-        if not response["success"]:
-            raise ValueError(f"Failed to create subscription authorization: {response['data']}")
+        if not resp.ok:
+            raise ValueError(f"Failed to create subscription authorization: {resp.data}")
 
-        return response["data"]
+        if resp.data['status'] != 1:
+            raise ValueError(f"Failed to create subscription authorization (status != 1): {resp.data}")
 
-    def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
-        existing = PaymentId.objects.filter(user=user, gateway=self.gateway, deleted=False).first()
-        if existing:
-            return existing
+        auth_token = resp.data['result']['authorization']['token']
 
-        host_url = settings.HOST_URL
-
-        bank_accounts = BankAccount.objects.filter(user=user, verified=True, deleted=False)
-        ibans = list(bank_accounts.values_list('iban', flat=True))
-
-        assert ibans
-
-        if not full_name:
-            owners = bank_accounts.order_by('owners')[0].owners
-            if owners:
-                owner = owners[0]
-                full_name = owner['firstName'] + ' ' + owner['lastName']
-            else:
-                full_name = user.get_full_name()
-
-        group_id = uuid.uuid4()
-
-        resp = self._collect_api('/v1/paymentIds', method='POST', data={
-            'callbackUrl': host_url + f'/api/v1/finance/paymentId/callback/jibit/',
-            'merchantReferenceNumber': str(group_id),
-            'userFullName': full_name,
-            'userIbans': ibans,
-            'userMobile': '09121234567',
+        auth_id = AuthorizationId.objects.get_or_create(user=user, bank=bank, defaults={
+            'token': auth_token
         })
 
-        if not resp.ok:
-            return
+        if not auth_id:
+            raise ValueError(f"Failed to create authorization id.")
 
-        payment_id = PaymentId.objects.create(
-            user=user,
-            pay_id=resp.data['payId'],
-            group_id=group_id,
-            verified=resp.data['registryStatus'] == 'VERIFIED',
-            gateway=self.gateway,
-            provider_status=resp.data['registryStatus'],
-            provider_reason=resp.data.get('failReason') or '',
-            full_name=full_name,
-        )
+        return auth_token
 
-        if not payment_id.verified:
-            verified = self.check_payment_id_status(payment_id)
+    def accept_authorization_id(self, authorization_id: str, token: str):
+        auth_id = AuthorizationId.objects.filter(token=token)
 
-            for i in range(4):
-                if verified:
-                    break
+        if not auth_id:
+            raise ValueError(f'Failed to find authorization id')
 
-                time.sleep(5)
-                verified = self.check_payment_id_status(payment_id)
+        if auth_id.value:
+            raise ValueError(f'Authorization id already accepted')
 
-        return payment_id
-
-    def update_payment_id(self, payment_id: PaymentId):
-        raise NotImplementedError
-
-    def check_payment_id_status(self, payment_id: PaymentId):
-        resp = self._collect_api(
-            path=f'/v1/paymentIds/{payment_id.group_id}',
-        )
-
-        payment_id.verified = resp.data['registryStatus'] == 'VERIFIED'
-        payment_id.provider_status = resp.data['registryStatus']
-        payment_id.provider_reason = resp.data.get('failReason') or ''
-
-        payment_id.save(update_fields=['verified', 'provider_status', 'provider_reason'])
-
-        return payment_id.verified
-
-    def _create_and_verify_payment_data(self, data: dict):
-        merchant_ref = data['merchantReferenceNumber']
-
-        try:
-            merchant_ref = uuid.UUID(merchant_ref)
-        except ValueError:
-            self._collect_api(f'/v1/payments/{merchant_ref}/fail')
-            return
-
-        payment_id = PaymentId.objects.get(pay_id=data['paymentId'], group_id=merchant_ref)
-        deposit_time = jdatetime.datetime.strptime(data['rawBankTimestamp'],
-                                                   '%Y/%m/%d %H:%M:%S').togregorian().astimezone()
-
-        if data['status'] == 'SUCCESSFUL':
-            status = PENDING
-        else:
-            status = PROCESS
-
-        amount = data['amount'] // 10
-        fee = math.ceil(data['amount'] / 10_000_000) * 250
-
-        payment_request, created = PaymentIdRequest.objects.get_or_create(
-            external_ref=data['externalReferenceNumber'],
-            defaults={
-                'bank_ref': data['bankReferenceNumber'],
-                'amount': amount - fee,
-                'fee': fee,
-                'status': status,
-                'owner': payment_id,
-                'source_iban': data['sourceIdentifier'],
-                'deposit_time': deposit_time,
-            }
-        )
-
-        if not created and payment_request.status == PENDING:
-            return
-
-        if data['status'] == 'WAITING_FOR_MERCHANT_VERIFY':
-            self.verify_payment_request(payment_request)
-
-        # if payment_request.status == PENDING:
-        #     send_system_message("New payment id request", link=url_to_admin_list(payment_request))
-
-        return payment_request
-
-    def create_payment_request(self, external_ref: str) -> PaymentIdRequest:
-        resp = self._collect_api(f'/v1/paymentIds/{external_ref}')
-        return self._create_and_verify_payment_data(resp.data)
-
-    def verify_payment_request(self, payment_request: PaymentIdRequest):
-        if payment_request.status != PROCESS:
-            return
-
-        resp = self._collect_api(f'/v1/payments/{payment_request.external_ref}/verify')
-
-        if resp.success:
-            payment_request.status = PENDING
-            payment_request.save(update_fields=['status'])
-            payment_request.accept()
-
-    def reject_payment_request(self, payment_request: PaymentIdRequest):
-        if payment_request.status != PROCESS:
-            return
-
-        resp = self._collect_api(f'/v1/payments/{payment_request.external_ref}/fail')
-
-        if resp.success:
-            payment_request.status = CANCELED
-            payment_request.save(update_fields=['status'])
-            payment_request.reject()
-
-    def create_payments_requests(self):
-        resp = self._collect_api(f'/v1/payments/waitingForVerify?pageNumber=0&pageSize=100')
-
-        for data in resp.get_success_data()['content']:
-            self._create_and_verify_payment_data(data)
-
+        auth_id.verified = True
+        auth_id.auth_id = authorization_id
+        auth_id.save(update_fields=['verified', 'auth_id'])

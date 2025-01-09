@@ -19,9 +19,13 @@ from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import User
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.utils.validation import gregorian_to_jalali_datetime
+from financial.fast_payment import get_fast_payment_client
 from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAccount, \
     FiatWithdrawRequest, ManualTransfer, MarketingSource, MarketingCost, PaymentIdRequest, PaymentId, \
     PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt, BankStatement
+from financial.models.authorization_id import AuthorizationId
+from financial.models.fast_payment_bank import FastPaymentBank
+from financial.models.fast_payment_gateway import FastPaymentGateway
 from financial.payment_id import get_payment_id_client
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
@@ -47,7 +51,7 @@ class GatewayAdmin(admin.ModelAdmin):
 
     ordering = ('-active', '-ipg_deposit_enable', '-deposit_priority', '-withdraw_enable', '-withdraw_priority')
 
-    actions = ('clone_gateway', )
+    actions = ('clone_gateway',)
 
     @admin.display(description='balance')
     def get_balance(self, gateway: Gateway):
@@ -113,17 +117,17 @@ class UserRialWithdrawRequestFilter(SimpleListFilter):
 
 @admin.register(FiatWithdrawRequest)
 class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
-
     fieldsets = (
         ('اطلاعات درخواست', {'fields': ('created', 'status', 'amount', 'fee_amount', 'ref_id', 'bank_account',
-         'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time', 'gateway', 'get_risks', 'accepted_by')}),
+                                        'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time',
+                                        'gateway', 'get_risks', 'accepted_by')}),
         ('اطلاعات کاربر', {'fields': (
             'get_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
         )}),
         ('نظر', {'fields': ('comment',)})
     )
-    list_filter = ('status', UserRialWithdrawRequestFilter, )
-    ordering = ('-created', )
+    list_filter = ('status', UserRialWithdrawRequestFilter,)
+    ordering = ('-created',)
     readonly_fields = (
         'created', 'bank_account', 'amount', 'get_iban', 'fee_amount', 'get_risks',
         'get_withdraw_request_user', 'get_withdraw_request_receive_time', 'get_user', 'login_activity',
@@ -214,7 +218,8 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     @admin.action(description='آپدیت درگاه برداشت', permissions=['change'])
     def change_to_active_gateway(self, request, queryset):
         with transaction.atomic():
-            for withdraw in queryset.filter(status__in=[INIT, PROCESS]).select_for_update():  # type: FiatWithdrawRequest
+            for withdraw in queryset.filter(
+                    status__in=[INIT, PROCESS]).select_for_update():  # type: FiatWithdrawRequest
                 withdraw.gateway = Gateway.get_active_withdraw(withdraw.bank_account.iban, withdraw.amount)
                 withdraw.save(update_fields=['gateway'])
 
@@ -248,7 +253,7 @@ class PaymentRequestAdmin(SimpleHistoryAdmin):
     search_fields = ('bank_card__card_pan', 'amount', 'authority', 'group_id')
     readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity', 'user', 'get_payment')
     list_filter = (PaymentRequestUserFilter,)
-    actions = ('verify', )
+    actions = ('verify',)
 
     @admin.action(description='Verify', permissions=['change'])
     def verify(self, request, queryset):
@@ -299,12 +304,12 @@ class PaymentGatewayFilter(SimpleListFilter):
 class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
     list_display = ('created', 'get_amount', 'get_fee', 'status', 'ref_id', 'ref_status',
                     'source', 'get_card_pan', 'get_user',)
-    list_filter = (PaymentGatewayFilter, 'status', 'source', PaymentUserFilter, )
+    list_filter = (PaymentGatewayFilter, 'status', 'source', PaymentUserFilter,)
     search_fields = ('ref_id', 'paymentrequest__bank_card__card_pan', 'amount', 'paymentrequest__authority',
                      'user__phone', 'user__first_name', 'user__last_name')
     readonly_fields = ('group_id',)
     actions = ('refund', 'accept_deposit', 'reject_deposit')
-    raw_id_fields = ('user', )
+    raw_id_fields = ('user',)
 
     list_permission_exclude_filters = ('id', 'user')
 
@@ -373,7 +378,7 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     list_display = ('created', 'card_pan', 'get_username', 'type', 'verified', 'deleted')
     list_filter = (BankCardUserFilter, 'deleted', 'verified')
-    search_fields = ('card_pan', )
+    search_fields = ('card_pan',)
     raw_id_fields = ('user',)
     readonly_fields = ('verifier', 'reject_reason')
 
@@ -433,9 +438,9 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
 
     list_display = ('created', 'iban', 'get_username', 'verified', 'deleted')
-    list_filter = (BankUserFilter, )
-    search_fields = ('iban', )
-    raw_id_fields = ('user', )
+    list_filter = (BankUserFilter,)
+    search_fields = ('iban',)
+    raw_id_fields = ('user',)
     readonly_fields = ('verifier', 'reject_reason')
 
     actions = ['verify_bank_accounts_manual', 'verify_bank_accounts_auto', 'reject_bank_accounts_manual']
@@ -478,13 +483,13 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 @admin.register(MarketingSource)
 class MarketingSourceAdmin(admin.ModelAdmin):
     list_display = ('utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term')
-    list_filter = ('utm_source', )
+    list_filter = ('utm_source',)
 
 
 @admin.register(MarketingCost)
 class MarketingCostAdmin(admin.ModelAdmin):
     list_display = ('source', 'date', 'cost')
-    search_fields = ('source__utm_source', )
+    search_fields = ('source__utm_source',)
 
 
 class ManualTransferForm(forms.ModelForm):
@@ -530,7 +535,7 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
     list_filter = ('status', 'kyt_passed')
     actions = ('accept', 'reject')
     readonly_fields = ('get_user', 'payment', 'group_id')
-    raw_id_fields = ('owner', )
+    raw_id_fields = ('owner',)
 
     fields_edit_conditions = {
         'owner': M.superuser | M.is_none('owner')
@@ -561,9 +566,9 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
 @admin.register(PaymentId)
 class PaymentIdAdmin(AdvancedAdmin):
     list_display = ('created', 'updated', 'user', 'master', 'pay_id', 'verified', 'deleted')
-    search_fields = ('user__phone', 'pay_id', 'master__phone', )
+    search_fields = ('user__phone', 'pay_id', 'master__phone',)
     list_filter = ('verified',)
-    readonly_fields = ('group_id', )
+    readonly_fields = ('group_id',)
     actions = ('check_status', 'recreate')
     raw_id_fields = ('user',)
 
@@ -642,7 +647,7 @@ class BankPaymentRequestAcceptFilter(SimpleListFilter):
 class BankPaymentRequestResource(resources.ModelResource):
     class Meta:
         model = BankPaymentRequest
-        fields = ('created', 'amount', 'ref_id', 'description', 'user', )
+        fields = ('created', 'amount', 'ref_id', 'description', 'user',)
 
 
 class BankPaymentUserFilter(SimpleListFilter):
@@ -663,7 +668,7 @@ class BankPaymentUserFilter(SimpleListFilter):
 @admin.register(BankPaymentRequestReceipt)
 class BankPaymentRequestReceiptAdmin(ExportMixin, admin.ModelAdmin):
     list_display = ('id', 'payment_request',)
-    readonly_fields = ('get_receipt_preview', )
+    readonly_fields = ('get_receipt_preview',)
 
     @admin.display(description='receipt preview')
     def get_receipt_preview(self, req: BankPaymentRequestReceipt):
@@ -673,7 +678,7 @@ class BankPaymentRequestReceiptAdmin(ExportMixin, admin.ModelAdmin):
 
 class BankPaymentRequestReceiptInline(admin.TabularInline):
     fields = ('receipt', 'get_receipt_preview')
-    readonly_fields = ('get_receipt_preview', )
+    readonly_fields = ('get_receipt_preview',)
 
     @admin.display(description='receipt preview')
     def get_receipt_preview(self, req: BankPaymentRequestReceipt):
@@ -695,8 +700,8 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
     list_filter = (BankPaymentRequestAcceptFilter, BankPaymentUserFilter)
     resource_classes = [BankPaymentRequestResource]
     list_editable = ('destination_id', 'ref_id')
-    inlines = (BankPaymentRequestReceiptInline, )
-    search_fields = ('group_id', )
+    inlines = (BankPaymentRequestReceiptInline,)
+    search_fields = ('group_id',)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "user":
@@ -710,7 +715,8 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
 
     @admin.action(description='Accept', permissions=['change'])
     def accept_payment(self, request, queryset):
-        for q in queryset.filter(payment__isnull=True, user__isnull=False, destination_id__isnull=False).exclude(ref_id=''):
+        for q in queryset.filter(payment__isnull=True, user__isnull=False, destination_id__isnull=False).exclude(
+                ref_id=''):
             q.create_payment()
 
     @admin.action(description='Clone', permissions=['change'])
@@ -725,10 +731,68 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
 class BankStatementAdmin(admin.ModelAdmin):
     list_display = ('created', 'gateway', 'title', 'status')
     list_filter = ('gateway', 'status')
-    readonly_fields = ('status', )
-    actions = ('process', )
+    readonly_fields = ('status',)
+    actions = ('process',)
 
     @admin.action(description='Process')
     def process(self, request, queryset):
         for statement in queryset:
             statement.process_file()
+
+
+@admin.register(FastPaymentBank)
+class FastPaymentBankAdmin(admin.ModelAdmin):
+    list_display = ('name', 'gateway', 'code', 'active', 'is_healthy_on_direct_debit', 'max_withdrawal_amount',
+                    'max_withdrawal_amount_per_transaction', 'withdrawal_amount_currency', 'max_withdrawal_daily_count',
+                    )
+    list_filter = ('is_healthy_on_direct_debit', 'gateway', 'active',)
+    search_fields = ('name', 'code', 'gateway')
+    readonly_fields = ('created', 'modified')
+    list_editable = ('active', )
+
+
+@admin.register(AuthorizationId)
+class AuthorizationIdAdmin(admin.ModelAdmin):
+    list_display = ('created', 'auth_id', 'user', 'bank', 'verified',)
+    list_filter = ('verified', 'deleted', 'bank')
+    search_fields = ('auth_id', 'user')
+    readonly_fields = ('created', 'updated')
+
+
+@admin.register(FastPaymentGateway)
+class FastPaymentGatewayAdmin(admin.ModelAdmin):
+    list_display = ('title', 'type', 'business_name', 'priority', 'active', 'created')
+    list_filter = ('type', 'active')
+    search_fields = ('title', 'business_name')
+    ordering = ('priority', 'created')
+    readonly_fields = ('created', )
+    actions = ['update_banks_action']
+
+    def save_model(self, request, gateway: FastPaymentGateway, form, change):
+        encryption_fields = [
+            'refresh_token_encrypted',
+        ]
+
+        old_gateway = gateway.id and FastPaymentGateway.objects.get(id=gateway.id)
+
+        for key in encryption_fields:
+            value = getattr(gateway, key)
+
+            if getattr(old_gateway, key, '') != value:
+                setattr(gateway, key, encrypt(value.strip()))
+
+        gateway.save()
+
+    @admin.action(description='به‌روزرسانی لیست بانک‌ها', permissions=['change'])
+    def update_banks_action(self, request, queryset):
+        for gateway in queryset:
+            if not gateway:
+                self.message_user(request, 'امکان دریافت لیست بانک ها وجود ندارد.', level=messages.ERROR)
+                continue
+
+            try:
+                client = get_fast_payment_client(gateway)
+                client.update_banks()
+                self.message_user(request, f'لیست بانک‌ها برای {gateway.title} با موفقیت به‌روزرسانی شد.', level=messages.SUCCESS)
+            except Exception as e:
+                self.message_user(request, f'خطا هنگام به‌روزرسانی بانک‌ها برای {gateway.title}: {e}', level=messages.ERROR)

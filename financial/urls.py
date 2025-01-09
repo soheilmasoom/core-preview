@@ -4,6 +4,8 @@ from financial.views import PaymentRequestView, ZarinpalCallbackView, BankCardVi
     WithdrawRequestView, WithdrawHistoryView, BankAccountView, PaydotirCallbackView, ZibalCallbackView, \
     ProxyPaymentRedirectView, JibitCallbackView, GatewayInfoView, JibitPaymentIdCallbackView, PaymentIdViewsSet, \
     JibimoCallbackView, PaystarCallbackView, NovinpalCallbackView
+from financial.views.authorization_id_callback_view import AuthorizationIdCallbackView
+from financial.views.fast_payment_view import BanksView, AuthorizationIdView
 
 urlpatterns = [
     path('payment/request/', PaymentRequestView.as_view()),
@@ -46,4 +48,8 @@ urlpatterns = [
         'post': 'create',
     })),
     path('paymentId/callback/jibit/', JibitPaymentIdCallbackView.as_view(), name='jibit-paymentIds-callback'),
+
+    path('fastPayment/banks/vandar/', BanksView.as_view(), name='banks'),
+    path('fastPayment/authId/vandar/', AuthorizationIdView.as_view(), name='authorizationId'),
+    path('fastPayment/authId/callback/vandar/', AuthorizationIdCallbackView.as_view(), name='authorizationId-callback'),
 ]

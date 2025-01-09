@@ -2,6 +2,7 @@ import logging
 
 from accounts.models import User
 from financial.models import PaymentIdRequest, PaymentId
+from financial.models.fast_payment_bank import FastPaymentBank
 from financial.models.fast_payment_gateway import FastPaymentGateway
 
 logger = logging.getLogger(__name__)
@@ -27,4 +28,16 @@ class BaseClient:
         raise NotImplementedError
 
     def create_payments_requests(self):
+        raise NotImplementedError
+
+    def get_authorization_create_url(self, user: User, bank: FastPaymentBank):
+        raise NotImplementedError
+
+    def get_authorization_token(self, user: User, bank: FastPaymentBank):
+        raise NotImplementedError
+
+    def accept_authorization_id(self, authorization_id: str, token: str):
+        raise NotImplementedError
+
+    def update_banks(self):
         raise NotImplementedError

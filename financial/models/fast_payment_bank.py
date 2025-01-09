@@ -1,15 +1,15 @@
 from django.db import models
 
-from financial.utils.manager import LiveManager
+from financial.utils.manager import ActiveManager
 
 
 class FastPaymentBank(models.Model):
     objects = models.Manager()
-    live_objects = LiveManager()
+    live_objects = ActiveManager()
 
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
-    deleted = models.BooleanField(default=False)
+    # deleted = models.BooleanField(default=False)
     active = models.BooleanField(default=False)
 
     code = models.CharField(max_length=50, verbose_name="کد")
@@ -31,6 +31,7 @@ class FastPaymentBank(models.Model):
     )
 
     class Meta:
+        unique_together = (('code', 'gateway'),)
         verbose_name = "بانک پرداخت سریع"
         verbose_name_plural = "بانک‌های پرداخت سریع"
 
