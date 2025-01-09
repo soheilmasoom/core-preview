@@ -1313,7 +1313,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.has_perm('ledger.manage_deposit_recovery')
 
     fields_edit_conditions = {
-        'user': M.has_perm('ledger.manage_deposit_recovery') | M.is_none('user'),
+        'user': M.is_value('status', PROCESS) | M.superuser,
         'comment': True
     }
 
@@ -1343,10 +1343,10 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             else:
                 send_system_message("Accept deposit recovery: %s" % req, link=url_to_admin_list(req, {'status': 'pending'}))
 
-    @admin.action(description='تایید نهایی', permissions=['change'])
+    @admin.action(description='تایید نهایی', permissions=['manage'])
     def accept_requests(self, request, queryset):
         qs = queryset.filter(
-            status__in=[PROCESS, PENDING],
+            status=PENDING,
             user__isnull=False,
             asset__isnull=False,
             network__isnull=False

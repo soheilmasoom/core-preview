@@ -41,7 +41,7 @@ class DepositRecoveryRequest(models.Model):
 
     class Meta:
         permissions = [
-            ("manage_deposit_recovery", "Manage Deposit Recovery Request"),
+            ("manage_deposit_recovery", "Can manage deposit recovery request"),
         ]
 
     def verify(self, verifier: User):
