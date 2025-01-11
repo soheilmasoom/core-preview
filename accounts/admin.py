@@ -280,8 +280,9 @@ class AdminTrackerAdmin(AdvancedAdmin):
 
 @admin.register(SystemConfig)
 class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
-    list_display = ('name', 'active', 'withdraw_status', 'deposit_status', 'disable_trade_with_api')
-    list_editable = ('withdraw_status', 'deposit_status')
+    list_display = ('name', 'active', 'withdraw_status', 'deposit_status', 'disable_trade_with_api',
+                    'withdraw_amount_min', 'withdraw_amount_max')
+    list_editable = ('withdraw_status', 'deposit_status', 'withdraw_amount_min', 'withdraw_amount_max')
 
     default_edit_condition = M.superuser
 
@@ -291,6 +292,8 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'withdraw_status': True,
         'deposit_status': True,
         'disable_trade_with_api': True,
+        'withdraw_amount_min': True,
+        'withdraw_amount_max': True,
     }
 
     actions = ('reset_users_default_margin_leverage',)
