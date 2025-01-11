@@ -26,6 +26,8 @@ class SystemConfig(models.Model):
     active = models.BooleanField()
     is_consultation_available = models.BooleanField(default=False)
 
+    withdraw_amount_min = models.PositiveIntegerField(default=50_000)
+    withdraw_amount_max = models.PositiveIntegerField(default=1_000_000_000)
     withdraw_fee_min = models.SmallIntegerField(default=1000)
     withdraw_fee_max = models.SmallIntegerField(default=5000)
     withdraw_fee_percent = get_amount_field(default=Decimal('5'), validators=PERCENT_VALIDATORS)

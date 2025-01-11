@@ -21,12 +21,22 @@ class GatewaySerializer(serializers.ModelSerializer):
     max_deposit_amount = serializers.SerializerMethodField()
     ipg_fee_percent = serializers.SerializerMethodField()
 
+    withdraw_amount_min = serializers.SerializerMethodField()
+    withdraw_amount_max = serializers.SerializerMethodField()
     withdraw_fee_min = serializers.SerializerMethodField()
     withdraw_fee_max = serializers.SerializerMethodField()
     withdraw_fee_percent = serializers.SerializerMethodField()
     withdraw_fee_percent_after_max = serializers.SerializerMethodField()
 
     suspended = serializers.SerializerMethodField()
+
+    def get_withdraw_amount_min(self, gateway):
+        system_config = SystemConfig.get_system_config()
+        return system_config.withdraw_amount_min
+
+    def get_withdraw_amount_max(self, gateway):
+        system_config = SystemConfig.get_system_config()
+        return system_config.withdraw_amount_max
 
     def get_withdraw_fee_min(self, gateway):
         system_config = SystemConfig.get_system_config()
@@ -80,6 +90,7 @@ class GatewaySerializer(serializers.ModelSerializer):
         fields = (
             'id', 'min_deposit_amount', 'max_deposit_amount', 'next_ach_time', 'pay_id_enable', 'pay_id_suspended',
             'ipg_fee_min', 'ipg_fee_max', 'ipg_fee_percent', 'suspended',
+            'withdraw_amount_min', 'withdraw_amount_max',
             'withdraw_fee_min', 'withdraw_fee_max', 'withdraw_fee_percent', 'withdraw_fee_percent_after_max'
         )
 
