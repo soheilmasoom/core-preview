@@ -58,7 +58,7 @@ class AccountTransactionAdmin(admin.ModelAdmin):
 @admin.register(Vault)
 class VaultAdmin(admin.ModelAdmin):
     list_display = ('name', 'market', 'type', 'get_usdt', 'get_value', 'real_value', 'expected_max_value',
-                    'should_be_updated')
+                    'should_be_updated', 'updated')
     ordering = ('-real_value', )
     list_filter = ('market', 'type', 'should_be_updated')
     list_editable = ('expected_max_value', 'should_be_updated')

@@ -90,15 +90,17 @@ if settings.DEBUG_OR_TESTING:
         )
         return network_asset
 
-    def new_address_book(account, network, asset=None, address='123', whitelist: bool = False) -> AddressBook:
+    def new_address_book(account, network = None, asset=None, address='123', whitelist: bool = False, dest_user: User=None, address_type=AddressBook.TYPE_NETWORK) -> AddressBook:
         name = 'test'
         address = address
         account = account
         network = network
+        dest_user = dest_user
+        address_type = address_type
         if asset:
             asset = Asset.get(asset)
-        address_book = AddressBook.objects.create(name=name, address=address, account=account, network=network,
-                                                  asset=asset, whitelist=whitelist)
+        address_book = AddressBook.objects.create(name=name, address=address, account=account, network=network, asset=asset,
+                                                  whitelist=whitelist, dest_user=dest_user, type=address_type)
         return address_book
 
     def new_deposit_address(account: Account, network: Network, address: str, memo: str = '') -> DepositAddress:

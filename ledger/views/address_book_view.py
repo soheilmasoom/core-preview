@@ -8,6 +8,7 @@ from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
+from accounts.models import User
 from accounts.models.phone_verification import VerificationCode
 from ledger.models import AddressBook, Asset, Network, NetworkAsset
 from ledger.models.asset import AssetSerializerMini
@@ -16,19 +17,42 @@ from ledger.views.wallet_view import NetworkAssetSerializer
 
 class AddressBookCreateSerializer(serializers.ModelSerializer):
     account = serializers.CharField(read_only=True)
-    asset = AssetSerializerMini(read_only=True)
-    network = serializers.CharField()
+    asset = AssetSerializerMini(read_only=True, required=False, allow_null=True)
+    network = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     coin = serializers.CharField(write_only=True, required=False, default=None)
     deleted = serializers.BooleanField(read_only=True)
     network_info = serializers.SerializerMethodField()
     sms_code = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
     totp = serializers.CharField(write_only=True, allow_null=True, allow_blank=True, required=False)
+    phone = serializers.CharField(write_only=True, allow_null=True, allow_blank=True, required=False)
+    address_type = serializers.CharField(write_only=True, allow_blank=True, required=False)
 
     def validate(self, attrs):
         user = self.context['request'].user
         account = user.get_account()
-        name = attrs['name']
-        address = attrs['address']
+        name = attrs.get('name')
+        phone = attrs.get('phone')
+        address_type = attrs.get('address_type')
+
+        if address_type == AddressBook.TYPE_INTERNAL:
+            if phone:
+                try:
+                    if len(phone) == 10:
+                        phone = '0' + phone
+                    dest_user = User.objects.get(phone=phone)
+
+                    return {
+                        'account': account,
+                        'dest_user': dest_user,
+                        'name': name if name else dest_user.first_name + ' ' + dest_user.last_name,
+                        'type': AddressBook.TYPE_INTERNAL,
+                    }
+                except User.DoesNotExist:
+                    raise ValidationError('کاربر با این شماره در سیستم وجود ندارد.')
+            else:
+                raise ValidationError({'phone': 'فیلد شماره کاربر نیاز است.'})
+
+        address = attrs.get('address')
         network = get_object_or_404(Network, symbol=attrs['network'], can_withdraw=True)
         sms_code = attrs.get('sms_code', '')
         totp = attrs.get('totp', '')
@@ -64,6 +88,7 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
             'address': address,
             'memo': memo,
             'whitelist': attrs.get('whitelist', False),
+            'type': AddressBook.TYPE_NETWORK,
         }
 
     def get_network_info(self, address_book: AddressBook):
@@ -78,7 +103,7 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
         model = AddressBook
         fields = (
             'id', 'name', 'account', 'network', 'asset', 'coin', 'address', 'deleted', 'network_info', 'sms_code',
-            'totp', 'whitelist', 'memo')
+            'totp', 'whitelist', 'memo', 'phone', 'address_type')
 
 
 class AddressBookDestroySerializer(serializers.Serializer):
@@ -169,6 +194,10 @@ class AddressBookView(ModelViewSet):
                 Q(asset=asset) | Q(asset__isnull=True),
                 network_id__in=can_withdraw_networks
             )
+
+        if query_params.get('internal') in ['0', '1']:
+            address_type = AddressBook.TYPE_INTERNAL if query_params.get('internal') == '1' else AddressBook.TYPE_NETWORK
+            address_books = address_books.filter(type=address_type)
 
         if query_params.get('general') in ['0', '1']:
             general = query_params['general'] == '1'

@@ -5,9 +5,9 @@ from django.db.models import Sum
 
 from accounting.models import VaultItem, Vault, ReservedAsset, TempCredit
 from accounts.models import Account
-from financial.models import FiatWithdrawRequest
+from financial.models import FiatWithdrawRequest, PaymentIdRequest
 from ledger.models import Wallet, Prize, Asset, DepositRecoveryRequest
-from ledger.utils.fields import PENDING, PROCESS
+from ledger.utils.fields import PENDING, PROCESS, INIT
 from ledger.utils.price import USDT_IRT
 from ledger.utils.provider import get_provider_requester, BINANCE
 
@@ -37,10 +37,7 @@ class AssetOverview:
 
         self.reserved_assets = dict(ReservedAsset.objects.values_list('coin', 'amount'))
 
-        self.unknown_assets = dict(DepositRecoveryRequest.objects.filter(
-            scope=DepositRecoveryRequest.SYSTEM,
-            status=PROCESS,
-        ).values('asset__symbol').annotate(sum=Sum('amount')).values_list('asset__symbol', 'sum'))
+        self.unknown_assets = self._get_unknown_assets()
 
     def get_binance_margin_ratio(self):
         if not self._binance_futures:
@@ -100,6 +97,18 @@ class AssetOverview:
         ).aggregate(amount=Sum('amount'))['amount'] or 0
 
         return value - pending_withdraws / self.prices[USDT_IRT]
+
+    def _get_unknown_assets(self) -> dict:
+        unknown_assets = dict(DepositRecoveryRequest.objects.filter(
+            scope=DepositRecoveryRequest.SYSTEM,
+            status=PROCESS,
+        ).values('asset__symbol').annotate(sum=Sum('amount')).values_list('asset__symbol', 'sum'))
+
+        unknown_assets[Asset.IRT] = PaymentIdRequest.objects.filter(
+            status=INIT
+        ).aggregate(s=Sum('amount'))['s'] or 0
+
+        return unknown_assets
 
     def get_unknown_asset_value(self) -> Decimal:
         value = Decimal(0)

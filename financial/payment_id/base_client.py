@@ -1,4 +1,5 @@
 import logging
+from typing import Union
 
 from accounts.models import User
 from financial.models import PaymentIdRequest, PaymentId, PaymentIdGateway
@@ -21,3 +22,9 @@ class BaseClient:
 
     def create_payments_requests(self):
         pass
+
+    def update_payment_request(self, payment_request: PaymentIdRequest):
+        pass
+
+    def get_payment_id(self, deposit_number: str) -> Union[PaymentId, None]:
+        return PaymentId.objects.filter(gateway=self.gateway, pay_id=deposit_number).first()
