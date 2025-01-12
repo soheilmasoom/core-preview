@@ -74,7 +74,7 @@ class JibitClientV2(JibitClient):
             bank_transaction_id=data['bankTransactionId'],
             amount=credit_amount // 10,
             deposit_type=TransactionInfo.DEPOSIT,
-            balance=data['balance'],
+            balance=data['balance'] // 10,
             created=datetime.strptime(data['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
             deposit_number=data['payId'] or '',
             raw_data=data['rawData'] or '',
