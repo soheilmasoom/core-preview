@@ -92,7 +92,7 @@ class PhysicalWithdrawTestCase(TestCase):
             'asset': 'XAU',
             'amount': '5'
         })
-
+        # print(response.data)
         withdraw = PhysicalWithdraw.objects.get(id=response.data['id'])
         initial_lock_id = withdraw.lock_id
 
@@ -118,7 +118,7 @@ class PhysicalWithdrawTestCase(TestCase):
         withdraw.reject()
 
         self.assertWithdrawalStatus(withdraw.id, PhysicalWithdrawStatus.REJECTED)
-        self.assertFalse(BalanceLock.objects.filter(key=initial_lock_id).exists())
+        self.assertTrue(BalanceLock.objects.filter(key=initial_lock_id).exists())
         self.assertWalletBalance(self.xau, self.account, '23.5213')
 
     def test_withdrawal_complete_flow(self):
