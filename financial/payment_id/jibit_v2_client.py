@@ -227,7 +227,7 @@ class JibitClientV2(JibitClient):
 
     def update_payment_request(self, payment_request: PaymentIdRequest):
         transaction = self._fetch_transaction(payment_request.external_ref)
-        self._create_and_verify_payments_data(transaction)
+        self._create_and_verify_payments_data(transaction, update_provider=False)
 
     def get_payment_id(self, deposit_number: str) -> Union[PaymentId, None]:
         payment_id = super(JibitClientV2, self).get_payment_id(deposit_number)
