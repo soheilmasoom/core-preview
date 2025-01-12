@@ -1,18 +1,25 @@
 import logging
+from datetime import datetime, timedelta
 from json import JSONDecodeError
 
 import requests
 from django.conf import settings
 from urllib3.exceptions import ReadTimeoutError
+from rest_framework.exceptions import ValidationError
 
 from accounts.models import User
 from accounts.verifiers.jibit import Response
-from financial.fast_payment.base_client import BaseClient
+from financial.direct_debit.base_client import BaseClient
 from financial.models.authorization_id import AuthorizationId
-from financial.models.fast_payment_bank import FastPaymentBank
+from financial.models.direct_debit_bank import DirectDebitBank
+from financial.models.direct_debit_request import DirectDebitRequest
+from ledger.utils.fields import PROCESS
 
 logger = logging.getLogger(__name__)
 
+
+class ExternalAPIError(Exception):
+    pass
 
 class VandarClient(BaseClient):
     BASE_URL = 'https://api.vandar.io'
@@ -89,7 +96,7 @@ class VandarClient(BaseClient):
             return
 
         for bank in banks:
-            FastPaymentBank.objects.update_or_create(
+            DirectDebitBank.objects.update_or_create(
                 code=bank['code'],
                 gateway=self.gateway,
                 defaults={
@@ -114,20 +121,21 @@ class VandarClient(BaseClient):
         if resp.ok:
             return resp.data['result']['banks']
 
-    def get_authorization_create_url(self, user: User, bank: FastPaymentBank):
+    def get_authorization_create_url(self, user: User, bank: DirectDebitBank):
         auth_token = self.get_authorization_token(user, bank)
 
         return f'https://subscription.vandar.io/authorizations/{auth_token}'
 
-    def get_authorization_token(self, user: User, bank: FastPaymentBank):
+    def get_authorization_token(self, user: User, bank: DirectDebitBank):
+        expiration_date = datetime.now() + timedelta(days=settings.DAYS_TO_EXPIRE_DIRECT_DEBIT_AUTH_ID)
         host_url = settings.HOST_URL
         payload = {
             "bank_code": bank.code,
             "mobile": user.phone,
-            "callback_url": host_url + f'/api/v1/finance/fastPayment/authId/callback/vandar/',
+            "callback_url": host_url + f'/api/v1/finance/directDebit/authId/callback/vandar/',
             "count": (bank.max_withdrawal_daily_count or 100) * 30,
             "limit": bank.max_withdrawal_amount_per_transaction,
-            "expiration_date": "2026-01-01",  # fix this
+            "expiration_date": expiration_date.strftime("%Y-%m-%d"),
             "name": user.get_full_name(),
             "email": user.email,
             "wage_type": "APPLICATION_USER"
@@ -141,10 +149,10 @@ class VandarClient(BaseClient):
         )
 
         if not resp.ok:
-            raise ValueError(f"Failed to create subscription authorization: {resp.data}")
+            raise ExternalAPIError(f"Failed to create subscription authorization: {resp.data}")
 
         if resp.data['status'] != 1:
-            raise ValueError(f"Failed to create subscription authorization (status != 1): {resp.data}")
+            raise ExternalAPIError(f"Failed to create subscription authorization (status != 1): {resp.data}")
 
         auth_token = resp.data['result']['authorization']['token']
 
@@ -153,19 +161,69 @@ class VandarClient(BaseClient):
         })
 
         if not auth_id:
-            raise ValueError(f"Failed to create authorization id.")
+            raise ExternalAPIError(f"Failed to create authorization id.")
 
         return auth_token
 
-    def accept_authorization_id(self, authorization_id: str, token: str):
-        auth_id = AuthorizationId.objects.filter(token=token)
+    def accept_authorization_id(self, auth_id: AuthorizationId):
+        resp = self._collect_api(
+            path=f'/v3/business/{self.gateway.business_name}/subscription/authorization/{auth_id.auth_id}/verify',
+            method='PATCH',
+            headers={'Content-Type': 'application/json'},
+        )
 
-        if not auth_id:
-            raise ValueError(f'Failed to find authorization id')
+        if resp.ok and resp.data['status'] == 1:
+            auth_id.verified = True
+            auth_id.save(update_fields=['verified'])
 
-        if auth_id.value:
-            raise ValueError(f'Authorization id already accepted')
+        else:
+            raise ExternalAPIError(f"Failed to verify authorization id: {resp.data}")
 
-        auth_id.verified = True
-        auth_id.auth_id = authorization_id
-        auth_id.save(update_fields=['verified', 'auth_id'])
+
+    def cancel_authorization_id(self, auth_id: AuthorizationId):
+        resp = self._collect_api(
+            path=f'/v3/business/{self.gateway.business_name}/subscription/authorization/{auth_id.auth_id}',
+            method='DELETE',
+            headers={'Content-Type': 'application/json'},
+        )
+
+        if resp.ok and resp.data['status'] == 1:
+            auth_id.deleted = True
+            auth_id.save(update_fields=['deleted'])
+
+        else:
+            raise ExternalAPIError(f"Failed to cancel authorization id: {resp.data}")
+
+    def create_payment_data(self, auth_id: AuthorizationId, amount):
+        payload = {
+            "authorization_id": auth_id.auth_id,
+            "amount": str(amount),
+        }
+
+        resp = self._collect_api(
+            path=f'/v3/business/{self.gateway.business_name}/subscription/withdrawal/store',
+            method='POST',
+            headers={'Content-Type': 'application/json'},
+            data=payload
+        )
+
+        if resp.ok and resp.data['status'] == 1:
+            fee = 0
+            # fee = math.ceil(item['balance'] / 10_000_000) * 250
+            payment_request = DirectDebitRequest.objects.create(
+                owner=auth_id,
+                gateway=self.gateway,
+                amount=amount - fee,
+                fee=fee,
+                status=PROCESS,
+            )
+
+            return payment_request.accept()
+
+        else:
+            raise ExternalAPIError(f'failed to create payment data: {resp.data}')
+
+
+
+
+

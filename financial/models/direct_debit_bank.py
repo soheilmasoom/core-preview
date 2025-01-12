@@ -3,7 +3,7 @@ from django.db import models
 from financial.utils.manager import ActiveManager
 
 
-class FastPaymentBank(models.Model):
+class DirectDebitBank(models.Model):
     objects = models.Manager()
     live_objects = ActiveManager()
 
@@ -24,7 +24,7 @@ class FastPaymentBank(models.Model):
     payer_authentication_type = models.CharField(blank=True, max_length=100, verbose_name="نوع احراز هویت پرداخت‌کننده")
 
     gateway = models.ForeignKey(
-        to='financial.FastPaymentGateway',
+        to='financial.DirectDebitGateway',
         on_delete=models.CASCADE,
         related_name="banks",
         verbose_name="درگاه مرتبط"
@@ -32,8 +32,8 @@ class FastPaymentBank(models.Model):
 
     class Meta:
         unique_together = (('code', 'gateway'),)
-        verbose_name = "بانک پرداخت سریع"
-        verbose_name_plural = "بانک‌های پرداخت سریع"
+        verbose_name = "بانک پرداخت مستقیم"
+        verbose_name_plural = "بانک‌های پرداخت مستقیم"
 
     def __str__(self):
         return self.name

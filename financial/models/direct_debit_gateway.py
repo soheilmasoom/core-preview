@@ -4,7 +4,7 @@ from financial.utils.encryption import decrypt, encrypt
 from financial.utils.manager import ActiveManager
 
 
-class FastPaymentGateway(models.Model):
+class DirectDebitGateway(models.Model):
     TYPES = VANDAR, OTHER = 'vandar', 'other'
 
     title = models.CharField(max_length=16)

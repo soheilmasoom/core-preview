@@ -19,13 +19,14 @@ from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import User
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.utils.validation import gregorian_to_jalali_datetime
-from financial.fast_payment import get_fast_payment_client
+from financial.direct_debit import get_direct_debit_client
 from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAccount, \
     FiatWithdrawRequest, ManualTransfer, MarketingSource, MarketingCost, PaymentIdRequest, PaymentId, \
     PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt, BankStatement
 from financial.models.authorization_id import AuthorizationId
-from financial.models.fast_payment_bank import FastPaymentBank
-from financial.models.fast_payment_gateway import FastPaymentGateway
+from financial.models.direct_debit_bank import DirectDebitBank
+from financial.models.direct_debit_gateway import DirectDebitGateway
+from financial.models.direct_debit_request import DirectDebitRequest
 from financial.payment_id import get_payment_id_client
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
@@ -563,6 +564,41 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
             return mark_safe("<a href='%s'>%s</a>" % (link, user.get_full_name()))
 
 
+@admin.register(DirectDebitRequest)
+class DirectDebitRequestAdmin(AdvancedAdmin):
+    list_display = ('created', 'owner', 'status', 'get_amount', 'get_user', 'gateway', 'payment')
+    search_fields = ('owner__user__phone', 'group_id',)
+    list_filter = ('status',)
+    actions = ('accept', 'reject')
+    readonly_fields = ('get_user', 'payment', 'group_id')
+    raw_id_fields = ('owner',)
+
+    fields_edit_conditions = {
+        'owner': M.superuser | M.is_none('owner')
+    }
+
+    @admin.display(description='amount', ordering='amount')
+    def get_amount(self, obj: DirectDebitRequest):
+        return humanize_number(obj.amount)
+
+    @admin.action(description='Accept', permissions=['change'])
+    def accept(self, request, queryset):
+        for payment_request in queryset.filter(status__in=DirectDebitRequest.PENDING_STATES):
+            payment_request.accept()
+
+    @admin.action(description='Reject', permissions=['change'])
+    def reject(self, request, queryset):
+        for payment_request in queryset.filter(status__in=DirectDebitRequest.PENDING_STATES):
+            payment_request.reject()
+
+    @admin.display(description='user')
+    def get_user(self, obj: DirectDebitRequest):
+        if obj.owner:
+            user = obj.owner.user
+            link = url_to_edit_object(user)
+            return mark_safe("<a href='%s'>%s</a>" % (link, user.get_full_name()))
+
+
 @admin.register(PaymentId)
 class PaymentIdAdmin(AdvancedAdmin):
     list_display = ('created', 'updated', 'user', 'master', 'pay_id', 'verified', 'deleted')
@@ -740,8 +776,8 @@ class BankStatementAdmin(admin.ModelAdmin):
             statement.process_file()
 
 
-@admin.register(FastPaymentBank)
-class FastPaymentBankAdmin(admin.ModelAdmin):
+@admin.register(DirectDebitBank)
+class DirectDebitBankAdmin(admin.ModelAdmin):
     list_display = ('name', 'gateway', 'code', 'active', 'is_healthy_on_direct_debit', 'max_withdrawal_amount',
                     'max_withdrawal_amount_per_transaction', 'withdrawal_amount_currency', 'max_withdrawal_daily_count',
                     )
@@ -759,8 +795,8 @@ class AuthorizationIdAdmin(admin.ModelAdmin):
     readonly_fields = ('created', 'updated')
 
 
-@admin.register(FastPaymentGateway)
-class FastPaymentGatewayAdmin(admin.ModelAdmin):
+@admin.register(DirectDebitGateway)
+class DirectDebitGatewayAdmin(admin.ModelAdmin):
     list_display = ('title', 'type', 'business_name', 'priority', 'active', 'created')
     list_filter = ('type', 'active')
     search_fields = ('title', 'business_name')
@@ -768,12 +804,12 @@ class FastPaymentGatewayAdmin(admin.ModelAdmin):
     readonly_fields = ('created', )
     actions = ['update_banks_action']
 
-    def save_model(self, request, gateway: FastPaymentGateway, form, change):
+    def save_model(self, request, gateway: DirectDebitGateway, form, change):
         encryption_fields = [
             'refresh_token_encrypted',
         ]
 
-        old_gateway = gateway.id and FastPaymentGateway.objects.get(id=gateway.id)
+        old_gateway = gateway.id and DirectDebitGateway.objects.get(id=gateway.id)
 
         for key in encryption_fields:
             value = getattr(gateway, key)
@@ -791,7 +827,7 @@ class FastPaymentGatewayAdmin(admin.ModelAdmin):
                 continue
 
             try:
-                client = get_fast_payment_client(gateway)
+                client = get_direct_debit_client(gateway)
                 client.update_banks()
                 self.message_user(request, f'لیست بانک‌ها برای {gateway.title} با موفقیت به‌روزرسانی شد.', level=messages.SUCCESS)
             except Exception as e:

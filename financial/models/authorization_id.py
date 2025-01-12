@@ -15,7 +15,7 @@ class AuthorizationId(models.Model):
     auth_id = models.CharField(max_length=32, blank=True, validators=[validate_integer])
     verified = models.BooleanField(default=False)
 
-    bank = models.ForeignKey('financial.FastPaymentBank', on_delete=models.CASCADE)
+    bank = models.ForeignKey('financial.DirectDebitBank', on_delete=models.CASCADE)
 
     token = models.CharField(max_length=255,)
 

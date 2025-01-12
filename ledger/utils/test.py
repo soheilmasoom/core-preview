@@ -3,6 +3,8 @@ from uuid import uuid4
 from django.conf import settings
 
 from accounting.models import TradeRevenue
+from financial.models.direct_debit_bank import DirectDebitBank
+from financial.models.direct_debit_gateway import DirectDebitGateway
 
 if settings.DEBUG_OR_TESTING:
     import random
@@ -155,3 +157,9 @@ if settings.DEBUG_OR_TESTING:
             group_id=uuid4(),
             source=TradeRevenue.OTC_MARKET,
         ).save()
+
+    def new_direct_debit_gateway():
+        return DirectDebitGateway.objects.create(business_name='test', active=True)
+
+    def new_direct_debit_bank(bank_code, gateway):
+        return DirectDebitBank.objects.create(code=bank_code, gateway=gateway, active=True)
