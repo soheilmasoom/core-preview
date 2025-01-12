@@ -32,7 +32,7 @@ class PaymentIdRequest(models.Model):
     record_type = models.CharField(max_length=256, blank=True)
 
     kyt_passed = models.BooleanField(null=True, blank=True)
-    deposit_time = models.DateTimeField()
+    deposit_time = models.DateTimeField(null=True, blank=True)
 
     raw_payment_id = models.CharField(max_length=64, blank=True)
     raw_data = models.TextField(blank=True)
