@@ -118,6 +118,8 @@ class UserRialWithdrawRequestFilter(SimpleListFilter):
 
 @admin.register(FiatWithdrawRequest)
 class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
+    track_admin_activity = True
+
     fieldsets = (
         ('اطلاعات درخواست', {'fields': ('created', 'status', 'amount', 'fee_amount', 'ref_id', 'bank_account',
                                         'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time',
@@ -219,8 +221,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     @admin.action(description='آپدیت درگاه برداشت', permissions=['change'])
     def change_to_active_gateway(self, request, queryset):
         with transaction.atomic():
-            for withdraw in queryset.filter(
-                    status__in=[INIT, PROCESS]).select_for_update():  # type: FiatWithdrawRequest
+            for withdraw in queryset.filter(status__in=[INIT, PROCESS]).select_for_update():  # type: FiatWithdrawRequest
                 withdraw.gateway = Gateway.get_active_withdraw(withdraw.bank_account.iban, withdraw.amount)
                 withdraw.save(update_fields=['gateway'])
 
@@ -231,6 +232,9 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
                 obj.change_status(obj.status)
 
         obj.save()
+
+    def _get_user(self, obj: FiatWithdrawRequest):
+        return obj.bank_account.user
 
 
 class PaymentRequestUserFilter(SimpleListFilter):
@@ -303,16 +307,21 @@ class PaymentGatewayFilter(SimpleListFilter):
 
 @admin.register(Payment)
 class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
+    track_admin_activity = True
+
     list_display = ('created', 'get_amount', 'get_fee', 'status', 'ref_id', 'ref_status',
                     'source', 'get_card_pan', 'get_user',)
-    list_filter = (PaymentGatewayFilter, 'status', 'source', PaymentUserFilter,)
+    list_filter = (PaymentGatewayFilter, 'status', 'source', PaymentUserFilter, )
     search_fields = ('ref_id', 'paymentrequest__bank_card__card_pan', 'amount', 'paymentrequest__authority',
                      'user__phone', 'user__first_name', 'user__last_name')
     readonly_fields = ('group_id',)
     actions = ('refund', 'accept_deposit', 'reject_deposit')
-    raw_id_fields = ('user',)
+    raw_id_fields = ('user', )
 
     list_permission_exclude_filters = ('id', 'user')
+
+    def _get_user(self, obj):
+        return obj.user
 
     @admin.display(description='مقدار')
     def get_amount(self, payment: Payment):
@@ -376,10 +385,11 @@ class BankCardUserFilter(SimpleListFilter):
 @admin.register(BankCard)
 class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
+    track_admin_activity = True
 
     list_display = ('created', 'card_pan', 'get_username', 'type', 'verified', 'deleted')
     list_filter = (BankCardUserFilter, 'deleted', 'verified')
-    search_fields = ('card_pan',)
+    search_fields = ('card_pan', )
     raw_id_fields = ('user',)
     readonly_fields = ('verifier', 'reject_reason')
 
@@ -390,6 +400,9 @@ class BankCardAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     }
 
     list_permission_exclude_filters = ('id', 'user')
+
+    def _get_user(self, obj):
+        return obj.user
 
     @admin.action(description='تایید خودکار شماره کارت', permissions=['change'])
     def verify_bank_cards(self, request, queryset):
@@ -484,13 +497,13 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 @admin.register(MarketingSource)
 class MarketingSourceAdmin(admin.ModelAdmin):
     list_display = ('utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term')
-    list_filter = ('utm_source',)
+    list_filter = ('utm_source', )
 
 
 @admin.register(MarketingCost)
 class MarketingCostAdmin(admin.ModelAdmin):
     list_display = ('source', 'date', 'cost')
-    search_fields = ('source__utm_source',)
+    search_fields = ('source__utm_source', )
 
 
 class ManualTransferForm(forms.ModelForm):
@@ -529,18 +542,26 @@ class ManualTransferAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentIdRequest)
 class PaymentIdRequestAdmin(AdvancedAdmin):
-    list_display = ('created', 'owner', 'status', 'get_amount', 'get_user', 'sender_iban', 'deposit_time',
+    list_display = ('created', 'get_owner', 'get_gateway', 'status', 'get_amount', 'record_type', 'sender_identifier', 'get_user', 'sender_iban', 'deposit_time',
                     'bank_transaction_id', 'bank_ref', 'external_ref')
     search_fields = ('raw_payment_id', 'owner__user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id',
                      'bank_transaction_id', 'sender_name', 'sender_identifier')
-    list_filter = ('status', 'kyt_passed')
-    actions = ('accept', 'reject')
+    list_filter = ('status', 'kyt_passed', 'gateway', 'record_type')
+    actions = ('accept', 'reject', 'update_with_provider')
     readonly_fields = ('get_user', 'payment', 'group_id')
     raw_id_fields = ('owner',)
 
     fields_edit_conditions = {
         'owner': M.superuser | M.is_none('owner')
     }
+
+    @admin.display(description='owner', ordering='owner')
+    def get_owner(self, obj: PaymentIdRequest):
+        return admin_page_anchor(obj.owner)
+
+    @admin.display(description='gateway', ordering='gateway')
+    def get_gateway(self, obj: PaymentIdRequest):
+        return admin_page_anchor(obj.gateway)
 
     @admin.display(description='amount', ordering='amount')
     def get_amount(self, obj: PaymentIdRequest):
@@ -556,12 +577,16 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
         for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):  # type: PaymentIdRequest
             payment_request.reject()
 
+    @admin.action(description='Update with Provider', permissions=['change'])
+    def update_with_provider(self, request, queryset):
+        for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
+            client = get_payment_id_client(payment_request.gateway)
+            client.update_payment_request(payment_request)
+
     @admin.display(description='user')
     def get_user(self, payment_id_request: PaymentIdRequest):
         if payment_id_request.owner:
-            user = payment_id_request.owner.user
-            link = url_to_edit_object(user)
-            return mark_safe("<a href='%s'>%s</a>" % (link, user.get_full_name()))
+            return admin_page_anchor(payment_id_request.owner.user)
 
 
 @admin.register(DirectDebitRequest)
@@ -602,10 +627,10 @@ class DirectDebitRequestAdmin(AdvancedAdmin):
 @admin.register(PaymentId)
 class PaymentIdAdmin(AdvancedAdmin):
     list_display = ('created', 'updated', 'user', 'master', 'pay_id', 'verified', 'deleted')
-    search_fields = ('user__phone', 'pay_id', 'master__phone',)
-    list_filter = ('verified',)
-    readonly_fields = ('group_id',)
-    actions = ('check_status', 'recreate')
+    search_fields = ('user__phone', 'pay_id', 'master__phone', )
+    list_filter = ('verified', 'deleted')
+    readonly_fields = ('group_id', )
+    actions = ('check_status', 'recreate', 'delete_payment_ids', 'undelete_payment_ids')
     raw_id_fields = ('user',)
 
     default_edit_condition = M('id')
@@ -627,6 +652,14 @@ class PaymentIdAdmin(AdvancedAdmin):
             client = get_payment_id_client(payment_id.gateway)
             client.check_payment_id_status(payment_id)
 
+    @admin.action(description='Delete', permissions=['change'])
+    def delete_payment_ids(self, request, queryset):
+        queryset.update(deleted=True)
+
+    @admin.action(description='Undelete', permissions=['change'])
+    def undelete_payment_ids(self, request, queryset):
+        queryset.update(deleted=False)
+
     @admin.action(description='Recreate', permissions=['change'])
     def recreate(self, request, queryset):
         for payment_id in queryset.filter(verified=False):
@@ -645,6 +678,8 @@ class PaymentIdAdmin(AdvancedAdmin):
 
 @admin.register(PaymentIdGateway)
 class PaymentIdGatewayAdmin(admin.ModelAdmin):
+    track_admin_activity = True
+
     list_display = ('title', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'priority')
     ordering = ('-active', 'priority')
     list_editable = ('active', 'priority')
@@ -683,7 +718,7 @@ class BankPaymentRequestAcceptFilter(SimpleListFilter):
 class BankPaymentRequestResource(resources.ModelResource):
     class Meta:
         model = BankPaymentRequest
-        fields = ('created', 'amount', 'ref_id', 'description', 'user',)
+        fields = ('created', 'amount', 'ref_id', 'description', 'user', )
 
 
 class BankPaymentUserFilter(SimpleListFilter):
@@ -704,7 +739,7 @@ class BankPaymentUserFilter(SimpleListFilter):
 @admin.register(BankPaymentRequestReceipt)
 class BankPaymentRequestReceiptAdmin(ExportMixin, admin.ModelAdmin):
     list_display = ('id', 'payment_request',)
-    readonly_fields = ('get_receipt_preview',)
+    readonly_fields = ('get_receipt_preview', )
 
     @admin.display(description='receipt preview')
     def get_receipt_preview(self, req: BankPaymentRequestReceipt):
@@ -714,7 +749,7 @@ class BankPaymentRequestReceiptAdmin(ExportMixin, admin.ModelAdmin):
 
 class BankPaymentRequestReceiptInline(admin.TabularInline):
     fields = ('receipt', 'get_receipt_preview')
-    readonly_fields = ('get_receipt_preview',)
+    readonly_fields = ('get_receipt_preview', )
 
     @admin.display(description='receipt preview')
     def get_receipt_preview(self, req: BankPaymentRequestReceipt):
@@ -736,8 +771,8 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
     list_filter = (BankPaymentRequestAcceptFilter, BankPaymentUserFilter)
     resource_classes = [BankPaymentRequestResource]
     list_editable = ('destination_id', 'ref_id')
-    inlines = (BankPaymentRequestReceiptInline,)
-    search_fields = ('group_id',)
+    inlines = (BankPaymentRequestReceiptInline, )
+    search_fields = ('group_id', )
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "user":
@@ -751,8 +786,7 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
 
     @admin.action(description='Accept', permissions=['change'])
     def accept_payment(self, request, queryset):
-        for q in queryset.filter(payment__isnull=True, user__isnull=False, destination_id__isnull=False).exclude(
-                ref_id=''):
+        for q in queryset.filter(payment__isnull=True, user__isnull=False, destination_id__isnull=False).exclude(ref_id=''):
             q.create_payment()
 
     @admin.action(description='Clone', permissions=['change'])
@@ -767,8 +801,8 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
 class BankStatementAdmin(admin.ModelAdmin):
     list_display = ('created', 'gateway', 'title', 'status')
     list_filter = ('gateway', 'status')
-    readonly_fields = ('status',)
-    actions = ('process',)
+    readonly_fields = ('status', )
+    actions = ('process', )
 
     @admin.action(description='Process')
     def process(self, request, queryset):

@@ -7,7 +7,7 @@ from ledger.models.asset import AssetSerializerMini
 from market.models import PairSymbol
 from market.serializers.symbol_serializer import SymbolBriefStatsSerializer
 from multimedia.models import Article
-from multimedia.views.faq_view import ArticleSerializer
+from multimedia.views.articles_view import ArticleSerializer
 from stake.models import StakeOption
 from stake.views.stake_option_view import StakeOptionSerializer
 

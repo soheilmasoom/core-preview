@@ -7,9 +7,9 @@ from typing import List
 from simple_history.admin import SimpleHistoryAdmin
 
 from accounts.admin_guard.html_tags import admin_page_anchor
-from multimedia.models.faq_category import FAQ, FAQCategory
 from multimedia.utils.backoffice_content import BackofficeContent
-from multimedia.models import Image, PublicVideo, Banner, CoinPriceContent, Article, Section, File, Guide, GuideGroup
+from multimedia.models import Image, PublicVideo, Banner, CoinPriceContent, Article, Section, File, Guide, GuideGroup, \
+    FAQ, FAQCategory, GuideVariant
 from markdown import markdown
 
 
@@ -156,6 +156,20 @@ class FAQCategoryAdmin(SimpleHistoryAdmin):
         return category.faqs.count()
 
 
+class GuideVariantTabularInline(admin.TabularInline):
+    fields = ('get_id', 'title', 'slug', 'order', 'enable')
+    readonly_fields = ('get_id', )
+    model = GuideVariant
+    extra = 1
+
+    @admin.display(description="id")
+    def get_id(self, variant: GuideVariant):
+        if variant.id:
+            return admin_page_anchor(variant, variant.id or '')
+        else:
+            return ''
+
+
 class GuideTabularInline(admin.TabularInline):
     fields = ('get_id', 'title', 'image', 'description', 'link', 'video')
     readonly_fields = ('get_id', )
@@ -164,7 +178,10 @@ class GuideTabularInline(admin.TabularInline):
 
     @admin.display(description="id")
     def get_id(self, guide: Guide):
-        return admin_page_anchor(guide, guide.id or '')
+        if guide.id:
+            return admin_page_anchor(guide, guide.id or '')
+        else:
+            return ''
 
 
 @admin.register(GuideGroup)
@@ -172,13 +189,22 @@ class GuideGroupAdmin(SimpleHistoryAdmin):
     list_display = ('slug', 'title',)
     search_fields = ('slug', 'title',)
 
+    inlines = (GuideVariantTabularInline, )
+
+
+@admin.register(GuideVariant)
+class GuideVariantAdmin(SimpleHistoryAdmin):
+    list_display = ('slug', 'title', 'group', 'order', 'enable')
+    search_fields = ('slug', 'title',)
+    list_filter = ('group', )
+    list_editable = ('order', 'enable')
     inlines = (GuideTabularInline, )
 
 
 @admin.register(Guide)
 class GuidAdmin(SimpleHistoryAdmin):
-    list_display = ('title', 'group', 'order')
-    list_filter = ('group', )
+    list_display = ('title', 'variant', 'order')
+    list_filter = ('variant', )
     search_fields = ('title', )
     list_editable = ('order', )
 

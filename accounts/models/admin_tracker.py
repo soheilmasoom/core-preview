@@ -1,0 +1,16 @@
+from django.db import models
+
+from accounts.models import User
+
+
+class AdminTracker(models.Model):
+    created = models.DateTimeField(auto_now_add=True, verbose_name="Created", db_index=True)
+    admin = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Admin User", related_name='admin_actions')
+    model_name = models.CharField(max_length=255, verbose_name="Model", db_index=True)
+    object_id = models.CharField(max_length=255, null=True, blank=True, verbose_name="Object ID", db_index=True)
+    url = models.CharField(max_length=1024, verbose_name="URL")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="User",
+                             related_name='tracked_by_admin')
+
+    def __str__(self):
+        return f"{self.admin} {self.model_name} at {self.created}"
