@@ -143,3 +143,20 @@ class PhysicalWithdrawTestCase(TestCase):
         self.assertEqual(trx.sender, self.xau.get_wallet(self.account))
         self.assertEqual(trx.receiver, self.xau.get_wallet(Account.out()))
         self.assertEqual(trx.amount, Decimal('5'))
+
+    def test_insufficient_balance_xaum_withdrawal(self):
+        self.airdrop(self.xaum, self.account, Decimal('5000'))
+
+        data = {
+            'asset': 'XAUM',
+            'amount': '10'  # This will be converted to 10000 mg internally
+        }
+
+        response = self.client.post('/api/v1/treasury/withdraw/', data)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'موجودی کافی نیست')
+
+        self.assertEqual(BalanceLock.objects.count(), 0)
+
+        self.assertWalletBalance(self.xaum, self.account, '5000')
