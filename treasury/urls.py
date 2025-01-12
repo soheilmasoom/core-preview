@@ -1,17 +1,9 @@
 from django.urls import path
-from .views import TreasuryViewSet, PhysicalWithdrawViewSet
+
+from treasury.views import TreasuryListView, PhysicalWithdrawListView, PhysicalWithdrawDetailView
 
 urlpatterns = [
-    # Treasury endpoints
-    path('', TreasuryViewSet.as_view({'get': 'list'})),
-    path('<int:pk>/', TreasuryViewSet.as_view({'get': 'retrieve'})),
-
-    # Physical Withdraw endpoints
-    path('withdraw/', PhysicalWithdrawViewSet.as_view({
-        'get': 'list',
-        'post': 'create'
-    })),
-    path('withdraw/<int:pk>/', PhysicalWithdrawViewSet.as_view({
-        'get': 'retrieve'
-    })),
+    path('treasury/', TreasuryListView.as_view(), name='treasury-list'),
+    path('withdraw/', PhysicalWithdrawListView.as_view(), name='withdraw-list'),
+    path('withdraw/<int:pk>/', PhysicalWithdrawDetailView.as_view(), name='withdraw-detail'),
 ]

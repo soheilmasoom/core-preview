@@ -15,7 +15,7 @@ class PhysicalWithdrawTestCase(TestCase):
 
     def assertWithdrawalCreated(self, response, expected_asset, expected_amount):
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data['amount'], f"{Decimal(expected_amount):.3f}")
+        self.assertEqual(Decimal(response.data['amount']), Decimal(expected_amount))
         self.assertEqual(response.data['asset'], expected_asset)
 
     def assertBalanceLocked(self, expected_amount):
@@ -153,7 +153,6 @@ class PhysicalWithdrawTestCase(TestCase):
         }
 
         response = self.client.post('/api/v1/treasury/withdraw/', data)
-
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'موجودی کافی نیست')
 
