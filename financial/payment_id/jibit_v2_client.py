@@ -111,7 +111,7 @@ class JibitClientV2(JibitClient):
             self._fail(external_ref=ref_number)
             return False
 
-        payment_request, created = PaymentIdRequest.objects.get_or_create(
+        payment_request, created = PaymentIdRequest.objects.update_or_create(
             external_ref=ref_number,
             defaults={
                 'bank_ref': transaction.bank_reference_number,
