@@ -227,6 +227,9 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
         obj.save()
 
+    def _get_user(self, obj: FiatWithdrawRequest):
+        return obj.bank_account.user
+
 
 class PaymentRequestUserFilter(SimpleListFilter):
     title = 'کاربر'
