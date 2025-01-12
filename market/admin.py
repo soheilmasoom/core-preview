@@ -135,8 +135,8 @@ class OrderAdmin(AdvancedAdmin):
         Order.cancel_orders(queryset.filter(status=Order.NEW))
 
     def _get_user(self, obj):
-        if obj.account:
-            return obj.account.user
+        return obj.account and obj.account.user
+
 
 @admin.register(CancelRequest)
 class CancelRequestAdmin(admin.ModelAdmin):
@@ -201,8 +201,8 @@ class TradeAdmin(AdvancedAdmin):
             trade.revert()
 
     def _get_user(self, obj):
-        if obj.account:
-            return obj.account.user
+        return obj.account and obj.account.user
+
 
 @admin.register(ReferralTrx)
 class ReferralTrxAdmin(admin.ModelAdmin):

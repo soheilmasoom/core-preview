@@ -30,6 +30,7 @@ class GuideVariant(models.Model):
     title = models.CharField(max_length=256)
     slug = models.SlugField(max_length=256, blank=True)
     order = models.PositiveSmallIntegerField(default=0)
+    enable = models.BooleanField(default=True)
 
     group = models.ForeignKey(GuideGroup, on_delete=models.CASCADE, related_name='variants')
 

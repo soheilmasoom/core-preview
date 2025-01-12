@@ -227,6 +227,9 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
         obj.save()
 
+    def _get_user(self, obj: FiatWithdrawRequest):
+        return obj.bank_account.user
+
 
 class PaymentRequestUserFilter(SimpleListFilter):
     title = 'کاربر'
@@ -533,18 +536,26 @@ class ManualTransferAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentIdRequest)
 class PaymentIdRequestAdmin(AdvancedAdmin):
-    list_display = ('created', 'owner', 'status', 'get_amount', 'get_user', 'sender_iban', 'deposit_time',
+    list_display = ('created', 'get_owner', 'get_gateway', 'status', 'get_amount', 'record_type', 'sender_identifier', 'get_user', 'sender_iban', 'deposit_time',
                     'bank_transaction_id', 'bank_ref', 'external_ref')
     search_fields = ('raw_payment_id', 'owner__user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id',
                      'bank_transaction_id', 'sender_name', 'sender_identifier')
-    list_filter = ('status', 'kyt_passed')
-    actions = ('accept', 'reject')
+    list_filter = ('status', 'kyt_passed', 'gateway', 'record_type')
+    actions = ('accept', 'reject', 'update_with_provider')
     readonly_fields = ('get_user', 'payment', 'group_id')
     raw_id_fields = ('owner', )
 
     fields_edit_conditions = {
         'owner': M.superuser | M.is_none('owner')
     }
+
+    @admin.display(description='owner', ordering='owner')
+    def get_owner(self, obj: PaymentIdRequest):
+        return admin_page_anchor(obj.owner)
+
+    @admin.display(description='gateway', ordering='gateway')
+    def get_gateway(self, obj: PaymentIdRequest):
+        return admin_page_anchor(obj.gateway)
 
     @admin.display(description='amount', ordering='amount')
     def get_amount(self, obj: PaymentIdRequest):
@@ -560,21 +571,25 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
         for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):  # type: PaymentIdRequest
             payment_request.reject()
 
+    @admin.action(description='Update with Provider', permissions=['change'])
+    def update_with_provider(self, request, queryset):
+        for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
+            client = get_payment_id_client(payment_request.gateway)
+            client.update_payment_request(payment_request)
+
     @admin.display(description='user')
     def get_user(self, payment_id_request: PaymentIdRequest):
         if payment_id_request.owner:
-            user = payment_id_request.owner.user
-            link = url_to_edit_object(user)
-            return mark_safe("<a href='%s'>%s</a>" % (link, user.get_full_name()))
+            return admin_page_anchor(payment_id_request.owner.user)
 
 
 @admin.register(PaymentId)
 class PaymentIdAdmin(AdvancedAdmin):
     list_display = ('created', 'updated', 'user', 'master', 'pay_id', 'verified', 'deleted')
     search_fields = ('user__phone', 'pay_id', 'master__phone', )
-    list_filter = ('verified',)
+    list_filter = ('verified', 'deleted')
     readonly_fields = ('group_id', )
-    actions = ('check_status', 'recreate')
+    actions = ('check_status', 'recreate', 'delete_payment_ids', 'undelete_payment_ids')
     raw_id_fields = ('user',)
 
     default_edit_condition = M('id')
@@ -595,6 +610,14 @@ class PaymentIdAdmin(AdvancedAdmin):
         for payment_id in queryset.filter(verified=False):
             client = get_payment_id_client(payment_id.gateway)
             client.check_payment_id_status(payment_id)
+
+    @admin.action(description='Delete', permissions=['change'])
+    def delete_payment_ids(self, request, queryset):
+        queryset.update(deleted=True)
+
+    @admin.action(description='Undelete', permissions=['change'])
+    def undelete_payment_ids(self, request, queryset):
+        queryset.update(deleted=False)
 
     @admin.action(description='Recreate', permissions=['change'])
     def recreate(self, request, queryset):
