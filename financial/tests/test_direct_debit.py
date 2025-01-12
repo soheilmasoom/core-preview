@@ -3,7 +3,7 @@ from django.test import TestCase
 
 from accounts.models import User
 from financial.models import Payment
-from financial.models.authorization_id import AuthorizationId
+from financial.models.direct_debit_connection import DirectDebitConnection
 from financial.models.direct_debit_request import DirectDebitRequest
 from ledger.utils.test import new_account, new_direct_debit_bank, new_direct_debit_gateway
 
@@ -33,7 +33,7 @@ class DirectDebitTestCase(TestCase):
         })
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()['url'], "https://subscription.vandar.io/authorizations/test_token")
-        self.assertEqual(AuthorizationId.objects.all().count(), 1)
+        self.assertEqual(DirectDebitConnection.objects.all().count(), 1)
 
     def test_accept_authorization_id(self):
         self.test_get_authorization_url()
@@ -43,7 +43,7 @@ class DirectDebitTestCase(TestCase):
             'authorization_id': '123456789'
         })
         self.assertEqual(resp.status_code, 200)
-        auth = AuthorizationId.objects.filter(token='test_token')
+        auth = DirectDebitConnection.objects.filter(token='test_token')
         self.assertEqual(auth.count(), 1)
         self.assertEqual(auth[0].verified, True)
         self.assertEqual(auth[0].auth_id, '123456789')

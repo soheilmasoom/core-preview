@@ -23,7 +23,7 @@ from financial.direct_debit import get_direct_debit_client
 from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAccount, \
     FiatWithdrawRequest, ManualTransfer, MarketingSource, MarketingCost, PaymentIdRequest, PaymentId, \
     PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt, BankStatement
-from financial.models.authorization_id import AuthorizationId
+from financial.models.direct_debit_connection import DirectDebitConnection
 from financial.models.direct_debit_bank import DirectDebitBank
 from financial.models.direct_debit_gateway import DirectDebitGateway
 from financial.models.direct_debit_request import DirectDebitRequest
@@ -812,17 +812,17 @@ class BankStatementAdmin(admin.ModelAdmin):
 
 @admin.register(DirectDebitBank)
 class DirectDebitBankAdmin(admin.ModelAdmin):
-    list_display = ('name', 'gateway', 'code', 'active', 'is_healthy_on_direct_debit', 'max_withdrawal_amount',
-                    'max_withdrawal_amount_per_transaction', 'withdrawal_amount_currency', 'max_withdrawal_daily_count',
+    list_display = ('bank', 'gateway', 'active', 'max_withdrawal_amount', 'max_withdrawal_amount_per_transaction',
+                    'max_withdrawal_daily_count', 'max_validity_duration_days', 'kyc_type',
                     )
-    list_filter = ('is_healthy_on_direct_debit', 'gateway', 'active',)
-    search_fields = ('name', 'code', 'gateway')
+    list_filter = ('active', 'gateway', )
+    search_fields = ('bank', 'gateway', )
     readonly_fields = ('created', 'modified')
     list_editable = ('active', )
 
 
-@admin.register(AuthorizationId)
-class AuthorizationIdAdmin(admin.ModelAdmin):
+@admin.register(DirectDebitConnection)
+class DirectDebitConnectionAdmin(admin.ModelAdmin):
     list_display = ('created', 'auth_id', 'user', 'bank', 'verified',)
     list_filter = ('verified', 'deleted', 'bank')
     search_fields = ('auth_id', 'user')

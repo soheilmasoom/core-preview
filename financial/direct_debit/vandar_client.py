@@ -10,7 +10,7 @@ from rest_framework.exceptions import ValidationError
 from accounts.models import User
 from accounts.verifiers.jibit import Response
 from financial.direct_debit.base_client import BaseClient
-from financial.models.authorization_id import AuthorizationId
+from financial.models.direct_debit_connection import DirectDebitConnection
 from financial.models.direct_debit_bank import DirectDebitBank
 from financial.models.direct_debit_request import DirectDebitRequest
 from ledger.utils.fields import PROCESS
@@ -156,7 +156,7 @@ class VandarClient(BaseClient):
 
         auth_token = resp.data['result']['authorization']['token']
 
-        auth_id = AuthorizationId.objects.get_or_create(user=user, bank=bank, defaults={
+        auth_id = DirectDebitConnection.objects.get_or_create(user=user, bank=bank, defaults={
             'token': auth_token
         })
 
@@ -165,7 +165,7 @@ class VandarClient(BaseClient):
 
         return auth_token
 
-    def accept_authorization_id(self, auth_id: AuthorizationId):
+    def accept_authorization_id(self, auth_id: DirectDebitConnection):
         resp = self._collect_api(
             path=f'/v3/business/{self.gateway.business_name}/subscription/authorization/{auth_id.auth_id}/verify',
             method='PATCH',
@@ -180,7 +180,7 @@ class VandarClient(BaseClient):
             raise ExternalAPIError(f"Failed to verify authorization id: {resp.data}")
 
 
-    def cancel_authorization_id(self, auth_id: AuthorizationId):
+    def cancel_authorization_id(self, auth_id: DirectDebitConnection):
         resp = self._collect_api(
             path=f'/v3/business/{self.gateway.business_name}/subscription/authorization/{auth_id.auth_id}',
             method='DELETE',
@@ -194,7 +194,7 @@ class VandarClient(BaseClient):
         else:
             raise ExternalAPIError(f"Failed to cancel authorization id: {resp.data}")
 
-    def create_payment_data(self, auth_id: AuthorizationId, amount):
+    def create_payment_data(self, auth_id: DirectDebitConnection, amount):
         payload = {
             "authorization_id": auth_id.auth_id,
             "amount": str(amount),

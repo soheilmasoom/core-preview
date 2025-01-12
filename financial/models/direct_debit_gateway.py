@@ -5,9 +5,7 @@ from financial.utils.manager import ActiveManager
 
 
 class DirectDebitGateway(models.Model):
-    TYPES = VANDAR, OTHER = 'vandar', 'other'
-
-    title = models.CharField(max_length=16)
+    TYPES = VANDAR, = 'vandar',
 
     type = models.CharField(
         max_length=16,
@@ -15,15 +13,17 @@ class DirectDebitGateway(models.Model):
         default=VANDAR,
     )
 
+    created = models.DateTimeField(auto_now_add=True)
+    active = models.BooleanField(default=False)
+    priority = models.SmallIntegerField(default=0)
+
+    title = models.CharField(max_length=16)
+
     objects = models.Manager()
     live_objects = ActiveManager()
 
-    created = models.DateTimeField(auto_now_add=True)
     business_name = models.CharField(max_length=56)
     refresh_token_encrypted = models.CharField(max_length=4096, blank=True)
-
-    priority = models.SmallIntegerField(default=0)
-    active = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title

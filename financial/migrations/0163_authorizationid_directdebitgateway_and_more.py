@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('financial', '0161_remove_paymentidrequest_payment_id_request_owner_null_condition_and_more'),
+        ('financial', '0162_alter_paymentidrequest_deposit_time'),
     ]
 
     operations = [

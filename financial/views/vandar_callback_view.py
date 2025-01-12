@@ -4,11 +4,11 @@ from rest_framework.views import APIView
 
 from financial.direct_debit.getter import get_direct_debit_client
 from financial.direct_debit.vandar_client import ExternalAPIError
-from financial.models.authorization_id import AuthorizationId
+from financial.models.direct_debit_connection import DirectDebitConnection
 from financial.models.direct_debit_gateway import DirectDebitGateway
 
 
-class AuthorizationIdCallbackView(APIView):
+class VandarCallbackView(APIView):
     authentication_classes = permission_classes = ()
 
     def get(self, request, *args, **kwargs):
@@ -18,7 +18,7 @@ class AuthorizationIdCallbackView(APIView):
         error_code = request.GET.get('error_code')
 
         if status == "SUCCEED" and token and authorization_id:
-            auth_id = AuthorizationId.objects.filter(token=token, deleted=False).first()
+            auth_id = DirectDebitConnection.objects.filter(token=token, deleted=False).first()
             if not auth_id:
                 raise ValidationError(f'شناسه مجوز یافت نشد.')
 

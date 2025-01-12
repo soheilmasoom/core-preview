@@ -1,45 +1,48 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
+from rest_framework.generics import ListAPIView, CreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import User
 from financial.direct_debit.getter import get_direct_debit_client
 from financial.direct_debit.vandar_client import ExternalAPIError
-from financial.models.authorization_id import AuthorizationId
+from financial.models.direct_debit_connection import DirectDebitConnection
 from financial.models.direct_debit_bank import DirectDebitBank
 from financial.models.direct_debit_gateway import DirectDebitGateway
+from financial.utils.bank import get_bank, get_bank_from_slug
 
 
 class BanksSerializer(serializers.ModelSerializer):
+    info = serializers.SerializerMethodField()
+
+    def get_info(self, direct_debit_bank: DirectDebitBank):
+        bank = get_bank_from_slug(direct_debit_bank.bank)
+        return bank and bank.as_dict()
+
     class Meta:
         model = DirectDebitBank
         fields = (
-            'id', 'code', 'name', 'is_healthy_on_direct_debit',
-            'max_withdrawal_amount', 'max_withdrawal_amount_per_transaction',
-            'withdrawal_amount_currency', 'max_withdrawal_daily_count',
-            'max_mandate_validity_duration', 'mandate_validity_duration_unit',
-            'payer_authentication_type'
+            'info', 'max_withdrawal_amount', 'max_withdrawal_amount_per_transaction',
+            'max_withdrawal_daily_count', 'max_validity_duration_days',
         )
 
 
-class BanksView(APIView):
+class BanksView(ListAPIView):
     serializer_class = BanksSerializer
 
-    def get(self, request, *args, **kwargs):
+
+    def get_queryset(self):
         gateway = DirectDebitGateway.live_objects.first()
 
         if not gateway:
             raise ValidationError('امکان دریافت لیست بانک ها وجود ندارد.')
 
-        banks = DirectDebitBank.live_objects.filter(gateway=gateway)
-
-        serializer = BanksSerializer(banks, many=True)
-
-        return Response(serializer.data)
+        return DirectDebitBank.live_objects.filter(gateway=gateway)
 
 
-class AuthorizationIdSerializer(serializers.Serializer):
+class DirectDebitConnectionSerializer(serializers.Serializer):
     bank_id = serializers.IntegerField(required=True)
 
     def validate(self, attrs):
@@ -60,9 +63,9 @@ class AuthorizationIdSerializer(serializers.Serializer):
         return attrs
 
 
-class AuthorizationIdView(APIView):
+class DirectDebitConnectionView(ModelViewSet):
     def get(self, request, *args, **kwargs):
-        serializer = AuthorizationIdSerializer(data=request.GET, context={'request': request})
+        serializer = DirectDebitConnectionSerializer(data=request.GET, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
@@ -79,7 +82,7 @@ class AuthorizationIdView(APIView):
             return Response({'status': 0, 'message': f'{str(e)}'})
 
     def delete(self, request, *args, **kwargs):
-        serializer = AuthorizationIdSerializer(data=request.GET, context={'request': request})
+        serializer = DirectDebitConnectionSerializer(data=request.GET, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
@@ -87,7 +90,7 @@ class AuthorizationIdView(APIView):
         bank = validated_data['bank']
         user = request.user
 
-        auth_id = AuthorizationId.objects.filter(user=user, bank=bank, deleted=False).first()
+        auth_id = DirectDebitConnection.objects.filter(user=user, bank=bank, deleted=False).first()
         if not auth_id:
             raise ValidationError('مجوز با این مشخصات یافت نشد.')
 
@@ -120,7 +123,7 @@ class DirectDebitSerializer(serializers.Serializer):
         if not bank:
             raise serializers.ValidationError('بانک با این شناسه یافت نشد.')
 
-        auth_id = AuthorizationId.objects.filter(user=user, bank=bank, deleted=False).first()
+        auth_id = DirectDebitConnection.objects.filter(user=user, bank=bank, deleted=False).first()
         if not auth_id:
             raise serializers.ValidationError('مجوز با این مشخصات یافت نشد.')
 
@@ -134,7 +137,7 @@ class DirectDebitSerializer(serializers.Serializer):
         return attrs
 
 
-class DirectDebitView(APIView):
+class DirectDebitView(CreateAPIView):
     def get(self, request, *args, **kwargs):
         serializer = DirectDebitSerializer(data=request.GET, context={'request': request})
         serializer.is_valid(raise_exception=True)

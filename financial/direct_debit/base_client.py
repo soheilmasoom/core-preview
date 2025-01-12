@@ -2,7 +2,7 @@ import logging
 
 from accounts.models import User
 from financial.models import PaymentIdRequest, PaymentId
-from financial.models.authorization_id import AuthorizationId
+from financial.models.direct_debit_connection import DirectDebitConnection
 from financial.models.direct_debit_bank import DirectDebitBank
 from financial.models.direct_debit_gateway import DirectDebitGateway
 
@@ -19,31 +19,19 @@ class BaseClient:
     def get_banks(self):
         raise NotImplementedError
 
-    def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
-        raise NotImplementedError
-
-    def create_payment_request(self, external_ref: str) -> PaymentIdRequest:
-        raise NotImplementedError
-
-    def check_payment_id_status(self, payment_id: PaymentId):
-        raise NotImplementedError
-
-    def create_payments_requests(self):
-        raise NotImplementedError
-
     def get_authorization_create_url(self, user: User, bank: DirectDebitBank):
         raise NotImplementedError
 
     def get_authorization_token(self, user: User, bank: DirectDebitBank):
         raise NotImplementedError
 
-    def accept_authorization_id(self, authorization_id: AuthorizationId):
+    def accept_authorization_id(self, authorization_id: DirectDebitConnection):
         raise NotImplementedError
 
-    def cancel_authorization_id(self, authorization_id: AuthorizationId):
+    def cancel_authorization_id(self, authorization_id: DirectDebitConnection):
         raise NotImplementedError
 
-    def create_payment_data(self, auth_id: AuthorizationId, amount):
+    def create_payment_data(self, auth_id: DirectDebitConnection, amount):
         raise NotImplementedError
 
     def update_banks(self):

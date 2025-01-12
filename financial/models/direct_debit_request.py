@@ -13,17 +13,16 @@ class DirectDebitRequest(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
 
-    owner = models.ForeignKey('AuthorizationId', on_delete=models.PROTECT, null=True, blank=True)
+    owner = models.ForeignKey('DirectDebitConnection', on_delete=models.PROTECT, null=True, blank=True)
     status = get_status_field()
 
     gateway = models.ForeignKey('DirectDebitGateway', on_delete=models.PROTECT)
 
     amount = models.PositiveBigIntegerField()
     fee = models.PositiveBigIntegerField()
-    balance = models.PositiveBigIntegerField(default=0)
 
     group_id = get_group_id_field(unique=True)
-    payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.CASCADE)
+    payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.SET_NULL)
 
     comment = models.TextField(blank=True)
 
