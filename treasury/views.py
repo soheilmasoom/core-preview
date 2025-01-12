@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
+
+from accounts.models import SystemConfig
 from .models import Treasury, PhysicalWithdraw
 from ledger.exceptions import InsufficientBalance
 from .serializers import PhysicalWithdrawSerializer, TreasurySerializer
@@ -73,3 +75,14 @@ class PhysicalWithdrawDetailView(APIView):
         withdraw = self.get_object(pk)
         serializer = PhysicalWithdrawSerializer(withdraw)
         return Response(serializer.data)
+
+
+class PhysicalWithdrawInitView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        config = SystemConfig.get_system_config()
+        return Response({
+            'min_physical_gold_withdraw': config.min_physical_gold_withdraw,
+            'min_physical_silver_withdraw': config.min_physical_silver_withdraw
+        })

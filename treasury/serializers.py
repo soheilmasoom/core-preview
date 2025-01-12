@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from rest_framework import serializers
 
+from accounts.models import SystemConfig
 from ledger.models import Asset, Wallet
 from ledger.utils.wallet_pipeline import WalletPipeline
 from treasury.models import PhysicalWithdraw
@@ -29,12 +30,29 @@ class PhysicalWithdrawSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=20, decimal_places=8)
     created_at = serializers.DateTimeField(read_only=True)
 
-    def validate_amount(self, value):
-        if value % 5 != 0:
-            raise serializers.ValidationError('درخواست برداشت باید مضربی از پنج باشد.')
-        if value <= 0:
+    def validate(self, data):
+        asset = data['asset']
+        amount = data['amount']
+        config = SystemConfig.get_system_config()
+
+        if amount <= 0:
             raise serializers.ValidationError('مقدار باید بیشتر از صفر باشد.')
-        return value
+
+        # Check for gold (XAU or XAUM)
+        if asset.symbol.lower() in ['xau', 'xaum']:
+            if amount < config.min_physical_gold_withdraw:
+                raise serializers.ValidationError(
+                    f'حداقل مقدار برداشت طلا {config.min_physical_gold_withdraw} گرم است.'
+                )
+
+        # Check for silver (XAG)
+        elif asset.symbol.lower() == 'xag':
+            if amount < config.min_physical_silver_withdraw:
+                raise serializers.ValidationError(
+                    f'حداقل مقدار برداشت نقره {config.min_physical_silver_withdraw} گرم است.'
+                )
+
+        return data
 
     def create(self, validated_data):
         account = self.context['request'].user.account
@@ -44,9 +62,6 @@ class PhysicalWithdrawSerializer(serializers.Serializer):
         asset = Asset.objects.get(symbol=asset_name)
         if asset is None:
             raise serializers.ValidationError('Invalid asset')
-
-        if asset.is_xau_milligrams:
-            amount = amount * 1000
 
         wallet = asset.get_wallet(account, market=Wallet.SPOT, variant=None)
         lock_id = uuid4()
