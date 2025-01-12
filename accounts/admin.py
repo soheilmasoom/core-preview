@@ -260,7 +260,9 @@ class ChangePhoneAdmin(BaseChangeAdmin):
 class AdminTrackerAdmin(AdvancedAdmin):
     list_display = ('created', 'admin_link', 'model_name', 'object_id', 'url_link', 'user_link')
     readonly_fields = ('created', 'admin_link', 'model_name', 'object_id', 'url_link', 'user_link')
-    list_filter = ('model_name', 'created', 'admin')
+    list_filter = ('model_name', 'created')
+    search_fields = ('user__phone', 'admin__phone', 'url')
+    list_per_page = 20
 
     @admin.display(description='Admin')
     def admin_link(self, obj):
