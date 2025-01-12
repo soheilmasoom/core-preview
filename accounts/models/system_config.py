@@ -26,6 +26,9 @@ class SystemConfig(models.Model):
     active = models.BooleanField()
     is_consultation_available = models.BooleanField(default=False)
 
+    min_physical_gold_withdraw = get_amount_field(default=Decimal('5'))
+    min_physical_silver_withdraw = get_amount_field(default=Decimal('100'))
+
     withdraw_amount_min = models.PositiveIntegerField(default=50_000)
     withdraw_amount_max = models.PositiveIntegerField(default=1_000_000_000)
     withdraw_fee_min = models.SmallIntegerField(default=1000)
