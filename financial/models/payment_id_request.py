@@ -63,7 +63,7 @@ class PaymentIdRequest(models.Model):
         with WalletPipeline() as pipeline:
             req = PaymentIdRequest.objects.select_for_update().get(id=self.id)
 
-            if req.payment or req.status not in self.PENDING_STATES:
+            if not req.owner or req.payment or req.status not in self.PENDING_STATES:
                 return
 
             payment_id = req.owner
