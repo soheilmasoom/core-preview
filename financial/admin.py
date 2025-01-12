@@ -562,7 +562,7 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
 
     @admin.action(description='Update with Provider', permissions=['change'])
     def update_with_provider(self, request, queryset):
-        for payment_request in queryset.filter(status__in=INIT):  # type: PaymentIdRequest
+        for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
             client = get_payment_id_client(payment_request.gateway)
             client.update_payment_request(payment_request)
 
