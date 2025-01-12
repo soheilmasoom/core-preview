@@ -3,8 +3,6 @@ from uuid import uuid4
 from django.conf import settings
 
 from accounting.models import TradeRevenue
-from financial.models.direct_debit_bank import DirectDebitBank
-from financial.models.direct_debit_gateway import DirectDebitGateway
 
 if settings.DEBUG_OR_TESTING:
     import random
@@ -24,10 +22,12 @@ if settings.DEBUG_OR_TESTING:
     def get_rand_int():
         return random.randint(0, 100000000)
 
+
     def new_account() -> Account:
         name = 'test' + str(get_rand_int())
         u = User.objects.create(username=name, phone=name)
         return u.get_account()
+
 
     def set_price(asset: Asset, ask: float, bid: float = None):
         if not bid:
@@ -49,10 +49,12 @@ if settings.DEBUG_OR_TESTING:
 
         time.sleep(1)
 
+
     def set_up_user(self):
         phone = '09355913457'
         user = User.objects.create(username=phone, password='1', phone=phone)
         return user
+
 
     def generate_otp_code(user, scope) -> VerificationCode:
         otp_code = VerificationCode.objects.create(
@@ -62,6 +64,7 @@ if settings.DEBUG_OR_TESTING:
             user=user, )
         return otp_code.code
 
+
     def new_network(symbol: str = 'BSC') -> Network:
         symbol = symbol
         name = symbol
@@ -69,6 +72,7 @@ if settings.DEBUG_OR_TESTING:
         network = Network.objects.create(symbol=symbol, name=name, address_regex=address_regex)
 
         return network
+
 
     def new_network_asset(asset: Asset, network: Network):
 
@@ -92,7 +96,9 @@ if settings.DEBUG_OR_TESTING:
         )
         return network_asset
 
-    def new_address_book(account, network = None, asset=None, address='123', whitelist: bool = False, dest_user: User=None, address_type=AddressBook.TYPE_NETWORK) -> AddressBook:
+
+    def new_address_book(account, network=None, asset=None, address='123', whitelist: bool = False,
+                         dest_user: User = None, address_type=AddressBook.TYPE_NETWORK) -> AddressBook:
         name = 'test'
         address = address
         account = account
@@ -101,9 +107,11 @@ if settings.DEBUG_OR_TESTING:
         address_type = address_type
         if asset:
             asset = Asset.get(asset)
-        address_book = AddressBook.objects.create(name=name, address=address, account=account, network=network, asset=asset,
+        address_book = AddressBook.objects.create(name=name, address=address, account=account, network=network,
+                                                  asset=asset,
                                                   whitelist=whitelist, dest_user=dest_user, type=address_type)
         return address_book
+
 
     def new_deposit_address(account: Account, network: Network, address: str, memo: str = '') -> DepositAddress:
         address_key = AddressKey.objects.create(account=account, address=address, memo=memo)
@@ -113,13 +121,16 @@ if settings.DEBUG_OR_TESTING:
             address_key=address_key
         )
 
+
     def new_bankcard(user) -> BankCard:
-        bankcard = BankCard.objects.create(user=user, card_pan='1', verified=True, kyc=True,)
+        bankcard = BankCard.objects.create(user=user, card_pan='1', verified=True, kyc=True, )
         return bankcard
+
 
     def new_zibal_gateway() -> Gateway:
         gateway = Gateway.objects.create(name='test', type=Gateway.ZIBAL, merchant_id='zibal', active=True)
         return gateway
+
 
     def create_system_order_book(symbol: PairSymbol, side: str, data: list):
         with WalletPipeline() as pipeline:
@@ -132,6 +143,7 @@ if settings.DEBUG_OR_TESTING:
                     amount=d[1],
                     side=side
                 )
+
 
     def new_otc_request(account: Account = None):
         if not account:
@@ -151,15 +163,10 @@ if settings.DEBUG_OR_TESTING:
             order_type=OTCRequest.MARKET,
         )
 
+
     def new_trade_revenue(account: Account = None):
         return TradeRevenue.new(
             user_trade=new_otc_request(account),
             group_id=uuid4(),
             source=TradeRevenue.OTC_MARKET,
         ).save()
-
-    def new_direct_debit_gateway():
-        return DirectDebitGateway.objects.create(business_name='test', active=True)
-
-    def new_direct_debit_bank(bank_code, gateway):
-        return DirectDebitBank.objects.create(code=bank_code, gateway=gateway, active=True)
