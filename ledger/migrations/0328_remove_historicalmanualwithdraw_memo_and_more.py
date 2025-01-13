@@ -70,7 +70,6 @@ class Migration(migrations.Migration):
                 'verbose_name': 'historical manual address book',
                 'ordering': ('-history_date', '-history_id'),
                 'get_latest_by': 'history_date',
-                'unique_together': {('address', 'network', 'memo')},
             },
             bases=(simple_history.models.HistoricalChanges, models.Model),
         ),
@@ -118,5 +117,18 @@ class Migration(migrations.Migration):
         migrations.RemoveField(
             model_name='manualwithdraw',
             name='receiver_address',
+        ),
+        migrations.AlterField(
+            model_name='historicalmanualwithdraw',
+            name='address_book',
+            field=models.ForeignKey(blank=True, db_constraint=False, limit_choices_to={'deleted': False}, null=True,
+                                    on_delete=django.db.models.deletion.DO_NOTHING, related_name='+',
+                                    to='ledger.manualaddressbook'),
+        ),
+        migrations.AlterField(
+            model_name='manualwithdraw',
+            name='address_book',
+            field=models.ForeignKey(limit_choices_to={'deleted': False}, on_delete=django.db.models.deletion.CASCADE,
+                                    to='ledger.manualaddressbook'),
         ),
     ]

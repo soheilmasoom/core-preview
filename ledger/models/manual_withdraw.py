@@ -8,7 +8,7 @@ class ManualWithdraw(models.Model):
     history = HistoricalRecords()
 
     created = models.DateTimeField(auto_now_add=True)
-    address_book = models.ForeignKey('ledger.ManualAddressBook', on_delete=models.CASCADE)
+    address_book = models.ForeignKey('ledger.ManualAddressBook', limit_choices_to={'deleted': False}, on_delete=models.CASCADE)
     asset = models.ForeignKey('ledger.Asset', on_delete=models.CASCADE)
     amount = get_amount_field()
     comment = models.TextField(blank=True)
