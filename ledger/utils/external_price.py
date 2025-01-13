@@ -97,10 +97,6 @@ def _get_external_symbol(symbol: str) -> str:
 
 
 def _get_external_price_multiplier(coin: str) -> Decimal:
-    if coin in ['XAG', 'XAU']:
-        return 1 / Decimal('41.4713')
-    if coin == 'XAUM':
-        return 1 / Decimal('41471.3')
     return Decimal(1)
 
 
@@ -164,6 +160,7 @@ def _get_manual_staled_prices() -> dict:
 
 
 def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow_stale: bool = False) -> List[Price]:
+    print("fetch_external_redis_prices "+coins)
     results = []
 
     if side:
@@ -174,6 +171,7 @@ def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow
     pipe = _get_price_redis(allow_stale).pipeline(transaction=False)
     for c in coins:
         key = _get_redis_price_key(c)
+        print(f"hget {key} for {c}")
         pipe.hgetall(key)
 
         key = _get_redis_price_key(c, market='futures')
@@ -222,7 +220,7 @@ def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow
             results.append(
                 Price(coin=c, price=price, side=s)
             )
-
+    print(f"results are {results}")
     return results
 
 
