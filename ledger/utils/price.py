@@ -49,6 +49,7 @@ def get_all_otc_spreads(side):
 
 def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict[str, Decimal]:
     assert side in (BUY, SELL)
+    print(f"get prices {symbols}")
     from market.models import Order
 
     if USDT_IRT not in symbols:

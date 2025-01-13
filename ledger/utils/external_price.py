@@ -160,7 +160,7 @@ def _get_manual_staled_prices() -> dict:
 
 
 def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow_stale: bool = False) -> List[Price]:
-    print("fetch_external_redis_prices "+coins)
+    print(f"fetch_external_redis_prices {coins}")
     results = []
 
     if side:
