@@ -210,12 +210,12 @@ app.conf.beat_schedule = {
         },
     },
 
-    'handle_jibit_payments': {
-        'task': 'financial.tasks.gateway.handle_jibit_payments',
-        'schedule': 60 * TASK_MULTIPLIER,
+    'handle_waiting_payment_ids': {
+        'task': 'financial.tasks.gateway.handle_waiting_payment_ids',
+        'schedule': 300 * TASK_MULTIPLIER,
         'options': {
             'queue': 'finance',
-            'expires': 60 * TASK_MULTIPLIER
+            'expires': 300 * TASK_MULTIPLIER
         },
     },
 

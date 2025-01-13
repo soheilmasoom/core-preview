@@ -1,8 +1,9 @@
 from .payment_id_gateway import PaymentIdGateway
 from .bank_card import BankCard
-from .bank_account import BankAccount
+from .user_bank_account import BankAccount
 from .payment import PaymentRequest, Payment
-from .payment_id import PaymentId, PaymentIdRequest
+from .payment_id import PaymentId
+from .payment_id_request import PaymentIdRequest
 from .gateway import Gateway
 from .zarinpal_gateway import ZarinpalGateway
 from .paydotir_gateway import PaydotirGateway
@@ -14,3 +15,4 @@ from .withdraw_request import FiatWithdrawRequest
 from .manual_transfer import ManualTransfer
 from .bank_payment import BankPaymentRequest, BankPaymentRequestReceipt
 from .novinpal_gateway import NovinpalGateway
+from .bank_account import BankStatement

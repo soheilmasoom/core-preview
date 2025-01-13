@@ -91,7 +91,7 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'publish_date', 'spread_category', 'otc_status', 'price_page', 'get_distribution_factor', 'margin_interest_fee'
     )
     list_filter = ('enable', 'hedge', 'do_care_hedge', 'otc_status', 'spread_category', 'coincategory', 'trend')
-    list_editable = ('order',)
+    list_editable = ('order', )
     search_fields = ('symbol', 'name', 'name_fa', 'original_name_fa')
     ordering = ('-enable', '-pin_to_top', '-trend', 'otc_status', 'order')
     actions = ('setup_asset', 'update_rank_by_cmc', 'set_to_hedge', 'set_to_not_hedge')
@@ -243,15 +243,15 @@ class AssetAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 @admin.register(FeedbackCategory)
 class FeedbackCategoryAdmin(admin.ModelAdmin):
     list_display = ('category', 'order')
-    list_editable = ('order',)
+    list_editable = ('order', )
 
 
 @admin.register(WithdrawFeedback)
 class WithdrawFeedbackAdmin(admin.ModelAdmin):
     list_display = ('created', 'user', 'category', 'description')
     readonly_fields = ('user',)
-    search_fields = ('user__phone',)
-    list_filter = ('category',)
+    search_fields = ('user__phone', )
+    list_filter = ('category', )
 
 
 @admin.register(models.Network)
@@ -338,6 +338,8 @@ class DepositAddressUserFilter(admin.SimpleListFilter):
 
 @admin.register(models.DepositAddress)
 class DepositAddressAdmin(AdvancedAdmin):
+    track_admin_activity = True
+
     list_display = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     readonly_fields = ('address_key', 'network', 'address', 'get_memo', 'get_deleted')
     list_filter = ('network', DepositAddressUserFilter)
@@ -371,11 +373,16 @@ class OTCRequestUserFilter(SimpleListFilter):
 
 @admin.register(models.OTCRequest)
 class OTCRequestAdmin(AdvancedAdmin):
+    track_admin_activity = True
+
     list_display = ('created', 'get_username', 'symbol', 'side', 'price', 'amount', 'fee_amount', 'fee_revenue')
     readonly_fields = ('account', 'login_activity', 'token')
     search_fields = ('token', 'symbol__name', 'account__user__phone')
     list_filter = (OTCRequestUserFilter, 'type')
     list_permission_exclude_filters = ('id', 'user')
+
+    def _get_user(self, obj):
+        return obj.account and obj.account.user
 
     @admin.display(description='user')
     def get_username(self, otc_request: models.OTCRequest):
@@ -434,6 +441,8 @@ class OrderTypeOTCFilter(SimpleListFilter):
 
 @admin.register(models.OTCTrade)
 class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
+    track_admin_activity = True
+
     list_display = ('created', 'get_username', 'otc_request', 'get_order_type', 'status', 'get_value', 'get_value_irt',
                     'execution_type', 'gap_revenue', 'hedged')
     list_filter = (OrderTypeOTCFilter, OTCSideFilter, 'status', 'execution_type', 'hedged', OTCUserFilter)
@@ -442,6 +451,10 @@ class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     actions = ('accept_trade', 'accept_trade_without_hedge', 'cancel_trade', 'revert')
 
     list_permission_exclude_filters = ('id', 'user')
+
+    def _get_user(self, obj: models.OTCTrade):
+        account = obj.otc_request.account
+        return account and account.user
 
     def get_queryset(self, request):
         return super(OTCTradeAdmin, self).get_queryset(request).prefetch_related('otc_request__account__user')
@@ -519,6 +532,8 @@ class TrxWalletFilter(SimpleListFilter):
 
 @admin.register(models.Trx)
 class TrxAdmin(AdvancedAdmin):
+    track_admin_activity = True
+
     list_display = ('created', 'get_masked_sender', 'get_masked_receiver', 'amount', 'scope', 'group_id')
     search_fields = ('sender__asset__symbol', 'sender__account__user__phone', 'receiver__account__user__phone',
                      'group_id')
@@ -592,9 +607,10 @@ class WalletBalanceFilter(SimpleListFilter):
 
 @admin.register(models.Wallet)
 class WalletAdmin(AdvancedAdmin):
-    list_display = (
-    'created', 'get_username', 'asset', 'market', 'get_free', 'locked', 'get_value_usdt', 'get_value_irt',
-    'credit', 'variant')
+    track_admin_activity = True
+
+    list_display = ('created', 'get_username', 'asset', 'market', 'get_free', 'locked', 'get_value_usdt', 'get_value_irt',
+                    'credit', 'variant')
     inlines = [BalanceLockInline]
     list_filter = [
         ('asset', RelatedDropdownFilter),
@@ -605,6 +621,9 @@ class WalletAdmin(AdvancedAdmin):
     search_fields = ('account__user__phone', 'asset__symbol')
     actions = ('sync_wallet_lock', 'clear_debt')
     list_permission_exclude_filters = ('id', 'account')
+
+    def _get_user(self, obj):
+        return obj.account and obj.account.user
 
     def get_queryset(self, request):
         qs = super(WalletAdmin, self).get_queryset(request)
@@ -645,8 +664,7 @@ class WalletAdmin(AdvancedAdmin):
     @admin.action(description='Sync Lock')
     def sync_wallet_lock(self, request, queryset):
         for wallet in queryset:
-            wallet.locked = BalanceLock.objects.filter(wallet=wallet, amount__gt=0).aggregate(sum=Sum('amount'))[
-                                'sum'] or 0
+            wallet.locked = BalanceLock.objects.filter(wallet=wallet, amount__gt=0).aggregate(sum=Sum('amount'))['sum'] or 0
             wallet.save(update_fields=['locked'])
 
     @admin.action(description='Clear Debt')
@@ -676,6 +694,7 @@ class TransferUserFilter(SimpleListFilter):
 @admin.register(models.Transfer)
 class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
+    track_admin_activity = True
 
     fields_edit_conditions = {
         'comment': True,
@@ -691,8 +710,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     search_fields = ('trx_hash', 'out_address', 'wallet__asset__symbol', 'wallet__account__user__phone')
     list_filter = ('deposit', 'status', 'source', TransferUserFilter, 'network')
     readonly_fields = (
-        'deposit_address', 'network', 'receiver_account', 'wallet', 'created', 'accepted_datetime', 'finished_datetime',
-        'get_risks',
+        'deposit_address', 'network', 'receiver_account', 'wallet', 'created', 'accepted_datetime', 'finished_datetime', 'get_risks',
         'out_address', 'memo', 'amount', 'irt_value', 'usdt_value', 'deposit', 'group_id', 'login_activity',
         'address_book', 'accepted_by', 'block_number', 'last_block_number', 'whitelist'
     )
@@ -702,6 +720,10 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
                'terminate_withdraw', 'accept_canceled_deposits')
 
     list_permission_exclude_filters = ('id', 'user')
+
+    def _get_user(self, obj: models.Transfer):
+        account = obj.wallet.account
+        return account and account.user
 
     def save_model(self, request, obj: models.Transfer, form, change):
         if obj.id and obj.status == DONE:
@@ -944,8 +966,8 @@ class MarginTransferAdmin(admin.ModelAdmin):
 class AddressBookAdmin(SimpleHistoryAdmin):
     list_display = ('name', 'get_username', 'network', 'address', 'asset', 'type')
     search_fields = ('address', 'name', 'account__user__phone', 'type')
-    raw_id_fields = ('account',)
-    actions = ('clone',)
+    raw_id_fields = ('account', )
+    actions = ('clone', )
 
     @admin.display(description='user')
     def get_username(self, address_book: models.AddressBook):
@@ -976,10 +998,15 @@ class PrizeUserFilter(admin.SimpleListFilter):
 
 @admin.register(models.Prize)
 class PrizeAdmin(AdvancedAdmin):
+    track_admin_activity = True
+
     list_display = ('created', 'achievement', 'get_username', 'get_asset_amount', 'redeemed', 'value')
     readonly_fields = ('account', 'asset',)
     list_filter = ('achievement', 'redeemed', PrizeUserFilter)
     list_permission_exclude_filters = ('id', 'user')
+
+    def _get_user(self, obj):
+        return obj.account and obj.account.user
 
     @admin.display(description='amount')
     def get_asset_amount(self, prize: Prize):
@@ -1077,8 +1104,7 @@ class SystemSnapshotVerifiedFilter(admin.SimpleListFilter):
 
 @admin.register(models.SystemSnapshot)
 class SystemSnapshotAdmin(admin.ModelAdmin):
-    list_display = (
-    'created', 'total', 'users', 'exchange', 'get_non_reserved', 'hedge', 'reserved', 'prize', 'verified')
+    list_display = ('created', 'total', 'users', 'exchange', 'get_non_reserved', 'hedge', 'reserved', 'prize', 'verified')
     ordering = ('-created',)
     actions = ('reject_histories', 'verify_histories')
     readonly_fields = ('created',)
@@ -1300,7 +1326,7 @@ class ManualTradeAdmin(admin.ModelAdmin):
 @admin.register(AlertTrigger)
 class AlertTriggerAdmin(admin.ModelAdmin):
     list_display = ('created', 'asset', 'trigger_type', 'old_price', 'new_price', 'trigger_type', 'cycle', 'interval')
-    readonly_fields = ('created', 'asset',)
+    readonly_fields = ('created', 'asset', )
     search_fields = ('cycle', 'asset__symbol')
     list_filter = ('interval', 'trigger_type')
 
@@ -1317,7 +1343,7 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.has_perm('ledger.manage_deposit_recovery')
 
     fields_edit_conditions = {
-        'user': M.has_perm('ledger.manage_deposit_recovery') | M.is_none('user'),
+        'user': M.is_value('status', PROCESS) | M.superuser,
         'comment': True
     }
 
@@ -1345,13 +1371,12 @@ class DepositRecoveryRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             if not req.verify(request.user):
                 self.message_user(request, f'Can not verify {req}', messages.ERROR)
             else:
-                send_system_message("Accept deposit recovery: %s" % req,
-                                    link=url_to_admin_list(self, {'status': 'pending'}))
+                send_system_message("Accept deposit recovery: %s" % req, link=url_to_admin_list(req, {'status': 'pending'}))
 
-    @admin.action(description='تایید نهایی', permissions=['change'])
+    @admin.action(description='تایید نهایی', permissions=['manage'])
     def accept_requests(self, request, queryset):
         qs = queryset.filter(
-            status__in=[PROCESS, PENDING],
+            status=PENDING,
             user__isnull=False,
             asset__isnull=False,
             network__isnull=False
@@ -1417,7 +1442,7 @@ class TokenTransferAdmin(admin.ModelAdmin):
     list_display = ('created', 'title', 'status')
     readonly_fields = ('status', 'group_id', 'get_transfer_info')
     actions = ('accept', 'reject')
-    inlines = (TokenTransferPartInline,)
+    inlines = (TokenTransferPartInline, )
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -1495,11 +1520,9 @@ class BalanceFilter(admin.SimpleListFilter):
     def queryset(self, request, queryset):
         value = self.value()
         if value == '1':
-            return queryset.filter(~Q(asset_wallet__balance=0) | ~Q(base_wallet__balance=0),
-                                   status=MarginPosition.CLOSED)
+            return queryset.filter(~Q(asset_wallet__balance=0) | ~Q(base_wallet__balance=0), status=MarginPosition.CLOSED)
         elif value == '0':
-            return queryset.exclude(~Q(asset_wallet__balance=0) | ~Q(base_wallet__balance=0),
-                                    status=MarginPosition.CLOSED)
+            return queryset.exclude(~Q(asset_wallet__balance=0) | ~Q(base_wallet__balance=0), status=MarginPosition.CLOSED)
         return queryset
 
 
@@ -1623,7 +1646,7 @@ class ConvertDustTrxInline(admin.TabularInline):
 class ConvertDustAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'converted_amount', 'base_asset')
     readonly_fields = ('account', 'group_id')
-    search_fields = ('group_id',)
+    search_fields = ('group_id', )
     inlines = [ConvertDustTrxInline]
 
 
@@ -1636,8 +1659,8 @@ class ConvertDustTrxAdmin(admin.ModelAdmin):
 class NetworkScheduleAdmin(SimpleHistoryAdmin):
     list_display = ('created', 'network', 'disable_at', 'status')
     list_filter = ('network', 'status')
-    readonly_fields = ('status',)
-    actions = ('cancel',)
+    readonly_fields = ('status', )
+    actions = ('cancel', )
 
     @admin.action(description='Cancel', permissions=['change'])
     def cancel(self, request, queryset):

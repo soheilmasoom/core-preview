@@ -54,3 +54,11 @@ class M(BoolNode):
                 return get_value(admin, model, condition) == value
 
         return IsValue(field)
+
+    @staticmethod
+    def in_value(field, value: tuple):
+        class InValue(BoolNode):
+            def leaf_evaluator(self, request, admin, model, condition):
+                return get_value(admin, model, condition) in value
+
+        return InValue(field)

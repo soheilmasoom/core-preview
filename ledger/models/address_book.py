@@ -49,11 +49,7 @@ class AddressBook(models.Model):
 
         constraints = [
             models.CheckConstraint(
-                check=Q(type='internal', dest_user__isnull=False) | ~Q(type='internal'),
-                name='check_internal_requires_dest_user'
-            ),
-            models.CheckConstraint(
-                check=Q(type='network', address__isnull=False, network__isnull=False) | ~Q(type='network'),
-                name='check_network_requires_address_and_network'
+                check=Q(type='internal', dest_user__isnull=False) | (Q(type='network', network__isnull=False) & ~Q(address='')),
+                name='check_type_address_book'
             ),
         ]

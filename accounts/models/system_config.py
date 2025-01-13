@@ -85,6 +85,7 @@ class SystemConfig(models.Model):
     )
 
     pay_id_enable = models.BooleanField(default=True)
+    pay_id_requests_process = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name

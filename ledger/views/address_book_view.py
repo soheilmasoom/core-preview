@@ -37,6 +37,8 @@ class AddressBookCreateSerializer(serializers.ModelSerializer):
         if address_type == AddressBook.TYPE_INTERNAL:
             if phone:
                 try:
+                    if len(phone) == 10:
+                        phone = '0' + phone
                     dest_user = User.objects.get(phone=phone)
 
                     return {

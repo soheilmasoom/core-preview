@@ -87,10 +87,16 @@ class DepositSerializer(serializers.ModelSerializer):
         if need_memo:
             q &= Q(memo=memo)
 
+        arch = get_blocklink_requester().get_network_arch(network)
+
+        if arch == 'ETH':
+            q &= Q(address__iexact=receiver_address)
+        else:
+            q &= Q(address__exact=receiver_address)
+
         address_keys = list(AddressKey.objects.filter(
             q,
-            address=receiver_address,
-            architecture=get_blocklink_requester().get_network_arch(network),
+            architecture=arch,
         ))
 
         if not address_keys:

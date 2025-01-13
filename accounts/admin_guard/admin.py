@@ -5,14 +5,14 @@ from django.contrib.auth import get_permission_codename
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
 
+from accounts.models.admin_tracker import AdminTracker
 from . import M
 from .urls import AdminUrl
 from .utils import BoolNode
-from .utils.array_utils import append, append_list
+from .utils.array_utils import append_list
 
 
 def evaluate_admin_condition(request, admin, model, condition):
-
     if not isinstance(condition, BoolNode):
         condition = M(condition)
 
@@ -22,6 +22,7 @@ def evaluate_admin_condition(request, admin, model, condition):
 class AdvancedAdmin(ModelAdmin):
     default_view_condition = None
     default_edit_condition = None
+    track_admin_activity = False
     fields_view_conditions = {}
     fields_edit_conditions = {}
     fields_edit_on_add_conditions = {}
@@ -39,6 +40,27 @@ class AdvancedAdmin(ModelAdmin):
         self.request = None
         super(AdvancedAdmin, self).__init__(model, admin_site)
 
+    def _get_user(self, obj):
+        return
+
+    def log_action(self, request, object_id=None):
+        if not self.track_admin_activity:
+            return
+
+        obj = self.model.objects.filter(pk=object_id).first()
+        tracked_user = None
+
+        if obj:
+            tracked_user = self._get_user(obj)
+
+        AdminTracker.objects.create(
+            admin=request.user,
+            model_name=self.model._meta.model_name,
+            object_id=object_id,
+            url=request.get_full_path(),
+            user=tracked_user,
+        )
+
     @property
     def current_list_page_full_path(self):
         if not self.request:
@@ -53,10 +75,12 @@ class AdvancedAdmin(ModelAdmin):
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
+        self.log_action(request, object_id)
         self.request = request
         return super(AdvancedAdmin, self).change_view(request, object_id, form_url, extra_context)
 
     def changelist_view(self, request, extra_context=None):
+        self.log_action(request)
         self.request = request
         return super(AdvancedAdmin, self).changelist_view(request, extra_context)
 
@@ -73,7 +97,7 @@ class AdvancedAdmin(ModelAdmin):
             allowed_filters = list(allowed_filters) + [f + '__exact' for f in allowed_filters]
 
         return self.list_permission_exclude_filters is None or self.has_list_permission(request) or \
-                any(map(lambda f: request.GET.get(f), allowed_filters))
+            any(map(lambda f: request.GET.get(f), allowed_filters))
 
     def get_changelist(self, request, **kwargs):
         if self.allow_list_view(request):
@@ -190,4 +214,5 @@ class AdvancedAdmin(ModelAdmin):
     def get_list_item_initializer(self, obj):
         self.list_item_init(obj)
         return ""
+
     get_list_item_initializer.short_description = ""

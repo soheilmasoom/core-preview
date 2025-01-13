@@ -59,7 +59,7 @@ class TokenDelist(models.Model):
     status = get_status_field(default=PENDING)
 
     testers = models.ManyToManyField(User, limit_choices_to={'is_staff': True}, blank=True)
-    group_id = get_group_id_field()
+    group_id = get_group_id_field(unique=True)
 
     can_withdraw = models.BooleanField(default=True, help_text='Changes notification texts')
 

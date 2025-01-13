@@ -51,6 +51,8 @@ class StakeStatusFilter(SimpleListFilter):
 
 @admin.register(StakeRequest)
 class StakeRequestAdmin(AdvancedAdmin):
+    track_admin_activity = True
+
     list_display = ['get_stake_option_asset', 'get_stake_option_apr', 'created', 'get_amount', 'get_user', 'status',
                     'start_at', 'cancel_request_at', 'cancel_pending_at', 'end_at', 'get_stake_revenue']
     actions = ('stake_request_processing', 'stake_request_done',
@@ -60,6 +62,9 @@ class StakeRequestAdmin(AdvancedAdmin):
     list_filter = ('status', StakeStatusFilter)
     search_fields = ('account__user__phone', 'stake_option__asset__symbol')
     list_permission_exclude_filters = ('id', 'account')
+
+    def _get_user(self, obj):
+        return obj.account and obj.account.user
 
     def get_stake_option_asset(self, stake_request: StakeRequest):
         return stake_request.stake_option.asset
