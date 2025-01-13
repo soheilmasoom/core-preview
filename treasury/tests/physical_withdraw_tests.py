@@ -54,7 +54,7 @@ class PhysicalWithdrawTestCase(TestCase):
         self.airdrop(self.xaum, self.account, Decimal('23521.3'))
         data = {
             'asset': 'XAUM',
-            'amount': '10'
+            'amount': '10000'
         }
         response = self.client.post('/api/v1/treasury/withdraw/', data)
         self.assertWithdrawalCreated(response, 'XAUM', '10000')
@@ -149,7 +149,7 @@ class PhysicalWithdrawTestCase(TestCase):
 
         data = {
             'asset': 'XAUM',
-            'amount': '10'  # This will be converted to 10000 mg internally
+            'amount': '10000'
         }
 
         response = self.client.post('/api/v1/treasury/withdraw/', data)
@@ -159,3 +159,54 @@ class PhysicalWithdrawTestCase(TestCase):
         self.assertEqual(BalanceLock.objects.count(), 0)
 
         self.assertWalletBalance(self.xaum, self.account, '5000')
+
+    def test_withdrawal_delete_success(self):
+        self.airdrop(self.xau, self.account, Decimal('23.5213'))
+        response = self.client.post('/api/v1/treasury/withdraw/', {
+            'asset': 'XAU',
+            'amount': '5'
+        })
+        withdraw_id = response.data['id']
+        initial_balance = Decimal('23.5213')
+
+        response = self.client.delete(f'/api/v1/treasury/withdraw/{withdraw_id}/')
+
+        self.assertEqual(response.status_code, 204)
+
+        self.assertEqual(PhysicalWithdraw.objects.filter(id=withdraw_id).count(), 0)
+
+        self.assertWalletBalance(self.xau, self.account, initial_balance)
+
+    def test_withdrawal_delete_non_pending(self):
+        self.airdrop(self.xau, self.account, Decimal('23.5213'))
+        response = self.client.post('/api/v1/treasury/withdraw/', {
+            'asset': 'XAU',
+            'amount': '5'
+        })
+        withdraw = PhysicalWithdraw.objects.get(id=response.data['id'])
+        withdraw.approve()
+
+        response = self.client.delete(f'/api/v1/treasury/withdraw/{withdraw.id}/')
+
+        self.assertEqual(response.status_code, 400)
+
+        self.assertTrue(PhysicalWithdraw.objects.filter(id=withdraw.id).exists())
+
+        self.assertWalletBalance(self.xau, self.account, Decimal('18.5213'))
+
+    def test_withdrawal_delete_nonexistent(self):
+        response = self.client.delete('/api/v1/treasury/withdraw/99999/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_withdrawal_delete_other_user(self):
+        self.airdrop(self.xau, self.account, Decimal('23.5213'))
+        response = self.client.post('/api/v1/treasury/withdraw/', {
+            'asset': 'XAU',
+            'amount': '5'
+        })
+        withdraw_id = response.data['id']
+        other_account = new_account()
+        self.client.force_login(other_account.user)
+        response = self.client.delete(f'/api/v1/treasury/withdraw/{withdraw_id}/')
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(PhysicalWithdraw.objects.filter(id=withdraw_id).exists())

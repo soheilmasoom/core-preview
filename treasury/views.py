@@ -1,3 +1,4 @@
+from rest_framework.generics import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -5,7 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 
 from accounts.models import SystemConfig
-from .models import Treasury, PhysicalWithdraw
+from ledger.utils.wallet_pipeline import WalletPipeline
+from .models import Treasury, PhysicalWithdraw, PhysicalWithdrawStatus
 from ledger.exceptions import InsufficientBalance
 from .serializers import PhysicalWithdrawSerializer, TreasurySerializer
 
@@ -61,20 +63,37 @@ class PhysicalWithdrawListView(APIView):
 
 class PhysicalWithdrawDetailView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = PhysicalWithdrawSerializer
 
     def get_object(self, pk):
-        try:
-            return PhysicalWithdraw.objects.get(
-                pk=pk,
-                account=self.request.user.account
-            )
-        except PhysicalWithdraw.DoesNotExist:
-            raise ValidationError("Withdraw request not found")
+        return get_object_or_404(PhysicalWithdraw, pk=pk, account=self.request.user.account)
 
     def get(self, request, pk):
         withdraw = self.get_object(pk)
         serializer = PhysicalWithdrawSerializer(withdraw)
         return Response(serializer.data)
+
+    def delete(self, request, pk):
+        withdraw = self.get_object(pk)
+
+        if withdraw.status != PhysicalWithdrawStatus.PENDING:
+            return Response(
+                {'error': 'وضعیت سفارش باید در حالت انتظار باشد'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with WalletPipeline() as pipeline:
+                pipeline.release_lock(withdraw.lock_id)
+                withdraw.delete()
+
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to delete withdrawal: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class PhysicalWithdrawInitView(APIView):
