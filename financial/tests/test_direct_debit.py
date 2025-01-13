@@ -41,7 +41,7 @@ class DirectDebitTestCase(TestCase):
             'status': 'SUCCEED',
             'authorization_id': '123456789'
         })
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 302)
         auth = DirectDebitConnection.objects.filter(token='test_token')
         self.assertEqual(auth.count(), 1)
         self.assertEqual(auth[0].verified, True)
