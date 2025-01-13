@@ -90,7 +90,10 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
 
             if symbol == 'IRTUSDT':
                 usdt_price_other_side = get_prices([USDT_IRT], side=get_other_side(side), allow_stale=allow_stale)[USDT_IRT]
-                ext_price = Decimal(1) / usdt_price_other_side
+                if usdt_price_other_side:
+                    ext_price = Decimal(1) / usdt_price_other_side
+                else:
+                    ext_price = None
             elif coin == base:
                 ext_price = Decimal(1)
             else:
