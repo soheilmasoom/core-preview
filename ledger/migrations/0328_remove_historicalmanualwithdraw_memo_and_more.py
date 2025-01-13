@@ -13,10 +13,10 @@ def transfer_data_to_address_book(apps, schema_editor):
     for withdraw in ManualWithdraw.objects.all():
         address_book = ManualAddressBook.objects.get_or_create(
             address=withdraw.receiver_address,
+            network=withdraw.network,
+            memo=withdraw.memo,
             defaults={
                 'name': f"For Network {withdraw.network}",
-                'memo': withdraw.memo,
-                'network': withdraw.network,
             }
         )
 
@@ -42,6 +42,9 @@ class Migration(migrations.Migration):
                 ('network', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='ledger.network',
                                               verbose_name='شبکه')),
             ],
+            options={
+                'unique_together': {('address', 'network', 'memo')},
+            },
         ),
         migrations.CreateModel(
             name='HistoricalManualAddressBook',
@@ -67,6 +70,7 @@ class Migration(migrations.Migration):
                 'verbose_name': 'historical manual address book',
                 'ordering': ('-history_date', '-history_id'),
                 'get_latest_by': 'history_date',
+                'unique_together': {('address', 'network', 'memo')},
             },
             bases=(simple_history.models.HistoricalChanges, models.Model),
         ),
@@ -80,11 +84,17 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='manualwithdraw',
             name='address_book',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE,
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE,
                                     to='ledger.manualaddressbook'),
             preserve_default=False,
         ),
         migrations.RunPython(transfer_data_to_address_book),
+        migrations.AlterField(
+            model_name='manualwithdraw',
+            name='address_book',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,
+                                    to='ledger.manualaddressbook'),
+        ),
         migrations.RemoveField(
             model_name='historicalmanualwithdraw',
             name='memo',

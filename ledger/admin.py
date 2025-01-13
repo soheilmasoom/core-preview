@@ -890,20 +890,19 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
     )
     actions = ('accept', 'reject', 'terminate_withdraw')
 
+    @admin.display(description="Balance")
     def get_balance(self, obj):
         if obj and obj.asset:
-            vault = VaultItem.objects.filter(coin=obj.asset.symbol).first()
+            vault = VaultItem.objects.filter(coin=obj.asset.symbol, vault__type='hw').first()
             return vault.balance if vault else "N/A"
         return "N/A"
 
+    @admin.display(description="Free")
     def get_free(self, obj):
         if obj and obj.asset:
-            vault = VaultItem.objects.filter(coin=obj.asset.symbol).first()
+            vault = VaultItem.objects.filter(coin=obj.asset.symbol, vault__type='hw').first()
             return vault.free if vault else "N/A"
         return "N/A"
-
-    get_balance.short_description = "Balance"
-    get_free.short_description = "Free"
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -928,13 +927,6 @@ class ManualWithdrawAdmin(SimpleHistoryAdmin):
             return
 
         super().save_model(request, obj, form, change)
-
-    def get_fields(self, request, obj=None):
-        fields = super().get_fields(request, obj)
-        if obj:
-            fields.append('get_balance')
-            fields.append('get_free')
-        return fields
 
 
 class CryptoAccountTypeFilter(SimpleListFilter):
