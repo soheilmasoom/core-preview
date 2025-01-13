@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 
 from django.utils.decorators import method_decorator
@@ -44,7 +45,6 @@ class MarketIRTInfoView(ListAPIView):
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
-
         coins = list(self.get_queryset().values_list('symbol', flat=True))
 
         bids = get_prices([coin + self.BASE for coin in coins], side=BUY, allow_stale=True)

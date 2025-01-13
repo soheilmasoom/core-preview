@@ -83,7 +83,8 @@ def _get_external_symbol_mapping() -> dict:
     from ledger.models import Asset
 
     return dict(
-        Asset.objects.filter(enable=True).exclude(external_price_symbol='').values_list('symbol', 'external_price_symbol')
+        Asset.objects.filter(enable=True).exclude(external_price_symbol='').values_list('symbol',
+                                                                                        'external_price_symbol')
     )
 
 
@@ -97,6 +98,11 @@ def _get_external_symbol(symbol: str) -> str:
 
 
 def _get_external_price_multiplier(coin: str) -> Decimal:
+    if coin in ['XAG', 'XAU']:
+        return 1 / Decimal('41.4713')
+    if coin == 'XAUM':
+        return 1 / Decimal('41471.3')
+
     return Decimal(1)
 
 
@@ -160,7 +166,6 @@ def _get_manual_staled_prices() -> dict:
 
 
 def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow_stale: bool = False) -> List[Price]:
-    print(f"fetch_external_redis_prices {coins}")
     results = []
 
     if side:
@@ -171,7 +176,6 @@ def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow
     pipe = _get_price_redis(allow_stale).pipeline(transaction=False)
     for c in coins:
         key = _get_redis_price_key(c)
-        print(f"hget {key} for {c}")
         pipe.hgetall(key)
 
         key = _get_redis_price_key(c, market='futures')
