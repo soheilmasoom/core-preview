@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.shortcuts import redirect
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -35,7 +37,7 @@ class VandarCallbackView(APIView):
 
             try:
                 client.accept_authorization_id(connection)
-                return Response({'مجوز با موفقیت تایید شد.'})
+                return redirect(settings.PANEL_URL)
             except ExternalAPIError as e:
                 raise ValidationError({e})
 
