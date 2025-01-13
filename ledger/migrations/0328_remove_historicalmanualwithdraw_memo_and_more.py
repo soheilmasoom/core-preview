@@ -27,7 +27,7 @@ def transfer_data_to_address_book(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('ledger', '0325_addressbook_dest_user_and_more'),
+        ('ledger', '0327_alter_depositrecoveryrequest_options'),
     ]
 
     operations = [
