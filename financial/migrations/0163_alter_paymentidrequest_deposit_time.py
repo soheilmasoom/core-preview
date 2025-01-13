@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('financial', '0163_directdebitbank_directdebitconnection_and_more'),
+        ('financial', '0162_alter_paymentidrequest_deposit_time'),
     ]
 
     operations = [
