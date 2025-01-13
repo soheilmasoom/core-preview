@@ -12,7 +12,7 @@ class DirectDebitConnection(models.Model):
 
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE)
 
-    auth_id_encrypted = models.CharField(max_length=32, blank=True, validators=[validate_integer])
+    auth_id_encrypted = models.CharField(max_length=4096, blank=True)
     verified = models.BooleanField(default=False)
 
     bank = models.ForeignKey('financial.DirectDebitBank', on_delete=models.CASCADE)

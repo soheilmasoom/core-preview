@@ -44,11 +44,11 @@ class DirectDebitRequest(models.Model):
             if req.payment or req.status not in self.PENDING_STATES:
                 return
 
-            auth_id = req.owner
+            connection = req.owner
 
             req.payment = Payment.objects.create(
                 group_id=req.group_id,
-                user=auth_id.user,
+                user=connection.user,
                 amount=req.amount,
                 fee=req.fee,
                 source=Payment.DIRECT_DEBIT,

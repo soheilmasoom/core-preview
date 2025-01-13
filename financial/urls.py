@@ -50,10 +50,10 @@ urlpatterns = [
     path('paymentId/callback/jibit/', JibitPaymentIdCallbackView.as_view(), name='jibit-paymentIds-callback'),
 
     path('direct-debit/banks/', BanksView.as_view()),
-    path('direct-debit/connect/<str:pk>/', DirectDebitConnectionView.as_view({
+    path('direct-debit/connect/<slug:bank>/', DirectDebitConnectionView.as_view({
         'post': 'create',
         'delete': 'destroy',
     })),
     path('direct-debit/callback/vandar/', VandarCallbackView.as_view(), name='vandar-callback'),
-    path('direct-debit/charge/', DirectDebitView.as_view()),
+    path('direct-debit/charge/<slug:bank>/', DirectDebitView.as_view()),
 ]

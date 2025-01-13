@@ -18,27 +18,26 @@ class VandarCallbackView(APIView):
         error_code = request.GET.get('error_code')
 
         if status == "SUCCEED" and token and authorization_id:
-            auth_id = DirectDebitConnection.objects.filter(token=token, deleted=False).first()
-            if not auth_id:
+            connection = DirectDebitConnection.objects.filter(token=token, deleted=False).first()
+            if not connection:
                 raise ValidationError(f'شناسه مجوز یافت نشد.')
 
-            if auth_id.verified:
-                raise ValidationError(f'مجوز برای این شناسه قبلا تایید شده است.')
+            if connection.verified:
+                return Response({'مجوز برای این شناسه قبلا تایید شده است.'})
 
             gateway = DirectDebitGateway.live_objects.first()
 
             if not gateway:
                 raise ValidationError('امکان تایید مجوز وجود ندارد.')
 
-            auth_id.auth_id = authorization_id
-            auth_id.save(update_fields=['auth_id'])
+            connection.set_auth_id(authorization_id)
             client = get_direct_debit_client(gateway)
 
             try:
-                client.accept_authorization_id(auth_id)
-                return Response({'status': 1, 'message': 'مجوز با موفقیت تایید شد.'})
+                client.accept_authorization_id(connection)
+                return Response({'مجوز با موفقیت تایید شد.'})
             except ExternalAPIError as e:
-                return Response({'status': 0, 'message': f'{str(e)}'})
+                raise ValidationError({e})
 
         elif status == "FAILED":
             raise ValidationError(f' تایید مجوز ناموفق: {error_code}')

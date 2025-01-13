@@ -32,5 +32,5 @@ if settings.DEBUG_OR_TESTING:
     def new_direct_debit_gateway():
         return DirectDebitGateway.objects.create(business_name='test', active=True)
 
-    def new_direct_debit_bank(bank_code, gateway):
-        return DirectDebitBank.objects.create(code=bank_code, gateway=gateway, active=True)
+    def new_direct_debit_bank(bank_slug, gateway):
+        return DirectDebitBank.objects.create(bank=bank_slug, gateway=gateway, active=True, max_validity_duration_days=365)

@@ -813,7 +813,7 @@ class BankStatementAdmin(admin.ModelAdmin):
 @admin.register(DirectDebitBank)
 class DirectDebitBankAdmin(admin.ModelAdmin):
     list_display = ('bank', 'gateway', 'active', 'max_withdrawal_amount', 'max_withdrawal_amount_per_transaction',
-                    'max_withdrawal_daily_count', 'max_validity_duration_days', 'kyc_type',
+                    'max_withdrawal_daily_count', 'max_validity_duration_days',
                     )
     list_filter = ('active', 'gateway', )
     search_fields = ('bank', 'gateway', )
@@ -823,10 +823,10 @@ class DirectDebitBankAdmin(admin.ModelAdmin):
 
 @admin.register(DirectDebitConnection)
 class DirectDebitConnectionAdmin(admin.ModelAdmin):
-    list_display = ('created', 'auth_id', 'user', 'bank', 'verified',)
+    list_display = ('created', 'user', 'bank', 'verified',)
     list_filter = ('verified', 'deleted', 'bank')
     search_fields = ('auth_id', 'user')
-    readonly_fields = ('created', 'updated')
+    readonly_fields = ('created', 'updated', 'auth_id_encrypted', 'bank', 'verified', 'token', 'user')
 
 
 @admin.register(DirectDebitGateway)

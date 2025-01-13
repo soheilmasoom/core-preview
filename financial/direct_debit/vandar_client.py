@@ -5,14 +5,14 @@ from json import JSONDecodeError
 import requests
 from django.conf import settings
 from urllib3.exceptions import ReadTimeoutError
-from rest_framework.exceptions import ValidationError
 
 from accounts.models import User
 from accounts.verifiers.jibit import Response
 from financial.direct_debit.base_client import BaseClient
-from financial.models.direct_debit_connection import DirectDebitConnection
 from financial.models.direct_debit_bank import DirectDebitBank
+from financial.models.direct_debit_connection import DirectDebitConnection
 from financial.models.direct_debit_request import DirectDebitRequest
+from financial.utils.bank import get_bank_from_iban, get_bank_from_slug
 from ledger.utils.fields import PROCESS
 
 logger = logging.getLogger(__name__)
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class ExternalAPIError(Exception):
     pass
+
 
 class VandarClient(BaseClient):
     BASE_URL = 'https://api.vandar.io'
@@ -43,7 +44,6 @@ class VandarClient(BaseClient):
 
         if resp.ok:
             resp_data = resp.json()
-            print(resp_data['refresh_token'])
             self.gateway.set_refresh_token(resp_data['refresh_token'])
             self._token = resp_data['access_token']
             return self._token
@@ -96,19 +96,23 @@ class VandarClient(BaseClient):
             return
 
         for bank in banks:
+            bank_data = get_bank_from_iban(f'0000{bank["code"]}0')
+
+            if not bank_data:
+                logger.info(f'Bank exist in vandar but not in raastin: {bank}')
+                continue
+
             DirectDebitBank.objects.update_or_create(
-                code=bank['code'],
+                bank=bank_data.slug,
                 gateway=self.gateway,
                 defaults={
-                    'name': bank['name'],
-                    'is_healthy_on_direct_debit': bank['is_healthy_on_direct_debit'],
-                    'max_withdrawal_amount': bank['max_withdrawal_amount'],
-                    'max_withdrawal_amount_per_transaction': bank['max_withdrawal_amount_per_transaction'],
-                    'withdrawal_amount_currency': bank['withdrawal_amount_currency'],
+                    'active': bank['is_healthy_on_direct_debit'],
+                    'max_withdrawal_amount': bank['max_withdrawal_amount'] / 10,
+                    'max_withdrawal_amount_per_transaction': bank['max_withdrawal_amount_per_transaction'] / 10,
                     'max_withdrawal_daily_count': bank['max_withdrawal_daily_count'],
-                    'max_mandate_validity_duration': bank['max_mandate_validity_duration'],
-                    'mandate_validity_duration_unit': bank['mandate_validity_duration_unit'],
-                    'payer_authentication_type': bank['payer_authentication_type'],
+                    'max_validity_duration_days': (bank['max_mandate_validity_duration'] * (
+                        365 if bank['mandate_validity_duration_unit'] == 'YEAR' else 30)) or 365,
+                    'kyc_type': bank['payer_authentication_type'],
                 }
             )
 
@@ -127,10 +131,12 @@ class VandarClient(BaseClient):
         return f'https://subscription.vandar.io/authorizations/{auth_token}'
 
     def get_authorization_token(self, user: User, bank: DirectDebitBank):
-        expiration_date = datetime.now() + timedelta(days=settings.DAYS_TO_EXPIRE_DIRECT_DEBIT_AUTH_ID)
+        expiration_date = datetime.now() + timedelta(days=bank.max_validity_duration_days)
+        bank_data = get_bank_from_slug(bank.bank)
         host_url = settings.HOST_URL
+
         payload = {
-            "bank_code": bank.code,
+            "bank_code": bank_data.iban_code[:3],
             "mobile": user.phone,
             "callback_url": host_url + f'/api/v1/finance/directDebit/authId/callback/vandar/',
             "count": (bank.max_withdrawal_daily_count or 100) * 30,
@@ -149,36 +155,35 @@ class VandarClient(BaseClient):
         )
 
         if not resp.ok:
-            raise ExternalAPIError(f"Failed to create subscription authorization: {resp.data}")
+            raise ExternalAPIError(f"ارتباط با وندار ناموفق بود: {resp.data.get('message', None)}")
 
         if resp.data['status'] != 1:
-            raise ExternalAPIError(f"Failed to create subscription authorization (status != 1): {resp.data}")
+            raise ExternalAPIError(f"ارتباط با وندار ناموفق بود: {resp.data.get('message', None)}")
 
         auth_token = resp.data['result']['authorization']['token']
 
-        auth_id = DirectDebitConnection.objects.get_or_create(user=user, bank=bank, defaults={
+        connection = DirectDebitConnection.objects.get_or_create(user=user, bank=bank, defaults={
             'token': auth_token
         })
 
-        if not auth_id:
-            raise ExternalAPIError(f"Failed to create authorization id.")
+        if not connection:
+            raise ExternalAPIError(f"شناسه مجوز ایجاد نشد.")
 
         return auth_token
 
-    def accept_authorization_id(self, auth_id: DirectDebitConnection):
+    def accept_authorization_id(self, connection: DirectDebitConnection):
         resp = self._collect_api(
-            path=f'/v3/business/{self.gateway.business_name}/subscription/authorization/{auth_id.auth_id}/verify',
+            path=f'/v3/business/{self.gateway.business_name}/subscription/authorization/{connection.auth_id}/verify',
             method='PATCH',
             headers={'Content-Type': 'application/json'},
         )
 
         if resp.ok and resp.data['status'] == 1:
-            auth_id.verified = True
-            auth_id.save(update_fields=['verified'])
+            connection.verified = True
+            connection.save(update_fields=['verified'])
 
         else:
-            raise ExternalAPIError(f"Failed to verify authorization id: {resp.data}")
-
+            raise ExternalAPIError(f"ارتباط با وندار ناموفق بود: {resp.data.get('message', None)}")
 
     def cancel_authorization_id(self, auth_id: DirectDebitConnection):
         resp = self._collect_api(
@@ -192,11 +197,11 @@ class VandarClient(BaseClient):
             auth_id.save(update_fields=['deleted'])
 
         else:
-            raise ExternalAPIError(f"Failed to cancel authorization id: {resp.data}")
+            raise ExternalAPIError(f"ارتباط با وندار ناموفق بود: {resp.data.get('message', None)}")
 
-    def create_payment_data(self, auth_id: DirectDebitConnection, amount):
+    def create_payment_data(self, connection: DirectDebitConnection, amount):
         payload = {
-            "authorization_id": auth_id.auth_id,
+            "authorization_id": connection.auth_id,
             "amount": str(amount),
         }
 
@@ -211,7 +216,7 @@ class VandarClient(BaseClient):
             fee = 0
             # fee = math.ceil(item['balance'] / 10_000_000) * 250
             payment_request = DirectDebitRequest.objects.create(
-                owner=auth_id,
+                owner=connection,
                 gateway=self.gateway,
                 amount=amount - fee,
                 fee=fee,
@@ -221,9 +226,4 @@ class VandarClient(BaseClient):
             return payment_request.accept()
 
         else:
-            raise ExternalAPIError(f'failed to create payment data: {resp.data}')
-
-
-
-
-
+            raise ExternalAPIError(f"ارتباط با وندار ناموفق بود: {resp.data.get('message', None)}")
