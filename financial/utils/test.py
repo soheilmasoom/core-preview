@@ -1,5 +1,8 @@
 from django.conf import settings
 
+from financial.models.direct_debit_bank import DirectDebitBank
+from financial.models.direct_debit_gateway import DirectDebitGateway
+
 if settings.DEBUG_OR_TESTING:
     from accounts.models import User
     from financial.models import BankCard, Gateway, FiatWithdrawRequest, BankAccount
@@ -25,3 +28,9 @@ if settings.DEBUG_OR_TESTING:
             bank_account=bank_account,
             withdraw_datetime=datetime,
         )
+
+    def new_direct_debit_gateway():
+        return DirectDebitGateway.objects.create(business_name='test', active=True)
+
+    def new_direct_debit_bank(bank_slug, gateway):
+        return DirectDebitBank.objects.create(bank=bank_slug, gateway=gateway, active=True, max_validity_duration_days=365)
