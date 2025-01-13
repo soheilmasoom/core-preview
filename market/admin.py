@@ -6,7 +6,6 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.admin_guard.admin import AdvancedAdmin
 from ledger.models import Asset, MarginPosition
-from ledger.utils.precision import get_presentation_amount
 from market.models import Order, Trade, PairSymbol, CancelRequest, ReferralTrx, StopLoss, OCO
 
 
@@ -120,7 +119,8 @@ class OrderAdmin(AdvancedAdmin):
         return super(OrderAdmin, self).get_queryset(request).annotate(symbol_name=F('symbol__name'))
 
     def allow_list_view(self, request):
-        return any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters))
+        return any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters)) \
+               or request.GET.get('status') == 'new' or request.GET.get('status__exact') == 'new'
 
     @admin.display(description='created', ordering='created')
     def get_created(self, order):
@@ -184,8 +184,7 @@ class TradeAdmin(AdvancedAdmin):
         return super(TradeAdmin, self).get_queryset(request).annotate(symbol_name=F('symbol__name'))
 
     def allow_list_view(self, request):
-        return any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters)) \
-               or request.GET.get('status') == 'new' or request.GET.get('status__exact') == 'new'
+        return any(map(lambda f: request.GET.get(f), self.list_permission_exclude_filters))
 
     @admin.display(description='created', ordering='created')
     def get_created(self, trade: Trade):
