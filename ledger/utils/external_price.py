@@ -98,10 +98,10 @@ def _get_external_symbol(symbol: str) -> str:
 
 
 def _get_external_price_multiplier(coin: str) -> Decimal:
-    if coin in ['XAG', 'XAU']:
-        return 1 / Decimal('41.4713')
-    if coin == 'XAUM':
-        return 1 / Decimal('41471.3')
+    # if coin in ['XAG', 'XAU']:
+    #     return 1 / Decimal('41.4713')
+    # if coin == 'XAUM':
+    #     return 1 / Decimal('41471.3')
 
     return Decimal(1)
 
