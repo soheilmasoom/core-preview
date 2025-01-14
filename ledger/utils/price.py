@@ -80,30 +80,45 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
         otc_spreads = get_all_otc_spreads(side)
         remaining_symbols = set(symbols) - set(prices)
 
-        remaining_coins = set([split_symbol(symbol)[0] for symbol in remaining_symbols])
-        external_prices = {
-            r.coin: r.price for r in fetch_external_redis_prices(remaining_coins, side, allow_stale=allow_stale) if r.price
-        }
-
-        for symbol in remaining_symbols:
+        # First try to get prices for IRT pairs directly from Redis
+        for symbol in list(remaining_symbols):
             coin, base = split_symbol(symbol)
 
-            if symbol == 'IRTUSDT':
-                usdt_price_other_side = get_prices([USDT_IRT], side=get_other_side(side), allow_stale=allow_stale)[USDT_IRT]
-                if usdt_price_other_side:
-                    ext_price = Decimal(1) / usdt_price_other_side
+            if base == IRT:
+                ext_price = fetch_external_price_by_symbol(symbol, side=side, allow_stale=allow_stale)
+                if ext_price:
+                    prices[symbol] = ext_price * otc_spreads.get(symbol, 1)
+                    remaining_symbols.remove(symbol)
+
+        # For remaining symbols, use the original USDT conversion logic
+        if remaining_symbols:
+            remaining_coins = set([split_symbol(symbol)[0] for symbol in remaining_symbols])
+
+            external_prices = {
+                r.coin: r.price for r in fetch_external_redis_prices(remaining_coins, side, allow_stale=allow_stale)
+                if r.price
+            }
+
+            for symbol in remaining_symbols:
+                coin, base = split_symbol(symbol)
+
+                if symbol == 'IRTUSDT':
+                    usdt_price_other_side = \
+                        get_prices([USDT_IRT], side=get_other_side(side), allow_stale=allow_stale)[USDT_IRT]
+                    if usdt_price_other_side:
+                        ext_price = Decimal(1) / usdt_price_other_side
+                    else:
+                        ext_price = None
+                elif coin == base:
+                    ext_price = Decimal(1)
                 else:
-                    ext_price = None
-            elif coin == base:
-                ext_price = Decimal(1)
-            else:
-                ext_price = external_prices.get(coin)
+                    ext_price = external_prices.get(coin)
 
-                if ext_price and base == IRT:
-                    ext_price *= prices[USDT_IRT]
+                    if ext_price and base == IRT:
+                        ext_price *= prices[USDT_IRT]
 
-            if ext_price:
-                prices[symbol] = ext_price * otc_spreads.get(symbol, 1)
+                if ext_price:
+                    prices[symbol] = ext_price * otc_spreads.get(symbol, 1)
 
     return prices
 
@@ -160,7 +175,7 @@ def get_coins_symbols(coins: List[str], only_base: str = None) -> List[str]:
     symbols = []
 
     if only_base:
-        bases = (only_base, )
+        bases = (only_base,)
     else:
         bases = get_base_coins()
 

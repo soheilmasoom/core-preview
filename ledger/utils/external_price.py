@@ -224,7 +224,6 @@ def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow
             results.append(
                 Price(coin=c, price=price, side=s)
             )
-    print(f"results are {results}")
     return results
 
 
