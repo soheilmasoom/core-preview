@@ -59,10 +59,17 @@ class JibitClientV2(JibitClient):
         logger.info(f'{count} payment requests created!')
 
     def _parse_transaction(self, data: dict) -> TransactionInfo:
-        credit_amount = data['creditAmount']
-        debit_amount = data['debitAmount']
+        credit_amount = data['creditAmount'] // 10
+        debit_amount = data['debitAmount'] // 10
 
-        assert debit_amount == 0
+        if credit_amount:
+            amount = credit_amount
+            deposit_type = TransactionInfo.DEPOSIT
+        elif debit_amount:
+            amount = debit_amount
+            deposit_type = TransactionInfo.WITHDRAW
+        else:
+            raise NotImplementedError
 
         record_type = data['recordType']
         if record_type.startswith('VARIZ_'):
@@ -73,8 +80,8 @@ class JibitClientV2(JibitClient):
             account_iban=data['accountIban'],
             bank_reference_number=data['bankReferenceNumber'] or '',
             bank_transaction_id=data['bankTransactionId'],
-            amount=credit_amount // 10,
-            deposit_type=TransactionInfo.DEPOSIT,
+            amount=amount,
+            deposit_type=deposit_type,
             balance=data['balance'] // 10,
             created=datetime.strptime(data['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
             deposit_number=data['payId'] or '',
@@ -89,6 +96,7 @@ class JibitClientV2(JibitClient):
 
     def _create_and_verify_payments_data(self, transaction: TransactionInfo, update_provider: bool = True) -> bool:
         assert transaction.receiver_iban == self.gateway.iban
+        assert transaction.deposit_type == TransactionInfo.DEPOSIT
 
         ref_number = transaction.reference_number
 
