@@ -27,10 +27,10 @@ class ChartViewSet(viewsets.ViewSet):
 
         now = timezone.now()
         timeframe_mapping = {
-            'yearly': {'days': 365, 'model': MaterializedCandle, 'frame': '1d', 'cache_time': 0 * 6 * 60 * 60}, # 6 hour
-            'monthly': {'days': 30, 'model': MaterializedCandle, 'frame': '4h', 'cache_time': 0 * 120 * 60},    # 2 hours
-            'weekly': {'days': 7, 'model': MaterializedCandle, 'frame': '1h', 'cache_time': 0 * 30 * 60},
-            'daily': {'days': 1, 'model': MaterializedCandle, 'frame': '1h', 'cache_time': 0 * 30 * 60},
+            'yearly': {'days': 365, 'model': MaterializedCandle, 'frame': '1d', 'cache_time': 6 * 60 * 60},  # 6 hour
+            'monthly': {'days': 30, 'model': MaterializedCandle, 'frame': '4h', 'cache_time': 120 * 60},  # 2 hours
+            'weekly': {'days': 7, 'model': MaterializedCandle, 'frame': '1h', 'cache_time': 30 * 60},
+            'daily': {'days': 1, 'model': MaterializedCandle, 'frame': '1h', 'cache_time': 30 * 60},
             'hourly': {'days': 1 / 24, 'model': Candle, 'frame': None, 'cache_time': 60}
         }
 
