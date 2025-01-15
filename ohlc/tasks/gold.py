@@ -91,14 +91,15 @@ def aggregate_materialized_candles():
                     symbol=symbol,
                     timestamp__gte=start_time,
                     timestamp__lt=now
-                )
+                ).order_by('timestamp')  # Order by timestamp for first/last candle
 
                 if interval_candles.exists():
+                    first_candle = interval_candles.first()
+                    last_candle = interval_candles.last()
+
                     agg = interval_candles.aggregate(
-                        open_price=Min('open'),
                         high_price=Max('high'),
                         low_price=Min('low'),
-                        close_price=Max('close'),
                         volume_sum=Avg('volume')
                     )
 
@@ -107,10 +108,10 @@ def aggregate_materialized_candles():
                         timestamp=start_time,
                         timeframe=timeframe,
                         defaults={
-                            'open': agg['open_price'],
+                            'open': first_candle.open,
                             'high': agg['high_price'],
                             'low': agg['low_price'],
-                            'close': agg['close_price'],
+                            'close': last_candle.close,
                             'volume': agg['volume_sum']
                         }
                     )

@@ -9,6 +9,7 @@ import pytz
 from ohlc.models import Candle, MaterializedCandle
 from ledger.models import Asset
 
+
 class Command(BaseCommand):
     help = 'Backfills historical OHLC data from Wallgold API'
 
@@ -62,23 +63,17 @@ class Command(BaseCommand):
                     for candle in yearly_data:
                         timestamp = datetime.strptime(candle['date'], '%Y-%m-%dT%H:%M:%SZ')
                         aware_timestamp = make_aware(timestamp, timezone=pytz.UTC)
-
-                        # For daily candles, create 24 hourly candles with the same values
-                        for hour in range(24):
-                            hourly_timestamp = aware_timestamp + timedelta(hours=hour)
-                            Candle.objects.update_or_create(
-                                symbol=symbol,
-                                timestamp=hourly_timestamp,
-                                defaults={
-                                    'open': Decimal(candle['open']),
-                                    'high': Decimal(candle['high']),
-                                    'low': Decimal(candle['low']),
-                                    'close': Decimal(candle['close']),
-                                    'volume': Decimal('1')
-                                }
-                            )
-                            self.stdout.write(f"Created hourly candle for {hourly_timestamp} from yearly data")
-
+                        Candle.objects.update_or_create(
+                            symbol=symbol,
+                            timestamp=aware_timestamp,
+                            defaults={
+                                'open': Decimal(candle['open']),
+                                'high': Decimal(candle['high']),
+                                'low': Decimal(candle['low']),
+                                'close': Decimal(candle['close']),
+                                'volume': Decimal('1')
+                            }
+                        )
                 # 2. Get hourly data from monthly, weekly, and daily
                 for timeframe in ['monthly', 'weekly', 'daily']:
                     data = self.fetch_data(timeframe)
@@ -98,7 +93,7 @@ class Command(BaseCommand):
                                     'volume': Decimal('1')
                                 }
                             )
-                            self.stdout.write(f"Created hourly candle for {aware_timestamp} from {timeframe} data")
+                self.stdout.write(self.style.SUCCESS(f'Added  {Candle.objects.count()} candles from wallgold chart'))
 
                 # 3. Run aggregation to create MaterializedCandles
                 aggregate_historical_data()
@@ -150,14 +145,16 @@ def aggregate_historical_data():
                     symbol=symbol,
                     timestamp__gte=current_time,
                     timestamp__lt=hour_end
-                )
+                ).order_by('timestamp')
 
                 if hour_candles.exists():
+                    first_candle = hour_candles.first()
+                    last_candle = hour_candles.last()
+
+                    # Get high and low from all candles
                     agg = hour_candles.aggregate(
-                        open_price=Min('open'),
                         high_price=Max('high'),
                         low_price=Min('low'),
-                        close_price=Max('close'),
                         volume_sum=Avg('volume')
                     )
 
@@ -166,10 +163,10 @@ def aggregate_historical_data():
                         timestamp=current_time,
                         timeframe='1h',
                         defaults={
-                            'open': agg['open_price'],
+                            'open': first_candle.open,
                             'high': agg['high_price'],
                             'low': agg['low_price'],
-                            'close': agg['close_price'],
+                            'close': last_candle.close,
                             'volume': agg['volume_sum']
                         }
                     )
@@ -181,14 +178,15 @@ def aggregate_historical_data():
                         symbol=symbol,
                         timestamp__gte=current_time,
                         timestamp__lt=four_hour_end
-                    )
+                    ).order_by('timestamp')
 
                     if four_hour_candles.exists():
+                        first_candle = four_hour_candles.first()
+                        last_candle = four_hour_candles.last()
+
                         agg = four_hour_candles.aggregate(
-                            open_price=Min('open'),
                             high_price=Max('high'),
                             low_price=Min('low'),
-                            close_price=Max('close'),
                             volume_sum=Avg('volume')
                         )
 
@@ -197,10 +195,10 @@ def aggregate_historical_data():
                             timestamp=current_time,
                             timeframe='4h',
                             defaults={
-                                'open': agg['open_price'],
+                                'open': first_candle.open,
                                 'high': agg['high_price'],
                                 'low': agg['low_price'],
-                                'close': agg['close_price'],
+                                'close': last_candle.close,
                                 'volume': agg['volume_sum']
                             }
                         )
@@ -212,14 +210,15 @@ def aggregate_historical_data():
                         symbol=symbol,
                         timestamp__gte=current_time,
                         timestamp__lt=day_end
-                    )
+                    ).order_by('timestamp')
 
                     if day_candles.exists():
+                        first_candle = day_candles.first()
+                        last_candle = day_candles.last()
+
                         agg = day_candles.aggregate(
-                            open_price=Min('open'),
                             high_price=Max('high'),
                             low_price=Min('low'),
-                            close_price=Max('close'),
                             volume_sum=Avg('volume')
                         )
 
@@ -228,17 +227,18 @@ def aggregate_historical_data():
                             timestamp=current_time,
                             timeframe='1d',
                             defaults={
-                                'open': agg['open_price'],
+                                'open': first_candle.open,
                                 'high': agg['high_price'],
                                 'low': agg['low_price'],
-                                'close': agg['close_price'],
+                                'close': last_candle.close,
                                 'volume': agg['volume_sum']
                             }
                         )
 
                 current_time += timedelta(hours=1)
 
-        print(f"Successfully aggregated candles from {start_time} to {end_time}")
+        print(
+            f"Successfully aggregated candles from {start_time} to {end_time} total {MaterializedCandle.objects.count()} materialized candles")
 
     except Exception as e:
         print(f"Error in aggregate_historical_data: {str(e)}")

@@ -27,11 +27,11 @@ class ChartViewSet(viewsets.ViewSet):
 
         now = timezone.now()
         timeframe_mapping = {
-            'yearly': {'days': 365, 'model': MaterializedCandle, 'frame': '1d', 'cache_time': 60 * 60},  # 1 hour
-            'monthly': {'days': 30, 'model': MaterializedCandle, 'frame': '4h', 'cache_time': 30 * 60},  # 30 minutes
-            'weekly': {'days': 7, 'model': MaterializedCandle, 'frame': '1h', 'cache_time': 15 * 60},  # 15 minutes
-            'daily': {'days': 1, 'model': MaterializedCandle, 'frame': '15min', 'cache_time': 5 * 60},  # 5 minutes
-            'hourly': {'days': 1 / 24, 'model': Candle, 'frame': None, 'cache_time': 60}  # 1 minute
+            'yearly': {'days': 365, 'model': MaterializedCandle, 'frame': '1d', 'cache_time': 0 * 6 * 60 * 60}, # 6 hour
+            'monthly': {'days': 30, 'model': MaterializedCandle, 'frame': '4h', 'cache_time': 0 * 120 * 60},    # 2 hours
+            'weekly': {'days': 7, 'model': MaterializedCandle, 'frame': '1h', 'cache_time': 0 * 30 * 60},
+            'daily': {'days': 1, 'model': MaterializedCandle, 'frame': '1h', 'cache_time': 0 * 30 * 60},
+            'hourly': {'days': 1 / 24, 'model': Candle, 'frame': None, 'cache_time': 60}
         }
 
         if timeframe not in timeframe_mapping:
@@ -55,7 +55,6 @@ class ChartViewSet(viewsets.ViewSet):
 
         data = list(candles.values('timestamp', 'close'))
 
-        # Cache the result with appropriate timeout
         cache.set(cache_key, data, mapping['cache_time'])
 
         return Response(data)
