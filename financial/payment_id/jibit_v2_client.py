@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta, date
+from decimal import Decimal
 from typing import Union
 
 import pytz
@@ -31,7 +32,7 @@ class JibitClientV2(JibitClient):
             json={
                 'apiKey': self.gateway.payment_id_api_key,
                 'secretKey': self.gateway.payment_id_secret,
-                'scopes': ['VARIZ_PID', 'AUG_STATEMENT_VARIZ'],
+                'scopes': ['VARIZ_PID', 'AUG_STATEMENT_VARIZ', 'AUG_STATEMENT'],
             },
             timeout=30,
         )
@@ -165,6 +166,12 @@ class JibitClientV2(JibitClient):
             f'/v1/orders/aug-statement/{self.gateway.iban}/variz/{external_ref}/fail'
         )
 
+    def _refund(self, external_ref: str):
+        resp = self._collect_api(
+            path=f'/v1/orders/aug-statement/{self.gateway.iban}/variz/{external_ref}/full-refund',
+            method='POST'
+        )
+
     def create_payment_id(self, user: User, full_name: str = '') -> PaymentId:
         existing = PaymentId.objects.filter(user=user, gateway=self.gateway, deleted=False).first()
         if existing:
@@ -239,3 +246,21 @@ class JibitClientV2(JibitClient):
                 payment_id = self.create_payment_id(user)
 
         return payment_id
+
+    def get_balance(self) -> Decimal:
+        resp = self._collect_api(
+            path='/cobank/v1/orders/aug-statement/IR390540100820100943131608/list?fromDate=2024-01-01&toDate=2025-01-16&pageSize=1',
+            data={
+                'fromDate': '2025-01-01',
+                'toDate': str(date.today() + timedelta(days=2)),
+                'pageSize': 1
+            }
+        )
+
+        elements = resp.data['elements']
+        if not elements:
+            return Decimal(0)
+
+        trx_data = elements[0]
+        transaction = self._parse_transaction(trx_data)
+        return Decimal(transaction.balance)

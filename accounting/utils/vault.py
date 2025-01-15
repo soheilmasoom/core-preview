@@ -9,6 +9,7 @@ from accounting.models.vault import VaultData, AssetPrice, VaultItem, ReservedAs
 from accounts.tasks.send_sms import get_kavenegar_client
 from accounts.verifiers.utils import ServerError
 from financial.models import Gateway, PaymentIdGateway, PaymentIdRequest
+from financial.payment_id import get_payment_id_client
 
 from financial.utils.interface import get_withdraw_channel
 from ledger.exceptions import FetchError
@@ -166,6 +167,9 @@ def update_gateway_vaults(now: datetime, prices: dict):
 
 def update_pay_id_gateway_vaults(now: datetime, prices: dict):
     for gateway in PaymentIdGateway.objects.filter(active=True):
+        client = get_payment_id_client(gateway)
+        balance = client.get_balance()
+
         vault, _ = Vault.objects.get_or_create(
             type=Vault.BANK,
             market=Vault.SPOT,
@@ -175,15 +179,6 @@ def update_pay_id_gateway_vaults(now: datetime, prices: dict):
                 'updated': now,
             }
         )
-
-        last_payment = PaymentIdRequest.objects.filter(
-            gateway=gateway
-        ).order_by('-deposit_time').first()  # type: PaymentIdRequest
-
-        if not last_payment:
-            continue
-
-        balance = Decimal(last_payment.balance)
 
         vault.update_vault_all_items(now, [
             VaultData(

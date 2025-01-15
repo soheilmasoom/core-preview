@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from typing import Union
 
 from accounts.models import User
@@ -28,3 +29,6 @@ class BaseClient:
 
     def get_payment_id(self, deposit_number: str) -> Union[PaymentId, None]:
         return PaymentId.objects.filter(gateway=self.gateway, pay_id=deposit_number).first()
+
+    def get_balance(self) -> Decimal:
+        raise NotImplementedError
