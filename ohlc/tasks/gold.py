@@ -36,7 +36,10 @@ def fetch_and_store_gold_candles():
             if symbol not in prices:
                 return
 
-            price = prices[symbol]
+            multiplier = 1
+            if gold_asset.symbol == 'XAUM':
+                multiplier = 1000
+            price = prices[symbol] * multiplier
 
             Candle.objects.create(
                 symbol=symbol,
