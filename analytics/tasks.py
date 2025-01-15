@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 from celery import shared_task
@@ -6,9 +7,10 @@ from django.utils import timezone
 from accounting.models import TradeRevenue
 from accounts.models import User, LoginActivity, TrafficSource, Account
 from analytics.event.producer import get_kafka_producer
-from analytics.models import ActiveTrader, EventTracker
+from analytics.models import ActiveTrader, EventTracker, Symbol
 from analytics.utils.dto import LoginEvent, TransferEvent, TrafficSourceEvent, StakeRequestEvent, PrizeEvent, \
     TradeEvent, UserEvent, WalletEvent, TransactionEvent
+from analytics.utils.price_collect import collect_symbol
 from financial.models import FiatWithdrawRequest, Payment
 from ledger.models import Transfer, Prize, OTCTrade, FastBuyToken, Wallet, Trx
 from ledger.utils.fields import DONE

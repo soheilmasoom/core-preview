@@ -23,11 +23,10 @@ TASK_MULTIPLIER = 1
 if settings.DEBUG_OR_TESTING_OR_STAGING:
     TASK_MULTIPLIER = 5
 
-
 app.conf.beat_schedule = {
     'price_alert': {
         'task': 'ledger.tasks.alert.send_price_notifications',
-        'schedule':  crontab(minute="*/5"),
+        'schedule': crontab(minute="*/5"),
         'options': {
             'queue': 'notif-manager',
             'expires': 300 * TASK_MULTIPLIER
@@ -376,6 +375,20 @@ app.conf.beat_schedule = {
             'expires': 3 * 3600
         }
     },
+    'fetch-one-minute-gold-candles': {
+        'task': 'ohlc.tasks.gold.fetch_and_store_gold_candles',
+        'schedule': crontab(minute='*'),
+        'options': {
+            'queue': 'ohlc',
+        }
+    },
+    'aggregate-candles': {
+        'task': 'ohlc.tasks.gold.aggregate_materialized_candles',
+        'schedule': crontab(minute='*/15'),
+        'options': {
+            'queue': 'ohlc',
+        }
+    }
 }
 
 if 'marketing' in settings.INSTALLED_APPS:

@@ -47,6 +47,7 @@ urlpatterns = [
     path('api/v1/gamify/', include('gamify.urls')),
     path('api/v1/search/', include('search.urls')),
     path('api/v1/treasury/', include('treasury.urls')),
+    path('api/v1/chart/', include('ohlc.urls')),
 
     path('api/', include('ledger.urls')),
     path('robots.txt', TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),

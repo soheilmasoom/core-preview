@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     'health',
     'search',
     'treasury',
+    'ohlc',
 
     'tinymce',
     'import_export',
