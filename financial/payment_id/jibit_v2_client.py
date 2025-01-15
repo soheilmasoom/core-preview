@@ -249,7 +249,7 @@ class JibitClientV2(JibitClient):
 
     def get_balance(self) -> Decimal:
         resp = self._collect_api(
-            path='/cobank/v1/orders/aug-statement/IR390540100820100943131608/list',
+            path=f'/v1/orders/aug-statement/{self.gateway.iban}/list',
             data={
                 'fromDate': '2025-01-01',
                 'toDate': str(date.today() + timedelta(days=2)),
