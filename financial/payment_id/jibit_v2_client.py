@@ -150,7 +150,7 @@ class JibitClientV2(JibitClient):
                 self._verify(payment_request.external_ref)
 
             elif payment_request.status == INIT:  # kyt not passed
-                if transaction.created < timezone.now() - timedelta(minutes=120):  # give time to jibit to verify
+                if transaction.created < timezone.now() - timedelta(minutes=0):  # give time to jibit to verify
                     self._fail(external_ref=ref_number)
                     send_system_message(
                         message=f'PaymentIdRequest {payment_request} changed to INIT due to kyt failed',
