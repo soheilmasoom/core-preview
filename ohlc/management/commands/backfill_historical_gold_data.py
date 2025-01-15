@@ -3,13 +3,11 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import requests
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Avg
 from django.utils.timezone import make_aware
 import pytz
 from ohlc.models import Candle, MaterializedCandle
 from ledger.models import Asset
-from ohlc.tasks.gold import aggregate_materialized_candles
-
 
 class Command(BaseCommand):
     help = 'Backfills historical OHLC data from Wallgold API'
@@ -103,10 +101,145 @@ class Command(BaseCommand):
                             self.stdout.write(f"Created hourly candle for {aware_timestamp} from {timeframe} data")
 
                 # 3. Run aggregation to create MaterializedCandles
-                aggregate_materialized_candles()
+                aggregate_historical_data()
                 self.stdout.write(self.style.SUCCESS('Successfully aggregated all candles'))
 
         except Exception as e:
             self.stdout.write(
                 self.style.ERROR(f'Error processing data: {str(e)}')
             )
+
+
+def aggregate_historical_data():
+    """
+    Aggregates candles based on the actual data range in the Candles table,
+    not based on current time
+    """
+    from ohlc.models import Candle, MaterializedCandle
+    from django.db.models import Min, Max
+    from django.db import transaction
+
+    try:
+        # Get the time range from existing candles
+        time_range = Candle.objects.aggregate(
+            start_time=Min('timestamp'),
+            end_time=Max('timestamp')
+        )
+
+        start_time = time_range['start_time']
+        end_time = time_range['end_time']
+
+        if not start_time or not end_time:
+            print("No candles found to aggregate")
+            return
+
+        gold_asset = Asset.objects.filter(
+            Q(symbol__startswith='XAU') | Q(symbol__startswith='XAUM'),
+            enable=True
+        ).first()
+
+        symbol = f"{gold_asset.symbol}IRT"
+
+        with transaction.atomic():
+            current_time = start_time
+
+            while current_time <= end_time:
+                # For 1-hour candles (from base candles)
+                hour_end = current_time + timedelta(hours=1)
+                hour_candles = Candle.objects.filter(
+                    symbol=symbol,
+                    timestamp__gte=current_time,
+                    timestamp__lt=hour_end
+                )
+
+                if hour_candles.exists():
+                    agg = hour_candles.aggregate(
+                        open_price=Min('open'),
+                        high_price=Max('high'),
+                        low_price=Min('low'),
+                        close_price=Max('close'),
+                        volume_sum=Avg('volume')
+                    )
+
+                    MaterializedCandle.objects.update_or_create(
+                        symbol=symbol,
+                        timestamp=current_time,
+                        timeframe='1h',
+                        defaults={
+                            'open': agg['open_price'],
+                            'high': agg['high_price'],
+                            'low': agg['low_price'],
+                            'close': agg['close_price'],
+                            'volume': agg['volume_sum']
+                        }
+                    )
+
+                # For 4-hour candles
+                if current_time.hour % 4 == 0:
+                    four_hour_end = current_time + timedelta(hours=4)
+                    four_hour_candles = Candle.objects.filter(
+                        symbol=symbol,
+                        timestamp__gte=current_time,
+                        timestamp__lt=four_hour_end
+                    )
+
+                    if four_hour_candles.exists():
+                        agg = four_hour_candles.aggregate(
+                            open_price=Min('open'),
+                            high_price=Max('high'),
+                            low_price=Min('low'),
+                            close_price=Max('close'),
+                            volume_sum=Avg('volume')
+                        )
+
+                        MaterializedCandle.objects.update_or_create(
+                            symbol=symbol,
+                            timestamp=current_time,
+                            timeframe='4h',
+                            defaults={
+                                'open': agg['open_price'],
+                                'high': agg['high_price'],
+                                'low': agg['low_price'],
+                                'close': agg['close_price'],
+                                'volume': agg['volume_sum']
+                            }
+                        )
+
+                # For daily candles
+                if current_time.hour == 0:
+                    day_end = current_time + timedelta(days=1)
+                    day_candles = Candle.objects.filter(
+                        symbol=symbol,
+                        timestamp__gte=current_time,
+                        timestamp__lt=day_end
+                    )
+
+                    if day_candles.exists():
+                        agg = day_candles.aggregate(
+                            open_price=Min('open'),
+                            high_price=Max('high'),
+                            low_price=Min('low'),
+                            close_price=Max('close'),
+                            volume_sum=Avg('volume')
+                        )
+
+                        MaterializedCandle.objects.update_or_create(
+                            symbol=symbol,
+                            timestamp=current_time,
+                            timeframe='1d',
+                            defaults={
+                                'open': agg['open_price'],
+                                'high': agg['high_price'],
+                                'low': agg['low_price'],
+                                'close': agg['close_price'],
+                                'volume': agg['volume_sum']
+                            }
+                        )
+
+                current_time += timedelta(hours=1)
+
+        print(f"Successfully aggregated candles from {start_time} to {end_time}")
+
+    except Exception as e:
+        print(f"Error in aggregate_historical_data: {str(e)}")
+        raise
