@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.db import transaction
 
 from ledger.models import Asset
-from ledger.utils.external_price import BUY
+from ledger.utils.external_price import SELL
 from ledger.utils.price import get_prices
 from ohlc.models import Candle
 
@@ -31,12 +31,12 @@ def fetch_and_store_gold_candles():
 
     try:
         with transaction.atomic():
-            buy_prices = get_prices([symbol], side=BUY, allow_stale=False)
+            prices = get_prices([symbol], side=SELL, allow_stale=False)
 
-            if symbol not in buy_prices:
+            if symbol not in prices:
                 return
 
-            price = buy_prices[symbol]
+            price = prices[symbol]
 
             Candle.objects.create(
                 symbol=symbol,
