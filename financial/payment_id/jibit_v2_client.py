@@ -317,3 +317,7 @@ class JibitClientV2(JibitClient):
             return True
         else:
             return False
+
+    def accept_payment_request(self, payment_request: PaymentIdRequest):
+        payment_request.accept()
+        self._verify(external_ref=payment_request.external_ref)

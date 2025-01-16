@@ -27,6 +27,9 @@ class BaseClient:
     def update_payment_request(self, payment_request: PaymentIdRequest):
         raise NotImplementedError
 
+    def accept_payment_request(self, payment_request: PaymentIdRequest):
+        raise NotImplementedError
+
     def refund_payment_request(self, payment_request: PaymentIdRequest):
         raise NotImplementedError
 

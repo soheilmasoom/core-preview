@@ -564,12 +564,14 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
         for payment_request in queryset.filter(status=INIT):
-            payment_request.accept()
+            client = get_payment_id_client(payment_request.gateway)
+            client.accept_payment_request(payment_request)
 
-    @admin.action(description='Reject', permissions=['change'])
+    @admin.action(description='Reject & Refund', permissions=['change'])
     def reject(self, request, queryset):
         for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
-            payment_request.reject()
+            client = get_payment_id_client(payment_request.gateway)
+            client.refund_payment_request(payment_request)
 
     @admin.action(description='Update with Provider', permissions=['change'])
     def update_with_provider(self, request, queryset):
