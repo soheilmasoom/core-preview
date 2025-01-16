@@ -175,7 +175,7 @@ class WalletSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Wallet
-        fields = ['id', 'created', 'user_id', 'account_id', 'market', 'symbol']
+        fields = ['id', 'created', 'user_id', 'account_id', 'market', 'symbol', 'balance']
 
 
 class TransactionSerializer(serializers.ModelSerializer):
