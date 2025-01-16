@@ -293,7 +293,7 @@ class JibitClientV2(JibitClient):
         return Decimal(transaction.balance)
 
     def refund_payment_request(self, payment_request: PaymentIdRequest) -> bool:
-        if payment_request.status != INIT:
+        if payment_request.status not in (INIT, CANCELED):
             return False
 
         self._fail(external_ref=payment_request.external_ref)
@@ -321,3 +321,7 @@ class JibitClientV2(JibitClient):
     def accept_payment_request(self, payment_request: PaymentIdRequest):
         payment_request.accept()
         self._verify(external_ref=payment_request.external_ref)
+
+    def reject_payment_request(self, payment_request: PaymentIdRequest):
+        payment_request.reject()
+        self._fail(external_ref=payment_request.external_ref)

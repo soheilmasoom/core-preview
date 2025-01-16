@@ -2,7 +2,7 @@ from django.db import models
 from django.db.models import Q, CheckConstraint, UniqueConstraint
 
 from financial.models import Payment
-from ledger.utils.fields import get_status_field, DONE, get_group_id_field, CANCELED, get_iban_field, INIT
+from ledger.utils.fields import get_status_field, DONE, get_group_id_field, CANCELED, get_iban_field, INIT, REFUND
 from ledger.utils.precision import humanize_number
 from ledger.utils.wallet_pipeline import WalletPipeline
 

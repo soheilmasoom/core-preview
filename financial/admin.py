@@ -541,7 +541,7 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
     search_fields = ('raw_payment_id', 'owner__user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id',
                      'bank_transaction_id', 'sender_name', 'sender_identifier')
     list_filter = ('status', 'kyt_passed', 'gateway', 'record_type')
-    actions = ('accept', 'reject', 'update_with_provider')
+    actions = ('accept', 'refund', 'reject', 'update_with_provider')
     readonly_fields = ('get_user', 'payment', 'group_id')
     raw_id_fields = ('owner', )
 
@@ -567,8 +567,14 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
             client = get_payment_id_client(payment_request.gateway)
             client.accept_payment_request(payment_request)
 
-    @admin.action(description='Reject & Refund', permissions=['change'])
+    @admin.action(description='Reject No Refund', permissions=['change'])
     def reject(self, request, queryset):
+        for payment_request in queryset.filter(status=INIT):
+            client = get_payment_id_client(payment_request.gateway)
+            client.reject_payment_request(payment_request)
+
+    @admin.action(description='Reject & Refund', permissions=['change'])
+    def refund(self, request, queryset):
         for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
             client = get_payment_id_client(payment_request.gateway)
             client.refund_payment_request(payment_request)
