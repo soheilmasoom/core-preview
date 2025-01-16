@@ -563,12 +563,12 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
-        for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):
+        for payment_request in queryset.filter(status=INIT):
             payment_request.accept()
 
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
-        for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):  # type: PaymentIdRequest
+        for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
             payment_request.reject()
 
     @admin.action(description='Update with Provider', permissions=['change'])

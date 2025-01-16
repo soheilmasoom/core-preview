@@ -5,3 +5,7 @@ class ProviderError(Exception):
 
 class NoChannelError(Exception):
     pass
+
+
+class DuplicatedPaymentError(Exception):
+    pass

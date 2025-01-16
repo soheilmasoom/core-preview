@@ -294,7 +294,7 @@ def trigger_prize_event(threshold=1000):
         id__gt=tracker.last_id,
     ).order_by('id')[:threshold]
 
-    for prize in prize_list:
+    for prize in prize_list:  # type: Prize
         event = PrizeEvent(
             created=prize.created,
             user_id=prize.account.user_id,

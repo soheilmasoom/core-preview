@@ -2,15 +2,12 @@ from django.db import models
 from django.db.models import Q, CheckConstraint, UniqueConstraint
 
 from financial.models import Payment
-from ledger.utils.fields import get_status_field, DONE, get_group_id_field, CANCELED, get_iban_field, PROCESS, \
-    INIT
+from ledger.utils.fields import get_status_field, DONE, get_group_id_field, CANCELED, get_iban_field, INIT
 from ledger.utils.precision import humanize_number
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 
 class PaymentIdRequest(models.Model):
-    PENDING_STATES = [INIT, PROCESS]
-
     created = models.DateTimeField(auto_now_add=True)
 
     owner = models.ForeignKey('PaymentId', on_delete=models.PROTECT, null=True, blank=True)
@@ -36,6 +33,9 @@ class PaymentIdRequest(models.Model):
 
     raw_payment_id = models.CharField(max_length=64, blank=True)
     raw_data = models.TextField(blank=True)
+
+    refund_type = models.CharField(max_length=64, blank=True)
+    refund_track_id = models.CharField(max_length=64, blank=True)
 
     group_id = get_group_id_field(unique=True)
     payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.SET_NULL)
@@ -63,7 +63,7 @@ class PaymentIdRequest(models.Model):
         with WalletPipeline() as pipeline:
             req = PaymentIdRequest.objects.select_for_update().get(id=self.id)
 
-            if not req.owner or req.payment or req.status not in self.PENDING_STATES:
+            if not req.owner or req.payment or req.status != INIT:
                 return
 
             payment_id = req.owner
@@ -81,4 +81,4 @@ class PaymentIdRequest(models.Model):
             req.save(update_fields=['status', 'payment'])
 
     def reject(self):
-        PaymentIdRequest.objects.filter(id=self.id, status__in=self.PENDING_STATES).update(status=CANCELED)
+        PaymentIdRequest.objects.filter(id=self.id, status=INIT).update(status=CANCELED)
