@@ -15,7 +15,7 @@ from financial.exceptions import DuplicatedPaymentError
 from financial.models import PaymentIdRequest, PaymentId
 from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
-from ledger.utils.fields import INIT
+from ledger.utils.fields import INIT, CANCELED
 
 logger = logging.getLogger(__name__)
 
@@ -259,9 +259,9 @@ class JibitClientV2(JibitClient):
         data = resp.get_success_data()
         return self._parse_transaction(data)
 
-    def update_payment_request(self, payment_request: PaymentIdRequest):
+    def update_payment_request(self, payment_request: PaymentIdRequest) -> PaymentIdRequest:
         transaction = self._fetch_transaction(payment_request.external_ref)
-        self._create_or_update_payment_request(transaction)
+        return self._process_init_deposit(transaction)
 
     def get_payment_id(self, deposit_number: str) -> Union[PaymentId, None]:
         payment_id = super(JibitClientV2, self).get_payment_id(deposit_number)
@@ -303,7 +303,8 @@ class JibitClientV2(JibitClient):
             method='POST'
         )
         if not resp.ok:
-            return False
+            p = self.update_payment_request(payment_request)
+            return p.status == CANCELED
 
         data = resp.get_success_data()
         transaction = self._parse_transaction(data)
