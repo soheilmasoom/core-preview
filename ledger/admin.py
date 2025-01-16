@@ -1561,11 +1561,9 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
                     scope=Trx.MANUAL
                 )
 
-
     @admin.action(description='convert dust and close', permissions=['change'])
     def convert_dust_close(self, request, queryset):
         self.convert_dust(queryset, False)
-
 
     @admin.action(description='force convert dust and close', permissions=['change'])
     def force_convert_dust_close(self, request, queryset):
@@ -1576,7 +1574,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         group_id = uuid4()
 
         with WalletPipeline() as pipeline:
-            for position in queryset:
+            for position in queryset:  # type: MarginPosition
                 position.convert_dust(pipeline, force=force)
 
                 isolated = position.base_wallet

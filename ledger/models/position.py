@@ -453,7 +453,7 @@ class MarginPosition(models.Model):
         ).aggregate(s=Sum('amount'))['s'] or 0)
         return asset_fee + base_asset_fee
 
-    def convert_dust(self, pipeline, force=False):
+    def convert_dust(self, pipeline, force: bool = False):
         group_id = uuid.uuid4()
 
         self.asset_wallet.refresh_from_db()
