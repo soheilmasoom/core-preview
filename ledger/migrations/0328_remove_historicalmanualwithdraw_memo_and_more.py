@@ -11,7 +11,7 @@ def transfer_data_to_address_book(apps, schema_editor):
     ManualAddressBook = apps.get_model('ledger', 'ManualAddressBook')
 
     for withdraw in ManualWithdraw.objects.all():
-        address_book = ManualAddressBook.objects.get_or_create(
+        address_book, created = ManualAddressBook.objects.get_or_create(
             address=withdraw.receiver_address,
             network=withdraw.network,
             memo=withdraw.memo,
