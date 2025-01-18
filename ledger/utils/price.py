@@ -18,6 +18,7 @@ USDT_IRT = 'USDTIRT'
 
 logger = logging.getLogger(__name__)
 
+
 def _get_external_last_prices(coins: Union[list, set], allow_stale: bool = True) -> Dict[str, Decimal]:
     prices = fetch_external_redis_prices(coins, allow_stale=allow_stale)
 
@@ -256,7 +257,11 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
             spread += extra_spread
 
         else:
-            price = get_price(f'{coin}USDT', side)
+            if ExchangeType.is_crypto:
+                price = get_price(f'{coin}USDT', side)
+            else:
+                price = get_price(symbol, side)
+            logger.info(f"get_depth_price {side} {price} {symbol}")
             if not price:
                 raise SmallDepthError(0)
 
