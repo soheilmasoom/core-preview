@@ -90,7 +90,7 @@ class JibitClientV2(JibitClient):
             amount=amount,
             deposit_type=deposit_type,
             balance=data['balance'] // 10,
-            created=datetime.strptime(data['createdAt'], '%Y-%m-%dT%H:%M:%S.%f%z').astimezone(),
+            created=datetime.strptime(data['createdAt'], '%Y-%m-%dT%H:%M:%S%z').astimezone(),
             deposited_at=datetime.strptime(data['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
             deposit_number=data['payId'] or '',
             raw_data=data['rawData'] or '',
