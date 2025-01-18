@@ -15,6 +15,7 @@ from financial.exceptions import DuplicatedPaymentError
 from financial.models import PaymentIdRequest, PaymentId
 from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
+from financial.utils.date import parse_datetime
 from ledger.utils.fields import INIT, CANCELED
 
 logger = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ class JibitClientV2(JibitClient):
             amount=amount,
             deposit_type=deposit_type,
             balance=data['balance'] // 10,
-            created=datetime.strptime(data['createdAt'], '%Y-%m-%dT%H:%M:%S%z').astimezone(),
+            created=parse_datetime(data['createdAt']).astimezone(),
             deposited_at=datetime.strptime(data['timestamp'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc),
             deposit_number=data['payId'] or '',
             raw_data=data['rawData'] or '',
