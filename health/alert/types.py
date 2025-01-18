@@ -6,10 +6,11 @@ from django.db.models import F, Count
 from django.utils import timezone
 
 from accounting.models import Vault, VaultItem
-from financial.models import FiatWithdrawRequest
+from accounts.models import Notification
+from financial.models import FiatWithdrawRequest, PaymentIdRequest, Payment
 from ledger.models import Transfer, OTCTrade, Asset, SystemSnapshot, NetworkAsset
 from ledger.utils.blocklink import get_blocklink_requester
-from ledger.utils.fields import PENDING, PROCESS
+from ledger.utils.fields import PENDING, PROCESS, INIT
 from ledger.utils.precision import get_presentation_amount
 
 
@@ -265,3 +266,43 @@ class VaultUpdateAlert(BaseAlertHandler):
         return [
             f'{v} (updated: {v.updated})' for v in vaults
         ]
+
+
+class LongPendingPaymentIdRequestAlert(BaseAlertHandler):
+    NAME = 'long_pending_payment_id_request'
+    HELP = 'time passed from now in minutes when PaymentIdRequest.status=init'
+
+    def get_alerting(self, threshold: Decimal):
+        return PaymentIdRequest.objects.filter(
+            status=INIT,
+            created__lt=timezone.now() - timedelta(minutes=int(threshold)),
+        )
+
+
+class LongPendingPaymentAlert(BaseAlertHandler):
+    NAME = 'long_pending_payment'
+    HELP = 'time passed from now in minutes when Payment.status=init'
+
+    def get_alerting(self, threshold: Decimal):
+        return Payment.objects.filter(
+            status=INIT,
+            created__lt=timezone.now() - timedelta(minutes=int(threshold)),
+        )
+
+
+class NotificationSendingCanceledAlert(BaseAlertHandler):
+    NAME = 'notif_sending_canceled'
+    HELP = 'time passed from now in minutes'
+
+    def get_alerting(self, threshold: Decimal):
+        canceled = []
+
+        canceled_notifs = Notification.objects.filter(
+            push_status=Notification.PUSH_CANCELED,
+            created__gte=timezone.now() - timedelta(minutes=int(threshold))
+        ).count()
+
+        if canceled_notifs:
+            canceled.append(f'{canceled_notifs} Notifs')
+
+        return canceled

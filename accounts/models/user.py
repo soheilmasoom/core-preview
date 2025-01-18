@@ -479,6 +479,7 @@ class User(AbstractUser):
 
             cards = BankCard.objects.filter(user=self, verified=True, deleted=False)
 
+            card: BankCard
             for card in cards.filter(type__in=BankCard.CREDIT_FAMILY_TYPES):
                 card.reject(BankCard.CREDIT_CARD)
 

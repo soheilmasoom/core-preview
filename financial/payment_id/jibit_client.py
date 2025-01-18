@@ -221,9 +221,7 @@ class JibitClient(BaseClient):
         resp = self._collect_api(f'/v1/payments/{payment_request.external_ref}/fail')
 
         if resp.success:
-            payment_request.status = CANCELED
-            payment_request.save(update_fields=['status'])
-            payment_request.reject()
+            payment_request.change_to_canceled()
 
     def create_payments_requests(self):
         resp = self._collect_api(f'/v1/payments/waitingForVerify?pageNumber=0&pageSize=100')

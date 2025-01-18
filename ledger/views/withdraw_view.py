@@ -17,7 +17,7 @@ from accounts.throttle import BursAPIRateThrottle, SustainedAPIRateThrottle
 from accounts.utils.validation import persian_timedelta
 from accounts.validators import mobile_number_validator
 from financial.utils.withdraw_limit import get_crypto_withdraw_irt_value
-from ledger.exceptions import InsufficientBalance
+from ledger.exceptions import InsufficientBalance, InvalidAddressError
 from ledger.fields import WithdrawSources
 from ledger.models import Asset, Transfer, NetworkAsset, AddressBook, DepositAddress
 from ledger.models import WithdrawFeedback, FeedbackCategory
@@ -265,6 +265,8 @@ class WithdrawSerializer(serializers.ModelSerializer):
                 return transfer
         except InsufficientBalance:
             raise ValidationError('موجودی کافی نیست.')
+        except InvalidAddressError:
+            raise ValidationError('آدرس یا ممو به درستی وارد نشده است.')
 
     def get_address_book(self, transfer: Transfer):
         if transfer.address_book:

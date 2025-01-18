@@ -42,6 +42,10 @@ class InternalTransferTestCase(TestCase):
         self.btc_network = new_network(symbol='BTC')
         new_network_asset(asset=self.btc, network=self.btc_network)
 
+        self.xrp = Asset.get('XRP')
+        self.xrp_network = new_network(symbol='XRP', deposit_memo=True, withdraw_memo=True)
+        new_network_asset(self.xrp, self.xrp_network)
+
     def test_internal_transfer_to_another_user_with_processing(self):
 
         code = generate_otp_code(self.user1, 'withdraw')
@@ -163,26 +167,19 @@ class InternalTransferTestCase(TestCase):
             Transfer.objects.get(receiver_account=receiver_wallet.account).group_id)
 
     def test_withdraw_to_memo_internal(self):
-        xrp = Asset.get('XRP')
-        xrp_network = new_network(symbol='XRP')
-        xrp_network.deposit_need_memo = True
-        xrp_network.withdraw_allow_memo = True
-        xrp_network.save()
-
-        new_network_asset(xrp, xrp_network)
 
         account3 = new_account()
         address = 'rhubarbMVC2nzASf3qSGQcUKtLnAzqcBjp'
 
-        new_deposit_address(account=self.account1, network=xrp_network, address=address, memo='1')
-        new_deposit_address(account=account3, network=xrp_network, address=address, memo='3')
-        new_deposit_address(account=self.account2, network=xrp_network, address=address, memo='2')
+        new_deposit_address(account=self.account1, network=self.xrp_network, address=address, memo='1')
+        new_deposit_address(account=account3, network=self.xrp_network, address=address, memo='3')
+        new_deposit_address(account=self.account2, network=self.xrp_network, address=address, memo='2')
 
-        wallet1 = xrp.get_wallet(self.account1)
+        wallet1 = self.xrp.get_wallet(self.account1)
 
         wallet1.airdrop(100)
 
-        set_price(xrp, 5)
+        set_price(self.xrp, 5)
 
         code = generate_otp_code(self.user1, 'withdraw')
         response = self.client.post('/api/v1/withdraw/', {
@@ -211,9 +208,82 @@ class InternalTransferTestCase(TestCase):
         self.assertEqual(Transfer.objects.filter(status=PROCESS).count(), 0)
 
         wallet1.refresh_from_db()
-        wallet2 = xrp.get_wallet(self.account2)
-        wallet3 = xrp.get_wallet(account3)
+        wallet2 = self.xrp.get_wallet(self.account2)
+        wallet3 = self.xrp.get_wallet(account3)
 
         self.assertEqual(wallet1.balance, 90)
         self.assertEqual(wallet2.balance, 10)
         self.assertEqual(wallet3.balance, 0)
+
+    def test_memo(self):
+        address1 = 'rhubarbMVC2nzASf3qSGQcUKtLnAzqcBjp'
+        address2 = 'rhubarbMVC2nzASf3qSGQcUKtLnAzqcBjq'
+
+        new_deposit_address(account=self.account1, network=self.xrp_network, address=address1, memo='1')
+        new_deposit_address(account=self.account2, network=self.xrp_network, address=address1, memo='2')
+
+        wallet1 = self.xrp.get_wallet(self.account1)
+        wallet1.airdrop(100)
+        set_price(self.xrp, 5)
+
+        # Send to out address
+        code = generate_otp_code(self.user1, 'withdraw')
+        response = self.client.post('/api/v1/withdraw/', {
+            'coin': 'XRP',
+            'network': 'XRP',
+            'amount': '10',
+            'address': address2,
+            'memo': '20',
+            'code': code,
+            'totp': ''
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            Transfer.objects.filter(wallet__account=self.account1, source=WithdrawSources.SELF).count(), 1
+        )
+
+        # Send to self memo
+        code = generate_otp_code(self.user1, 'withdraw')
+        response = self.client.post('/api/v1/withdraw/', {
+            'coin': 'XRP',
+            'network': 'XRP',
+            'amount': '10',
+            'address': address1,
+            'memo': '1',
+            'code': code,
+            'totp': ''
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            Transfer.objects.filter(wallet__account=self.account1, source=WithdrawSources.INTERNAL).count(), 0
+        )
+
+        # Send to internal and correct memo
+        code = generate_otp_code(self.user1, 'withdraw')
+        response = self.client.post('/api/v1/withdraw/', {
+            'coin': 'XRP',
+            'network': 'XRP',
+            'amount': '10',
+            'address': address1,
+            'memo': '2',
+            'code': code,
+            'totp': ''
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            Transfer.objects.filter(wallet__account=self.account1, source=WithdrawSources.INTERNAL).count(), 1
+        )
+
+        # Send to internal and wrong memo
+        code = generate_otp_code(self.user1, 'withdraw')
+        response = self.client.post('/api/v1/withdraw/', {
+            'coin': 'XRP',
+            'network': 'XRP',
+            'amount': '10',
+            'address': address1,
+            'memo': '20',
+            'code': code,
+            'totp': ''
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Transfer.objects.filter(wallet__account=self.account1).count(), 2)

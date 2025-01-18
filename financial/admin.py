@@ -204,7 +204,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     def refund(self, request, queryset):
         valid_qs = queryset.filter(status=DONE)
 
-        for fiat_withdraw in valid_qs:
+        for fiat_withdraw in valid_qs:  # type: FiatWithdrawRequest
             fiat_withdraw.refund()
 
     @admin.action(description='Accept Manual', permissions=['change'])
@@ -346,7 +346,7 @@ class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
     def refund(self, request, queryset):
         valid_qs = queryset.filter(status=DONE)
 
-        for payment in valid_qs:
+        for payment in valid_qs:  # type: Payment
             payment.refund()
 
     @admin.action(description='تایید واریز', permissions=['change'])
@@ -547,7 +547,7 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
     search_fields = ('raw_payment_id', 'owner__user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id',
                      'bank_transaction_id', 'sender_name', 'sender_identifier')
     list_filter = ('status', 'kyt_passed', 'gateway', 'record_type')
-    actions = ('accept', 'reject', 'update_with_provider')
+    actions = ('accept', 'refund', 'reject', 'update_with_provider')
     readonly_fields = ('get_user', 'payment', 'group_id')
     raw_id_fields = ('owner',)
 
@@ -569,13 +569,21 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
-        for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):
-            payment_request.accept()
+        for payment_request in queryset.filter(status=INIT):
+            client = get_payment_id_client(payment_request.gateway)
+            client.accept_payment_request(payment_request)
 
-    @admin.action(description='Reject', permissions=['change'])
+    @admin.action(description='Reject No Refund', permissions=['change'])
     def reject(self, request, queryset):
-        for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):  # type: PaymentIdRequest
-            payment_request.reject()
+        for payment_request in queryset.filter(status=INIT):
+            client = get_payment_id_client(payment_request.gateway)
+            client.reject_payment_request(payment_request)
+
+    @admin.action(description='Reject & Refund', permissions=['change'])
+    def refund(self, request, queryset):
+        for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
+            client = get_payment_id_client(payment_request.gateway)
+            client.refund_payment_request(payment_request)
 
     @admin.action(description='Update with Provider', permissions=['change'])
     def update_with_provider(self, request, queryset):

@@ -44,7 +44,7 @@ class RefundWalletSerializer(serializers.Serializer):
     def create(self, validated_data):
         account = Account.objects.get(id=validated_data['account_id'])
         variant = validated_data['variant']
-        reserve_wallet = ReserveWallet.objects.get(group_id=variant)
+        reserve_wallet = ReserveWallet.objects.get(group_id=variant)  # type: ReserveWallet
         if reserve_wallet.receiver.account != account:
             raise ValidationError(_('Account and Variant do not match together.'))
         

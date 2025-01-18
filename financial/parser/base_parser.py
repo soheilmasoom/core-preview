@@ -11,6 +11,7 @@ class TransactionInfo:
     bank_reference_number: str
     bank_transaction_id: str
     created: datetime
+    deposited_at: datetime
     deposit_type: str
     amount: int
     balance: int
@@ -22,6 +23,8 @@ class TransactionInfo:
     sender_identifier: str = ''
     sender_name: str = ''
     raw_data: str = ''
+    refund_type: str = ''
+    refund_track_id: str = ''
 
 
 class ParseError(Exception):
