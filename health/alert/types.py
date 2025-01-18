@@ -305,4 +305,4 @@ class NotificationSendingCanceledAlert(BaseAlertHandler):
         if canceled_notifs:
             canceled.append(f'{canceled_notifs} Notifs')
 
-        return canceled_notifs
+        return canceled
