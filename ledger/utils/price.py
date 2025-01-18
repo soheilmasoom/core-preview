@@ -230,10 +230,12 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
             symbol = f'{coin}USDT'
             base_price = get_price(USDT_IRT, side)
         else:
+            # because we fetch all metal prices from IRT base
             symbol = f'{coin}{base}'
 
         try:
             price, spread = get_depth_base_price_and_spread(symbol, side, amount)
+            print(f"getting get_depth_base_price_and_spread {price}:{spread}")
         except NoDepthError as exp:
             raise SmallDepthError(exp.args[0])
 
