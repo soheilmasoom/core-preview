@@ -32,7 +32,7 @@ class JibitChannelV2(BaseChannel):
             json={
                 'apiKey': self.gateway.withdraw_api_key,
                 'secretKey': self.gateway.withdraw_api_secret,
-                'scopes': ['VARIZ_PID', 'AUG_STATEMENT_VARIZ'],
+                'scopes': ['SETTLEMENT'],
             },
             timeout=30,
         )
@@ -84,43 +84,17 @@ class JibitChannelV2(BaseChannel):
         return Response(data=resp_json, success=resp.ok, status_code=resp.status_code)
 
     def get_wallet_data(self) -> WalletDTO:
-        resp = self._collect_api('/v2/balances')
-        balance = 0
-        free = 0
-
-        for d in resp.get_success_data()['balances']:
-            balance_type = d['balanceType']
-
-            if balance_type == 'STL':
-                free = d['amount']
-
-            balance += d['amount']
-
         return WalletDTO(
-            balance=balance // 10,
-            free=free // 10
+            balance=0,
+            free=0
         )
 
     def create_withdraw(self, transfer: BaseTransfer) -> WithdrawDTO:
-        if transfer.bank_account.bank in self.get_instant_banks():
-            transfer_mode = 'NORMAL'
-        else:
-            transfer_mode = 'ACH'
-
         resp = self._collect_api('/v1/orders/settlement', method='POST', data={
-            'submissionMode': 'TRANSFER',
-            'batchID': 'wr-%s' % transfer.id,
-            'transfers': [{
-                'transferID': str(transfer.id),
-                'destination': transfer.bank_account.iban,
-                'destinationFirstName': transfer.bank_account.user.first_name,
-                'destinationLastName': transfer.bank_account.user.last_name,
-                'amount': transfer.amount,
-                'currency': 'TOMAN',
-                'cancellable': False,
-                'transferMode': transfer_mode,
-                'description': 'برداشت کاربر'
-            }],
+            'destinationIban': transfer.bank_account.iban,
+            'amount': transfer.amount * 10,
+            'recordTrackId': transfer.id,
+            'transferType': 'NORMAL',
         })
 
         if not resp.success:
@@ -141,7 +115,7 @@ class JibitChannelV2(BaseChannel):
             else:
                 raise ProviderError(code)
 
-        if resp.data.get('submittedCount', 0) == 0:
+        if resp.data.get('referenceNumber', 0) == 0:
             raise ProviderError('Jibit submission failed')
 
         return WithdrawDTO(
@@ -151,7 +125,7 @@ class JibitChannelV2(BaseChannel):
         )
 
     def get_withdraw_status(self, transfer: BaseTransfer) -> WithdrawDTO:
-        resp = self.collect_api('/v2/transfers?transferID={}'.format(transfer.id))
+        resp = self._collect_api(f'/v1/orders/settlement/?{transfer.id}')
         data = resp.get_success_data()
 
         mapping_status = {
@@ -159,14 +133,15 @@ class JibitChannelV2(BaseChannel):
             'TRANSFERRED': DONE,
             'CANCELLING': CANCELED,
             'FAILED': CANCELED,
-            'IN_PROGRESS': PENDING
+            'IN_PROGRESS': PENDING,
+            'FAILED_RECEIVED': CANCELED,
         }
 
-        transfer = data['transfers'][0]
+        record = data['records'][0]
 
-        tracking_id = transfer['bankTransferID'] or ''
+        tracking_id = record['referenceNumber'] or ''
 
-        channel_status = transfer['state']
+        channel_status = record['state']
         status = mapping_status.get(channel_status, PENDING)
 
         if tracking_id and status == PENDING:
