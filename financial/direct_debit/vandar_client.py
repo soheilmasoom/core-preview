@@ -46,6 +46,7 @@ class VandarClient(BaseClient):
             resp_data = resp.json()
             self.gateway.set_refresh_token(resp_data['refresh_token'])
             self._token = resp_data['access_token']
+            print(resp_data['refresh_token'])
             return self._token
 
     def _collect_api(self, path: str, method: str = 'GET', headers: dict = None, data: dict = None) -> Response:
