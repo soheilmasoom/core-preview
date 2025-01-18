@@ -1,3 +1,4 @@
+from requests import request
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView, CreateAPIView
@@ -39,7 +40,17 @@ class BanksView(ListAPIView):
 
     def get_queryset(self):
         gateway = DirectDebitGateway.live_objects.first()
-        return DirectDebitBank.live_objects.filter(gateway=gateway)
+        banks = DirectDebitBank.live_objects.filter(gateway=gateway)
+
+        verified = self.request.query_params.get('verified')
+
+        if verified == '1':
+            user = self.request.user
+            connections = DirectDebitConnection.objects.filter(user=user, verified=True, deleted=False)
+            bank_ids = connections.values_list('bank_id', flat=True)
+            banks = banks.filter(id__in=bank_ids).distinct()
+
+        return banks
 
 
 class DirectDebitConnectionSerializer(serializers.Serializer):
