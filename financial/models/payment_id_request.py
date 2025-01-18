@@ -61,7 +61,7 @@ class PaymentIdRequest(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.id}- {humanize_number(self.amount)} IRT ({self.status})'
+        return f'{self.status} {humanize_number(self.amount)} IRT'
 
     def accept(self):
         with WalletPipeline() as pipeline:
