@@ -231,6 +231,7 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
 
         if base == IRT and ExchangeType.is_crypto:
             symbol = f'{coin}USDT'
+            logger.info("price changed to usdt")
             base_price = get_price(USDT_IRT, side)
         else:
             # because we fetch all metal prices from IRT base
@@ -239,7 +240,7 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
         try:
             logger.info(f"request depth with symbl {symbol} and base_price {base_price}")
             price, spread = get_depth_base_price_and_spread(symbol, side, amount)
-            logger.info(f"getting get_depth_base_price_and_spread {price}:{spread}")
+            logger.info(f"getting get_depth_base_price_and_spread {price}:{spread} {symbol}")
         except NoDepthError as exp:
             raise SmallDepthError(exp.args[0])
 
@@ -259,6 +260,7 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
         else:
             if ExchangeType.is_crypto:
                 price = get_price(f'{coin}USDT', side)
+                logger.info("ExchangeType.is_crypto")
             else:
                 price = get_price(symbol, side)
             logger.info(f"get_depth_price {side} {price} {symbol}")
