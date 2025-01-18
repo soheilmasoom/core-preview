@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 from typing import List, Dict, Union
 
@@ -15,6 +16,7 @@ from ledger.utils.precision import floor_precision, ceil_precision
 
 USDT_IRT = 'USDTIRT'
 
+logger = logging.getLogger(__name__)
 
 def _get_external_last_prices(coins: Union[list, set], allow_stale: bool = True) -> Dict[str, Decimal]:
     prices = fetch_external_redis_prices(coins, allow_stale=allow_stale)
@@ -198,7 +200,7 @@ def get_last_price(symbol: str) -> Decimal:
 
 def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool = True) -> Decimal:
     from market.models import Order, PairSymbol
-
+    logger.info("get_depth_price")
     pair_symbol = PairSymbol.objects.filter(name=symbol).first()
 
     if SystemConfig.get_system_config().hedge_coin_otc_from_internal_market and pair_symbol.enable:
@@ -234,9 +236,9 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
             symbol = f'{coin}{base}'
 
         try:
-            print(f"request depth with symbl {symbol} and base_price {base_price}")
+            logger.info(f"request depth with symbl {symbol} and base_price {base_price}")
             price, spread = get_depth_base_price_and_spread(symbol, side, amount)
-            print(f"getting get_depth_base_price_and_spread {price}:{spread}")
+            logger.info(f"getting get_depth_base_price_and_spread {price}:{spread}")
         except NoDepthError as exp:
             raise SmallDepthError(exp.args[0])
 
