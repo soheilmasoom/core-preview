@@ -33,7 +33,10 @@ def create_one_minute_candles(
                 logger.warning(f"Failed to get price for symbol: {symbol}",
                                extra={'timestamp': aligned_time})
                 all_prices[symbol] = Decimal('0')
-            price = all_prices[symbol]
+            multiplier = 1
+            if symbol == 'XAUM':
+                multiplier = 1000
+            price = all_prices[symbol] * multiplier
             candles_to_create.append(Candle(
                 symbol=symbol,
                 timestamp=aligned_time,
