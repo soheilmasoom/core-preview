@@ -234,6 +234,7 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
             symbol = f'{coin}{base}'
 
         try:
+            print(f"request depth with symbl {symbol} and base_price {base_price}")
             price, spread = get_depth_base_price_and_spread(symbol, side, amount)
             print(f"getting get_depth_base_price_and_spread {price}:{spread}")
         except NoDepthError as exp:
