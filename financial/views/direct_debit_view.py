@@ -44,11 +44,15 @@ class BanksView(ListAPIView):
 
         verified = self.request.query_params.get('verified')
 
-        if verified == '1':
+        if verified in ('0', '1'):
             user = self.request.user
             connections = DirectDebitConnection.objects.filter(user=user, verified=True, deleted=False)
             bank_ids = connections.values_list('bank_id', flat=True)
-            banks = banks.filter(id__in=bank_ids).distinct()
+
+            if verified == '1':
+                banks = banks.filter(id__in=bank_ids).distinct()
+            else:
+                banks = banks.exclude(id__in=bank_ids).distinct()
 
         return banks
 
