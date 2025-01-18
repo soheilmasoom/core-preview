@@ -12,8 +12,8 @@ _CLIENTS = {
 
 
 def get_direct_debit_client(gateway: DirectDebitGateway) -> Union[BaseClient, None]:
-    if settings.DEBUG_OR_TESTING_OR_STAGING:
-        return MockVandarClient(gateway)
+    # if settings.DEBUG_OR_TESTING_OR_STAGING:
+    #     return MockVandarClient(gateway)
 
     client = _CLIENTS.get(gateway.type, None)
 
