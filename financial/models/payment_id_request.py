@@ -84,8 +84,11 @@ class PaymentIdRequest(models.Model):
             req.status = DONE
             req.save(update_fields=['status', 'payment'])
 
-    def reject(self):
+    def change_to_canceled(self):
         PaymentIdRequest.objects.filter(id=self.id, status=INIT).update(status=CANCELED)
+
+    def change_to_refund(self):
+        PaymentIdRequest.objects.filter(id=self.id, status__in=[INIT, CANCELED]).update(status=REFUND)
 
     def add_comment(self, s: str):
         if not s:

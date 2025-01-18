@@ -16,7 +16,7 @@ from financial.models import PaymentIdRequest, PaymentId, BankCard, BankAccount
 from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
 from financial.utils.date import parse_datetime
-from ledger.utils.fields import INIT, CANCELED
+from ledger.utils.fields import INIT, CANCELED, REFUND
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,7 @@ class JibitClientV2(JibitClient):
         ref_number = transaction.reference_number
 
         if transaction.refund_type or transaction.refund_track_id:
-            payment_request.reject()
+            payment_request.change_to_refund()
             self._fail(external_ref=ref_number)
             payment_request.refresh_from_db()
 
@@ -326,7 +326,7 @@ class JibitClientV2(JibitClient):
             error = resp.data['errors'][0]['message']
             payment_request.add_comment(f'Refund failed due to jibit error: "{error}"')
             p = self.update_payment_request(payment_request)
-            return p.status == CANCELED
+            return p.status == REFUND
 
         data = resp.get_success_data()
         transaction = self._parse_transaction(data)
@@ -335,7 +335,7 @@ class JibitClientV2(JibitClient):
             payment_request.refund_track_id = transaction.refund_track_id
             payment_request.refund_type = transaction.refund_type
             payment_request.save(update_fields=['refund_track_id', 'refund_type'])
-            payment_request.reject()
+            payment_request.change_to_refund()
             return True
         else:
             return False
@@ -345,5 +345,5 @@ class JibitClientV2(JibitClient):
         self._verify(external_ref=payment_request.external_ref)
 
     def reject_payment_request(self, payment_request: PaymentIdRequest):
-        payment_request.reject()
+        payment_request.change_to_canceled()
         self._fail(external_ref=payment_request.external_ref)

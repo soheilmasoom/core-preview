@@ -198,7 +198,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     def refund(self, request, queryset):
         valid_qs = queryset.filter(status=DONE)
 
-        for fiat_withdraw in valid_qs:
+        for fiat_withdraw in valid_qs:  # type: FiatWithdrawRequest
             fiat_withdraw.refund()
 
     @admin.action(description='Accept Manual', permissions=['change'])
@@ -340,7 +340,7 @@ class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
     def refund(self, request, queryset):
         valid_qs = queryset.filter(status=DONE)
 
-        for payment in valid_qs:
+        for payment in valid_qs:  # type: Payment
             payment.refund()
 
     @admin.action(description='تایید واریز', permissions=['change'])

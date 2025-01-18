@@ -86,7 +86,7 @@ def check_withdraw_refunds():
             gateway=gateway
         )
 
-        for withdraw in withdraws:
+        for withdraw in withdraws:  # type: FiatWithdrawRequest
             refund = refunds_map[withdraw.id]  # type: WithdrawRefundedDTO
 
             assert withdraw.amount == refund.amount

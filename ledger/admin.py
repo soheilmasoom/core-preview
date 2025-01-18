@@ -35,7 +35,7 @@ from ledger import models
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
     MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer, ConvertDust, \
-    ConvertDustTrx, NetworkSchedule
+    ConvertDustTrx, NetworkSchedule, OTCTrade, Transfer
 from ledger.models.asset_alert import AssetAlert, AlertTrigger, BulkAssetAlert
 from ledger.models.wallet import ReserveWallet
 from ledger.utils.external_price import BUY
@@ -490,7 +490,7 @@ class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='Cancel Trade', permissions=['change'])
     def cancel_trade(self, request, queryset):
-        for otc in queryset.filter(status=PENDING):
+        for otc in queryset.filter(status=PENDING):  # type: OTCTrade
             otc.reject()
 
     @admin.action(description='Revert', permissions=['change'])
@@ -825,7 +825,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='رد واریز', permissions=['manage'])
     def reject_deposit(self, request, queryset):
-        for transfer in queryset.filter(deposit=True, status__in=[INIT, PENDING]):
+        for transfer in queryset.filter(deposit=True, status__in=[INIT, PENDING]):  # type: Transfer
             transfer.reject(reason='Rejected by admin')
 
     @admin.action(description='Revert', permissions=['manage'])
@@ -850,7 +850,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='Terminate Withdraw', permissions=['change'])
     def terminate_withdraw(self, request, queryset):
-        for t in queryset.filter(deposit=False, status=PROCESS):
+        for t in queryset.filter(deposit=False, status=PROCESS):  # type: Transfer
             t.reject()
 
         requester = get_blocklink_requester()
@@ -1388,7 +1388,7 @@ class TokenRebrandAdmin(admin.ModelAdmin):
 
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
-        for rebrand in queryset.filter(status=PENDING):
+        for rebrand in queryset.filter(status=PENDING):  # type: TokenRebrand
             rebrand.reject()
 
     @admin.action(description='Revert', permissions=['change'])
@@ -1421,7 +1421,7 @@ class TokenTransferAdmin(admin.ModelAdmin):
 
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
-        for token_transfer in queryset.filter(status=PENDING):
+        for token_transfer in queryset.filter(status=PENDING):  # type: TokenTransfer
             token_transfer.reject()
 
     @admin.display(description='Transfer Info')
@@ -1463,7 +1463,7 @@ class TokenDelistAdmin(admin.ModelAdmin):
 
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
-        for delist in queryset.filter(status=PENDING):
+        for delist in queryset.filter(status=PENDING):  # type: TokenDelist
             delist.reject()
 
     @admin.action(description='Revert', permissions=['change'])
