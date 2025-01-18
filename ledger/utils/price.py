@@ -3,8 +3,8 @@ from decimal import Decimal
 from typing import List, Dict, Union
 
 from django.db.models import Min, Max, F
+from django_otp.plugins.otp_email.conf import settings
 
-from _base.utils import ExchangeType
 from accounts.models import SystemConfig
 from ledger.exceptions import SmallDepthError
 from ledger.utils.cache import cache_for
@@ -201,7 +201,7 @@ def get_last_price(symbol: str) -> Decimal:
 
 def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool = True) -> Decimal:
     from market.models import Order, PairSymbol
-    logger.info(f"get_depth_price {symbol} {side} {amount} {depth_check} {ExchangeType.is_crypto}")
+    logger.info(f"get_depth_price {symbol} {side} {amount} {depth_check} {settings.ExchangeType.is_crypto}")
     pair_symbol = PairSymbol.objects.filter(name=symbol).first()
 
     if SystemConfig.get_system_config().hedge_coin_otc_from_internal_market and pair_symbol.enable:
@@ -229,7 +229,7 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
         coin, base = split_symbol(symbol)
         base_price = 1
 
-        if base == IRT and ExchangeType.is_crypto:
+        if base == IRT and settings.EXCHANGE_TYPE.is_crypto:
             symbol = f'{coin}USDT'
             logger.info("price changed to usdt")
             base_price = get_price(USDT_IRT, side)
@@ -258,7 +258,7 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
             spread += extra_spread
 
         else:
-            if ExchangeType.is_crypto:
+            if settings.EXCHANGE_TYPE.is_crypto:
                 price = get_price(f'{coin}USDT', side)
                 logger.info("ExchangeType.is_crypto")
             else:
