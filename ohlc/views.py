@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny
 from django.utils import timezone
 from datetime import timedelta
 from django.core.cache import cache
-from .models import Candle, MaterializedCandle
+from .models import Ohlc1D, Ohlc1H
 
 
 class ChartViewSet(viewsets.ViewSet):
@@ -19,7 +19,6 @@ class ChartViewSet(viewsets.ViewSet):
         if not symbol:
             return Response({"error": "Symbol parameter is required"}, status=400)
 
-        # Try to get from cache first
         cache_key = f"chart_{symbol}_{timeframe}"
         cached_data = cache.get(cache_key)
         if cached_data:
@@ -27,32 +26,29 @@ class ChartViewSet(viewsets.ViewSet):
 
         now = timezone.now()
         timeframe_mapping = {
-            'yearly': {'days': 365, 'model': MaterializedCandle, 'frame': '1d', 'cache_time': 6 * 60 * 60},  # 6 hour
-            'monthly': {'days': 30, 'model': MaterializedCandle, 'frame': '4h', 'cache_time': 120 * 60},  # 2 hours
-            'weekly': {'days': 7, 'model': MaterializedCandle, 'frame': '1h', 'cache_time': 30 * 60},
-            'daily': {'days': 1, 'model': MaterializedCandle, 'frame': '1h', 'cache_time': 30 * 60},
-            'hourly': {'days': 1 / 24, 'model': Candle, 'frame': None, 'cache_time': 60}
+            'yearly': {'days': 365, 'model': Ohlc1D, 'cache_time': 6 * 60 * 60},
+            'monthly': {'days': 30, 'model': Ohlc1H, 'cache_time': 120 * 60},
+            'weekly': {'days': 7, 'model': Ohlc1H, 'cache_time': 30 * 60},
+            'daily': {'days': 1, 'model': Ohlc1H, 'cache_time': 30 * 60},
         }
 
         if timeframe not in timeframe_mapping:
             return Response({"error": "Invalid timeframe"}, status=400)
 
         mapping = timeframe_mapping[timeframe]
-        start_time = now - timedelta(days=mapping['days'])
         Model = mapping['model']
 
-        if Model == MaterializedCandle:
-            candles = Model.objects.filter(
-                symbol=symbol,
-                timestamp__gte=start_time,
-                timeframe=mapping['frame']
-            ).order_by('timestamp')
+        if 'days' in mapping:
+            start_time = now - timedelta(days=mapping['days'])
         else:
-            candles = Model.objects.filter(
-                symbol=symbol,
-                timestamp__gte=start_time
-            ).order_by('timestamp')
+            return Response({"error": "Invalid timeframe configuration"}, status=500)
 
+        candles = Model.objects.filter(
+            symbol=symbol,
+            timestamp__gte=start_time
+        ).order_by('timestamp')
+
+        # Fetch timestamp and close price
         data = list(candles.values('timestamp', 'close'))
 
         cache.set(cache_key, data, mapping['cache_time'])

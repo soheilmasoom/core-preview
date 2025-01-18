@@ -383,8 +383,8 @@ app.conf.beat_schedule = {
         }
     },
     'aggregate-candles': {
-        'task': 'ohlc.tasks.gold.aggregate_materialized_candles',
-        'schedule': crontab(minute='*/15'),
+        'task': 'ohlc.tasks.gold.refresh_materialized_views',
+        'schedule': crontab(minute='*/30'),
         'options': {
             'queue': 'ohlc',
         }

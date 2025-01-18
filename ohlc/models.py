@@ -20,6 +20,38 @@ class Candle(models.Model):
         ]
 
 
+class Ohlc1H(models.Model):
+    row_id = models.BigIntegerField(primary_key=True)
+    symbol = models.CharField(max_length=20)
+    timestamp = models.DateTimeField()
+    open = models.DecimalField(max_digits=20, decimal_places=8)
+    high = models.DecimalField(max_digits=20, decimal_places=8)
+    low = models.DecimalField(max_digits=20, decimal_places=8)
+    close = models.DecimalField(max_digits=20, decimal_places=8)
+    volume = models.DecimalField(max_digits=30, decimal_places=8)
+
+    class Meta:
+        managed = False  # Prevent Django from trying to manage this table
+        db_table = 'ohlc_1h'
+        unique_together = ('symbol', 'timestamp')
+
+
+class Ohlc1D(models.Model):
+    row_id = models.BigIntegerField(primary_key=True)
+    symbol = models.CharField(max_length=20)
+    timestamp = models.DateTimeField()
+    open = models.DecimalField(max_digits=20, decimal_places=8)
+    high = models.DecimalField(max_digits=20, decimal_places=8)
+    low = models.DecimalField(max_digits=20, decimal_places=8)
+    close = models.DecimalField(max_digits=20, decimal_places=8)
+    volume = models.DecimalField(max_digits=30, decimal_places=8)
+
+    class Meta:
+        managed = False
+        db_table = 'ohlc_1d'
+        unique_together = ('symbol', 'timestamp')
+
+
 class MaterializedCandle(models.Model):
     """Pre-calculated candles for common timeframes"""
     TIMEFRAME_CHOICES = [
