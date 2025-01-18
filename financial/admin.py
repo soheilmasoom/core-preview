@@ -823,7 +823,7 @@ class DirectDebitBankAdmin(admin.ModelAdmin):
 
 @admin.register(DirectDebitConnection)
 class DirectDebitConnectionAdmin(admin.ModelAdmin):
-    list_display = ('created', 'user', 'bank', 'verified',)
+    list_display = ('created', 'user', 'bank', 'verified', 'deleted')
     list_filter = ('verified', 'deleted', 'bank')
     search_fields = ('auth_id', 'user')
     readonly_fields = ('created', 'updated', 'auth_id_encrypted', 'bank', 'verified', 'token', 'user')
