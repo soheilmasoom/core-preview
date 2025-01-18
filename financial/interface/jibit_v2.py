@@ -125,7 +125,7 @@ class JibitChannelV2(BaseChannel):
         )
 
     def get_withdraw_status(self, transfer: BaseTransfer) -> WithdrawDTO:
-        resp = self._collect_api(f'/v1/orders/settlement/?{transfer.id}')
+        resp = self._collect_api(f'/v1/orders/settlement/{transfer.id}')
         data = resp.get_success_data()
 
         mapping_status = {
