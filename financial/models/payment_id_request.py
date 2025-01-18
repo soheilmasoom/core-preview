@@ -9,6 +9,9 @@ from ledger.utils.wallet_pipeline import WalletPipeline
 
 
 class PaymentIdRequest(models.Model):
+    # ach: paya, rtgs: satna
+    RECORD_TYPES = ACH, CARD, INTERNAL, RTGS, POL = 'ach', 'card', 'internal', 'rtgs', 'pol'
+
     created = models.DateTimeField(auto_now_add=True)
 
     owner = models.ForeignKey('PaymentId', on_delete=models.PROTECT, null=True, blank=True)
@@ -27,7 +30,7 @@ class PaymentIdRequest(models.Model):
     sender_iban = get_iban_field()
     sender_name = models.CharField(max_length=256, blank=True)
     sender_identifier = models.CharField(max_length=256, blank=True)
-    record_type = models.CharField(max_length=256, blank=True)
+    record_type = models.CharField(max_length=256, blank=True, choices=[(t, t) for t in RECORD_TYPES])
 
     kyt_passed = models.BooleanField(null=True, blank=True)
     deposit_time = models.DateTimeField(db_index=True)

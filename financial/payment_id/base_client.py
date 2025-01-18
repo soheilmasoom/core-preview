@@ -36,8 +36,5 @@ class BaseClient:
     def refund_payment_request(self, payment_request: PaymentIdRequest):
         raise NotImplementedError
 
-    def get_payment_id(self, deposit_number: str) -> Union[PaymentId, None]:
-        return PaymentId.objects.filter(gateway=self.gateway, pay_id=deposit_number).first()
-
     def get_balance(self) -> Decimal:
         raise NotImplementedError

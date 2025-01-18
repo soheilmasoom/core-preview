@@ -12,7 +12,7 @@ from accounts.models import User
 from accounts.utils.similarity import clean_persian_word
 from accounts.utils.telegram import send_system_message
 from financial.exceptions import DuplicatedPaymentError
-from financial.models import PaymentIdRequest, PaymentId
+from financial.models import PaymentIdRequest, PaymentId, BankCard, BankAccount
 from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
 from financial.utils.date import parse_datetime
@@ -120,7 +120,7 @@ class JibitClientV2(JibitClient):
             self._fail(external_ref=ref_number)
             raise DuplicatedPaymentError
 
-        payment_id = self.get_payment_id(transaction.deposit_number)
+        payment_id = self._get_payment_id(transaction)
 
         amount = transaction.amount
         fee = 0
@@ -264,16 +264,35 @@ class JibitClientV2(JibitClient):
         transaction = self._fetch_transaction(payment_request.external_ref)
         return self._process_init_deposit(transaction)
 
-    def get_payment_id(self, deposit_number: str) -> Union[PaymentId, None]:
-        payment_id = super(JibitClientV2, self).get_payment_id(deposit_number)
+    def _get_payment_id(self, transaction: TransactionInfo) -> Union[PaymentId, None]:
+        deposit_number = transaction.deposit_number
 
-        if not payment_id:
-            user = User.objects.filter(level__gte=User.LEVEL2, national_code=deposit_number).first()
+        if deposit_number:
+            payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=deposit_number).first()
 
-            if user:
-                payment_id = self.create_payment_id(user)
+            if not payment_id:
+                user = User.objects.filter(level__gte=User.LEVEL2, national_code=deposit_number).first()
 
-        return payment_id
+                if user:
+                    payment_id = self.create_payment_id(user)
+
+            return payment_id
+
+        elif transaction.sender_identifier:
+            if transaction.record_type == PaymentIdRequest.CARD:
+                card = BankCard.live_objects.filter(card_pan=transaction.sender_identifier, verified=True).first()
+                if card:
+                    return self.create_payment_id(card.user)
+
+            elif transaction.record_type in (PaymentIdRequest.ACH, PaymentIdRequest.RTGS):
+                bank_account = BankAccount.live_objects.filter(iban=transaction.sender_identifier, verified=True).first()
+                if bank_account:
+                    return self.create_payment_id(bank_account.user)
+
+            elif transaction.record_type == PaymentIdRequest.INTERNAL:
+                bank_account = BankAccount.live_objects.filter(deposit_address=transaction.sender_identifier, verified=True, bank=self.gateway.bank).first()
+                if bank_account:
+                    return self.create_payment_id(bank_account.user)
 
     def get_balance(self) -> Decimal:
         resp = self._collect_api(
