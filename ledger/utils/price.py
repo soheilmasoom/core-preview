@@ -3,6 +3,7 @@ from typing import List, Dict, Union
 
 from django.db.models import Min, Max, F
 
+from _base.utils import ExchangeType
 from accounts.models import SystemConfig
 from ledger.exceptions import SmallDepthError
 from ledger.utils.cache import cache_for
@@ -225,9 +226,11 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
         coin, base = split_symbol(symbol)
         base_price = 1
 
-        if base == IRT:
+        if base == IRT and ExchangeType.is_crypto:
             symbol = f'{coin}USDT'
             base_price = get_price(USDT_IRT, side)
+        else:
+            symbol = f'{coin}{base}'
 
         try:
             price, spread = get_depth_base_price_and_spread(symbol, side, amount)

@@ -1,17 +1,14 @@
 from celery import shared_task
-from django.db import connection
 from django.db.models import Q
 
 from ledger.models import Asset
+from ohlc.models import Candle
 from ohlc.services import create_one_minute_candles
 
 
 @shared_task
 def refresh_materialized_views():
-    views = ['ohlc_1h', 'ohlc_1d']
-    with connection.cursor() as cursor:
-        for view in views:
-            cursor.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view};")
+    Candle.update_higher_timeframes()
 
 
 @shared_task

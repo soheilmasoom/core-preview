@@ -1,5 +1,5 @@
 from django.contrib.postgres.indexes import BrinIndex
-from django.db import models
+from django.db import models, connection
 
 
 class Candle(models.Model):
@@ -19,6 +19,11 @@ class Candle(models.Model):
             BrinIndex(fields=['timestamp'], pages_per_range=128),
         ]
 
+    @staticmethod
+    def update_higher_timeframes():
+        Ohlc1H.refresh_view()
+        Ohlc1D.refresh_view()
+
 
 class Ohlc1H(models.Model):
     row_id = models.BigIntegerField(primary_key=True)
@@ -35,6 +40,11 @@ class Ohlc1H(models.Model):
         db_table = 'ohlc_1h'
         unique_together = ('symbol', 'timestamp')
 
+    @staticmethod
+    def refresh_view():
+        with connection.cursor() as cursor:
+            cursor.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY ohlc_1h;")
+
 
 class Ohlc1D(models.Model):
     row_id = models.BigIntegerField(primary_key=True)
@@ -50,6 +60,11 @@ class Ohlc1D(models.Model):
         managed = False
         db_table = 'ohlc_1d'
         unique_together = ('symbol', 'timestamp')
+
+    @staticmethod
+    def refresh_view():
+        with connection.cursor() as cursor:
+            cursor.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY ohlc_1d;")
 
 
 class MaterializedCandle(models.Model):
