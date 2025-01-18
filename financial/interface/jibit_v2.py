@@ -107,7 +107,7 @@ class JibitChannelV2(BaseChannel):
         else:
             transfer_mode = 'ACH'
 
-        resp = self.collect_api('/v2/transfers', method='POST', data={
+        resp = self._collect_api('/v1/orders/settlement', method='POST', data={
             'submissionMode': 'TRANSFER',
             'batchID': 'wr-%s' % transfer.id,
             'transfers': [{
