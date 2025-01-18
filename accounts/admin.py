@@ -219,7 +219,7 @@ class BaseChangeAdmin(admin.ModelAdmin):
     def reject_requests(self, request, queryset):
         qs = queryset.filter(status=PENDING)
 
-        for req in qs:
+        for req in qs:  # type: Forget2FA
             req.reject()
 
     @admin.action(description='تایید درخواست', permissions=['view'])
@@ -1164,7 +1164,7 @@ class CompanyAdmin(SimpleHistoryAdmin):
 
     @admin.action(description='رد اطلاعات', permissions=['view'])
     def reject_requests(self, request, queryset):
-        for req in queryset:
+        for req in queryset:  # type: Company
             req.reject()
 
     @admin.action(description='تایید اطلاعات', permissions=['view'])

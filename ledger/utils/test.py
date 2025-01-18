@@ -60,11 +60,17 @@ if settings.DEBUG_OR_TESTING:
             user=user, )
         return otp_code.code
 
-    def new_network(symbol: str = 'BSC') -> Network:
+    def new_network(symbol: str = 'BSC', deposit_memo: bool = False, withdraw_memo: bool = False) -> Network:
         symbol = symbol
         name = symbol
         address_regex = '.*'
-        network = Network.objects.create(symbol=symbol, name=name, address_regex=address_regex)
+        network = Network.objects.create(
+            symbol=symbol,
+            name=name,
+            address_regex=address_regex,
+            deposit_need_memo=deposit_memo,
+            withdraw_allow_memo=withdraw_memo
+        )
 
         return network
 

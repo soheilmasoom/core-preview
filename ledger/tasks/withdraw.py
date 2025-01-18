@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 @shared_task(queue='transfer')
 def create_withdraw(transfer_id: int):
     with transaction.atomic():
-        transfer = Transfer.objects.select_for_update().get(id=transfer_id)
+        transfer = Transfer.objects.select_for_update().get(id=transfer_id)  # type: Transfer
 
         if not verify_crypto_withdraw(transfer):
             logger.info('Ignoring cyrpto withdraw due to not verified')

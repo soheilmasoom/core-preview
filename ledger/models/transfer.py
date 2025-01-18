@@ -19,6 +19,7 @@ from accounts.models import Account, Notification, EmailNotification, User
 from accounts.utils.mask import get_masked_phone
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
+from ledger.exceptions import InvalidAddressError
 from ledger.fields import WithdrawSources
 from ledger.models import Trx, NetworkAsset, Asset, DepositAddress
 from ledger.models import Wallet, Network
@@ -179,8 +180,10 @@ class Transfer(models.Model):
         elif network:
             queryset = DepositAddress.objects.filter(address=address)
 
-            if network.deposit_need_memo and memo:
+            if queryset and network.deposit_need_memo and memo:
                 queryset = queryset.filter(address_key__memo=memo)
+                if not queryset:
+                    raise InvalidAddressError
 
             receiver_deposit_addresses = list(queryset)
             assert len(receiver_deposit_addresses) <= 1

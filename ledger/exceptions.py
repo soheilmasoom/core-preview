@@ -39,3 +39,7 @@ class NoPriceError(Exception):
 
 class FetchError(Exception):
     pass
+
+
+class InvalidAddressError(Exception):
+    pass

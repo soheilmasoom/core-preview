@@ -23,7 +23,7 @@ def accept_pending_otc_trades():
 
     now = timezone.now()
 
-    for otc in pending_otc_trades.filter(created__lt=now - timedelta(minutes=15)):
+    for otc in pending_otc_trades.filter(created__lt=now - timedelta(minutes=15)):  # type: OTCTrade
         otc.reject(reason='HEDGE_EXPIRATION')
 
     for otc in pending_otc_trades.filter(created__lt=now - timedelta(minutes=1)):

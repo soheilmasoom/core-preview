@@ -1,15 +1,16 @@
 from django.db import models
 from django.db.models import Q, CheckConstraint, UniqueConstraint
+from django.utils import timezone
 
 from financial.models import Payment
-from ledger.utils.fields import get_status_field, DONE, get_group_id_field, CANCELED, get_iban_field, PROCESS, \
-    INIT
+from ledger.utils.fields import get_status_field, DONE, get_group_id_field, CANCELED, get_iban_field, INIT, REFUND
 from ledger.utils.precision import humanize_number
 from ledger.utils.wallet_pipeline import WalletPipeline
 
 
 class PaymentIdRequest(models.Model):
-    PENDING_STATES = [INIT, PROCESS]
+    # ach: paya, rtgs: satna
+    RECORD_TYPES = ACH, CARD, INTERNAL, RTGS, POL = 'ach', 'card', 'internal', 'rtgs', 'pol'
 
     created = models.DateTimeField(auto_now_add=True)
 
@@ -29,13 +30,16 @@ class PaymentIdRequest(models.Model):
     sender_iban = get_iban_field()
     sender_name = models.CharField(max_length=256, blank=True)
     sender_identifier = models.CharField(max_length=256, blank=True)
-    record_type = models.CharField(max_length=256, blank=True)
+    record_type = models.CharField(max_length=256, blank=True, choices=[(t, t) for t in RECORD_TYPES])
 
     kyt_passed = models.BooleanField(null=True, blank=True)
     deposit_time = models.DateTimeField(db_index=True)
 
     raw_payment_id = models.CharField(max_length=64, blank=True)
     raw_data = models.TextField(blank=True)
+
+    refund_type = models.CharField(max_length=64, blank=True)
+    refund_track_id = models.CharField(max_length=64, blank=True)
 
     group_id = get_group_id_field(unique=True)
     payment = models.OneToOneField('financial.Payment', null=True, blank=True, on_delete=models.SET_NULL)
@@ -57,13 +61,13 @@ class PaymentIdRequest(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.id}- {humanize_number(self.amount)} IRT ({self.status})'
+        return f'{self.status} {humanize_number(self.amount)} IRT'
 
     def accept(self):
         with WalletPipeline() as pipeline:
             req = PaymentIdRequest.objects.select_for_update().get(id=self.id)
 
-            if not req.owner or req.payment or req.status not in self.PENDING_STATES:
+            if not req.owner or req.payment or req.status != INIT:
                 return
 
             payment_id = req.owner
@@ -80,5 +84,21 @@ class PaymentIdRequest(models.Model):
             req.status = DONE
             req.save(update_fields=['status', 'payment'])
 
-    def reject(self):
-        PaymentIdRequest.objects.filter(id=self.id, status__in=self.PENDING_STATES).update(status=CANCELED)
+    def change_to_canceled(self):
+        PaymentIdRequest.objects.filter(id=self.id, status=INIT).update(status=CANCELED)
+
+    def change_to_refund(self):
+        PaymentIdRequest.objects.filter(id=self.id, status__in=[INIT, CANCELED]).update(status=REFUND)
+
+    def add_comment(self, s: str):
+        if not s:
+            return
+
+        s = timezone.now().astimezone().strftime('%Y-%m-%d %H:%M:%S') + ' > ' + s
+
+        if self.comment:
+            self.comment += '\n' + s
+        else:
+            self.comment = s
+
+        self.save(update_fields=['comment'])
