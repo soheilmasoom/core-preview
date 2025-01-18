@@ -26,8 +26,8 @@ class ChartViewSet(viewsets.ViewSet):
 
         now = timezone.now()
         timeframe_mapping = {
-            'yearly': {'days': 365, 'model': Ohlc1D, 'cache_time': 6 * 60 * 60},
-            'monthly': {'days': 30, 'model': Ohlc1H, 'cache_time': 120 * 60},
+            'yearly': {'days': 365, 'model': Ohlc1D, 'cache_time': 12 * 60 * 60},
+            'monthly': {'days': 30, 'model': Ohlc1H, 'cache_time': 4 * 60 * 60},
             'weekly': {'days': 7, 'model': Ohlc1H, 'cache_time': 30 * 60},
             'daily': {'days': 1, 'model': Ohlc1H, 'cache_time': 30 * 60},
         }

@@ -43,6 +43,7 @@ def create_one_minute_candles(
                 close=price,
                 volume=Decimal('1')
             ))
+            logger.info(f"Created candle for symbol: {symbol} with price {price}", )
 
         with transaction.atomic():
             if candles_to_create:
