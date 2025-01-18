@@ -304,6 +304,8 @@ class JibitClientV2(JibitClient):
             method='POST'
         )
         if not resp.ok:
+            error = resp.data['errors'][0]['message']
+            payment_request.add_comment(f'Refund failed due to {error}')
             p = self.update_payment_request(payment_request)
             return p.status == CANCELED
 

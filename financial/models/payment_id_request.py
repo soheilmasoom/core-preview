@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import Q, CheckConstraint, UniqueConstraint
+from django.utils import timezone
 
 from financial.models import Payment
 from ledger.utils.fields import get_status_field, DONE, get_group_id_field, CANCELED, get_iban_field, INIT, REFUND
@@ -82,3 +83,16 @@ class PaymentIdRequest(models.Model):
 
     def reject(self):
         PaymentIdRequest.objects.filter(id=self.id, status=INIT).update(status=CANCELED)
+
+    def add_comment(self, s: str):
+        if not s:
+            return
+
+        s = timezone.now().astimezone().strftime('%Y-%m-%d %H:%M:%S') + ' > ' + s
+
+        if self.comment:
+            self.comment += '\n' + s
+        else:
+            self.comment = s
+
+        self.save(update_fields=['comment'])
