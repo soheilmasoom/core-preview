@@ -200,7 +200,7 @@ def get_last_price(symbol: str) -> Decimal:
 
 def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool = True) -> Decimal:
     from market.models import Order, PairSymbol
-    logger.info("get_depth_price")
+    logger.info(f"get_depth_price {symbol} {side} {amount} {depth_check}")
     pair_symbol = PairSymbol.objects.filter(name=symbol).first()
 
     if SystemConfig.get_system_config().hedge_coin_otc_from_internal_market and pair_symbol.enable:
