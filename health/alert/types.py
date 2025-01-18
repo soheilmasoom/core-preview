@@ -299,10 +299,10 @@ class NotificationSendingCanceledAlert(BaseAlertHandler):
 
         canceled_notifs = Notification.objects.filter(
             push_status=Notification.PUSH_CANCELED,
-            created__lt=timezone.now() - timedelta(minutes=int(threshold))
+            created__gte=timezone.now() - timedelta(minutes=int(threshold))
         ).count()
 
         if canceled_notifs:
             canceled.append(f'{canceled_notifs} Notifs')
 
-        return canceled_notifs
+        return canceled
