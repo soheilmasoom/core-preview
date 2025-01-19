@@ -29,8 +29,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='paymentidgateway',
             name='type',
-            field=models.CharField(choices=[('payment-id', 'payment-id'), ('pol', 'pol'), ('card', 'card')],
-                                   default='payment-id', max_length=16),
+            field=models.CharField(choices=[('paymentId', 'شناسه واریز'), ('pol', 'پل'), ('card', 'کارت به کارت')], default='paymentId', max_length=16),
         ),
 
     ]
