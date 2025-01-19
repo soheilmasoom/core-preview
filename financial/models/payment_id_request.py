@@ -49,7 +49,7 @@ class PaymentIdRequest(models.Model):
     class Meta:
         constraints = [
             CheckConstraint(
-                check=Q(status__in=[INIT, CANCELED]) | Q(owner__isnull=False),
+                check=Q(status__in=[INIT, CANCELED, REFUND]) | Q(owner__isnull=False),
                 name='payment_id_request_owner_null_condition'
             ),
             UniqueConstraint(

@@ -3,9 +3,8 @@ from django.urls import path
 from financial.views import PaymentRequestView, ZarinpalCallbackView, BankCardView, PaymentHistoryView, \
     WithdrawRequestView, WithdrawHistoryView, BankAccountView, PaydotirCallbackView, ZibalCallbackView, \
     ProxyPaymentRedirectView, JibitCallbackView, GatewayInfoView, JibitPaymentIdCallbackView, PaymentIdViewsSet, \
-    JibimoCallbackView, PaystarCallbackView, NovinpalCallbackView
-from financial.views.vandar_callback_view import VandarCallbackView
-from financial.views.direct_debit_view import BanksView, DirectDebitConnectionView, DirectDebitView
+    JibimoCallbackView, PaystarCallbackView, NovinpalCallbackView, PaymentGatewaysView, BanksView, \
+    DirectDebitConnectionView, DirectDebitView, VandarCallbackView
 
 urlpatterns = [
     path('payment/request/', PaymentRequestView.as_view()),
@@ -42,6 +41,7 @@ urlpatterns = [
     })),
     path('withdraw/list/', WithdrawHistoryView.as_view()),
     path('gateways/active/', GatewayInfoView.as_view()),
+    path('gateways/', PaymentGatewaysView.as_view()),
 
     path('paymentId/', PaymentIdViewsSet.as_view({
         'get': 'retrieve',
