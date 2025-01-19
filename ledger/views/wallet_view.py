@@ -84,16 +84,12 @@ class AssetListSerializer(serializers.ModelSerializer):
 
     def get_balance_irt(self, asset: Asset):
         balance = Decimal(self.get_balance(asset))
-        logger.info(f"get_balance_irt {balance} {asset} ")
         if not balance:
             return 0
 
         price = self._get_last_price_irt(asset.symbol)
-        logger.info(f"get_balance_irt_get_last_price_irt {price} ")
         if not price:
             return
-        logger.info(
-            f"get_symbol_presentation_price {get_symbol_presentation_price(asset.symbol + 'IRT', balance * price, trunc_zero=True)} ")
 
         return get_symbol_presentation_price(asset.symbol + 'IRT', balance * price, trunc_zero=True)
 
