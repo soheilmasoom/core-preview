@@ -18,7 +18,7 @@ from django_admin_listfilter_dropdown.filters import RelatedDropdownFilter
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from simple_history.admin import SimpleHistoryAdmin
 
-from accounting.models import AssetPrice
+from accounting.models import AssetPrice, VaultItem
 from accounting.models import ReservedAsset
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
@@ -859,28 +859,50 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             requester.terminate_withdraw(transfer.id)
 
 
+@admin.register(models.ManualAddressBook)
+class ManualAddressBookAdmin(SimpleHistoryAdmin):
+    list_display = ('name', 'address', 'network', 'deleted', 'memo')
+    list_filter = ('network', 'deleted')
+    search_fields = ('name', 'address', 'memo')
+    list_editable = ('deleted',)
+    ordering = ('name',)
+
+
 class ManualWithdrawForm(forms.ModelForm):
     otp = forms.IntegerField()
 
     class Meta:
         model = models.ManualWithdraw
-        fields = ('receiver_address', 'network', 'asset', 'amount', 'otp', 'comment', 'memo',)
+        fields = ('address_book', 'asset', 'amount', 'otp', 'comment')
 
 
 @admin.register(models.ManualWithdraw)
 class ManualWithdrawAdmin(SimpleHistoryAdmin):
     form = ManualWithdrawForm
 
-    list_display = ('created', 'network', 'asset', 'receiver_address', 'memo', 'amount', 'status', 'trx_hash')
-    search_fields = ('receiver_address',)
-    list_filter = ('status', 'network')
-    readonly_fields = ('status', )
+    list_display = ('created', 'address_book', 'asset', 'amount', 'status', 'trx_hash')
+    list_filter = ('status', 'address_book')
+    readonly_fields = ('status', 'get_balance', 'get_free')
     fieldsets = (
         (None, {'fields': (
-            'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp', 'status', 'trx_hash'
+            'address_book', 'asset', 'amount', 'comment', 'otp', 'status', 'trx_hash', 'get_balance', 'get_free'
         )}),
     )
     actions = ('accept', 'reject', 'terminate_withdraw')
+
+    @admin.display(description="Balance")
+    def get_balance(self, obj):
+        if obj and obj.asset:
+            vault = VaultItem.objects.filter(coin=obj.asset.symbol, vault__type='hw').first()
+            return vault.balance if vault else "N/A"
+        return "N/A"
+
+    @admin.display(description="Free")
+    def get_free(self, obj):
+        if obj and obj.asset:
+            vault = VaultItem.objects.filter(coin=obj.asset.symbol, vault__type='hw').first()
+            return vault.free if vault else "N/A"
+        return "N/A"
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -929,7 +951,7 @@ class CryptoAccountTypeFilter(SimpleListFilter):
 class MarginTransferAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'amount', 'type',)
     search_fields = ('group_id',)
-    readonly_fields = ('account', )
+    readonly_fields = ('account',)
 
 
 @admin.register(models.AddressBook)
@@ -1475,6 +1497,7 @@ class TokenDelistAdmin(admin.ModelAdmin):
     def get_delist_info(self, token_delist: TokenDelist):
         rows = [{'name': k, 'value': v} for (k, v) in token_delist.get_delist_info().__dict__.items()]
         return mark_safe(get_table_html(['name', 'value'], rows))
+
 
 class BalanceFilter(admin.SimpleListFilter):
     title = 'Balance Mismatched'  # Display name for the filter

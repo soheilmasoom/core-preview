@@ -105,7 +105,7 @@ class Payment(models.Model):
 
     DESCRIPTION_SIZE = 256
 
-    SOURCES = IPG, PAY_ID, MANUAL = 'ipg', 'pay_id', 'manual'
+    SOURCES = IPG, PAY_ID, MANUAL, DIRECT_DEBIT = 'ipg', 'pay_id', 'manual', 'direct_debit'
 
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     modified = models.DateTimeField(auto_now=True)

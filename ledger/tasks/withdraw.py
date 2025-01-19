@@ -4,13 +4,12 @@ from datetime import timedelta
 from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
-from accounts.models.user import User
-from accounts.utils.mask import get_masked_phone
 
+from accounts.utils.mask import get_masked_phone
 from ledger.fields import WithdrawSources
 from ledger.models import Transfer, ManualWithdraw
 from ledger.utils.blocklink import get_blocklink_requester
-from ledger.utils.fields import DONE, PROCESS, PENDING
+from ledger.utils.fields import PROCESS, PENDING
 from ledger.utils.fraud import verify_crypto_withdraw
 from ledger.withdraw.exchange import change_to_manual
 
@@ -58,7 +57,6 @@ logger = logging.getLogger(__name__)
 
 @shared_task(queue='transfer')
 def create_withdraw(transfer_id: int):
-
     with transaction.atomic():
         transfer = Transfer.objects.select_for_update().get(id=transfer_id)  # type: Transfer
 
@@ -202,12 +200,12 @@ def update_withdraws():
             coin_mult = asset.get_coin_multiplier()
 
             resp = get_blocklink_requester().withdraw(
-                receiver_address=withdraw.receiver_address,
+                receiver_address=withdraw.address_book.address,
                 amount=withdraw.amount * coin_mult,
-                network=withdraw.network.symbol,
+                network=withdraw.address_book.network.symbol,
                 coin=withdraw.asset.get_original_symbol(),
                 transfer_id=withdraw.id,
-                memo=withdraw.memo,
+                memo=withdraw.address_book.memo,
                 manual=True
             )
             if resp.ok:
