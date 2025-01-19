@@ -145,10 +145,8 @@ def get_last_prices(symbols: List[str]):
     remaining_symbols = set(symbols) - set(last_prices)
 
     if remaining_symbols:
-        logger.info(f"get last prices for {remaining_symbols}")
         remaining_coins = set([split_symbol(symbol)[0] for symbol in remaining_symbols])
         external_prices = _get_external_last_prices(remaining_coins)
-        logger.info(f" external_prices {external_prices}")
 
         for symbol in remaining_symbols:
             coin, base = split_symbol(symbol)
@@ -160,7 +158,7 @@ def get_last_prices(symbols: List[str]):
             else:
                 last_price = external_prices.get(coin)
 
-                if last_price and base == IRT:
+                if settings.EXCHANGE_TYPE.is_crypto and last_price and base == IRT:
                     last_price *= last_prices[USDT_IRT]
 
             if last_price:
