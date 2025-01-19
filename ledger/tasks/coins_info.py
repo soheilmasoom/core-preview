@@ -40,11 +40,14 @@ def get_coins_info_from_ohlc() -> List[dict]:
     data = []
     for asset in assets:
         pair = asset.symbol + 'IRT'
+
         price = fetch_external_price_by_symbol(pair, SELL)
+        if asset.symbol == 'XAUM':
+            price *= 1000
         yesterday = Ohlc1H.objects.filter(symbol=pair, timestamp=yesterday_23).first()
         change_24h = 0
         if yesterday and yesterday.close > 0:
-            change_24h = ((price - float(yesterday.close)) / float(yesterday.close)) * 100
+            change_24h = ((float(price) - float(yesterday.close)) / float(yesterday.close)) * 100
 
         coin_data = {
             'coin': asset.symbol,
