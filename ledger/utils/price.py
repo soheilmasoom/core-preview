@@ -148,7 +148,7 @@ def get_last_prices(symbols: List[str]):
         logger.info(f"get last prices for {remaining_symbols}")
         remaining_coins = set([split_symbol(symbol)[0] for symbol in remaining_symbols])
         external_prices = _get_external_last_prices(remaining_coins)
-        logger.info(f" external_prices {remaining_symbols}")
+        logger.info(f" external_prices {external_prices}")
 
         for symbol in remaining_symbols:
             coin, base = split_symbol(symbol)
