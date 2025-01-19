@@ -34,7 +34,7 @@ def create_one_minute_candles(
                                extra={'timestamp': aligned_time})
                 all_prices[symbol] = Decimal('0')
             multiplier = 1
-            if symbol == 'XAUM':
+            if symbol == 'XAUMIRT':
                 multiplier = 1000
             price = all_prices[symbol] * multiplier
             candles_to_create.append(Candle(

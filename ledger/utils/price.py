@@ -3,8 +3,8 @@ from decimal import Decimal
 from typing import List, Dict, Union
 
 from django.db.models import Min, Max, F
-from django_otp.plugins.otp_email.conf import settings
 
+from _base import settings
 from accounts.models import SystemConfig
 from ledger.exceptions import SmallDepthError
 from ledger.utils.cache import cache_for
@@ -169,7 +169,7 @@ def get_last_prices(symbols: List[str]):
 
 @cache_for()
 def get_base_coins():
-    if SystemConfig.get_system_config().platform_type == SystemConfig.CRYPTO:
+    if settings.EXCHANGE_TYPE.is_crypto:
         return IRT, USDT
     else:
         return IRT,
@@ -230,16 +230,13 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
 
         if base == IRT and settings.EXCHANGE_TYPE.is_crypto:
             symbol = f'{coin}USDT'
-            logger.info("price changed to usdt")
             base_price = get_price(USDT_IRT, side)
         else:
             # because we fetch all metal prices from IRT base
             symbol = f'{coin}{base}'
 
         try:
-            logger.info(f"request depth with symbl {symbol} and base_price {base_price}")
             price, spread = get_depth_base_price_and_spread(symbol, side, amount)
-            logger.info(f"getting get_depth_base_price_and_spread {price}:{spread} {symbol}")
         except NoDepthError as exp:
             raise SmallDepthError(exp.args[0])
 
@@ -259,10 +256,8 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
         else:
             if settings.EXCHANGE_TYPE.is_crypto:
                 price = get_price(f'{coin}USDT', side)
-                logger.info("ExchangeType.is_crypto")
             else:
                 price = get_price(symbol, side)
-            logger.info(f"get_depth_price {side} {price} {symbol}")
             if not price:
                 raise SmallDepthError(0)
 
