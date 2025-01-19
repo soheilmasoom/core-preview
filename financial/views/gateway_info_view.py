@@ -56,7 +56,7 @@ class GatewaySerializer(serializers.ModelSerializer):
         return SystemConfig.get_system_config().pay_id_enable
 
     def get_pay_id_suspended(self, gateway):
-        return not PaymentIdGateway.live_objects.exists()
+        return not PaymentIdGateway.live_objects.filter(type=PaymentIdGateway.PAYMENT_ID).exists()
 
     def get_ipg_fee_percent(self, gateway: Gateway):
         return get_presentation_amount(gateway.ipg_fee_percent)

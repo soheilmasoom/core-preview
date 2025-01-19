@@ -6,20 +6,27 @@ from ledger.utils.fields import get_iban_field, get_bank_field
 
 
 class PaymentIdGateway(models.Model):
-    TYPES = JIBIT_OLD, JIBIT, MANUAL = \
-        'jibit_old', 'jibit', 'manual'
+    CHANNELS = JIBIT_OLD, JIBIT, MANUAL = 'jibit_old', 'jibit', 'manual'
+    TYPES = PAYMENT_ID, POL, CARD = 'payment-id', 'pol', 'card'
 
     title = models.CharField(max_length=16)
+
+    channel = models.CharField(
+        max_length=16,
+        choices=[(c, c) for c in CHANNELS],
+        default=JIBIT_OLD,
+    )
 
     type = models.CharField(
         max_length=16,
         choices=[(t, t) for t in TYPES],
-        default=JIBIT_OLD,
+        default=PAYMENT_ID,
     )
 
     created = models.DateTimeField(auto_now_add=True)
 
-    iban = get_iban_field(unique=True)
+    iban = get_iban_field(blank=True)
+    card_pan = models.CharField(max_length=20, blank=True)
 
     name = models.CharField(max_length=256, blank=True, verbose_name='نام صاحب حساب',)
 
