@@ -84,13 +84,16 @@ class AssetListSerializer(serializers.ModelSerializer):
 
     def get_balance_irt(self, asset: Asset):
         balance = Decimal(self.get_balance(asset))
-
+        logger.info(f"get_balance_irt {balance} {asset} ")
         if not balance:
             return 0
 
         price = self._get_last_price_irt(asset.symbol)
+        logger.info(f"get_balance_irt_get_last_price_irt {price} ")
         if not price:
             return
+        logger.info(
+            f"get_symbol_presentation_price {get_symbol_presentation_price(asset.symbol + 'IRT', balance * price, trunc_zero=True)} ")
 
         return get_symbol_presentation_price(asset.symbol + 'IRT', balance * price, trunc_zero=True)
 
@@ -229,7 +232,8 @@ class NetworkAssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         fields = ('network', 'address', 'memo', 'can_deposit', 'can_withdraw', 'withdraw_commission', 'min_withdraw',
-                  'min_deposit', 'network_name', 'address_regex', 'memo_regex', 'withdraw_precision', 'need_memo', 'min_confirm',
+                  'min_deposit', 'network_name', 'address_regex', 'memo_regex', 'withdraw_precision', 'need_memo',
+                  'min_confirm',
                   'slow_withdraw', 'memo_title_fa', 'memo_name_fa', 'memo_name', 'deposit_need_memo',
                   'withdraw_allow_memo', 'contract', 'contract_link')
         model = NetworkAsset
@@ -449,7 +453,6 @@ class WalletSerializer(serializers.ModelSerializer):
         fields = ('asset', 'free', 'balance', 'locked')
 
 
-
 class ConvertDustSerializer(serializers.Serializer):
     BASE_CHOICES = [
         Asset.USDT,
@@ -574,8 +577,8 @@ class ConvertDustViewV2(APIView):
             symbol__in=validated_data["assets"]
         ).values_list('id'))
 
-        if base == Asset.USDT and Asset.USDT in validated_data["assets"] :
-                raise ValidationError('تبدیل خرد تتر به تتر مجاز نمی‌باشد.')
+        if base == Asset.USDT and Asset.USDT in validated_data["assets"]:
+            raise ValidationError('تبدیل خرد تتر به تتر مجاز نمی‌باشد.')
 
         spot_wallets = list(Wallet.objects.filter(
             account=account,
@@ -609,7 +612,8 @@ class ConvertDustViewV2(APIView):
 
                 free = wallet.get_free()
                 free_asset_base_value = free * price
-                free_asset_irt_value = free_asset_base_value if base == Asset.IRT else free_asset_base_value * get_price(Asset.USDT + Asset.IRT, side=BUY)
+                free_asset_irt_value = free_asset_base_value if base == Asset.IRT else free_asset_base_value * get_price(
+                    Asset.USDT + Asset.IRT, side=BUY)
                 if Decimal(0) < free_asset_irt_value < Decimal(SystemConfig.get_system_config().dust_convert_threshold):
                     logger.info('Converting dust v2 %s' % wallet)
 
@@ -641,7 +645,7 @@ class ConvertDustViewV2(APIView):
             if base_amount == 0:
                 raise ValidationError('خطایی رخ داد.')
 
-            convert_dust.converted_amount=base_amount
+            convert_dust.converted_amount = base_amount
             convert_dust.save()
 
         if not any_converted:
