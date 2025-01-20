@@ -39,6 +39,7 @@ class PaymentIdGateway(models.Model):
     ordering = models.SmallIntegerField(default=0)
 
     active = models.BooleanField(default=False)
+    hide = models.BooleanField(default=False)
 
     objects = models.Manager()
     live_objects = ActiveManager()
@@ -49,7 +50,7 @@ class PaymentIdGateway(models.Model):
         return self.title
 
     class Meta:
-        ordering = ('ordering', )
+        ordering = ('ordering', 'id')
 
     @property
     def payment_id_secret(self):

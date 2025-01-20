@@ -1,18 +1,14 @@
 import logging
-from datetime import datetime
 from json import JSONDecodeError
-from typing import List
 
 import requests
-from django.utils import timezone
 from urllib3.exceptions import ReadTimeoutError
 
 from accounts.verifiers.utils import Response
 from financial.exceptions import ProviderError
-from financial.interface.base_interface import BaseChannel, WithdrawDTO, WalletDTO, WithdrawRefundedDTO
+from financial.interface.base_interface import BaseChannel, WithdrawDTO, WalletDTO
 from financial.models.withdraw_request import BaseTransfer
 from financial.utils.ach import next_ach_clear_time
-from financial.utils.bank import BANK_INFO
 from ledger.utils.fields import PENDING, DONE, CANCELED
 
 logger = logging.getLogger(__name__)

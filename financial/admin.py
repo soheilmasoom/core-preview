@@ -688,9 +688,9 @@ class PaymentIdAdmin(AdvancedAdmin):
 class PaymentIdGatewayAdmin(admin.ModelAdmin):
     track_admin_activity = True
 
-    list_display = ('title', 'type', 'channel', 'name', 'iban', 'bank', 'deposit_address', 'active', 'ordering')
+    list_display = ('title', 'type', 'channel', 'name', 'iban', 'bank', 'deposit_address', 'active', 'hide', 'ordering')
     ordering = ('-active', 'ordering')
-    list_editable = ('active', 'ordering')
+    list_editable = ('active', 'hide', 'ordering')
     list_filter = ('type', 'channel')
 
     def save_model(self, request, gateway: PaymentIdGateway, form, change):

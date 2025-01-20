@@ -22,4 +22,4 @@ class PaymentGatewaysView(ListAPIView):
     serializer_class = PaymentGatewaySerializer
 
     def get_queryset(self):
-        return PaymentIdGateway.live_objects.all()
+        return PaymentIdGateway.live_objects.filter(hide=False)
