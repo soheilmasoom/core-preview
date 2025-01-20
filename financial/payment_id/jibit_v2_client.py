@@ -145,7 +145,9 @@ class JibitClientV2(JibitClient):
             'refund_track_id': transaction.refund_track_id,
         }
 
-        if not PaymentIdRequest.objects.filter(external_ref=ref_number):
+        existing = PaymentIdRequest.objects.filter(external_ref=ref_number).first()
+
+        if not existing:
             return PaymentIdRequest.objects.create(
                 external_ref=ref_number,
                 status=INIT,
@@ -153,7 +155,10 @@ class JibitClientV2(JibitClient):
                 **payment_request_info,
             )
         else:
-            PaymentIdRequest.objects.filter(external_ref=ref_number).update(**payment_request_info)
+            if existing.gateway != self.gateway:
+                raise DuplicatedPaymentError
+
+            PaymentIdRequest.objects.filter(external_ref=ref_number, gateway=self.gateway).update(**payment_request_info)
             return PaymentIdRequest.objects.filter(external_ref=ref_number).first()
 
     def _process_new_deposit(self, transaction: TransactionInfo) -> 'PaymentIdRequest':
