@@ -98,7 +98,7 @@ class SystemConfig(models.Model):
     pay_id_requests_process = models.BooleanField(default=False)
     commission_type = models.CharField(
         max_length=32,
-        choices=COMMISSION_TYPES,
+        choices=[(m, m) for m in COMMISSION_TYPES],
         default=FEE_DEDUCT_RECEIVING,
         help_text=(
             "Defines how trade commissions are applied. "
