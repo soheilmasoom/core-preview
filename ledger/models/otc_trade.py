@@ -76,7 +76,7 @@ class OTCTrade(models.Model):
 
         from_asset = self.otc_request.from_asset
         to_asset = self.otc_request.to_asset
-        if is_fee_type_add_paying():
+        if is_fee_type_add_paying() and self.otc_request.side == BUY:
             paying_amount_without_commission = self.otc_request.get_paying_amount() - self.otc_request.fee_amount
         else:
             paying_amount_without_commission = self.otc_request.get_paying_amount()
