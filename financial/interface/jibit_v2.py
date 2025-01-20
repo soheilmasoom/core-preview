@@ -140,9 +140,6 @@ class JibitChannelV2(BaseChannel):
         channel_status = record['state']
         status = mapping_status.get(channel_status, PENDING)
 
-        if tracking_id and status == PENDING:
-            status = DONE
-
         return WithdrawDTO(
             tracking_id=tracking_id,
             status=status,
