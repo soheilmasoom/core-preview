@@ -6,7 +6,7 @@ from django.test import TestCase, Client, override_settings
 
 from _base import settings
 from _base.utils import ExchangeType
-from accounts.models import Account
+from accounts.models import Account, SystemConfig
 from ledger.models import Asset, AssetSpreadCategory, CategorySpread
 from ledger.utils.external_price import USDT, BUY, SELL
 from ledger.utils.test import new_account, set_price
@@ -62,9 +62,11 @@ class GoldOtcTradeTestCase(TestCase):
 
         self.system_wallet_irt = self.irt.get_wallet(Account.system())
         self.system_wallet_xaum = self.xaum.get_wallet(Account.system())
+        c = SystemConfig.get_system_config()
+        c.COMMISSION_TYPES = SystemConfig.FEE_ADD_PAYING
+        c.save()
 
     def test_1(self):
-        print(settings.EXCHANGE_TYPE)
         self.wallet_irt.airdrop(100_000)
         a = self.client.post('/api/v1/trade/otc/request/',
                              {"from_asset": "IRT", "to_asset": "XAUM", "to_amount": "2"})
