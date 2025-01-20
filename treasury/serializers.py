@@ -29,6 +29,7 @@ class PhysicalWithdrawSerializer(serializers.Serializer):
     )
     amount = serializers.DecimalField(max_digits=20, decimal_places=8)
     created_at = serializers.DateTimeField(read_only=True)
+    status = serializers.CharField(read_only=True)
 
     def validate(self, data):
         asset = data['asset']

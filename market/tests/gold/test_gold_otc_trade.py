@@ -62,12 +62,11 @@ class GoldOtcTradeTestCase(TestCase):
 
         self.system_wallet_irt = self.irt.get_wallet(Account.system())
         self.system_wallet_xaum = self.xaum.get_wallet(Account.system())
-        c = SystemConfig.get_system_config()
-        c.COMMISSION_TYPES = SystemConfig.FEE_ADD_PAYING
-        c.save()
+        SystemConfig.objects.create(name='main', active=True, commission_type=SystemConfig.FEE_ADD_PAYING)
 
     def test_1(self):
         self.wallet_irt.airdrop(100_000)
         a = self.client.post('/api/v1/trade/otc/request/',
                              {"from_asset": "IRT", "to_asset": "XAUM", "to_amount": "2"})
+
         print(a.data)
