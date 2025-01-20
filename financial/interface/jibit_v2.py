@@ -90,7 +90,7 @@ class JibitChannelV2(BaseChannel):
             'destinationIban': transfer.bank_account.iban,
             'amount': transfer.amount * 10,
             'recordTrackId': str(transfer.group_id),
-            'transferType': 'ACH',
+            'transferType': 'NORMAL',
         })
 
         if not resp.success:
