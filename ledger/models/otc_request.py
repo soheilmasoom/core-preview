@@ -16,6 +16,7 @@ from ledger.utils.precision import floor_precision, get_presentation_amount, hum
 from ledger.utils.price import get_depth_price, get_price, USDT_IRT
 from ledger.utils.random import secure_uuid4
 from market.models import BaseTrade
+from market.utils.fee import is_fee_type_add_paying
 from market.utils.trade import get_fee_info
 
 
@@ -91,7 +92,8 @@ class OTCRequest(BaseTrade):
             max_otc_irt_value = min(max_otc_irt_value, asset.max_otc_irt_value)
 
         if otc_irt_value > max_otc_irt_value:
-            raise LargeAmountTrade(f'ارزش معامله باید حداکثر به اندازه {humanize_number(max_otc_irt_value)} تومان باشد.')
+            raise LargeAmountTrade(
+                f'ارزش معامله باید حداکثر به اندازه {humanize_number(max_otc_irt_value)} تومان باشد.')
 
         if check_enough_balance:
             from_wallet = from_asset.get_wallet(account, otc_request.market)
@@ -186,12 +188,20 @@ class OTCRequest(BaseTrade):
             return self.amount
 
     def get_paying_amount(self):
-        if self.side == BUY:
-            return self.amount * self.price
+        if is_fee_type_add_paying():
+            if self.side == BUY:
+                return self.amount * self.price + self.fee_amount
+            else:
+                return self.amount
         else:
-            return self.amount
+            if self.side == BUY:
+                return self.amount * self.price
+            else:
+                return self.amount
 
     def get_net_receiving_amount(self):
+        if is_fee_type_add_paying() and self.side == BUY:
+            return self.get_receiving_amount()
         return self.get_receiving_amount() - self.fee_amount
 
     def expired(self):

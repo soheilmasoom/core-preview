@@ -23,6 +23,7 @@ from ledger.utils.price import get_depth_price
 from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 from market.models import Trade, PairSymbol
+from market.utils.fee import is_fee_type_add_paying
 from market.utils.order_utils import new_order
 from market.utils.trade import register_fee_transactions
 
@@ -47,7 +48,8 @@ class OTCTrade(models.Model):
     status = models.CharField(
         default=PENDING,
         max_length=16,
-        choices=[(PENDING, PENDING), (CANCELED, CANCELED), (USER_CANCELED, USER_CANCELED), (DONE, DONE), (REVERT, REVERT), (EXPIRED, EXPIRED)],
+        choices=[(PENDING, PENDING), (CANCELED, CANCELED), (USER_CANCELED, USER_CANCELED), (DONE, DONE),
+                 (REVERT, REVERT), (EXPIRED, EXPIRED)],
     )
 
     execution_type = models.CharField(max_length=1, choices=((MARKET, 'market'), (PROVIDER, 'provider')))
@@ -74,11 +76,15 @@ class OTCTrade(models.Model):
 
         from_asset = self.otc_request.from_asset
         to_asset = self.otc_request.to_asset
+        if is_fee_type_add_paying():
+            paying_amount_without_commission = self.otc_request.get_paying_amount() - self.otc_request.fee_amount
+        else:
+            paying_amount_without_commission = self.otc_request.get_paying_amount()
 
         pipeline.new_trx(
             sender=from_asset.get_wallet(user, market=self.otc_request.market),
             receiver=from_asset.get_wallet(OTC_ACCOUNT_ID, market=self.otc_request.market),
-            amount=self.otc_request.get_paying_amount(),
+            amount=paying_amount_without_commission,
             group_id=self.group_id,
             scope=Trx.TRADE
         )
@@ -138,7 +144,8 @@ class OTCTrade(models.Model):
     def handle_trigger_price(cls, symbol: str, side: str, current_price: Decimal):
         def is_triggered_price(otc_request: OTCRequest) -> bool:
             try:
-                current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side), amount=otc_request.amount)
+                current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side),
+                                                amount=otc_request.amount)
             except SmallDepthError as e:
                 logger.info('Error in get_depth_price in limit otc', extra={
                     'exp': e
@@ -168,7 +175,8 @@ class OTCTrade(models.Model):
 
     @classmethod
     def get_untriggered_otc_trade_queryset(cls):
-        return OTCTrade.objects.filter(otc_request__type=OTCRequest.LIMIT, status=OTCTrade.PENDING).select_related('otc_request')
+        return OTCTrade.objects.filter(otc_request__type=OTCRequest.LIMIT, status=OTCTrade.PENDING).select_related(
+            'otc_request')
 
     @classmethod
     def get_fill_type(cls, symbol: PairSymbol):
@@ -199,7 +207,6 @@ class OTCTrade(models.Model):
 
     def try_fok_fill(self):
         assert self.execution_type == self.MARKET
-
         symbol = self.otc_request.symbol
         from market.models import Order
 

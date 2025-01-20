@@ -6,6 +6,7 @@ from django.db import models
 from ledger.models import Wallet
 from ledger.utils.external_price import BUY, SELL
 from ledger.utils.fields import get_amount_field
+from market.utils.fee import is_fee_type_add_paying
 
 logger = logging.getLogger(__name__)
 

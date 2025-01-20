@@ -14,10 +14,11 @@ from ledger.models.margin import REPAY, BORROW, OPEN
 from ledger.models.position import MarginHistoryModel, MarginPosition
 from ledger.utils.cache import cache_for
 from ledger.utils.external_price import BUY, SELL, LONG, SHORT
-from ledger.utils.precision import floor_precision, get_symbol_presentation_price
+from ledger.utils.precision import floor_precision, get_symbol_presentation_price, ceil_precision
 from ledger.utils.wallet_pipeline import WalletPipeline
 from market.models import Order, Trade, BaseTrade, PairSymbol
 from market.models import ReferralTrx
+from market.utils.fee import is_fee_type_add_paying
 from market.utils.price import get_symbol_prices
 
 logger = logging.getLogger(__name__)
@@ -96,7 +97,7 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
     to_update_positions = {}
     for trade_info in trading_positions:
         position = to_update_positions.get(trade_info.position.id, trade_info.position)
-        short_amount = trade_info.trade_amount if trade_info.loan_type in [BORROW, OPEN]\
+        short_amount = trade_info.trade_amount if trade_info.loan_type in [BORROW, OPEN] \
             else -trade_info.trade_amount
         previous_amount, previous_price = position.amount, position.average_price
         position.amount += short_amount
@@ -115,10 +116,9 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
                 (position.side == LONG and trade_info.trade_price > position.liquidation_price))
 
         if ((trade_info.loan_type not in [Order.LIQUIDATION, OPEN] and position.status == position.OPEN and
-                trade_info.loan_type != Order.LIQUIDATION and
-                (total_match_amount < floor_precision(abs(position_asset_wallet.balance), position.symbol.step_size)))
+             trade_info.loan_type != Order.LIQUIDATION and
+             (total_match_amount < floor_precision(abs(position_asset_wallet.balance), position.symbol.step_size)))
                 and is_position_live):
-
             position.rebalance(pipeline, price=trade_info.trade_price)
 
         asset_balance = (position.asset_wallet.balance +
@@ -206,7 +206,7 @@ def _update_trading_positions(trading_positions, pipeline, trade_pair_list):
         is_position_trade_beyond_liquidation = not is_position_live and trade_info.loan_type != OPEN
         if is_position_trade_beyond_liquidation:
             position.liquidate(pipeline, charge_insurance=True)
-        
+
         if (is_position_live or trade_info.loan_type == OPEN) and not is_position_trade_beyond_liquidation:
             position.set_liquidation_price(pipeline)
 
@@ -286,7 +286,8 @@ def _register_margin_transaction(pipeline: WalletPipeline, pair: TradesPair, loa
                 order_side = get_other_side(order_side)
 
             if order.side == order_side:
-                if (position.side == SHORT and order.is_open_position) or (position.side == LONG and not order.is_open_position):
+                if (position.side == SHORT and order.is_open_position) or (
+                        position.side == LONG and not order.is_open_position):
                     trade_amount = trade.amount - trade.fee_amount if order_side == BUY else trade.amount
                 else:
                     trade_amount = trade.amount - trade.fee_amount if order_side == SELL else trade.amount
@@ -379,11 +380,21 @@ def get_fee_info(trade: BaseTrade) -> FeeInfo:
         referrer_reward = base_amount * fee_rate * Decimal(referrer_share_percent) / 100
         system_fee_rate *= (1 - Decimal(Referral.REFERRAL_MAX_RETURN_PERCENT) / 100)
 
+    if is_fee_type_add_paying():
+        trader_fee_amount = ceil_precision(base_amount * trader_fee_rate)
+        trader_fee_value = trader_fee_amount
+        fee_revenue = trader_fee_amount
+    else:
+        trader_fee_amount = trader_fee_rate * (trade.amount if trade.side == BUY else base_amount)
+        trader_fee_value = trader_fee_rate * base_amount * trade.base_usdt_price
+        fee_revenue = system_fee_rate * base_amount * trade.base_usdt_price
+
     return FeeInfo(
-        trader_fee_amount=trader_fee_rate * (trade.amount if trade.side == BUY else base_amount),
-        trader_fee_value=trader_fee_rate * base_amount * trade.base_usdt_price,
+        trader_fee_amount=trader_fee_amount,
+        trader_fee_value=trader_fee_value,
+        # todo currently referrer reward is not supporting on fee_adding_pay
         referrer_reward_irt=referrer_reward * trade.base_irt_price,
-        fee_revenue=system_fee_rate * base_amount * trade.base_usdt_price,
+        fee_revenue=fee_revenue,
     )
 
 
@@ -392,7 +403,11 @@ def register_fee_transactions(pipeline: WalletPipeline, trade: BaseTrade, wallet
     account = trade.account
     referrer = account.referred_by
     fee_info = get_fee_info(trade)
-    fee_payer = wallet if trade.side == BUY else base_wallet
+
+    if is_fee_type_add_paying():
+        fee_payer = base_wallet
+    else:
+        fee_payer = wallet if trade.side == BUY else base_wallet
 
     if fee_info.referrer_reward_irt:
         irt_asset = Asset.get(symbol=Asset.IRT)
@@ -444,7 +459,6 @@ def get_markets_price_info(base: str):
     for pair_symbol_id in recent_prices.keys() & yesterday_prices.keys():
         if (recent_prices[pair_symbol_id] and yesterday_prices[pair_symbol_id]
                 and symbol_id_map[pair_symbol_id][0] == base):
-
             yesterday_price = yesterday_prices[pair_symbol_id]
             recent_price = recent_prices[pair_symbol_id]
             change_24h = 100 * (recent_price - yesterday_price) // yesterday_price
