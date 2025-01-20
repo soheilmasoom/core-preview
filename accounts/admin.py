@@ -282,10 +282,10 @@ class AdminTrackerAdmin(AdvancedAdmin):
 class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('name', 'active', 'withdraw_status', 'deposit_status', 'disable_trade_with_api',
                     'withdraw_amount_min', 'withdraw_amount_max',
-                    'min_physical_gold_withdraw', 'min_physical_silver_withdraw')
+                    'min_physical_gold_withdraw', 'min_physical_silver_withdraw', 'commission_type')
     list_editable = (
-    'withdraw_status', 'deposit_status', 'withdraw_amount_min', 'withdraw_amount_max', 'min_physical_gold_withdraw',
-    'min_physical_silver_withdraw')
+        'withdraw_status', 'deposit_status', 'withdraw_amount_min', 'withdraw_amount_max', 'min_physical_gold_withdraw',
+        'min_physical_silver_withdraw', 'commission_type')
 
     default_edit_condition = M.superuser
 
@@ -299,6 +299,7 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'withdraw_amount_max': True,
         'min_physical_gold_withdraw': True,
         'min_physical_silver_withdraw': True,
+        'commission_type': True
     }
 
     actions = ('reset_users_default_margin_leverage',)

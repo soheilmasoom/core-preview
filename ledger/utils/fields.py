@@ -18,6 +18,11 @@ INIT, REJECTED, VERIFIED = 'init', 'rejected', 'verified'
 STATUS_CHOICES = (INIT, INIT), (PROCESS, PROCESS), (PENDING, PENDING), (CANCELED, CANCELED), (DONE, DONE)
 
 SEND_STATES = SEND_WAITING, SENT, SEND_CANCELED, SEND_EXPIRED = 'w', 's', 'c', 'e'
+FEE_MODE_AMOUNT, FEE_MODE_BASE = 'amount', 'base'
+FEE_MODES = [
+    (FEE_MODE_AMOUNT, 'Fee from Amount'),
+    (FEE_MODE_BASE, 'Fee from Base')
+]
 
 
 def get_amount_field(default: Union[Decimal, int] = None, max_digits: int = None, decimal_places: int = None,
@@ -143,4 +148,15 @@ def get_iban_field(unique: bool = False, blank: bool = False):
         verbose_name='شبا',
         unique=unique,
         blank=blank,
+    )
+
+
+def get_fee_mode_field(default: str = FEE_MODE_AMOUNT, blank: bool = False, null: bool = False):
+    return models.CharField(
+        max_length=16,
+        choices=FEE_MODES,
+        default=default,
+        blank=blank,
+        null=null,
+        help_text="Determines whether fees are calculated from the amount or the base."
     )

@@ -200,6 +200,7 @@ def get_last_price(symbol: str) -> Decimal:
 
 
 def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool = True) -> Decimal:
+
     from market.models import Order, PairSymbol
     pair_symbol = PairSymbol.objects.filter(name=symbol).first()
 

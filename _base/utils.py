@@ -36,18 +36,22 @@ def admin_register_for_crypto_exchange(model):
 
 
 def admin_display_for_crypto(description=None, **kwargs):
+    valid_kwargs = {key: kwargs[key] for key in ('description', 'empty_value_display', 'boolean') if key in kwargs}
+
     def decorator(func):
         if not settings.EXCHANGE_TYPE.is_crypto:
             return None
-        return admin.display(description=description, **kwargs)(func)
+        return admin.display(description=description, **valid_kwargs)(func)
 
     return decorator
 
 
 def admin_display_for_precious_metals(description=None, **kwargs):
+    valid_kwargs = {key: kwargs[key] for key in ('description', 'empty_value_display', 'boolean') if key in kwargs}
+
     def decorator(func):
         if not settings.EXCHANGE_TYPE.is_precious_metals:
             return None
-        return admin.display(description=description, **kwargs)(func)
+        return admin.display(description=description, **valid_kwargs)(func)
 
     return decorator

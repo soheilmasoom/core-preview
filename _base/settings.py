@@ -151,7 +151,12 @@ DATABASES = {
         'PASSWORD': config('DEFAULT_DB_PASSWORD'),
         'HOST': config('DEFAULT_DB_HOST', default='localhost'),
         'PORT': config('DEFAULT_DB_PORT', default=5432),
-    }
+    },
+    # Uncomment to speedup tests
+    # 'TEST':{
+    #     'NAME': 'core_test_copy',
+    #     'SERIALIZE': False,
+    # }
 }
 
 LOCAL_REDIS_URL = config('LOCAL_REDIS_URL', default='redis://127.0.0.1:6379')
