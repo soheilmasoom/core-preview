@@ -25,7 +25,7 @@ class PaymentIdGateway(models.Model):
         default=JIBIT_OLD,
     )
 
-    iban = get_iban_field(blank=True)
+    iban = get_iban_field(unique=True)
     card_pan = models.CharField(max_length=20, blank=True)
 
     name = models.CharField(max_length=256, blank=True, verbose_name='نام صاحب حساب',)
