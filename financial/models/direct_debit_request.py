@@ -39,7 +39,7 @@ class DirectDebitRequest(models.Model):
 
     def accept(self):
         with WalletPipeline() as pipeline:
-            req = DirectDebitRequest.objects.select_for_update().get(id=self.id)
+            req = DirectDebitRequest.objects.select_for_update().get(id=self.id)  # type: DirectDebitRequest
 
             if req.payment or req.status not in self.PENDING_STATES:
                 return

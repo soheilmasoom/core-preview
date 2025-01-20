@@ -542,22 +542,18 @@ class ManualTransferAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentIdRequest)
 class PaymentIdRequestAdmin(AdvancedAdmin):
-    list_display = ('created', 'get_owner', 'get_gateway', 'status', 'get_amount', 'record_type', 'sender_identifier', 'get_user', 'sender_iban', 'deposit_time',
+    list_display = ('created', 'get_user', 'get_gateway', 'status', 'get_amount', 'record_type', 'sender_identifier', 'sender_iban', 'raw_payment_id', 'deposit_time',
                     'bank_transaction_id', 'bank_ref', 'external_ref')
-    search_fields = ('raw_payment_id', 'owner__user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id',
+    search_fields = ('raw_payment_id', 'user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id',
                      'bank_transaction_id', 'sender_name', 'sender_identifier')
     list_filter = ('status', 'kyt_passed', 'gateway', 'record_type')
     actions = ('accept', 'refund', 'reject', 'update_with_provider')
     readonly_fields = ('get_user', 'payment', 'group_id')
-    raw_id_fields = ('owner',)
+    raw_id_fields = ('user',)
 
     fields_edit_conditions = {
-        'owner': M.superuser | M.is_none('owner')
+        'user': M.superuser | M.is_none('user')
     }
-
-    @admin.display(description='owner', ordering='owner')
-    def get_owner(self, obj: PaymentIdRequest):
-        return admin_page_anchor(obj.owner)
 
     @admin.display(description='gateway', ordering='gateway')
     def get_gateway(self, obj: PaymentIdRequest):
@@ -593,8 +589,8 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
 
     @admin.display(description='user')
     def get_user(self, payment_id_request: PaymentIdRequest):
-        if payment_id_request.owner:
-            return admin_page_anchor(payment_id_request.owner.user)
+        if payment_id_request.user:
+            return admin_page_anchor(payment_id_request.user)
 
 
 @admin.register(DirectDebitRequest)

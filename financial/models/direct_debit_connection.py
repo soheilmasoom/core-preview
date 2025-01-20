@@ -31,7 +31,7 @@ class DirectDebitConnection(models.Model):
             ),
             UniqueConstraint(
                 fields=('auth_id_encrypted', 'bank'),
-                condition=Q(deleted=False),
+                condition=Q(deleted=False) & ~Q(auth_id_encrypted=''),
                 name='unique_financial_authorization_id_bank',
             ),
         ]

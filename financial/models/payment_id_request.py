@@ -13,8 +13,7 @@ class PaymentIdRequest(models.Model):
     RECORD_TYPES = ACH, CARD, INTERNAL, RTGS, POL = 'ach', 'card', 'internal', 'rtgs', 'pol'
 
     created = models.DateTimeField(auto_now_add=True)
-
-    owner = models.ForeignKey('PaymentId', on_delete=models.PROTECT, null=True, blank=True)
+    user = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True)
     status = get_status_field()
 
     gateway = models.ForeignKey('PaymentIdGateway', on_delete=models.PROTECT)
@@ -49,7 +48,7 @@ class PaymentIdRequest(models.Model):
     class Meta:
         constraints = [
             CheckConstraint(
-                check=Q(status__in=[INIT, CANCELED, REFUND]) | Q(owner__isnull=False),
+                check=Q(status__in=[INIT, CANCELED, REFUND]) | Q(user__isnull=False),
                 name='payment_id_request_owner_null_condition'
             ),
             UniqueConstraint(
@@ -65,16 +64,14 @@ class PaymentIdRequest(models.Model):
 
     def accept(self):
         with WalletPipeline() as pipeline:
-            req = PaymentIdRequest.objects.select_for_update().get(id=self.id)
+            req = PaymentIdRequest.objects.select_for_update().get(id=self.id)  # type: PaymentIdRequest
 
-            if not req.owner or req.payment or req.status != INIT:
+            if not req.user or req.payment or req.status != INIT:
                 return
-
-            payment_id = req.owner
 
             req.payment = Payment.objects.create(
                 group_id=req.group_id,
-                user=payment_id.master or payment_id.user,
+                user=req.user,
                 amount=req.amount,
                 fee=req.fee,
                 source=Payment.PAY_ID,
