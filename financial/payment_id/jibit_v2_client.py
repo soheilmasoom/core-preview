@@ -289,7 +289,7 @@ class JibitClientV2(JibitClient):
                 if card:
                     return card.user
 
-            elif transaction.record_type in (PaymentIdRequest.ACH, PaymentIdRequest.RTGS):
+            elif transaction.record_type in (PaymentIdRequest.ACH, PaymentIdRequest.RTGS, PaymentIdRequest.POL):
                 bank_account = BankAccount.live_objects.filter(iban=transaction.sender_identifier, verified=True).first()
                 if bank_account:
                     return bank_account.user
