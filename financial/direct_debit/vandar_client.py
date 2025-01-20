@@ -139,7 +139,7 @@ class VandarClient(BaseClient):
         payload = {
             "bank_code": bank_data.iban_code[:3],
             "mobile": user.phone,
-            "callback_url": host_url + f'/api/v1/finance/directDebit/authId/callback/vandar/',
+            "callback_url": host_url + f'/api/v1/finance/direct-debit/callback/vandar/',
             "count": (bank.max_withdrawal_daily_count or 100) * 30,
             "limit": bank.max_withdrawal_amount_per_transaction,
             "expiration_date": expiration_date.strftime("%Y-%m-%d"),
