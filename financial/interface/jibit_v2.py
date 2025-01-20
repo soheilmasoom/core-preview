@@ -71,6 +71,8 @@ class JibitChannelV2(BaseChannel):
 
         try:
             resp_json = resp.json()
+            if self.verbose:
+                print(resp_json)
         except JSONDecodeError:
             resp_json = None
 
