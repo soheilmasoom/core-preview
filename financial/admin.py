@@ -127,7 +127,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         ('اطلاعات کاربر', {'fields': (
             'get_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
         )}),
-        ('نظر', {'fields': ('comment',)})
+        ('نظر', {'fields': ('comment', 'group_id')})
     )
     list_filter = ('status', UserRialWithdrawRequestFilter,)
     ordering = ('-created',)
