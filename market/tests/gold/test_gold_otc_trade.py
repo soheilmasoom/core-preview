@@ -105,10 +105,10 @@ class GoldOtcTradeTestCase(TestCase):
         self.assert_otc_request(
             data=response.data,
             price='5230',
-            fee='53',
+            fee='95',
             paying_amount=Decimal('9'),
-            receiving_amount=Decimal('26150'),
-            net_receiving_amount=Decimal('26097')
+            receiving_amount=Decimal('47070'),
+            net_receiving_amount=Decimal('46975')
         )
 
     def test_buy(self):
@@ -127,7 +127,7 @@ class GoldOtcTradeTestCase(TestCase):
         self.assertEqual(self.wallet_xaum.balance, Decimal('52'))
         self.assertEqual(self.wallet_irt.balance, Decimal('89519'))
 
-    def test_sell(self):
+    def test_sell_with_from_amount(self):
         self.wallet_xaum.airdrop(50)
 
         response = self.client.post('/api/v1/trade/otc/request/',
@@ -140,6 +140,22 @@ class GoldOtcTradeTestCase(TestCase):
             receiving_amount=Decimal('47070'),
             net_receiving_amount=Decimal('46975')
         )
+        token = response.data['token']
+        response = self.client.post('/api/v1/trade/otc/', {"token": token})
+
+        self.assertEqual(response.data['status'], 'done')
+
+        self.wallet_xaum.refresh_from_db()
+        self.wallet_irt.refresh_from_db()
+        self.assertEqual(self.wallet_xaum.balance, Decimal('41'))
+        self.assertEqual(self.wallet_irt.balance, Decimal('46975'))
+
+    def test_sell_with_to_amount(self):
+        self.wallet_xaum.airdrop(50)
+
+        response = self.client.post('/api/v1/trade/otc/request/',
+                                    {"from_asset": "XAUM", "to_asset": "IRT", "to_amount": "50000"})
+
         token = response.data['token']
         response = self.client.post('/api/v1/trade/otc/', {"token": token})
 
