@@ -4,10 +4,9 @@ from decimal import Decimal
 from django.db import models
 from django.db.models import CheckConstraint, Q
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
 
 from accounts.models import Account, SystemConfig
-from ledger.exceptions import SmallAmountTrade, LargeAmountTrade, NoPriceError
+from ledger.exceptions import SmallAmountTrade, LargeAmountTrade, NoPriceError, UnableToTradeError
 from ledger.models import Asset, Wallet
 from ledger.utils.external_price import get_other_side, BUY, SELL
 from ledger.utils.fields import get_amount_field
@@ -100,8 +99,7 @@ class OTCRequest(BaseTrade):
             from_wallet.has_balance(otc_request.get_paying_amount(), raise_exception=True, check_system_wallets=True)
 
         if otc_request.symbol.asset.otc_status not in (Asset.ACTIVE, otc_request.side):
-            side_verbose = 'خرید' if otc_request.side == BUY else 'فروش'
-            raise ValidationError('امکان %s این رمزارز وجود ندارد.' % side_verbose)
+            raise UnableToTradeError(side=otc_request.side, asset=otc_request.symbol.asset)
 
         otc_request.save()
 

@@ -43,7 +43,10 @@ def alert_user_verify_status(user: User):
             levelup = user.level + 1
         else:
             if user.level == User.LEVEL2:
-                notif_message = 'احراز هویت شما با موفقیت انجام شد. هم اکنون می‌توانید خرید و فروش تمامی رمزارز‌ها را انجام دهید.'
+                if settings.EXCHANGE_TYPE.is_crypto:
+                    notif_message = 'احراز هویت شما با موفقیت انجام شد. هم اکنون می‌توانید خرید و فروش تمامی رمزارز‌ها را انجام دهید.'
+                else:
+                    notif_message = f'احراز هویت شما با موفقیت انجام شد. هم اکنون می‌توانید خرید و فروش در {settings.BRAND} را آغاز کنید.'
             else:
                 notif_message = 'احراز هویت سطح {} شما با موفقیت انجام شد.'.format(user.level)
             level = Notification.SUCCESS
