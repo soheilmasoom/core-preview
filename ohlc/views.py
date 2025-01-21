@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -46,7 +48,7 @@ class ChartViewSet(viewsets.ViewSet):
         candles = Model.objects.filter(
             symbol=symbol,
             timestamp__gte=start_time
-        ).order_by('timestamp')
+        ).exclude(close=Decimal('0')).order_by('timestamp')
 
         # Fetch timestamp and close price
         data = list(candles.values('timestamp', 'close'))
