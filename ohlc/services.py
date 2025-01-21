@@ -32,11 +32,11 @@ def create_one_minute_candles(
             if symbol not in all_prices:
                 logger.warning(f"Failed to get price for symbol: {symbol}",
                                extra={'timestamp': aligned_time})
-                all_prices[symbol] = Decimal('0')
-            multiplier = 1
-            if symbol == 'XAUMIRT':
-                multiplier = 1000
+                continue   # Skip creating candle if price not available
+
+            multiplier = 1000 if symbol == 'XAUMIRT' else 1
             price = all_prices[symbol] * multiplier
+
             candles_to_create.append(Candle(
                 symbol=symbol,
                 timestamp=aligned_time,
