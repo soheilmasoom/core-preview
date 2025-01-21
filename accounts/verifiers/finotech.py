@@ -6,10 +6,10 @@ from django.core.cache import caches
 from django.utils import timezone
 from urllib3.exceptions import ReadTimeoutError
 from decouple import config
-from decouple import config
 
 from accounts.models import UserAuthRequest
 from accounts.utils.validation import gregorian_to_jalali_date_str
+from accounts.verifiers.utils import ServerError
 
 logger = logging.getLogger(__name__)
 
