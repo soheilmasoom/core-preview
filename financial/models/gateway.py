@@ -163,16 +163,18 @@ class Gateway(models.Model):
         if not with_balance_gateways:
             return gateways[0]
 
-        elif len(with_balance_gateways) == 1:
-            return with_balance_gateways[0]
+        return with_balance_gateways[0]
 
-        bank = get_bank_from_iban(iban).slug
-
-        for g in with_balance_gateways:
-            if bank in g.instant_withdraw_banks:
-                return g
-        else:
-            return with_balance_gateways[0]
+        # elif len(with_balance_gateways) == 1:
+        #     return with_balance_gateways[0]
+        #
+        # bank = get_bank_from_iban(iban).slug
+        #
+        # for g in with_balance_gateways:
+        #     if bank in g.instant_withdraw_banks:
+        #         return g
+        # else:
+        #     return with_balance_gateways[0]
 
     @classmethod
     def get_gateway_class(cls, type: str) -> Type['Gateway']:
