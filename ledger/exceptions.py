@@ -68,7 +68,10 @@ class UnableToTradeRightNowError(ValidationError):
         symbol = asset.symbol
         is_crypto = settings.EXCHANGE_TYPE.is_crypto
         if not detail:
-            side_verbose = 'خرید' if side == BUY else 'فروش'
+            if side is None:
+                side_verbose = "معامله"
+            else:
+                side_verbose = 'خرید' if side == BUY else 'فروش'
             if is_crypto:
                 asset_name = 'این رمزارز'
             else:
@@ -95,5 +98,17 @@ class ExceedsMaximumAmountError(ValidationError):
                     quote = 'میلی گرم'
 
             detail = 'حداکثر مقدار قابل {} {} {} {} است.'.format(side_verbose, asset_name, max_amount, quote)
+
+        super().__init__(detail=detail, code=code)
+
+
+class DuplicateAssetsError(ValidationError):
+    def __init__(self, detail=None, code=None):
+        is_crypto = settings.EXCHANGE_TYPE.is_crypto
+        if not detail:
+            if is_crypto:
+                detail = 'دو ارز دیجیتال باید متفاوت باشند.'
+            else:
+                detail = 'دو دارایی باید متفاوت باشند.'
 
         super().__init__(detail=detail, code=code)

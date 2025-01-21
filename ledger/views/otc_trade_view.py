@@ -12,7 +12,7 @@ from accounts.models import Account, LoginActivity, SystemConfig
 from accounts.permissions import can_trade
 from analytics.utils.yandex import send_yandex_event
 from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecrease, HedgeError, SmallDepthError, \
-    NoPriceError, UnableToTradeRightNowError, ExceedsMaximumAmountError
+    NoPriceError, UnableToTradeRightNowError, ExceedsMaximumAmountError, DuplicateAssetsError
 from ledger.models import OTCRequest, Asset, OTCTrade, Wallet
 from ledger.models.asset import InvalidAmount
 from ledger.models.otc_trade import TokenExpired
@@ -34,7 +34,7 @@ class OTCInfoView(APIView):
         to_symbol = request.query_params.get('to')
 
         if from_symbol == to_symbol:
-            raise ValidationError('دو ارز دیجیتال باید متفاوت باشند.')
+            raise DuplicateAssetsError()
 
         try:
             from_amount = request.query_params.get('from_amount')
@@ -78,17 +78,15 @@ class OTCInfoView(APIView):
         except SmallDepthError as exp:
             pair = get_trading_pair(from_asset, to_asset)
             max_amount = get_symbol_presentation_amount(pair.symbol, exp.args[0])
-            side_verbose = SIDE_VERBOSE[pair.side]
 
             if max_amount == 0:
-                raise ValidationError(f'در حال حاضر امکان {side_verbose} این ارز دیجیتال وجود ندارد.')
+                raise UnableToTradeRightNowError(side=pair.side, asset=pair.coin)
             else:
-                raise ValidationError(
-                    f'حداکثر مقدار قابل {side_verbose} این ارز دیجیتال {max_amount} {pair.coin} است.'
-                )
+                raise ExceedsMaximumAmountError(side=pair.side, asset=pair.coin, max_amount=max_amount)
 
         except NoPriceError:
-            raise ValidationError('در حال حاضر امکان معامله این ارز دیجیتال وجود ندارد.')
+            pair = get_trading_pair(from_asset, to_asset)
+            raise UnableToTradeRightNowError(asset=pair.coin)
 
         symbol = otc.symbol
 
