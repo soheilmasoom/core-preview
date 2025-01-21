@@ -44,7 +44,8 @@ class FetchError(Exception):
     pass
 
 
-from rest_framework.exceptions import ValidationError
+class InvalidAddressError(Exception):
+    pass
 
 
 class UnableToTradeError(ValidationError):

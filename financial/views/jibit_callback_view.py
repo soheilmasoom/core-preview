@@ -62,7 +62,10 @@ class JibitPaymentIdCallbackView(APIView):
 
         external_ref = request.data['externalReferenceNumber']
 
-        gateway = PaymentIdGateway.live_objects.filter(type=PaymentIdGateway.JIBIT_OLD).first()
+        gateway = PaymentIdGateway.live_objects.filter(
+            type=PaymentIdGateway.PAYMENT_ID,
+            channel=PaymentIdGateway.JIBIT_OLD
+        ).first()
 
         if not gateway:
             raise ValidationError('No gateway found')

@@ -18,7 +18,7 @@ from django_admin_listfilter_dropdown.filters import RelatedDropdownFilter
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from simple_history.admin import SimpleHistoryAdmin
 
-from accounting.models import AssetPrice
+from accounting.models import AssetPrice, VaultItem
 from accounting.models import ReservedAsset
 from accounts.admin_guard import M
 from accounts.admin_guard.admin import AdvancedAdmin
@@ -35,7 +35,7 @@ from ledger import models
 from ledger.models import Prize, CoinCategory, FastBuyToken, Network, ManualTransaction, Wallet, \
     ManualTrade, Trx, NetworkAsset, FeedbackCategory, WithdrawFeedback, DepositRecoveryRequest, TokenRebrand, \
     MarginHistoryModel, MarginPosition, MarginLeverage, TokenDelist, TokenTransferPart, TokenTransfer, ConvertDust, \
-    ConvertDustTrx, NetworkSchedule
+    ConvertDustTrx, NetworkSchedule, OTCTrade, Transfer
 from ledger.models.asset_alert import AssetAlert, AlertTrigger, BulkAssetAlert
 from ledger.models.wallet import ReserveWallet
 from ledger.utils.external_price import BUY
@@ -258,7 +258,7 @@ class WithdrawFeedbackAdmin(admin.ModelAdmin):
 @admin_register_for_crypto_exchange(models.Network)
 class NetworkAdmin(SimpleHistoryAdmin):
     list_display = (
-        'symbol', 'can_withdraw', 'can_deposit', 'min_confirm', 'unlock_confirm', 'deposit_need_memo',
+        'symbol', 'name', 'can_withdraw', 'can_deposit', 'min_confirm', 'unlock_confirm', 'deposit_need_memo',
         'withdraw_allow_memo', 'address_regex', 'memo_regex'
     )
     list_editable = ('can_withdraw', 'can_deposit')
@@ -491,7 +491,7 @@ class OTCTradeAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='Cancel Trade', permissions=['change'])
     def cancel_trade(self, request, queryset):
-        for otc in queryset.filter(status=PENDING):
+        for otc in queryset.filter(status=PENDING):  # type: OTCTrade
             otc.reject()
 
     @admin.action(description='Revert', permissions=['change'])
@@ -826,7 +826,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='رد واریز', permissions=['manage'])
     def reject_deposit(self, request, queryset):
-        for transfer in queryset.filter(deposit=True, status__in=[INIT, PENDING]):
+        for transfer in queryset.filter(deposit=True, status__in=[INIT, PENDING]):  # type: Transfer
             transfer.reject(reason='Rejected by admin')
 
     @admin.action(description='Revert', permissions=['manage'])
@@ -851,7 +851,7 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     @admin.action(description='Terminate Withdraw', permissions=['change'])
     def terminate_withdraw(self, request, queryset):
-        for t in queryset.filter(deposit=False, status=PROCESS):
+        for t in queryset.filter(deposit=False, status=PROCESS):  # type: Transfer
             t.reject()
 
         requester = get_blocklink_requester()
@@ -860,28 +860,50 @@ class TransferAdmin(SimpleHistoryAdmin, AdvancedAdmin):
             requester.terminate_withdraw(transfer.id)
 
 
+@admin.register(models.ManualAddressBook)
+class ManualAddressBookAdmin(SimpleHistoryAdmin):
+    list_display = ('name', 'address', 'network', 'deleted', 'memo')
+    list_filter = ('network', 'deleted')
+    search_fields = ('name', 'address', 'memo')
+    list_editable = ('deleted',)
+    ordering = ('name',)
+
+
 class ManualWithdrawForm(forms.ModelForm):
     otp = forms.IntegerField()
 
     class Meta:
         model = models.ManualWithdraw
-        fields = ('receiver_address', 'network', 'asset', 'amount', 'otp', 'comment', 'memo',)
+        fields = ('address_book', 'asset', 'amount', 'otp', 'comment')
 
 
 @admin.register(models.ManualWithdraw)
 class ManualWithdrawAdmin(SimpleHistoryAdmin):
     form = ManualWithdrawForm
 
-    list_display = ('created', 'network', 'asset', 'receiver_address', 'memo', 'amount', 'status', 'trx_hash')
-    search_fields = ('receiver_address',)
-    list_filter = ('status', 'network')
-    readonly_fields = ('status', )
+    list_display = ('created', 'address_book', 'asset', 'amount', 'status', 'trx_hash')
+    list_filter = ('status', 'address_book')
+    readonly_fields = ('status', 'get_balance', 'get_free')
     fieldsets = (
         (None, {'fields': (
-            'network', 'asset', 'amount', 'receiver_address', 'memo', 'comment', 'otp', 'status', 'trx_hash'
+            'address_book', 'asset', 'amount', 'comment', 'otp', 'status', 'trx_hash', 'get_balance', 'get_free'
         )}),
     )
     actions = ('accept', 'reject', 'terminate_withdraw')
+
+    @admin.display(description="Balance")
+    def get_balance(self, obj):
+        if obj and obj.asset:
+            vault = VaultItem.objects.filter(coin=obj.asset.symbol, vault__type='hw').first()
+            return vault.balance if vault else "N/A"
+        return "N/A"
+
+    @admin.display(description="Free")
+    def get_free(self, obj):
+        if obj and obj.asset:
+            vault = VaultItem.objects.filter(coin=obj.asset.symbol, vault__type='hw').first()
+            return vault.free if vault else "N/A"
+        return "N/A"
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
@@ -930,7 +952,7 @@ class CryptoAccountTypeFilter(SimpleListFilter):
 class MarginTransferAdmin(admin.ModelAdmin):
     list_display = ('created', 'account', 'amount', 'type',)
     search_fields = ('group_id',)
-    readonly_fields = ('account', )
+    readonly_fields = ('account',)
 
 
 @admin_register_for_crypto_exchange(models.AddressBook)
@@ -1389,7 +1411,7 @@ class TokenRebrandAdmin(admin.ModelAdmin):
 
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
-        for rebrand in queryset.filter(status=PENDING):
+        for rebrand in queryset.filter(status=PENDING):  # type: TokenRebrand
             rebrand.reject()
 
     @admin.action(description='Revert', permissions=['change'])
@@ -1422,7 +1444,7 @@ class TokenTransferAdmin(admin.ModelAdmin):
 
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
-        for token_transfer in queryset.filter(status=PENDING):
+        for token_transfer in queryset.filter(status=PENDING):  # type: TokenTransfer
             token_transfer.reject()
 
     @admin.display(description='Transfer Info')
@@ -1464,7 +1486,7 @@ class TokenDelistAdmin(admin.ModelAdmin):
 
     @admin.action(description='Reject', permissions=['change'])
     def reject(self, request, queryset):
-        for delist in queryset.filter(status=PENDING):
+        for delist in queryset.filter(status=PENDING):  # type: TokenDelist
             delist.reject()
 
     @admin.action(description='Revert', permissions=['change'])
@@ -1476,6 +1498,7 @@ class TokenDelistAdmin(admin.ModelAdmin):
     def get_delist_info(self, token_delist: TokenDelist):
         rows = [{'name': k, 'value': v} for (k, v) in token_delist.get_delist_info().__dict__.items()]
         return mark_safe(get_table_html(['name', 'value'], rows))
+
 
 class BalanceFilter(admin.SimpleListFilter):
     title = 'Balance Mismatched'  # Display name for the filter
@@ -1562,11 +1585,9 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
                     scope=Trx.MANUAL
                 )
 
-
     @admin.action(description='convert dust and close', permissions=['change'])
     def convert_dust_close(self, request, queryset):
         self.convert_dust(queryset, False)
-
 
     @admin.action(description='force convert dust and close', permissions=['change'])
     def force_convert_dust_close(self, request, queryset):
@@ -1577,7 +1598,7 @@ class MarginPositionAdmin(SimpleHistoryAdmin):
         group_id = uuid4()
 
         with WalletPipeline() as pipeline:
-            for position in queryset:
+            for position in queryset:  # type: MarginPosition
                 position.convert_dust(pipeline, force=force)
 
                 isolated = position.base_wallet

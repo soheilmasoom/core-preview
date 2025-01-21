@@ -23,8 +23,8 @@ class GatewayFailed(Exception):
 class Gateway(models.Model):
     BASE_URL = None
 
-    TYPES = MANUAL, ZARINPAL, PAYIR, ZIBAL, ZIBAL_BAJEH, JIBIT, JIBIMO, PAYSTAR, NOVINPAL = \
-        'manual', 'zarinpal', 'payir', 'zibal', 'zibal_bajeh', 'jibit', 'jibimo', 'paystar', 'novinpal'
+    TYPES = MANUAL, ZARINPAL, PAYIR, ZIBAL, ZIBAL_BAJEH, JIBIT, JIBIT_V2, JIBIMO, PAYSTAR, NOVINPAL = \
+        'manual', 'zarinpal', 'payir', 'zibal', 'zibal_bajeh', 'jibit', 'jibit_v2', 'jibimo', 'paystar', 'novinpal'
 
     name = models.CharField(max_length=128)
     type = models.CharField(

@@ -12,7 +12,7 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import User, Company, Referral
+from accounts.models import User, Company, Referral, Account
 from accounts.models.phone_verification import VerificationCode
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.utils.login import set_login_activity
@@ -100,7 +100,7 @@ class SignupSerializer(serializers.Serializer):
             user.save()
 
             if validated_data.get('referral_code'):
-                account = user.get_account()
+                account = user.get_account()  # type: Account
                 account.referred_by = Referral.objects.get(code=validated_data['referral_code'])
                 account.save()
 

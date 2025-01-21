@@ -120,7 +120,7 @@ class BasicInfoSerializer(serializers.ModelSerializer):
             raise ValidationError('کد ملی تکراری است. لطفا به پنل اصلی‌تان وارد شوید.')
 
         if not settings.DEBUG_OR_TESTING_OR_STAGING:
-            basic_verify_user.s(user.id).apply_async(countdown=60)
+            basic_verify_user.s(user.id).apply_async(countdown=1)
 
         send_yandex_event(user, 'try_basic_verify')
 

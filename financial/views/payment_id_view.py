@@ -34,7 +34,7 @@ class PaymentIdSerializer(serializers.ModelSerializer):
         if not BankAccount.objects.filter(user=user, verified=True, deleted=False):
             raise ValidationError({'iban': 'شما باید حداقل یک حساب بانکی تایید شده داشته باشید.'})
 
-        gateway = PaymentIdGateway.live_objects.first()
+        gateway = PaymentIdGateway.live_objects.filter(type=PaymentIdGateway.PAYMENT_ID).first()
 
         if not gateway:
             raise ValidationError('امکان ساخت شناسه واریز وجود ندارد.')
@@ -66,5 +66,5 @@ class PaymentIdViewsSet(ModelViewSet):
     serializer_class = PaymentIdSerializer
 
     def get_object(self):
-        gateway = PaymentIdGateway.live_objects.first()
+        gateway = PaymentIdGateway.live_objects.filter(type=PaymentIdGateway.PAYMENT_ID).first()
         return get_object_or_404(PaymentId, user=self.request.user, gateway=gateway, deleted=False)

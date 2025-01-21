@@ -8,7 +8,8 @@ from accounting.models import Vault, Account
 from accounting.models.vault import VaultData, AssetPrice, VaultItem, ReservedAsset
 from accounts.tasks.send_sms import get_kavenegar_client
 from accounts.verifiers.utils import ServerError
-from financial.models import Gateway
+from financial.models import Gateway, PaymentIdGateway, PaymentIdRequest
+from financial.payment_id import get_payment_id_client
 
 from financial.utils.interface import get_withdraw_channel
 from ledger.exceptions import FetchError
@@ -164,6 +165,32 @@ def update_gateway_vaults(now: datetime, prices: dict):
         ])
 
 
+def update_pay_id_gateway_vaults(now: datetime, prices: dict):
+    for gateway in PaymentIdGateway.objects.filter(active=True):
+        client = get_payment_id_client(gateway)
+        balance = client.get_balance()
+
+        vault, _ = Vault.objects.get_or_create(
+            type=Vault.BANK,
+            market=Vault.SPOT,
+            key=gateway.id,
+            defaults={
+                'name': str(gateway),
+                'updated': now,
+            }
+        )
+
+        vault.update_vault_all_items(now, [
+            VaultData(
+                coin=Asset.IRT,
+                balance=balance,
+                free=balance,
+                value_usdt=balance / prices[USDT_IRT],
+                value_irt=balance
+            )
+        ])
+
+
 def update_cold_wallet_vaults(now: datetime, prices: dict):
     logger.info('updating cold & manual wallet vaults')
 
@@ -174,32 +201,6 @@ def update_cold_wallet_vaults(now: datetime, prices: dict):
 
     for vault in Vault.objects.filter(type__in=(Vault.COLD_WALLET, Vault.MANUAL)):
         vault.update_real_value(now)
-
-
-def update_bank_vaults(now: datetime, prices: dict):
-    for account in Account.objects.filter(create_vault=True):
-        vault, _ = Vault.objects.update_or_create(
-            type=Vault.BANK,
-            market=Vault.SPOT,
-            key=account.id,
-
-            defaults={
-                'name': account.name,
-                'updated': now,
-            }
-        )
-
-        amount = account.get_balance()
-
-        vault.update_vault_all_items(now, [
-            VaultData(
-                coin=Asset.IRT,
-                balance=amount,
-                free=amount,
-                value_usdt=amount / prices[USDT_IRT],
-                value_irt=amount
-            )
-        ])
 
 
 def update_reserved_assets_value(now: datetime, prices: dict):

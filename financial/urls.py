@@ -3,7 +3,8 @@ from django.urls import path
 from financial.views import PaymentRequestView, ZarinpalCallbackView, BankCardView, PaymentHistoryView, \
     WithdrawRequestView, WithdrawHistoryView, BankAccountView, PaydotirCallbackView, ZibalCallbackView, \
     ProxyPaymentRedirectView, JibitCallbackView, GatewayInfoView, JibitPaymentIdCallbackView, PaymentIdViewsSet, \
-    JibimoCallbackView, PaystarCallbackView, NovinpalCallbackView
+    JibimoCallbackView, PaystarCallbackView, NovinpalCallbackView, PaymentGatewaysView, BanksView, \
+    DirectDebitConnectionView, DirectDebitView, VandarCallbackView
 
 urlpatterns = [
     path('payment/request/', PaymentRequestView.as_view()),
@@ -40,10 +41,19 @@ urlpatterns = [
     })),
     path('withdraw/list/', WithdrawHistoryView.as_view()),
     path('gateways/active/', GatewayInfoView.as_view()),
+    path('gateways/', PaymentGatewaysView.as_view()),
 
     path('paymentId/', PaymentIdViewsSet.as_view({
         'get': 'retrieve',
         'post': 'create',
     })),
     path('paymentId/callback/jibit/', JibitPaymentIdCallbackView.as_view(), name='jibit-paymentIds-callback'),
+
+    path('direct-debit/banks/', BanksView.as_view()),
+    path('direct-debit/connect/<slug:bank>/', DirectDebitConnectionView.as_view({
+        'post': 'create',
+        'delete': 'destroy',
+    })),
+    path('direct-debit/callback/vandar/', VandarCallbackView.as_view(), name='vandar-callback'),
+    path('direct-debit/charge/<slug:bank>/', DirectDebitView.as_view()),
 ]

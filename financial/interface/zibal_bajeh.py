@@ -67,6 +67,11 @@ class ZibalBajehChannel(BaseChannel):
         )
 
     def create_withdraw(self, transfer: BaseTransfer) -> WithdrawDTO:
+        balance = self.get_wallet_data().balance
+
+        if balance <= transfer.amount:
+            raise ProviderError('Balance is not enough')
+
         try:
             data = self.collect_api('/v1/account/checkout/create/', method='POST', data={
                 'accountId': self.gateway.withdraw_api_key,

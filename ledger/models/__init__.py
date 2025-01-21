@@ -33,3 +33,4 @@ from .network_schedule import NetworkSchedule
 from .transaction_history import TransactionHistory
 from .proxy_wallet import ProxyWallet
 from .cold_wallet import ColdWallet
+from .manual_address_book import ManualAddressBook

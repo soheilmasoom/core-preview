@@ -19,9 +19,14 @@ from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import User
 from accounts.models.user_feature_perm import UserFeaturePerm
 from accounts.utils.validation import gregorian_to_jalali_datetime
+from financial.direct_debit import get_direct_debit_client
 from financial.models import Gateway, PaymentRequest, Payment, BankCard, BankAccount, \
     FiatWithdrawRequest, ManualTransfer, MarketingSource, MarketingCost, PaymentIdRequest, PaymentId, \
     PaymentIdGateway, BankPaymentRequest, BankPaymentRequestReceipt, BankStatement
+from financial.models.direct_debit_connection import DirectDebitConnection
+from financial.models.direct_debit_bank import DirectDebitBank
+from financial.models.direct_debit_gateway import DirectDebitGateway
+from financial.models.direct_debit_request import DirectDebitRequest
 from financial.payment_id import get_payment_id_client
 from financial.tasks import verify_bank_card_task, verify_bank_account_task
 from financial.utils.encryption import encrypt
@@ -47,7 +52,7 @@ class GatewayAdmin(admin.ModelAdmin):
 
     ordering = ('-active', '-ipg_deposit_enable', '-deposit_priority', '-withdraw_enable', '-withdraw_priority')
 
-    actions = ('clone_gateway', )
+    actions = ('clone_gateway',)
 
     @admin.display(description='balance')
     def get_balance(self, gateway: Gateway):
@@ -72,7 +77,7 @@ class GatewayAdmin(admin.ModelAdmin):
     @admin.action(description='Clone', permissions=['change'])
     def clone_gateway(self, request, queryset):
         for gateway in queryset:
-            gateway.name += ' cloned'
+            gateway.name += 'cloned'
             gateway.active = False
             clone_model(gateway)
 
@@ -117,19 +122,20 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
     fieldsets = (
         ('اطلاعات درخواست', {'fields': ('created', 'status', 'amount', 'fee_amount', 'ref_id', 'bank_account',
-         'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time', 'gateway', 'get_risks', 'accepted_by')}),
+                                        'get_withdraw_request_withdraw_time', 'get_withdraw_request_receive_time',
+                                        'gateway', 'get_risks', 'accepted_by')}),
         ('اطلاعات کاربر', {'fields': (
             'get_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
         )}),
-        ('نظر', {'fields': ('comment',)})
+        ('نظر', {'fields': ('comment', 'group_id')})
     )
-    list_filter = ('status', UserRialWithdrawRequestFilter, )
-    ordering = ('-created', )
+    list_filter = ('status', UserRialWithdrawRequestFilter,)
+    ordering = ('-created',)
     readonly_fields = (
         'created', 'bank_account', 'amount', 'get_iban', 'fee_amount', 'get_risks',
         'get_withdraw_request_user', 'get_withdraw_request_receive_time', 'get_user', 'login_activity',
         'get_withdraw_request_receive_time', 'get_withdraw_request_withdraw_time',
-        'accepted_by', 'accepted_datetime', 'get_gateway'
+        'accepted_by', 'accepted_datetime', 'get_gateway', 'group_id'
     )
     search_fields = ('bank_account__iban', 'bank_account__user__phone', 'group_id', 'ref_id')
 
@@ -198,7 +204,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     def refund(self, request, queryset):
         valid_qs = queryset.filter(status=DONE)
 
-        for fiat_withdraw in valid_qs:
+        for fiat_withdraw in valid_qs:  # type: FiatWithdrawRequest
             fiat_withdraw.refund()
 
     @admin.action(description='Accept Manual', permissions=['change'])
@@ -227,6 +233,9 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
 
         obj.save()
 
+    def _get_user(self, obj: FiatWithdrawRequest):
+        return obj.bank_account.user
+
 
 class PaymentRequestUserFilter(SimpleListFilter):
     title = 'کاربر'
@@ -249,7 +258,7 @@ class PaymentRequestAdmin(SimpleHistoryAdmin):
     search_fields = ('bank_card__card_pan', 'amount', 'authority', 'group_id')
     readonly_fields = ('bank_card', 'group_id', 'payment', 'login_activity', 'user', 'get_payment')
     list_filter = (PaymentRequestUserFilter,)
-    actions = ('verify', )
+    actions = ('verify',)
 
     @admin.action(description='Verify', permissions=['change'])
     def verify(self, request, queryset):
@@ -337,7 +346,7 @@ class PaymentAdmin(AdvancedAdmin, SimpleHistoryAdmin):
     def refund(self, request, queryset):
         valid_qs = queryset.filter(status=DONE)
 
-        for payment in valid_qs:
+        for payment in valid_qs:  # type: Payment
             payment.refund()
 
     @admin.action(description='تایید واریز', permissions=['change'])
@@ -443,9 +452,9 @@ class BankAccountAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     default_edit_condition = M.superuser
 
     list_display = ('created', 'iban', 'get_username', 'verified', 'deleted')
-    list_filter = (BankUserFilter, )
-    search_fields = ('iban', )
-    raw_id_fields = ('user', )
+    list_filter = (BankUserFilter,)
+    search_fields = ('iban',)
+    raw_id_fields = ('user',)
     readonly_fields = ('verifier', 'reject_reason')
 
     actions = ['verify_bank_accounts_manual', 'verify_bank_accounts_auto', 'reject_bank_accounts_manual']
@@ -533,18 +542,22 @@ class ManualTransferAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentIdRequest)
 class PaymentIdRequestAdmin(AdvancedAdmin):
-    list_display = ('created', 'owner', 'status', 'get_amount', 'get_user', 'sender_iban', 'deposit_time',
+    list_display = ('created', 'get_user', 'get_gateway', 'status', 'get_amount', 'record_type', 'sender_identifier', 'sender_iban', 'raw_payment_id', 'deposit_time',
                     'bank_transaction_id', 'bank_ref', 'external_ref')
-    search_fields = ('raw_payment_id', 'owner__user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id',
+    search_fields = ('raw_payment_id', 'user__phone', 'external_ref', 'sender_iban', 'bank_ref', 'group_id',
                      'bank_transaction_id', 'sender_name', 'sender_identifier')
-    list_filter = ('status', 'kyt_passed')
-    actions = ('accept', 'reject', 'update_with_provider')
+    list_filter = ('status', 'kyt_passed', 'gateway', 'record_type')
+    actions = ('accept', 'refund', 'reject', 'update_with_provider')
     readonly_fields = ('get_user', 'payment', 'group_id')
-    raw_id_fields = ('owner', )
+    raw_id_fields = ('user',)
 
     fields_edit_conditions = {
-        'owner': M.superuser | M.is_none('owner')
+        'user': M.superuser | M.is_none('user')
     }
+
+    @admin.display(description='gateway', ordering='gateway')
+    def get_gateway(self, obj: PaymentIdRequest):
+        return admin_page_anchor(obj.gateway)
 
     @admin.display(description='amount', ordering='amount')
     def get_amount(self, obj: PaymentIdRequest):
@@ -552,24 +565,65 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
 
     @admin.action(description='Accept', permissions=['change'])
     def accept(self, request, queryset):
-        for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):
-            payment_request.accept()
+        for payment_request in queryset.filter(status=INIT):
+            client = get_payment_id_client(payment_request.gateway)
+            client.accept_payment_request(payment_request)
 
-    @admin.action(description='Reject', permissions=['change'])
+    @admin.action(description='Reject No Refund', permissions=['change'])
     def reject(self, request, queryset):
-        for payment_request in queryset.filter(status__in=PaymentIdRequest.PENDING_STATES):  # type: PaymentIdRequest
-            payment_request.reject()
+        for payment_request in queryset.filter(status=INIT):
+            client = get_payment_id_client(payment_request.gateway)
+            client.reject_payment_request(payment_request)
+
+    @admin.action(description='Reject & Refund', permissions=['change'])
+    def refund(self, request, queryset):
+        for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
+            client = get_payment_id_client(payment_request.gateway)
+            client.refund_payment_request(payment_request)
 
     @admin.action(description='Update with Provider', permissions=['change'])
     def update_with_provider(self, request, queryset):
-        for payment_request in queryset.filter(status__in=INIT):  # type: PaymentIdRequest
+        for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
             client = get_payment_id_client(payment_request.gateway)
             client.update_payment_request(payment_request)
 
     @admin.display(description='user')
     def get_user(self, payment_id_request: PaymentIdRequest):
-        if payment_id_request.owner:
-            user = payment_id_request.owner.user
+        if payment_id_request.user:
+            return admin_page_anchor(payment_id_request.user)
+
+
+@admin.register(DirectDebitRequest)
+class DirectDebitRequestAdmin(AdvancedAdmin):
+    list_display = ('created', 'owner', 'status', 'get_amount', 'get_user', 'gateway', 'payment')
+    search_fields = ('owner__user__phone', 'group_id',)
+    list_filter = ('status',)
+    actions = ('accept', 'reject')
+    readonly_fields = ('get_user', 'payment', 'group_id')
+    raw_id_fields = ('owner',)
+
+    fields_edit_conditions = {
+        'owner': M.superuser | M.is_none('owner')
+    }
+
+    @admin.display(description='amount', ordering='amount')
+    def get_amount(self, obj: DirectDebitRequest):
+        return humanize_number(obj.amount)
+
+    @admin.action(description='Accept', permissions=['change'])
+    def accept(self, request, queryset):
+        for payment_request in queryset.filter(status__in=DirectDebitRequest.PENDING_STATES):
+            payment_request.accept()
+
+    @admin.action(description='Reject', permissions=['change'])
+    def reject(self, request, queryset):
+        for payment_request in queryset.filter(status__in=DirectDebitRequest.PENDING_STATES):
+            payment_request.reject()
+
+    @admin.display(description='user')
+    def get_user(self, obj: DirectDebitRequest):
+        if obj.owner:
+            user = obj.owner.user
             link = url_to_edit_object(user)
             return mark_safe("<a href='%s'>%s</a>" % (link, user.get_full_name()))
 
@@ -630,9 +684,10 @@ class PaymentIdAdmin(AdvancedAdmin):
 class PaymentIdGatewayAdmin(admin.ModelAdmin):
     track_admin_activity = True
 
-    list_display = ('title', 'type', 'name', 'iban', 'bank', 'deposit_address', 'active', 'priority')
-    ordering = ('-active', 'priority')
-    list_editable = ('active', 'priority')
+    list_display = ('title', 'type', 'channel', 'name', 'iban', 'bank', 'deposit_address', 'active', 'hide', 'ordering')
+    ordering = ('-active', 'ordering')
+    list_editable = ('active', 'hide', 'ordering')
+    list_filter = ('type', 'channel')
 
     def save_model(self, request, gateway: PaymentIdGateway, form, change):
         encryption_fields = [
@@ -758,3 +813,61 @@ class BankStatementAdmin(admin.ModelAdmin):
     def process(self, request, queryset):
         for statement in queryset:
             statement.process_file()
+
+
+@admin.register(DirectDebitBank)
+class DirectDebitBankAdmin(admin.ModelAdmin):
+    list_display = ('bank', 'gateway', 'active', 'max_withdrawal_amount', 'max_withdrawal_amount_per_transaction',
+                    'max_withdrawal_daily_count', 'max_validity_duration_days',
+                    )
+    list_filter = ('active', 'gateway', )
+    search_fields = ('bank', 'gateway', )
+    readonly_fields = ('created', 'modified')
+    list_editable = ('active', )
+
+
+@admin.register(DirectDebitConnection)
+class DirectDebitConnectionAdmin(admin.ModelAdmin):
+    list_display = ('created', 'user', 'bank', 'verified', 'deleted')
+    list_filter = ('verified', 'deleted', 'bank')
+    search_fields = ('auth_id', 'user')
+    readonly_fields = ('created', 'updated', 'auth_id_encrypted', 'bank', 'verified', 'token', 'user')
+
+
+@admin.register(DirectDebitGateway)
+class DirectDebitGatewayAdmin(admin.ModelAdmin):
+    list_display = ('title', 'type', 'business_name', 'priority', 'active', 'created')
+    list_filter = ('type', 'active')
+    search_fields = ('title', 'business_name')
+    ordering = ('priority', 'created')
+    readonly_fields = ('created', )
+    actions = ['update_banks_action']
+
+    def save_model(self, request, gateway: DirectDebitGateway, form, change):
+        encryption_fields = [
+            'refresh_token_encrypted',
+        ]
+
+        old_gateway = gateway.id and DirectDebitGateway.objects.get(id=gateway.id)
+
+        for key in encryption_fields:
+            value = getattr(gateway, key)
+
+            if getattr(old_gateway, key, '') != value:
+                setattr(gateway, key, encrypt(value.strip()))
+
+        gateway.save()
+
+    @admin.action(description='به‌روزرسانی لیست بانک‌ها', permissions=['change'])
+    def update_banks_action(self, request, queryset):
+        for gateway in queryset:
+            if not gateway:
+                self.message_user(request, 'امکان دریافت لیست بانک ها وجود ندارد.', level=messages.ERROR)
+                continue
+
+            try:
+                client = get_direct_debit_client(gateway)
+                client.update_banks()
+                self.message_user(request, f'لیست بانک‌ها برای {gateway.title} با موفقیت به‌روزرسانی شد.', level=messages.SUCCESS)
+            except Exception as e:
+                self.message_user(request, f'خطا هنگام به‌روزرسانی بانک‌ها برای {gateway.title}: {e}', level=messages.ERROR)
