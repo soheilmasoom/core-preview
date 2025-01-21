@@ -72,6 +72,7 @@ class JibitChannelV2(BaseChannel):
         try:
             resp_json = resp.json()
             if self.verbose:
+                print(data)
                 print(resp_json)
         except JSONDecodeError:
             resp_json = None
@@ -98,7 +99,9 @@ class JibitChannelV2(BaseChannel):
         })
 
         if not resp.success:
-            code = resp.data['errors'][0]['code']
+            error = resp.data['errors'][0]
+            code = error['code']
+            message = error.get('message', '') + f' ({code})'
             if code == 'transfer.already_exists':
                 return WithdrawDTO(
                     tracking_id='',
@@ -109,11 +112,11 @@ class JibitChannelV2(BaseChannel):
                 return WithdrawDTO(
                     tracking_id='',
                     status=CANCELED,
-                    message=code,
+                    message=message,
                 )
 
             else:
-                raise ProviderError(code)
+                raise ProviderError(message)
 
         if resp.data.get('referenceNumber', 0) == 0:
             raise ProviderError('Jibit submission failed')
