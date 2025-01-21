@@ -11,6 +11,7 @@ class TransactionHistory(models.Model):
     type = models.CharField(max_length=16)
     amount = get_amount_field()
     coin = models.CharField(max_length=64)
+    fee = get_amount_field()
 
     class Meta:
         db_table = 'ledger_transaction_history_view'
