@@ -166,7 +166,7 @@ def update_gateway_vaults(now: datetime, prices: dict):
 
 
 def update_pay_id_gateway_vaults(now: datetime, prices: dict):
-    for gateway in PaymentIdGateway.live_objects.all():
+    for gateway in PaymentIdGateway.live_objects.exclude(iban=''):
         client = get_payment_id_client(gateway)
         balance = client.get_balance()
 
