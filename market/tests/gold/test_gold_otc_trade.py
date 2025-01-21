@@ -63,15 +63,6 @@ class GoldOtcTradeTestCase(TestCase):
         self.client = Client()
         self.client.force_login(self.account.user)
 
-    def test_error(self):
-        self.xaum.otc_status = Asset.DISABLED
-        self.xaum.save()
-        self.wallet_irt.airdrop(100_000)
-        self.wallet_xaum.airdrop(50)
-        response = self.client.post('/api/v1/trade/otc/request/',
-                                    {"from_asset": "IRT", "to_asset": "XAUM", "to_amount": "2"})
-        print(response.data)
-
     def test_otc_requests(self):
         self.wallet_irt.airdrop(100_000)
         self.wallet_xaum.airdrop(50)

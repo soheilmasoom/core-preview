@@ -12,7 +12,7 @@ from accounts.models import Account, LoginActivity, SystemConfig
 from accounts.permissions import can_trade
 from analytics.utils.yandex import send_yandex_event
 from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecrease, HedgeError, SmallDepthError, \
-    NoPriceError
+    NoPriceError, UnableToTradeRightNowError, ExceedsMaximumAmountError
 from ledger.models import OTCRequest, Asset, OTCTrade, Wallet
 from ledger.models.asset import InvalidAmount
 from ledger.models.otc_trade import TokenExpired
@@ -185,10 +185,12 @@ class OTCRequestSerializer(serializers.ModelSerializer):
 
         symbol = PairSymbol.objects.get(asset=pair.coin, base_asset=pair.base)
         if pair.side == BUY:
-            if (from_amount and get_precision(from_amount) > Asset.PRECISION) or (to_amount and get_precision(to_amount) > symbol.step_size):
+            if (from_amount and get_precision(from_amount) > Asset.PRECISION) or (
+                    to_amount and get_precision(to_amount) > symbol.step_size):
                 raise ValidationError('اعشار درست وارد نشده است.')
         elif pair.side == SELL:
-            if (from_amount and get_precision(from_amount) > symbol.step_size) or (to_amount and get_precision(to_amount) > Asset.PRECISION):
+            if (from_amount and get_precision(from_amount) > symbol.step_size) or (
+                    to_amount and get_precision(to_amount) > Asset.PRECISION):
                 raise ValidationError('اعشار درست وارد نشده است.')
 
         return attrs
@@ -227,7 +229,6 @@ class OTCRequestSerializer(serializers.ModelSerializer):
             )
             otc_request.login_activity = LoginActivity.from_request(request=request)
             otc_request.save(update_fields=['login_activity'])
-
             return otc_request
         except InvalidAmount as e:
             raise ValidationError(str(e))
@@ -238,14 +239,11 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         except SmallDepthError as exp:
             pair = get_trading_pair(from_asset, to_asset)
             max_amount = get_symbol_presentation_amount(pair.symbol, exp.args[0])
-            side_verbose = SIDE_VERBOSE[pair.side]
 
             if max_amount == 0:
-                raise ValidationError('در حال حاضر امکان {} این رمزارز وجود ندارد.'.format(side_verbose))
+                raise UnableToTradeRightNowError(side=pair.side, asset=pair.coin)
             else:
-                raise ValidationError(
-                    'حداکثر مقدار قابل {} این رمزارز {} {} است.'.format(side_verbose, max_amount, pair.coin)
-                )
+                raise ExceedsMaximumAmountError(side=pair.side, asset=pair.coin, max_amount=max_amount)
 
     def get_expire(self, otc: OTCRequest):
         return otc.get_expire_time()
