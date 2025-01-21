@@ -53,12 +53,14 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
             raise ValidationError('حداقل میزان واریز {} تومان است.'.format(humanize_number(gateway.min_deposit_amount)))
 
         if amount > gateway.max_deposit_amount:
-            raise ValidationError('حداکثر میزان واریز {} تومان است.'.format(humanize_number(gateway.max_deposit_amount)))
+            raise ValidationError(
+                'حداکثر میزان واریز {} تومان است.'.format(humanize_number(gateway.max_deposit_amount)))
 
         login_activity = LoginActivity.from_request(self.context['request'])
 
         try:
-            payment_request = gateway.create_payment_request(user=user, amount=amount, source=source, bank_card=bank_card)
+            payment_request = gateway.create_payment_request(user=user, amount=amount, source=source,
+                                                             bank_card=bank_card)
             payment_request.login_activity = login_activity
             payment_request.save(update_fields=['login_activity'])
 
@@ -73,12 +75,11 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
 
 class PaymentRequestView(CreateAPIView):
     queryset = PaymentRequest.objects.all()
-    permission_classes = (IsBasicVerified, )
+    permission_classes = (IsBasicVerified,)
     serializer_class = PaymentRequestSerializer
 
 
 class PaymentHistorySerializer(serializers.ModelSerializer):
-
     amount = serializers.SerializerMethodField()
     bank_card = serializers.SerializerMethodField()
     payment_id = serializers.SerializerMethodField()
@@ -105,7 +106,7 @@ class PaymentHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ('id', 'created', 'status', 'ref_id', 'amount', 'bank_card', 'payment_id', 'description')
+        fields = ('id', 'created', 'status', 'ref_id', 'amount', 'bank_card', 'payment_id', 'description', 'fee')
 
 
 class PaymentHistoryView(ListAPIView):
