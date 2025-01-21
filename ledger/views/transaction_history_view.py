@@ -20,13 +20,13 @@ class TransactionHistoryFilter(django_filters.FilterSet):
 
     class Meta:
         model = TransactionHistory
-        fields = ('coin', 'type', 'created', 'group_id', 'status')
+        fields = ('coin', 'type', 'created', 'group_id', 'status', 'fee')
 
 
 class TransactionHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = TransactionHistory
-        fields = ('created', 'group_id', 'type', 'amount', 'coin', 'status', )
+        fields = ('created', 'group_id', 'type', 'amount', 'coin', 'status', 'fee')
 
 
 class TransactionHistoryView(ListAPIView):
