@@ -6,7 +6,7 @@ from django.db import models
 
 from accounting.models import VaultItem, Vault
 from accounts.models import User, SystemConfig, Account
-from financial.models import BankCard, Payment, PaymentRequest
+from financial.models import BankCard, Payment, PaymentRequest, PaymentIdGateway
 from financial.utils.admin import MultiSelectArrayField
 from financial.utils.bank import BANK_INFO, get_bank_from_iban
 from financial.utils.encryption import decrypt
@@ -94,12 +94,19 @@ class Gateway(models.Model):
     def deposit_api_secret(self):
         return decrypt(self.deposit_api_secret_encrypted)
 
+    def get_vault_item(self) -> VaultItem:
+        payment_id_gateway = PaymentIdGateway.objects.filter(iban=self.merchant_id).first()
+        if payment_id_gateway:
+            return VaultItem.objects.filter(vault__type=Vault.BANK, vault__key=payment_id_gateway.id).first()
+        else:
+            return VaultItem.objects.filter(vault__type=Vault.GATEWAY, vault__key=self.id).first()
+
     def get_balance(self) -> Union[Decimal, None]:
-        v = VaultItem.objects.filter(vault__type=Vault.GATEWAY, vault__key=self.id).first()
+        v = self.get_vault_item()
         return v and v.balance
 
     def get_free(self) -> Union[Decimal, None]:
-        v = VaultItem.objects.filter(vault__type=Vault.GATEWAY, vault__key=self.id).first()
+        v = self.get_vault_item()
         return v and v.free
 
     @classmethod
