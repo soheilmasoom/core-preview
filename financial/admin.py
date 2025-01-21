@@ -632,7 +632,7 @@ class DirectDebitRequestAdmin(AdvancedAdmin):
 class PaymentIdAdmin(AdvancedAdmin):
     list_display = ('created', 'updated', 'user', 'master', 'pay_id', 'verified', 'deleted')
     search_fields = ('user__phone', 'pay_id', 'master__phone', )
-    list_filter = ('verified', 'deleted')
+    list_filter = ('verified', 'gateway', 'deleted')
     readonly_fields = ('group_id', )
     actions = ('check_status', 'recreate', 'delete_payment_ids', 'undelete_payment_ids')
     raw_id_fields = ('user',)

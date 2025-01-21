@@ -11,6 +11,7 @@ from ledger.utils.wallet_pipeline import WalletPipeline
 class PaymentIdRequest(models.Model):
     # ach: paya, rtgs: satna
     RECORD_TYPES = ACH, CARD, INTERNAL, RTGS, POL = 'ach', 'card', 'internal', 'rtgs', 'pol'
+    NO_KYT_RECORD_TYPES = POL, CARD
 
     created = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True)

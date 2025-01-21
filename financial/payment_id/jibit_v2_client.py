@@ -12,7 +12,7 @@ from accounts.models import User
 from accounts.utils.similarity import clean_persian_word
 from accounts.utils.telegram import send_system_message
 from financial.exceptions import DuplicatedPaymentError
-from financial.models import PaymentIdRequest, PaymentId, BankCard, BankAccount
+from financial.models import PaymentIdRequest, PaymentId, BankCard, BankAccount, PaymentIdGateway
 from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
 from financial.utils.date import parse_datetime
@@ -186,7 +186,9 @@ class JibitClientV2(JibitClient):
             self._fail(external_ref=ref_number)
             payment_request.refresh_from_db()
 
-        elif transaction.deposit_number and transaction.kyt_passed:
+        elif payment_request.user \
+                and (payment_request.kyt_passed or payment_request.record_type in PaymentIdRequest.NO_KYT_RECORD_TYPES):
+
             payment_request.accept()
             self._verify(external_ref=ref_number)
             payment_request.refresh_from_db()
@@ -270,20 +272,21 @@ class JibitClientV2(JibitClient):
         return self._process_init_deposit(transaction)
 
     def _get_owner(self, transaction: TransactionInfo) -> Union[User, None]:
-        deposit_number = transaction.deposit_number
+        if self.gateway.type == PaymentIdGateway.PAYMENT_ID:
+            deposit_number = transaction.deposit_number
 
-        if deposit_number:
-            payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=deposit_number).first()
+            if deposit_number:
+                payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=deposit_number).first()
 
-            if payment_id:
-                return payment_id.user
+                if payment_id:
+                    return payment_id.user
 
-            user = User.objects.filter(level__gte=User.LEVEL2, national_code=deposit_number).first()
+                user = User.objects.filter(level__gte=User.LEVEL2, national_code=deposit_number).first()
 
-            if user:
-                return user
+                if user:
+                    return user
 
-        elif transaction.sender_identifier:
+        if transaction.sender_identifier:
             if transaction.record_type == PaymentIdRequest.CARD:
                 card = BankCard.live_objects.filter(card_pan=transaction.sender_identifier, verified=True).first()
                 if card:
