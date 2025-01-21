@@ -93,6 +93,7 @@ class JibitChannelV2(BaseChannel):
             'amount': transfer.amount * 10,
             'recordTrackId': str(transfer.group_id),
             'transferType': 'NORMAL',
+            'requestDescription': 'پرداخت بابت برداشت کاربران'
         })
 
         if not resp.success:
