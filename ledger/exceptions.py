@@ -91,7 +91,7 @@ class ExceedsMaximumAmountError(ValidationError):
             side_verbose = 'خرید' if side == BUY else 'فروش'
             if is_crypto:
                 asset_name = 'این رمزارز'
-                quote = symbol.name
+                quote = symbol
             else:
                 asset_name = 'طلا' if symbol in ['XAU', 'XAUM'] else 'نقره' if symbol == 'XAG' else 'این دارایی'
                 quote = 'گرم'
