@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 from kavenegar import KavenegarAPI, APIException, HTTPException
 
 from accounts.models import SystemConfig
+from accounts.utils.melipayamak import MeliPayamak
 from accounts.verifiers.finotech import token_cache
 
 logger = logging.getLogger(__name__)
@@ -44,12 +45,18 @@ def send_message_by_kavenegar(phone: str, template: str, token: str, send_type: 
             })
         except (APIException, HTTPException) as e:
             logger.exception("Failed to send sms by kavenegar")
+    elif send_mode == SystemConfig.MELI_PAYAMAK:
+        client = get_melipayamak_client()
 
 
 def get_kavenegar_client() -> KavenegarAPI:
     api_key = config('KAVENEGAR_KEY')
     return KavenegarAPI(apikey=api_key)
 
+def get_melipayamak_client() ->MeliPayamak:
+    username = config('MELIPAYAMAK_USERNAME')
+    password = config('MELIPAYAMAK_PASSWORD')
+    return MeliPayamak(username,password)
 
 def send_kavenegar_exclusive_sms(phone: str, content: str):
     if not phone or settings.DEBUG_OR_TESTING_OR_STAGING or not settings.EXCLUSIVE_SMS_NUMBER:
