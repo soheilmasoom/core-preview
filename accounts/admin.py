@@ -448,8 +448,55 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     def get_readonly_fields(self, request, obj=None):
         fields = super().get_readonly_fields(request, obj)
         if settings.EXCHANGE_TYPE.is_precious_metals:
-            fields = [field for field in fields if field != 'get_positions']
+            fields = [
+                field for field in fields if field not in [
+                    'get_positions',
+                    'get_total_crypto_withdraws',
+                    'get_total_crypto_deposits',
+                    'get_remaining_crypto_withdraw_limit'
+                ]
+            ]
         return fields
+
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        if settings.EXCHANGE_TYPE.is_precious_metals:
+            updated_fieldsets = []
+            for name, options in fieldsets:
+                fields = options.get('fields', [])
+                if isinstance(fields, tuple) or isinstance(fields, list):
+                    fields = [
+                        field for field in fields if field not in [
+                            'get_positions',
+                            'get_total_crypto_withdraws',
+                            'get_total_crypto_deposits',
+                            'get_remaining_crypto_withdraw_limit'
+                        ]
+                    ]
+                updated_fieldsets.append((name, {**options, 'fields': fields}))
+            return updated_fieldsets
+        return fieldsets
+
+    def get_list_display(self, request):
+        display = list(self.list_display)
+        if settings.EXCHANGE_TYPE.is_precious_metals:
+            display = [
+                field for field in display if field not in [
+                    'get_positions',
+                    'get_total_crypto_withdraws',
+                    'get_total_crypto_deposits',
+                    'get_remaining_crypto_withdraw_limit'
+                ]
+            ]
+        return display
+
+    def get_search_fields(self, request):
+        search_fields = super().get_search_fields(request)
+        if settings.EXCHANGE_TYPE.is_precious_metals:
+            search_fields = [
+                field for field in search_fields if field not in ['get_positions']
+            ]
+        return search_fields
 
     def _get_user(self, obj):
         return obj
@@ -692,6 +739,8 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin_display_for_crypto(description='لیست پوزیشن ها')
     def get_positions(self, user: User):
+        if not settings.EXCHANGE_TYPE.is_crypto:
+            return None
         link = url_to_admin_list(MarginPosition) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
