@@ -739,7 +739,7 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin_display_for_crypto(description='لیست پوزیشن ها')
     def get_positions(self, user: User):
-        if not settings.EXCHANGE_TYPE.is_crypto:
+        if settings.EXCHANGE_TYPE.is_precious_metals:
             return None
         link = url_to_admin_list(MarginPosition) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
@@ -898,10 +898,14 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
             if history:
                 return gregorian_to_jalali_datetime_str(history.history_date)
 
-    @admin.display(description='آدرس‌های کیف پول')
+    @admin_display_for_crypto(description='آدرس‌های کیف پول')
     def get_deposit_address(self, user: User):
-        link = url_to_admin_list(DepositAddress) + '?user={}'.format(user.id)
-        return mark_safe("<a href='%s'>دیدن</a>" % link)
+        from django.urls import NoReverseMatch
+        try:
+            link = url_to_admin_list(DepositAddress) + f'?user={user.id}'
+            return mark_safe(f"<a href='{link}'>View</a>")
+        except NoReverseMatch:
+            return "Admin view not available"
 
     @admin.display(description='دارایی به تومان')
     def get_total_balance_irt_admin(self, user: User):
