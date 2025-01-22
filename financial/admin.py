@@ -129,7 +129,7 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         )}),
         ('نظر', {'fields': ('comment', 'group_id')})
     )
-    list_filter = ('status', UserRialWithdrawRequestFilter,)
+    list_filter = ('status', UserRialWithdrawRequestFilter, 'gateway')
     ordering = ('-created',)
     readonly_fields = (
         'created', 'bank_account', 'amount', 'get_iban', 'fee_amount', 'get_risks',
