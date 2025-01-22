@@ -5,10 +5,8 @@ from decouple import config
 from django.conf import settings
 from django.contrib import admin
 from django.contrib import messages
-from django.contrib.admin import SimpleListFilter
 from django.contrib.auth import get_permission_codename
 from django.contrib.auth.admin import UserAdmin
-from django.db.models import Q
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.utils.safestring import mark_safe
@@ -17,313 +15,35 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 from jalali_date.admin import ModelAdminJalaliMixin
 from simple_history.admin import SimpleHistoryAdmin
 
-from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object, admin_page_anchor, anchor_tag
-from accounts.models import FirebaseToken, Attribution, AppStatus, VerificationCode, \
-    UserFeedback, BulkNotification, EmailNotification, Consultation, SystemConfig, Forget2FA, ChangePhone, \
-    AttributionTracker, AppConfig, SpamPhone
-from accounts.models import UserComment, TrafficSource, Referral
+from _base.utils import admin_display_for_crypto, admin_register_for_precious_metals_exchange
+from accounts.admin import UserFeatureInLine, UserCommentInLine, UserStatusFilter, UserReferredFilter, \
+    UserNationalCodeFilter, AnotherUserFilter, UserPendingStatusFilter, ManualNameVerifyFilter
+from accounts.admin_guard.html_tags import url_to_admin_list, url_to_edit_object, admin_page_anchor
+from accounts.models import Referral
 from financial.models import BankCard, BankAccount, Payment
 from financial.models.withdraw_request import FiatWithdrawRequest
 from financial.utils.withdraw_limit import get_fiat_withdraw_irt_value, get_crypto_withdraw_irt_value
 from gamify.utils import check_prize_achievements
 from ledger.models import AddressKey
-from ledger.models import OTCTrade, DepositAddress, Prize, Transfer, Wallet, Trx, MarginLeverage, MarginPosition
+from ledger.models import OTCTrade, Prize, Transfer, Wallet, Trx, MarginPosition
 from ledger.utils.blocklink import get_blocklink_requester
 from ledger.utils.external_price import BUY
-from ledger.utils.fields import PENDING, DONE, CANCELED
+from ledger.utils.fields import DONE
 from ledger.utils.precision import humanize_number
 from ledger.utils.report import export_transactions
 from market.models import Trade, ReferralTrx, Order
 from stake.models import StakeRequest
 from .admin_guard import M
 from .admin_guard.admin import AdvancedAdmin
-from .models import User, Account, Notification, UserAuthRequest, Company, LevelGrants
-from .models.admin_tracker import AdminTracker
+from .models import User, Account, Notification, UserAuthRequest, LevelGrants
 from .models.login_activity import LoginActivity
-from .models.sms_notification import SmsNotification
-from .models.user_feature_perm import UserFeaturePerm
 from .tasks import basic_verify_user
 from .utils.mask import get_masked_phone
 from .utils.validation import gregorian_to_jalali_datetime_str
-from _base.utils import admin_display_for_crypto, admin_register_for_crypto_exchange
 
-MANUAL_VERIFY_CONDITION = Q(
-    Q(first_name_verified=None) | Q(last_name_verified=None),
-    national_code_verified=True,
-    birth_date_verified=True,
-    level=User.LEVEL1,
-    verify_status=User.PENDING
-)
 
-
-class UserStatusFilter(SimpleListFilter):
-    title = 'تایید سطح دو '
-    parameter_name = 'status_is_pending_or_rejected'
-
-    def lookups(self, request, model_admin):
-        return [(1, 1)]
-
-    def queryset(self, request, queryset):
-        user = request.GET.get('status_is_pending_or_rejected')
-        if user is not None:
-            return queryset.filter((Q(verify_status='pending') | Q(verify_status='rejected')))
-        else:
-            return queryset
-
-
-class UserPendingStatusFilter(SimpleListFilter):
-    title = 'تایید سطح  سه'
-    parameter_name = 'status_is_pending'
-
-    def lookups(self, request, model_admin):
-        return [(1, 1)]
-
-    def queryset(self, request, queryset):
-        user = request.GET.get('status_is_pending')
-        if user is not None:
-            return queryset.filter(verify_status='pending')
-        else:
-            return queryset
-
-
-class ManualNameVerifyFilter(SimpleListFilter):
-    title = 'نیازمند تایید دستی نام'
-    parameter_name = 'manual_name_verify'
-
-    def lookups(self, request, model_admin):
-        return (1, 'بله'), (0, 'خیر')
-
-    def queryset(self, request, queryset):
-        value = self.value()
-        if value is not None:
-
-            if value == '1':
-                return queryset.filter(MANUAL_VERIFY_CONDITION)
-            elif value == '0':
-                return queryset.exclude(MANUAL_VERIFY_CONDITION)
-
-        return queryset
-
-
-class UserNationalCodeFilter(SimpleListFilter):
-    title = 'کد ملی'
-    parameter_name = 'national_code'
-
-    def lookups(self, request, model_admin):
-        return (1, 1),
-
-    def queryset(self, request, queryset):
-        national_code = request.GET.get('national_code')
-        if national_code is not None:
-            return queryset.filter(national_code=national_code).exclude(national_code='')
-        else:
-            return queryset
-
-
-class AnotherUserFilter(SimpleListFilter):
-    title = 'دیگر کاربرها'
-    parameter_name = 'user_id_exclude'
-
-    def lookups(self, request, model_admin):
-        return (1, 1),
-
-    def queryset(self, request, queryset):
-        user_id = request.GET.get('user_id_exclude')
-        if user_id is not None:
-            return queryset.exclude(id=user_id)
-        else:
-            return queryset
-
-
-class UserCommentInLine(admin.TabularInline):
-    model = UserComment
-    extra = 1
-    fields = ('comment', 'created',)
-    readonly_fields = ('user', 'created')
-
-
-class UserFeatureInLine(admin.TabularInline):
-    model = UserFeaturePerm
-    extra = 1
-
-
-class NotificationInLine(admin.TabularInline):
-    model = Notification
-    extra = 0
-    fields = ('created', 'title', 'link', 'message', 'read_date')
-    readonly_fields = ('created', 'title', 'link', 'message', 'read_date')
-    can_delete = False
-    max_num = 10
-    ordering = ('-created',)
-
-    def has_add_permission(self, request, obj):
-        return False
-
-
-class UserReferredFilter(SimpleListFilter):
-    title = 'لیست کاربران دعوت شده'
-    parameter_name = 'owner_id'
-
-    def lookups(self, request, model_admin):
-        return [(1, 1)]
-
-    def queryset(self, request, queryset):
-
-        owner_id = request.GET.get('owner_id')
-        if owner_id is not None:
-            return queryset.filter(account__referred_by__owner__user_id=owner_id)
-        else:
-            return queryset
-
-
-@admin.register(Consultation)
-class ConsultationAdmin(admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'consulter', 'status', 'get_description',)
-    readonly_fields = ('created', 'user')
-    list_filter = ('status',)
-    search_fields = ('user__phone', 'user__email',)
-    actions = ('cancel_consultation', 'done_consultation',)
-
-    @admin.action(description='Reject', permissions=['change'])
-    def cancel_consultation(self, request, queryset):
-        queryset.filter(status=PENDING).update(status=CANCELED)
-
-    @admin.action(description='Accept', permissions=['change'])
-    def done_consultation(self, request, queryset):
-        queryset.filter(status=PENDING).update(status=DONE)
-
-    @admin.display(description='description')
-    def get_description(self, consultation: Consultation):
-        n = 300
-        description = consultation.description
-        if len(description) > n:
-            return description[:n] + '...'
-        else:
-            return description
-
-    @admin.display(description='user')
-    def get_username(self, consultation: Consultation):
-        return mark_safe(
-            f'<span dir="ltr">{consultation.user}</span>'
-        )
-
-
-class BaseChangeAdmin(admin.ModelAdmin):
-    raw_id_fields = ('user',)
-    actions = ('accept_requests', 'reject_requests',)
-    list_filter = ('status',)
-
-    def get_selfie_image_display(self, obj):
-        return "عکس سلفی"
-
-    @admin.action(description='رد درخواست', permissions=['view'])
-    def reject_requests(self, request, queryset):
-        qs = queryset.filter(status=PENDING)
-
-        for req in qs:  # type: Forget2FA
-            req.reject()
-
-    @admin.action(description='تایید درخواست', permissions=['view'])
-    def accept_requests(self, request, queryset):
-        qs = queryset.filter(status=PENDING)
-
-        for req in qs:
-            req.accept()
-
-
-@admin.register(Forget2FA)
-class Forget2FAAdmin(BaseChangeAdmin):
-    list_display = ('created', 'status', 'get_username',)
-    readonly_fields = ('created', 'status', 'user', 'selfie_image',)
-    search_fields = ('user__phone',)
-
-    @admin.display(description='user')
-    def get_username(self, forget_2fa: Forget2FA):
-        return mark_safe(
-            f'<span dir="ltr">{forget_2fa.user}</span>'
-        )
-
-
-@admin.register(ChangePhone)
-class ChangePhoneAdmin(BaseChangeAdmin):
-    list_display = ('created', 'status', 'get_username', 'new_phone')
-    readonly_fields = ('created', 'status', 'user', 'new_phone', 'selfie_image',)
-    search_fields = ('user__phone',)
-
-    @admin.display(description='user')
-    def get_username(self, change_phone: ChangePhone):
-        return mark_safe(
-            f'<span dir="ltr">{change_phone.user}</span>'
-        )
-
-
-@admin.register(AdminTracker)
-class AdminTrackerAdmin(AdvancedAdmin):
-    list_display = ('created', 'admin_link', 'model_name', 'object_id', 'url_link', 'user_link')
-    readonly_fields = ('created', 'admin_link', 'model_name', 'object_id', 'url_link', 'user_link')
-    list_filter = ('model_name', 'created')
-    search_fields = ('user__phone', 'admin__phone', 'url')
-    list_per_page = 20
-
-    @admin.display(description='Admin')
-    def admin_link(self, obj):
-        return admin_page_anchor(obj.admin, change=True)
-
-    @admin.display(description='User')
-    def user_link(self, obj):
-        return admin_page_anchor(obj.user, change=True)
-
-    @admin.display(description='Visited Url')
-    def url_link(self, obj):
-        if obj.url:
-            return anchor_tag(f'{obj.model_name}{(" " + obj.object_id) if obj.object_id else "s"}', obj.url,
-                              target="_blank")
-
-
-@admin.register(SystemConfig)
-class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
-    list_display = ('name', 'active', 'withdraw_status', 'deposit_status', 'disable_trade_with_api',
-                    'withdraw_amount_min', 'withdraw_amount_max',
-                    'min_physical_gold_withdraw', 'min_physical_silver_withdraw')
-    list_editable = (
-        'withdraw_status', 'deposit_status', 'withdraw_amount_min', 'withdraw_amount_max', 'min_physical_gold_withdraw',
-        'min_physical_silver_withdraw')
-
-    default_edit_condition = M.superuser
-
-    readonly_fields = ('platform_type',)
-
-    fields_edit_conditions = {
-        'withdraw_status': True,
-        'deposit_status': True,
-        'disable_trade_with_api': True,
-        'withdraw_amount_min': True,
-        'withdraw_amount_max': True,
-        'min_physical_gold_withdraw': True,
-        'min_physical_silver_withdraw': True,
-        'commission_type': True
-    }
-
-    actions = ('reset_users_default_margin_leverage',)
-
-    @admin.action(description='Reset Users Default Margin Leverage', permissions=['change'])
-    def reset_users_default_margin_leverage(self, request, queryset):
-        system_config = queryset.filter(active=True).first()  # type: SystemConfig
-
-        if not system_config:
-            return
-
-        MarginLeverage.objects.update(
-            leverage=min(system_config.default_margin_leverage, system_config.max_margin_leverage)
-        )
-
-
-if settings.EXCHANGE_TYPE.is_precious_metals:
-    from .admin_pm import PreciousMetalsUserAdmin
-
-
-@admin_register_for_crypto_exchange(User)
-class CryptoUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, UserAdmin):
+@admin_register_for_precious_metals_exchange(User)
+class PreciousMetalsUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, UserAdmin):
     default_edit_condition = M.superuser
     list_per_page = 20
     track_admin_activity = True
@@ -389,9 +109,9 @@ class CryptoUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         )}),
         (_('لینک های مهم'), {
             'fields': (
-                'get_wallet', 'get_transfer_link', 'get_payment_address', 'get_positions',
+                'get_wallet', 'get_transfer_link', 'get_payment_address',
                 'get_withdraw_address', 'get_otctrade_address', 'get_fill_order_address', 'get_order_link',
-                'get_open_order_address', 'get_deposit_address', 'get_bank_card_link',
+                'get_open_order_address', 'get_bank_card_link',
                 'get_bank_account_link', 'get_finotech_request_link', 'get_staking_link',
                 'get_referred_user', 'get_login_activity_link',
                 'get_notifications_link', 'get_prizes_link', 'get_bots_link', 'get_totp', 'get_dust'
@@ -428,12 +148,12 @@ class CryptoUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         'update_deposits', 'ban_credit_deposit', 'disable_2fa_auth', 'safe_delete_user',
     )
     readonly_fields = (
-        'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet', 'get_positions',
+        'get_payment_address', 'get_withdraw_address', 'get_otctrade_address', 'get_wallet',
         'get_sum_of_value_buy_sell',
         'get_selfie_image', 'get_level_2_verify_datetime_jalali', 'get_level_3_verify_datetime_jalali',
         'get_first_fiat_deposit_date_jalali', 'get_first_crypto_deposit_date_jalali',
         'get_date_joined_jalali', 'get_last_login_jalali',
-        'get_remaining_fiat_withdraw_limit', 'get_remaining_crypto_withdraw_limit', 'get_deposit_address',
+        'get_remaining_fiat_withdraw_limit', 'get_remaining_crypto_withdraw_limit',
         'get_bank_card_link', 'get_bank_account_link', 'get_transfer_link', 'get_finotech_request_link',
         'get_user_reject_reason', 'get_user_prizes', 'get_source_medium',
         'get_fill_order_address', 'verifier', 'get_revenue_of_referral', 'get_referred_count',
@@ -448,9 +168,6 @@ class CryptoUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     search_fields = ('national_code', 'phone', 'username')
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
-
-    def _get_user(self, obj):
-        return obj
 
     def has_manage_users_permission(self, request):
         opts = self.opts
@@ -569,7 +286,7 @@ class CryptoUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
         if old_user and not old_user.selfie_image_verified and user.selfie_image_verified:
             user.verifier = request.user
 
-        return super(CryptoUserAdmin, self).save_model(request, user, form, change)
+        return super(PreciousMetalsUserAdmin, self).save_model(request, user, form, change)
 
     def get_payment_address(self, user: User):
         link = url_to_admin_list(Payment) + '?user={}'.format(user.id)
@@ -686,11 +403,6 @@ class CryptoUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     @admin.display(description='لیست تراکنش های خرد')
     def get_dust(self, user: User):
         link = url_to_admin_list(Trx) + f'?user={user.id}&scope__exact={Trx.DUST}'
-        return mark_safe("<a href='%s'>دیدن</a>" % link)
-
-    @admin.display(description='لیست پوزیشن ها')
-    def get_positions(self, user: User):
-        link = url_to_admin_list(MarginPosition) + '?account={}'.format(user.get_account().id)
         return mark_safe("<a href='%s'>دیدن</a>" % link)
 
     def get_sum_of_value_buy_sell(self, user: User):
@@ -847,15 +559,6 @@ class CryptoUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
             if history:
                 return gregorian_to_jalali_datetime_str(history.history_date)
 
-    @admin.display(description='آدرس‌های کیف پول')
-    def get_deposit_address(self, user: User):
-        from django.urls import reverse, NoReverseMatch
-        try:
-            url = settings.HOST_URL + reverse('admin:ledger_depositaddress_changelist')
-            return mark_safe(f"<a href='{url}?user={user.id}'>View</a>")
-        except NoReverseMatch:
-            return "Admin view not available"
-
     @admin.display(description='دارایی به تومان')
     def get_total_balance_irt_admin(self, user: User):
         try:
@@ -917,294 +620,3 @@ class CryptoUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
     def ban_credit_deposit(self, request, queryset):
         for user in queryset:
             user.ban_deposit_by_credit_cards()
-
-
-@admin.register(Account)
-class AccountAdmin(admin.ModelAdmin):
-    list_display = ('get_username', 'type', 'name', 'trade_volume_irt', 'custom_maker_fee', 'custom_taker_fee')
-    search_fields = ('user__phone',)
-    list_filter = ('type', 'primary')
-
-    fieldsets = (
-        ('اطلاعات', {'fields': (
-            'name', 'user', 'type', 'primary', 'owned', 'trade_volume_irt', 'get_wallet',
-            'get_total_balance_irt_admin', 'get_total_balance_usdt_admin', 'referred_by',
-            'custom_maker_fee', 'custom_taker_fee', 'custom_max_margin_leverage', 'increase_fiat_withdraw_fee'
-        )}),
-    )
-    readonly_fields = ('user', 'get_wallet', 'get_total_balance_irt_admin', 'get_total_balance_usdt_admin',
-                       'trade_volume_irt', 'referred_by',)
-
-    def get_wallet(self, account: Account):
-        link = url_to_admin_list(Wallet) + '?account={}'.format(account.id)
-        return mark_safe("<a href='%s'>دیدن</a>" % link)
-
-    get_wallet.short_description = 'لیست کیف‌ها'
-
-    def get_total_balance_irt_admin(self, account: Account):
-        total_balance_irt = account.get_total_balance_irt(side=BUY)
-
-        return humanize_number(int(total_balance_irt))
-
-    get_total_balance_irt_admin.short_description = 'دارایی به تومان'
-
-    def get_total_balance_usdt_admin(self, account: Account):
-        total_blance_usdt = account.get_total_balance_usdt()
-        return humanize_number(int(total_blance_usdt))
-
-    get_total_balance_usdt_admin.short_description = 'دارایی به تتر'
-
-    @admin.display(description='user')
-    def get_username(self, account: Account):
-        return mark_safe(
-            f'<span dir="ltr">{account.user}</span>'
-        )
-
-
-@admin.register(Referral)
-class ReferralAdmin(admin.ModelAdmin):
-    list_display = ('get_username', 'code', 'owner_share_percent')
-    search_fields = ('code', 'owner__user__phone')
-    readonly_fields = ('owner',)
-
-    @admin.display(description='user')
-    def get_username(self, referral: Referral):
-        return mark_safe(
-            f'<span dir="ltr">{referral.owner}</span>'
-        )
-
-
-class FinotechRequestUserFilter(SimpleListFilter):
-    title = 'کاربر'
-    parameter_name = 'user'
-
-    def lookups(self, request, model_admin):
-        return [(1, 1)]
-
-    def queryset(self, request, queryset):
-        user = request.GET.get('user')
-        if user is not None:
-            return queryset.filter(user_id=user)
-        else:
-            return queryset
-
-
-@admin.register(UserAuthRequest)
-class UserAuthRequestAdmin(AdvancedAdmin):
-    track_admin_activity = True
-
-    list_display = ('created', 'get_username', 'url', 'status_code')
-    list_filter = (FinotechRequestUserFilter, 'status_code', 'service')
-    ordering = ('-created',)
-    search_fields = ('url', 'data')
-    raw_id_fields = ('user',)
-
-    list_permission_exclude_filters = ('id', 'user')
-
-    @admin.display(description='user')
-    def get_username(self, req: UserAuthRequest):
-        return mark_safe(
-            f'<span dir="ltr">{req.user}</span>'
-        )
-
-    def _get_user(self, obj):
-        return obj.user
-
-
-@admin.register(Notification)
-class NotificationAdmin(admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'level', 'title', 'message', 'push_status')
-    list_filter = ('level', 'push_status')
-    search_fields = ('title', 'message', 'group_id', 'recipient__phone')
-    readonly_fields = ('group_id',)
-    raw_id_fields = ('recipient',)
-
-    @admin.display(description='user')
-    def get_username(self, notification: Notification):
-        return mark_safe(
-            f'<span dir="ltr">{notification.recipient}</span>'
-        )
-
-
-@admin.register(BulkNotification)
-class BulkNotificationAdmin(admin.ModelAdmin):
-    list_display = ('created', 'status', 'level', 'title', 'message')
-    list_filter = ('level',)
-    search_fields = ('title', 'message', 'group_id')
-    readonly_fields = ('group_id', 'status')
-
-
-@admin.register(SmsNotification)
-class SmsNotificationAdmin(admin.ModelAdmin):
-    list_display = ('created', 'recipient', 'content', 'sent')
-    search_fields = ('recipient__phone', 'group_id')
-    readonly_fields = ('recipient', 'group_id')
-    list_filter = ('sent',)
-
-
-@admin.register(EmailNotification)
-class EmailNotificationAdmin(admin.ModelAdmin):
-    list_display = ('created', 'recipient', 'title', 'sent')
-    search_fields = ('recipient__phone', 'group_id', 'title')
-    readonly_fields = ('recipient', 'group_id')
-    list_filter = ('sent',)
-
-
-@admin.register(UserComment)
-class UserCommentAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    track_admin_activity = True
-
-    list_display = ['get_username', 'created']
-    readonly_fields = ('user',)
-
-    @admin.display(description='user')
-    def get_username(self, user_comment: UserComment):
-        return mark_safe(
-            f'<span dir="ltr">{user_comment.user}</span>'
-        )
-
-    def _get_user(self, obj):
-        return obj.user
-
-
-@admin.register(TrafficSource)
-class TrafficSourceAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'signup_source', 'utm_source', 'utm_medium', 'utm_campaign',
-                    'utm_content', 'utm_term', 'gps_adid', 'yandex_profile_id')
-    search_fields = ('user__phone', 'gps_adid', 'ip', 'profile_id')
-    readonly_fields = ('user',)
-    list_filter = ('signup_source', 'utm_source', 'utm_medium')
-
-    @admin.display(description='user')
-    def get_username(self, traffic_source: TrafficSource):
-        return mark_safe(
-            f'<span dir="ltr">{traffic_source.user}</span>'
-        )
-
-
-@admin.register(LoginActivity)
-class LoginActivityAdmin(admin.ModelAdmin):
-    list_display = ('created', 'get_username', 'ip', 'country', 'city', 'device', 'os', 'browser', 'device_type',
-                    'is_sign_up', 'native_app', 'get_jalali_created')
-    search_fields = ('user__phone', 'ip', 'session__session_key')
-    readonly_fields = ('user', 'ip', 'refresh_token', 'get_jalali_created')
-    list_filter = ('is_sign_up', 'native_app',)
-    exclude = ('session',)
-
-    @admin.display(description='user')
-    def get_username(self, login_activity: LoginActivity):
-        return mark_safe(
-            f'<span dir="ltr">{login_activity.user}</span>'
-        )
-
-    @admin.display(description='created jalali')
-    def get_jalali_created(self, login_activity: LoginActivity):
-        return gregorian_to_jalali_datetime_str(login_activity.created)
-
-
-@admin.register(FirebaseToken)
-class FirebaseTokenAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
-    list_display = ['created', 'user', 'active', 'ip']
-    readonly_fields = ('created', 'user')
-    list_filter = ('active', 'native_app',)
-    search_fields = ('user__phone', 'token')
-
-
-@admin.register(AttributionTracker)
-class AttributionTrackerAdmin(admin.ModelAdmin):
-    list_display = ('name', 'type', 'key',)
-    readonly_fields = ('key', 'get_postback_link')
-    list_filter = ('type',)
-
-    @admin.display(description="Postback Link")
-    def get_postback_link(self, tracker: AttributionTracker):
-        return tracker.get_postback_link()
-
-
-@admin.register(Attribution)
-class AttributionAdmin(admin.ModelAdmin):
-    list_display = ('created', 'tracker', 'installed_at', 'gps_adid', 'device_type', 'get_device', 'app_id')
-    list_filter = ('tracker', 'app_id', 'device_type')
-    search_fields = ('gps_adid', 'device_id', 'profile_id')
-
-    @admin.display(description="Device")
-    def get_device(self, attribution: Attribution):
-        return f'{attribution.device_model} ({attribution.os_name} {attribution.os_version})'
-
-
-@admin.register(AppConfig)
-class AppConfigAdmin(admin.ModelAdmin):
-    list_display = ('package_name', 'default')
-    list_editable = ('default',)
-
-
-@admin.register(AppStatus)
-class AppStatusAdmin(admin.ModelAdmin):
-    list_display = ['latest_version', 'force_update_version', 'active']
-
-
-@admin.register(VerificationCode)
-class VerificationCodeAdmin(admin.ModelAdmin):
-    list_display = ('created', 'phone', 'user', 'scope', 'expiration', 'code_used', 'missed_checks', 'ip', 'user_agent')
-    search_fields = ('user__phone', 'phone', 'user__first_name', 'user__last_name')
-    list_filter = ('scope',)
-    readonly_fields = ('user',)
-
-
-@admin.register(UserFeedback)
-class UserFeedbackAdmin(admin.ModelAdmin):
-    list_display = ['created', 'user', 'score', 'get_comment']
-    search_fields = ('user__phone', 'user__first_name', 'user__last_name')
-    readonly_fields = ('user',)
-
-    @admin.display(description='comment', ordering='comment')
-    def get_comment(self, feedback: UserFeedback):
-        n = 300
-
-        if len(feedback.comment) > n:
-            return feedback.comment[:n] + '...'
-        else:
-            return feedback.comment
-
-
-@admin.register(UserFeaturePerm)
-class UserFeaturePermAdmin(admin.ModelAdmin):
-    list_display = ('user', 'feature', 'limit')
-    search_fields = ('user__phone',)
-    list_filter = ('feature',)
-
-
-@admin.register(Company)
-class CompanyAdmin(SimpleHistoryAdmin):
-    list_display = ('national_id', 'name', 'status',)
-    readonly_fields = ('status', 'company_documents',)
-    actions = ('accept_requests', 'reject_requests', 'fetch_company_info',)
-    raw_id_fields = ('user',)
-    list_filter = ('status',)
-
-    @admin.action(description='رد اطلاعات', permissions=['view'])
-    def reject_requests(self, request, queryset):
-        for req in queryset:  # type: Company
-            req.reject()
-
-    @admin.action(description='تایید اطلاعات', permissions=['view'])
-    def accept_requests(self, request, queryset):
-        for req in queryset:
-            req.accept()
-
-    @admin.action(description='استعلام اطلاعات', permissions=['view'])
-    def fetch_company_info(self, request, queryset):
-        for req in queryset:
-            req.verify_and_fetch_company_data()
-
-
-@admin.register(LevelGrants)
-class LevelGrantsAdmin(admin.ModelAdmin):
-    list_display = ('level', 'max_daily_crypto_withdraw', 'max_daily_fiat_withdraw', 'max_daily_fiat_deposit')
-    ordering = ('level',)
-
-
-@admin.register(SpamPhone)
-class SpamPhoneAdmin(admin.ModelAdmin):
-    list_display = ('created', 'phone')
-    search_fields = ('phone',)
