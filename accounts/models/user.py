@@ -533,6 +533,7 @@ def handle_user_save(sender, instance: User, created, **kwargs):
         reject_reason=instance.reject_reason,
         first_fiat_deposit_date=instance.first_fiat_deposit_date,
         first_crypto_deposit_date=instance.first_crypto_deposit_date,
+        login_activity_id=None
     )
     producer.produce(event)
 
