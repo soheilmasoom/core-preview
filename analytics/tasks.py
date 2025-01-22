@@ -10,7 +10,7 @@ from analytics.event.producer import get_kafka_producer
 from analytics.models import ActiveTrader, EventTracker
 from analytics.utils.dto import LoginEvent, TransferEvent, TrafficSourceEvent, StakeRequestEvent, PrizeEvent, \
     TradeEvent, UserEvent, WalletEvent, TransactionEvent, TradeRevenueEvent
-from financial.models import FiatWithdrawRequest, Payment
+from financial.models import FiatWithdrawRequest, Payment, PaymentRequest
 from ledger.models import Transfer, Prize, OTCTrade, FastBuyToken, Wallet, Trx
 from ledger.utils.fields import DONE
 from ledger.utils.price import get_last_price, USDT_IRT
@@ -109,6 +109,7 @@ def trigger_users_event(threshold=1000):
             reject_reason=user.reject_reason,
             first_fiat_deposit_date=user.first_fiat_deposit_date,
             first_crypto_deposit_date=user.first_crypto_deposit_date,
+            login_activity_id=None,
         )
         get_kafka_producer().produce(event, instance=user)
 
@@ -137,7 +138,7 @@ def trigger_transfer_event(threshold=1000):
             value_irt=transfer.irt_value,
             value_usdt=transfer.usdt_value,
             event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(transfer.id) + TransferEvent.type + 'crypto'),
-            login_activity_id=transfer.login_activity_id or ''
+            login_activity_id=transfer.login_activity_id
         )
 
         get_kafka_producer().produce(event, instance=transfer)
@@ -163,7 +164,7 @@ def trigger_fiat_transfer_event(threshold=1000):
             value_usdt=float(fiat_transfer.amount) / float(usdt_price),
             is_deposit=False,
             event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(fiat_transfer.id) + TransferEvent.type + 'fiat_withdraw'),
-            login_activity_id=fiat_transfer.login_activity_id or ''
+            login_activity_id=fiat_transfer.login_activity_id
         )
 
         get_kafka_producer().produce(event, instance=fiat_transfer)
@@ -173,10 +174,12 @@ def trigger_payment_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.PAYMENT)
     payment_list = Payment.objects.filter(
         id__gt=tracker.last_id, status=DONE
-    ).order_by('id')[:threshold]
+    ).prefetch_related('paymentrequest').order_by('id')[:threshold]
     usdt_price = get_last_price(USDT_IRT)
 
     for payment in payment_list:
+        payment_request = getattr(payment, 'paymentrequest', None)  # type: PaymentRequest
+
         event = TransferEvent(
             id=payment.id,
             user_id=payment.user_id,
@@ -187,7 +190,8 @@ def trigger_payment_event(threshold=1000):
             value_usdt=float(payment.amount) / float(usdt_price),
             value_irt=payment.amount,
             created=payment.created,
-            event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(payment.id) + TransferEvent.type + 'fiat_deposit')
+            event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(payment.id) + TransferEvent.type + 'fiat_deposit'),
+            login_activity_id=payment_request and payment_request.login_activity_id
         )
 
         get_kafka_producer().produce(event, instance=payment)
@@ -281,7 +285,8 @@ def trigger_otc_trade(threshold=1000):
             value_usdt=req.usdt_value,
             value_irt=req.irt_value,
             event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(otc_trade.id) + TradeEvent.type + 'otc_trade'),
-            side=otc_trade.otc_request.side
+            side=otc_trade.otc_request.side,
+            login_activity_id=otc_trade.otc_request.login_activity_id
         )
 
         get_kafka_producer().produce(event, instance=otc_trade)
@@ -308,7 +313,8 @@ def trigger_login_event(threshold=1000):
             browser=login_activity.browser,
             city=login_activity.city,
             country=login_activity.country,
-            native_app=login_activity.native_app
+            native_app=login_activity.native_app,
+            login_activity_id=login_activity.id,
         )
 
         get_kafka_producer().produce(event, instance=login_activity)
@@ -330,7 +336,8 @@ def trigger_prize_event(threshold=1000):
             coin=prize.asset.symbol,
             voucher_expiration=prize.voucher_expiration,
             achievement_type=prize.achievement.type,
-            value=prize.value
+            value=prize.value,
+            login_activity_id=None,
         )
         get_kafka_producer().produce(event, instance=prize)
 
@@ -351,7 +358,8 @@ def trigger_stake_event(threshold=1000):
             amount=stake_request.amount,
             status=stake_request.status,
             coin=stake_request.stake_option.asset.symbol,
-            apr=stake_request.stake_option.apr
+            apr=stake_request.stake_option.apr,
+            login_activity_id=stake_request.login_activity_id
         )
         get_kafka_producer().produce(event, instance=stake_request)
 
@@ -372,6 +380,7 @@ def trigger_traffic_source(threshold=1000):
             utm_campaign=traffic_source.utm_campaign,
             utm_content=traffic_source.utm_content,
             utm_term=traffic_source.utm_term,
+            login_activity_id=None
         )
         get_kafka_producer().produce(event, instance=traffic_source)
 
@@ -393,7 +402,8 @@ def trigger_wallet_event(threshold=1000):
             id=wallet.id,
             balance=wallet.balance,
             coin=wallet.asset.symbol,
-            market=wallet.market
+            market=wallet.market,
+            login_activity_id=None
         )
         get_kafka_producer().produce(event, instance=wallet)
 
@@ -421,6 +431,7 @@ def trigger_transaction_event(threshold=1000):
             receiver_wallet_id=trx.receiver.id,
             group_id=trx.group_id,
             scope=trx.scope,
-            user_id=None
+            user_id=None,
+            login_activity_id=None
         )
         get_kafka_producer().produce(event, instance=trx)

@@ -9,9 +9,9 @@ from typing import Union, ClassVar
 class BaseEvent:
     v: ClassVar[str] = '1'
     created: datetime
-    user_id: int
+    user_id: Union[int, None]
     event_id: uuid
-    login_activity_id: int
+    login_activity_id: Union[int, None]
 
     def serialize(self):
         pass
