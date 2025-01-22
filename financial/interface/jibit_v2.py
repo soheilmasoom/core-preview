@@ -9,6 +9,7 @@ from financial.exceptions import ProviderError
 from financial.interface.base_interface import BaseChannel, WithdrawDTO, WalletDTO
 from financial.models.withdraw_request import BaseTransfer
 from financial.utils.ach import next_ach_clear_time
+from financial.utils.jibit import get_jibit_error_message
 from ledger.utils.fields import PENDING, DONE, CANCELED
 
 logger = logging.getLogger(__name__)
@@ -99,16 +100,15 @@ class JibitChannelV2(BaseChannel):
         })
 
         if not resp.success:
-            error = resp.data['errors'][0]
-            code = error['code']
-            message = error.get('message', '') + f' ({code})'
-            if code == 'transfer.already_exists':
+            error = get_jibit_error_message(resp.data)
+            message = error.message + f' ({error.code})'
+            if error.code == 'transfer.already_exists':
                 return WithdrawDTO(
                     tracking_id='',
                     status=PENDING,
                 )
 
-            elif code == 'transfers.0.source_bank.not_supported':
+            elif error.code == 'transfers.0.source_bank.not_supported':
                 return WithdrawDTO(
                     tracking_id='',
                     status=CANCELED,
