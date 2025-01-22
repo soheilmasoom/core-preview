@@ -9,7 +9,7 @@ from accounts.models import User, LoginActivity, TrafficSource, Account
 from analytics.event.producer import get_kafka_producer
 from analytics.models import ActiveTrader, EventTracker
 from analytics.utils.dto import LoginEvent, TransferEvent, TrafficSourceEvent, StakeRequestEvent, PrizeEvent, \
-    TradeEvent, UserEvent, WalletEvent, TransactionEvent
+    TradeEvent, UserEvent, WalletEvent, TransactionEvent, TradeRevenueEvent
 from financial.models import FiatWithdrawRequest, Payment
 from ledger.models import Transfer, Prize, OTCTrade, FastBuyToken, Wallet, Trx
 from ledger.utils.fields import DONE
@@ -56,6 +56,7 @@ def trigger_kafka_event():
     trigger_payment_event()
 
     trigger_trade_event()
+    trigger_trade_revenue_event()
 
     trigger_otc_trade()
 
@@ -195,16 +196,12 @@ def trigger_payment_event(threshold=1000):
 def trigger_trade_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.TRADE)
     trade_list = Trade.objects.filter(
-        id__gt=tracker.last_id, account__user__isnull=False
-    ).exclude(
-        account__type=Account.SYSTEM
+        id__gt=tracker.last_id,
+        account__user__isnull=False
     ).order_by('id')[:threshold]
 
     for trade in trade_list:
-        if trade.account is None or \
-                trade.account.user is None or \
-                trade.account.type == Account.SYSTEM or \
-                trade.account.user_id in [93167, 382]:
+        if trade.account.user_id in [93167, 382]:
             continue
 
         event = TradeEvent(
@@ -224,6 +221,35 @@ def trigger_trade_event(threshold=1000):
         )
 
         get_kafka_producer().produce(event, instance=trade)
+
+
+def trigger_trade_revenue_event(threshold=1000):
+    tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.TRADE_REVENUE)
+    revenues = TradeRevenue.objects.filter(
+        id__gt=tracker.last_id,
+        account__user__isnull=False
+    ).order_by('id')[:threshold]
+
+    for r in revenues:  # type: TradeRevenue
+        event = TradeRevenueEvent(
+            id=r.id,
+            user_id=r.account.user_id,
+            amount=r.amount,
+            price=r.price,
+            symbol=r.symbol.name,
+            market='spot' if r.position is None else 'margin',
+            created=r.created,
+            value_usdt=0 if r.value_is_fake else r.value,
+            value_irt=0 if r.value_is_fake else r.value_irt,
+            event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(r.id) + TradeEvent.type + 'trade'),
+            side=r.side,
+            login_activity_id=r.login_activity_id,
+            fee_revenue=r.fee_revenue,
+            gap_revenue=r.gap_revenue,
+            source=r.source
+        )
+
+        get_kafka_producer().produce(event, instance=r)
 
 
 def trigger_otc_trade(threshold=1000):

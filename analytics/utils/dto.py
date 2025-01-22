@@ -9,9 +9,9 @@ from typing import Union, ClassVar
 class BaseEvent:
     v: ClassVar[str] = '1'
     created: datetime
-    user_id: Union[int, None]
+    user_id: int
     event_id: uuid
-    login_activity_id: int = None
+    login_activity_id: int
 
     def serialize(self):
         pass
@@ -121,6 +121,43 @@ class TradeEvent(BaseEvent):
             'value_irt': float(self.value_irt),
             'value_usdt': float(self.value_usdt),
             'side': self.side
+        }
+
+
+@dataclass(kw_only=True)
+class TradeRevenueEvent(BaseEvent):
+    id: int
+    amount: Decimal
+    symbol: str
+    price: Decimal
+    source: str
+    market: str
+    value_irt: Decimal
+    value_usdt: Decimal
+    type: ClassVar[str] = 'revenue'
+    side: str
+    fee_revenue: Decimal
+    gap_revenue: Decimal
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'type': self.type,
+            'login_activity_id': self.login_activity_id,
+            'created': self.created.isoformat(),
+            'v': self.v,
+            'event_id': str(self.event_id),
+            'user_id': self.user_id,
+            'amount': float(self.amount),
+            'symbol': self.symbol,
+            'price': float(self.price),
+            'source': self.source,
+            'market': self.market,
+            'value_irt': float(self.value_irt),
+            'value_usdt': float(self.value_usdt),
+            'side': self.side,
+            'fee_revenue': self.fee_revenue,
+            'gap_revenue': self.gap_revenue,
         }
 
 
