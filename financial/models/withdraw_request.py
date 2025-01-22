@@ -269,26 +269,3 @@ class FiatWithdrawRequest(BaseTransfer):
         permissions = [
             ("list_fiatwithdrawrequest", "Can list fiat withdraw request"),
         ]
-
-
-@receiver(post_save, sender=FiatWithdrawRequest)
-def handle_withdraw_request_save(sender, instance, created, **kwargs):
-    if instance.status != DONE or settings.DEBUG_OR_TESTING_OR_STAGING:
-        return
-
-    usdt_price = get_last_price(USDT_IRT)
-
-    event = TransferEvent(
-        id=instance.id,
-        user_id=instance.bank_account.user_id,
-        amount=instance.amount,
-        coin='IRT',
-        network='IRT',
-        created=instance.created,
-        value_irt=instance.amount,
-        value_usdt=float(instance.amount) / float(usdt_price),
-        is_deposit=False,
-        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(instance.id) + TransferEvent.type + 'fiat_withdraw')
-    )
-
-    get_kafka_producer().produce(event)
