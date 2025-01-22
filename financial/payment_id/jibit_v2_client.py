@@ -186,12 +186,14 @@ class JibitClientV2(JibitClient):
             self._fail(external_ref=ref_number)
             payment_request.refresh_from_db()
 
-        elif payment_request.user \
-                and (payment_request.kyt_passed or payment_request.record_type in PaymentIdRequest.NO_KYT_RECORD_TYPES):
+        elif payment_request.user:
+            ignore_kyt = self.gateway.type != PaymentIdGateway.PAYMENT_ID or \
+                         payment_request.record_type == PaymentIdRequest.CARD
 
-            payment_request.accept()
-            self._verify(external_ref=ref_number)
-            payment_request.refresh_from_db()
+            if payment_request.kyt_passed or ignore_kyt:
+                payment_request.accept()
+                self._verify(external_ref=ref_number)
+                payment_request.refresh_from_db()
 
         return payment_request
 
