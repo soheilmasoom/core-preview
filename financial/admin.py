@@ -581,7 +581,7 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
             client = get_payment_id_client(payment_request.gateway)
             client.refund_payment_request(payment_request)
 
-    @admin.action(description='Update with Provider', permissions=['change'])
+    @admin.action(description='Update with Provider', permissions=['view'])
     def update_with_provider(self, request, queryset):
         for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
             client = get_payment_id_client(payment_request.gateway)
