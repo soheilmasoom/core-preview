@@ -16,7 +16,7 @@ class SystemConfig(models.Model):
     history = HistoricalRecords()
 
     TRANSFER_STATUS = ALLOW, BAN, BAN_CRYPTO, BAN_FIAT = 'allow', 'ban', 'ban_crypto', 'ban_fiat'
-    OTP_SEND_MODES = OTP_KAVENEGAR, OTP_KAVENEGAR_EXCLUSIVE = 'kavenegar', 'kavenegar_exclusive'
+    OTP_SEND_MODES = OTP_KAVENEGAR, OTP_KAVENEGAR_EXCLUSIVE, MELI_PAYAMAK = 'kavenegar', 'kavenegar_exclusive','melipayamak'
 
     PLATFORM_TYPES = CRYPTO, GOLD = 'crypto', 'gold'
     COMMISSION_TYPES = FEE_DEDUCT_RECEIVING, FEE_ADD_PAYING = 'fee_deduct_receiving', 'fee_add_paying'
