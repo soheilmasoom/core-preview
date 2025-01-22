@@ -445,6 +445,12 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     list_permission_exclude_filters = ('id', 'phone', 'national_code')
 
+    def get_readonly_fields(self, request, obj=None):
+        fields = super().get_readonly_fields(request, obj)
+        if settings.EXCHANGE_TYPE.is_precious_metals:
+            fields = [field for field in fields if field != 'get_positions']
+        return fields
+
     def _get_user(self, obj):
         return obj
 

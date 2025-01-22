@@ -21,7 +21,7 @@ def admin_register_for_precious_metals_exchange(model):
     def decorator(admin_class):
         if settings.EXCHANGE_TYPE.is_precious_metals:
             return admin.register(model)(admin_class)
-        return admin_class
+        return type('UnregisteredAdmin', (object,), {})
 
     return decorator
 
@@ -30,7 +30,7 @@ def admin_register_for_crypto_exchange(model):
     def decorator(admin_class):
         if settings.EXCHANGE_TYPE.is_crypto:
             return admin.register(model)(admin_class)
-        return admin_class
+        return type('UnregisteredAdmin', (object,), {})
 
     return decorator
 
