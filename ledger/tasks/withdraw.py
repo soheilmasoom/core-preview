@@ -89,7 +89,7 @@ def create_withdraw(transfer_id: int):
             memo=transfer.memo
         )
 
-        resp_data = response.data
+        resp_data = response.get_success_data()
         reject_reason = resp_data.get('reason', '')
         reject_type = resp_data.get('type')
 
