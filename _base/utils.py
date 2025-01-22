@@ -40,7 +40,12 @@ def admin_display_for_crypto(description=None, **kwargs):
 
     def decorator(func):
         if not settings.EXCHANGE_TYPE.is_crypto:
-            return None
+            # Return a function that returns None instead of returning None directly
+            @admin.display(description=description, **valid_kwargs)
+            def dummy_func(*args, **kwargs):
+                return None
+
+            return dummy_func
         return admin.display(description=description, **valid_kwargs)(func)
 
     return decorator

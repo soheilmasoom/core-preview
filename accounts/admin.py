@@ -900,12 +900,15 @@ class CustomUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, AdvancedAdmin, 
 
     @admin_display_for_crypto(description='آدرس‌های کیف پول')
     def get_deposit_address(self, user: User):
-        from django.urls import NoReverseMatch
         try:
-            link = url_to_admin_list(DepositAddress) + f'?user={user.id}'
-            return mark_safe(f"<a href='{link}'>View</a>")
-        except NoReverseMatch:
-            return "Admin view not available"
+            from django.urls import reverse, NoReverseMatch
+            try:
+                url = settings.HOST_URL + reverse('admin:ledger_depositaddress_changelist')
+                return mark_safe(f"<a href='{url}?user={user.id}'>View</a>")
+            except NoReverseMatch:
+                return "Admin view not available"
+        except Exception:
+            return None
 
     @admin.display(description='دارایی به تومان')
     def get_total_balance_irt_admin(self, user: User):
