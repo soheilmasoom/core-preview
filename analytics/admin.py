@@ -11,8 +11,9 @@ class DailyAnalyticsAdmin(admin.ModelAdmin):
 
 
 @admin.register(EventTracker)
-class DailyAnalyticsAdmin(admin.ModelAdmin):
-    list_display = ('created', 'type', 'last_id')
+class EventTrackerAdmin(admin.ModelAdmin):
+    list_display = ('created', 'type', 'enable', 'last_id')
+    list_editable = ('enable', )
 
 
 @admin.register(ReportPermission)
