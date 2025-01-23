@@ -18,3 +18,5 @@ class EventTracker(models.Model):
         choices=[(t, t) for t in TYPES],
         unique=True
     )
+
+    enable = models.BooleanField(default=True)

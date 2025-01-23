@@ -229,6 +229,9 @@ def trigger_trade_event(threshold=1000):
 
 def trigger_trade_revenue_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.TRADE_REVENUE)
+    if not tracker.enable:
+        return
+
     revenues = TradeRevenue.objects.filter(
         id__gt=tracker.last_id,
         account__user__isnull=False
@@ -245,7 +248,7 @@ def trigger_trade_revenue_event(threshold=1000):
             created=r.created,
             value_usdt=0 if r.value_is_fake else r.value,
             value_irt=0 if r.value_is_fake else r.value_irt,
-            event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(r.id) + TradeEvent.type + 'trade'),
+            event_id=uuid.uuid5(uuid.NAMESPACE_DNS, f'{TradeRevenueEvent.type}:{r.id}'),
             side=r.side,
             login_activity_id=r.login_activity_id,
             fee_revenue=r.fee_revenue,
