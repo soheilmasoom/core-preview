@@ -80,7 +80,7 @@ def create_withdraw(transfer_id: int):
 
         assert coin_mult == 1 or (asset.symbol != asset.original_symbol and asset.original_symbol)
 
-        response = get_blocklink_requester().withdraw(
+        resp = get_blocklink_requester().withdraw(
             receiver_address=transfer.out_address,
             amount=transfer.amount * coin_mult,
             network=transfer.network.symbol,
@@ -89,20 +89,21 @@ def create_withdraw(transfer_id: int):
             memo=transfer.memo
         )
 
-        resp_data = response.get_success_data()
+        resp_data = resp.data
+
         reject_reason = resp_data.get('reason', '')
         reject_type = resp_data.get('type')
 
-        if response.ok:
+        if resp.ok:
             transfer.status = PENDING
             transfer.save(update_fields=['status'])
 
-        elif response.status_code == 403 or response.status_code >= 500:
+        elif resp.status_code == 403 or resp.status_code >= 500:
             logger.info('withdraw %s received 403' % transfer.id)
             return
 
-        elif response.status_code == 400 and reject_type == 'Invalid':
-            logger.info('withdraw failed %s %s %s' % (transfer.id, response.status_code, resp_data))
+        elif resp.status_code == 400 and reject_type == 'Invalid':
+            logger.info('withdraw failed %s %s %s' % (transfer.id, resp.status_code, resp_data))
             transfer.reject(reason=f'Rejected by blocklink: {reject_reason}')
 
             if reject_reason == 'InvalidReceiverAddress':
@@ -115,7 +116,7 @@ def create_withdraw(transfer_id: int):
                     message='آدرس مقصد وارد شده نامعتبر است'
                 )
 
-        elif response.status_code == 400 and reject_type == 'NotHandled':
+        elif resp.status_code == 400 and reject_type == 'NotHandled':
             logger.info('withdraw switch %s %s' % (transfer.id, resp_data))
 
             # if transfer.network_asset.allow_provider_withdraw:
@@ -126,7 +127,7 @@ def create_withdraw(transfer_id: int):
             change_to_manual(transfer)
 
         else:
-            logger.info('withdraw failed %s %s %s' % (transfer.id, response.status_code, resp_data))
+            logger.info('withdraw failed %s %s %s' % (transfer.id, resp.status_code, resp_data))
 
             transfer.status = PENDING
             transfer.save(update_fields=['status'])
