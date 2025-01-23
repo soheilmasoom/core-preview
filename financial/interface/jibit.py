@@ -123,13 +123,11 @@ class JibitChannel(BaseChannel):
             code = resp.data['errors'][0]['code']
             if code == 'transfer.already_exists':
                 return WithdrawDTO(
-                    tracking_id='',
                     status=PENDING,
                 )
 
             elif code == 'transfers.0.source_bank.not_supported':
                 return WithdrawDTO(
-                    tracking_id='',
                     status=CANCELED,
                     message=code,
                 )
@@ -141,7 +139,6 @@ class JibitChannel(BaseChannel):
             raise ProviderError('Jibit submission failed')
 
         return WithdrawDTO(
-            tracking_id='',
             status=PENDING,
             receive_datetime=next_ach_clear_time()
         )

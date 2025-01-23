@@ -1,23 +1,16 @@
 import logging
-import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
-from django.db.models.signals import post_save
-from django.dispatch import receiver
+from django.db import models
 from django.template.loader import render_to_string
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
-from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import Account, EmailNotification, SmsNotification
 from accounts.models import Notification
 from accounts.tasks.send_sms import send_message_by_kavenegar
-from accounts.utils.telegram import send_system_message
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
-from analytics.event.producer import get_kafka_producer
-from analytics.utils.dto import TransferEvent
 from financial.exceptions import NoChannelError, ProviderError
 from financial.models.base_transfer import BaseTransfer
 from financial.utils.interface import get_withdraw_channel
@@ -25,7 +18,6 @@ from ledger.models import Trx, Asset
 from ledger.utils.fields import get_status_field, PENDING, CANCELED, DONE, REFUND, PROCESS, UNKNOWN
 from ledger.utils.fraud import verify_fiat_withdraw
 from ledger.utils.precision import humanize_number
-from ledger.utils.price import get_last_price, USDT_IRT
 from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 
@@ -40,6 +32,8 @@ class FiatWithdrawRequest(BaseTransfer):
     fee_amount = models.PositiveIntegerField(verbose_name='کارمزد')
 
     status = get_status_field()
+
+    provider_status = models.CharField(max_length=32, blank=True)
 
     comment = models.TextField(verbose_name='نظر', blank=True)
 
@@ -103,11 +97,13 @@ class FiatWithdrawRequest(BaseTransfer):
 
         try:
             withdraw = api_handler.create_withdraw(transfer=self)
-            to_update = ['withdraw_datetime', 'receive_datetime']
+            to_update = ['withdraw_datetime', 'receive_datetime', 'provider_status']
 
-            if withdraw.tracking_id is not None:
+            if withdraw.tracking_id:
                 self.ref_id = withdraw.tracking_id
                 to_update.append('ref_id')
+
+            self.provider_status = withdraw.provider_status
 
             self.receive_datetime = withdraw.receive_datetime
 
@@ -141,10 +137,14 @@ class FiatWithdrawRequest(BaseTransfer):
         status = withdraw_data.status
 
         if status == UNKNOWN:
+            self.add_comment(withdraw_data.message)
             logger.info(f'Updating fiat withdraw {self.id} ignored due to unknown status')
             return
 
         logger.info(f'FiatRequest {self.id} status: {status}')
+
+        self.provider_status = withdraw_data.provider_status
+        self.save(update_fields=['provider_status'])
 
         if status in (DONE, CANCELED):
             self.change_status(status)

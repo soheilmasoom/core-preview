@@ -83,7 +83,6 @@ class ZibalBajehChannel(BaseChannel):
         except ServerError as e:
             if e.args[0].get('result') == 16:
                 return WithdrawDTO(
-                    tracking_id=None,
                     status=PENDING,
                 )
             else:
@@ -114,7 +113,6 @@ class ZibalBajehChannel(BaseChannel):
 
         if not checkouts:
             return WithdrawDTO(
-                tracking_id='',
                 status=UNKNOWN
             )
 

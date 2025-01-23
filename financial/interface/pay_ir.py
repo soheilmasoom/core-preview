@@ -85,7 +85,6 @@ class PayirChannel(BaseChannel):
         status = data['cashout']['status']
 
         return WithdrawDTO(
-            tracking_id='',
             status=mapping_status.get(int(status), PENDING)
         )
 
