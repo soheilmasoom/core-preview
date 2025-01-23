@@ -136,7 +136,7 @@ class JibitChannelV2(BaseChannel):
         resp = self._collect_api(f'/v1/orders/settlement/{transfer.group_id}')
 
         if not resp.success:
-            error = get_jibit_error_message(resp.data)
+            error = get_jibit_error_message(resp.data or {})
             message = error.message + f' ({error.code})'
 
             return WithdrawDTO(
