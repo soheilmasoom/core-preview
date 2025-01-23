@@ -102,19 +102,8 @@ class JibitChannelV2(BaseChannel):
         if not resp.success:
             error = get_jibit_error_message(resp.data)
             message = error.message + f' ({error.code})'
-            if error.code == 'transfer.already_exists':
-                return WithdrawDTO(
-                    tracking_id='',
-                    status=PENDING,
-                )
-
-            elif error.code == 'transfers.0.source_bank.not_supported':
-                return WithdrawDTO(
-                    tracking_id='',
-                    status=CANCELED,
-                    message=message,
-                )
-
+            if resp.status_code == 500:
+                return self.get_withdraw_status(transfer)
             else:
                 raise ProviderError(message)
 
