@@ -267,7 +267,7 @@ def trigger_otc_trade(threshold=1000):
         status=OTCTrade.DONE
     ).exclude(
         otc_request__account__type=Account.SYSTEM
-    ).prefetch_related('otc_trade__account', 'otc_trade__symbol').order_by('id')[:threshold]
+    ).prefetch_related('otc_request__account', 'otc_request__symbol').order_by('id')[:threshold]
 
     for otc_trade in otc_trade_list:
         trade_type = 'otc'
