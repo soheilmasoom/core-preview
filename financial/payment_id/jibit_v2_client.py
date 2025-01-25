@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import User
-from accounts.utils.similarity import clean_persian_word
+from accounts.utils.similarity import clean_persian_word, name_similarity
 from accounts.utils.telegram import send_system_message
 from financial.exceptions import DuplicatedPaymentError
 from financial.models import PaymentIdRequest, PaymentId, BankCard, BankAccount, PaymentIdGateway
@@ -192,7 +192,7 @@ class JibitClientV2(JibitClient):
 
             user_full_name = payment_request.user.get_full_name()
 
-            if payment_request.kyt_passed or ignore_kyt or payment_request.sender_name == user_full_name:
+            if payment_request.kyt_passed or ignore_kyt or name_similarity(payment_request.sender_name, user_full_name):
                 payment_request.accept()
                 self._verify(external_ref=ref_number)
                 payment_request.refresh_from_db()
