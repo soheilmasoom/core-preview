@@ -1,5 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 from django_otp.plugins.otp_totp.models import TOTPDevice
+
+from _base import settings
 from accounts.models import User
 
 
@@ -21,12 +23,15 @@ class Command(BaseCommand):
 
         try:
             user = User.objects.get(username=username)
-            user.is_staff = True
-            user.is_superuser = True
+            user.is_staff = user.is_superuser = True
             user.save()
-            device = TOTPDevice.objects.create(user=user, name='main')
-            config_url = device.config_url
-            self.stdout.write(self.style.SUCCESS(f'OTP Config URL: {config_url}'))
+
+            device = TOTPDevice.objects.filter(user=user).first()
+            if not device:
+                device = TOTPDevice.objects.create(user=user, name='main')
+
+            raw_key = device.bin_key.hex()
+            print(f'otpauth://totp/{settings.BRAND_EN}:{user.username}?secret={raw_key}&issuer={settings.BRAND_EN}')
         except User.DoesNotExist:
             self.stdout.write(self.style.ERROR('Admin user not found'))
         except Exception as e:
