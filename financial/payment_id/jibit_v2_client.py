@@ -190,7 +190,9 @@ class JibitClientV2(JibitClient):
             ignore_kyt = self.gateway.type != PaymentIdGateway.PAYMENT_ID or \
                          payment_request.record_type == PaymentIdRequest.CARD
 
-            if payment_request.kyt_passed or ignore_kyt:
+            user_full_name = payment_request.user.get_full_name()
+
+            if payment_request.kyt_passed or ignore_kyt or payment_request.sender_name == user_full_name:
                 payment_request.accept()
                 self._verify(external_ref=ref_number)
                 payment_request.refresh_from_db()
