@@ -118,7 +118,7 @@ def trigger_transfer_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.TRANSFER)
     transfer_list = Transfer.objects.filter(
         id__gt=tracker.last_id, status=DONE
-    ).order_by('id')[:threshold]
+    ).prefetch_related('wallet__account', 'wallet__asset', ).order_by('id')[:threshold]
 
     for transfer in transfer_list:
 
@@ -150,7 +150,7 @@ def trigger_fiat_transfer_event(threshold=1000):
     fiat_transfer_list = FiatWithdrawRequest.objects.filter(
         id__gt=tracker.last_id,
         status=DONE
-    ).order_by('id')[:threshold]
+    ).prefetch_related('bank_account').order_by('id')[:threshold]
 
     for fiat_transfer in fiat_transfer_list:
         event = TransferEvent(
@@ -202,7 +202,7 @@ def trigger_trade_event(threshold=1000):
     trade_list = Trade.objects.filter(
         id__gt=tracker.last_id,
         account__user__isnull=False
-    ).order_by('id')[:threshold]
+    ).prefetch_related('account', 'symbol').order_by('id')[:threshold]
 
     for trade in trade_list:
         if trade.account.user_id in [93167, 382]:
@@ -235,7 +235,7 @@ def trigger_trade_revenue_event(threshold=1000):
     revenues = TradeRevenue.objects.filter(
         id__gt=tracker.last_id,
         account__user__isnull=False
-    ).order_by('id')[:threshold]
+    ).prefetch_related('symbol', 'account').order_by('id')[:threshold]
 
     for r in revenues:  # type: TradeRevenue
         event = TradeRevenueEvent(
@@ -244,7 +244,7 @@ def trigger_trade_revenue_event(threshold=1000):
             amount=r.amount,
             price=r.price,
             symbol=r.symbol.name,
-            market='spot' if r.position is None else 'margin',
+            market='spot' if r.position_id is None else 'margin',
             created=r.created,
             value_usdt=0 if r.value_is_fake else r.value,
             value_irt=0 if r.value_is_fake else r.value_irt,
@@ -267,7 +267,7 @@ def trigger_otc_trade(threshold=1000):
         status=OTCTrade.DONE
     ).exclude(
         otc_request__account__type=Account.SYSTEM
-    ).order_by('id')[:threshold]
+    ).prefetch_related('account', 'symbol').order_by('id')[:threshold]
 
     for otc_trade in otc_trade_list:
         trade_type = 'otc'
@@ -327,7 +327,7 @@ def trigger_prize_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.PRIZE)
     prize_list = Prize.objects.filter(
         id__gt=tracker.last_id,
-    ).order_by('id')[:threshold]
+    ).prefetch_related('achievement').order_by('id')[:threshold]
 
     for prize in prize_list:  # type: Prize
         event = PrizeEvent(
@@ -349,7 +349,7 @@ def trigger_stake_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.STAKING)
     stake_request_list = StakeRequest.objects.filter(
         id__gt=tracker.last_id, status=DONE
-    ).order_by('id')[:threshold]
+    ).prefetch_related('account', 'stake_request__asset').order_by('id')[:threshold]
 
     for stake_request in stake_request_list:
         event = StakeRequestEvent(
@@ -357,7 +357,7 @@ def trigger_stake_event(threshold=1000):
             user_id=stake_request.account.user_id,
             event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(stake_request.id) + StakeRequestEvent.type),
             stake_request_id=stake_request.id,
-            stake_option_id=stake_request.stake_option.id,
+            stake_option_id=stake_request.stake_option_id,
             amount=stake_request.amount,
             status=stake_request.status,
             coin=stake_request.stake_option.asset.symbol,
@@ -395,7 +395,7 @@ def trigger_wallet_event(threshold=1000):
         account__user__isnull=False
     ).exclude(
         market=Wallet.VOUCHER
-    ).order_by('id')[:threshold]
+    ).prefetch_related('account', 'asset').order_by('id')[:threshold]
 
     for wallet in wallet_list:
         event = WalletEvent(
@@ -430,8 +430,8 @@ def trigger_transaction_event(threshold=1000):
             event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(trx.id) + TransactionEvent.type),
             id=trx.id,
             amount=trx.amount,
-            sender_wallet_id=trx.sender.id,
-            receiver_wallet_id=trx.receiver.id,
+            sender_wallet_id=trx.sender_id,
+            receiver_wallet_id=trx.receiver_id,
             group_id=trx.group_id,
             scope=trx.scope,
             user_id=None,
