@@ -231,7 +231,9 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         except InvalidAmount as e:
             raise ValidationError(str(e))
         except SmallAmountTrade:
-            raise ValidationError('ارزش معامله، باید حداقل ۱۰,۰۰۰ تومان باشد.')
+            min_amount = SystemConfig.get_system_config().min_otc_irt
+            raise ValidationError(
+                f'ارزش معامله، باید حداقل {str(min_amount).translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")).replace(",", "٬")} تومان باشد.')
         except InsufficientBalance:
             raise ValidationError({'amount': 'موجودی کافی نیست.'})
         except SmallDepthError as exp:
