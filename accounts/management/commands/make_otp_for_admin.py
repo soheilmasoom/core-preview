@@ -29,9 +29,8 @@ class Command(BaseCommand):
             device = TOTPDevice.objects.filter(user=user).first()
             if not device:
                 device = TOTPDevice.objects.create(user=user, name='main')
-
-            raw_key = device.bin_key.hex()
-            print(f'otpauth://totp/{settings.BRAND_EN}:{user.username}?secret={raw_key}&issuer={settings.BRAND_EN}')
+            device.confirmed = True
+            print(f'{device.config_url}')
         except User.DoesNotExist:
             self.stdout.write(self.style.ERROR('Admin user not found'))
         except Exception as e:
