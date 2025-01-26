@@ -9,11 +9,12 @@ from urllib3.exceptions import ReadTimeoutError
 from accounts.utils.similarity import split_names
 from accounts.models import User, UserAuthRequest
 from accounts.verifiers.utils import *
+from accounts.verifiers.verification_service import VerificationService
 
 logger = logging.getLogger(__name__)
 
 
-class ZibalRequester:
+class ZibalRequester(VerificationService):
     BASE_URL = 'https://api.zibal.ir'
 
     RESULT_MAP = {
@@ -110,7 +111,8 @@ class ZibalRequester:
         resp = Response(data=resp_data, status_code=resp.ok)
         return resp
 
-    def matching(self, phone_number: str = None, national_code: str = None) -> Response:
+    def matching(self, phone_number: str = None, national_code: str = None, full_name: str = None,
+                 birth_date: datetime = None, card_pan: str = None, iban: str = None) -> Response:
         params = {
             "mobile": phone_number,
             "nationalCode": national_code
@@ -295,7 +297,7 @@ class ZibalRequester:
         )
         return resp
 
-    def national_code_card_matching(self, national_code: str, card_pan: str,  birth_date: datetime = None) -> Response:
+    def national_code_card_matching(self, national_code: str, card_pan: str, birth_date: datetime = None) -> Response:
         if birth_date:
             from accounts.utils.validation import gregorian_to_jalali_date_str
             birth_date = gregorian_to_jalali_date_str(birth_date).replace('/', '')

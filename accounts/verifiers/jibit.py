@@ -10,7 +10,7 @@ from urllib3.exceptions import ReadTimeoutError
 from accounts.models import UserAuthRequest
 from accounts.utils.validation import gregorian_to_jalali_date_str
 from accounts.verifiers.utils import *
-
+from accounts.verifiers.verification_service import VerificationService
 
 logger = logging.getLogger(__name__)
 token_cache = caches['token']
@@ -18,7 +18,7 @@ token_cache = caches['token']
 JIBIT_TOKEN_KEY = 'jibit-token'
 
 
-class JibitRequester:
+class JibitRequester(VerificationService):
     BASE_URL = 'https://napi.jibit.ir/ide'
 
     RESULT_MAP = {
@@ -32,6 +32,7 @@ class JibitRequester:
     }
 
     def __init__(self, user):
+        super().__init__(user)
         self._user = user
 
     def _get_cc_token(self, force_renew: bool = False):

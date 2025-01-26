@@ -17,6 +17,7 @@ class SystemConfig(models.Model):
 
     TRANSFER_STATUS = ALLOW, BAN, BAN_CRYPTO, BAN_FIAT = 'allow', 'ban', 'ban_crypto', 'ban_fiat'
     OTP_SEND_MODES = OTP_KAVENEGAR, OTP_KAVENEGAR_EXCLUSIVE, MELI_PAYAMAK = 'kavenegar', 'kavenegar_exclusive','melipayamak'
+    VERIFICATION_SERVICES = JIBIT, ZIBAL = 'jibit', 'zibal'
 
     PLATFORM_TYPES = CRYPTO, GOLD = 'crypto', 'gold'
     COMMISSION_TYPES = FEE_DEDUCT_RECEIVING, FEE_ADD_PAYING = 'fee_deduct_receiving', 'fee_add_paying'
@@ -94,6 +95,11 @@ class SystemConfig(models.Model):
         default=OTP_KAVENEGAR
     )
 
+    kyc_service = models.CharField(
+        max_length=32,
+        choices=[(m, m) for m in VERIFICATION_SERVICES],
+        default=JIBIT
+    )
     pay_id_enable = models.BooleanField(default=True)
     pay_id_requests_process = models.BooleanField(default=False)
     commission_type = models.CharField(
