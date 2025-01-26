@@ -56,7 +56,10 @@ class JibitClientV2(JibitClient):
 
         for element in reversed(data.get("elements", [])):
             transaction = self._parse_transaction(element)
-            self.process_new_deposit(transaction)
+            try:
+                self.process_new_deposit(transaction)
+            except DuplicatedPaymentError:
+                pass
 
         recent_init = PaymentIdRequest.objects.filter(
             gateway=self.gateway,

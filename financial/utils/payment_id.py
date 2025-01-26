@@ -62,6 +62,9 @@ def create_or_update_payment_id_request(gateway: PaymentIdGateway, transaction: 
 
     ref_number = transaction.reference_number
 
+    if not transaction.bank_transaction_id:
+        raise DuplicatedPaymentError
+
     if PaymentIdRequest.objects.filter(
         bank_transaction_id=transaction.bank_transaction_id
     ).exclude(
