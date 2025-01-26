@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from accounts.models import User
 from accounts.verifiers.utils import Response
@@ -10,7 +11,7 @@ class VerificationService(ABC):
 
     @abstractmethod
     def matching(self, phone_number: str = None, national_code: str = None,
-                 full_name: str = None, birth_date: str = None,
+                 full_name: str = None, birth_date: datetime = None,
                  card_pan: str = None, iban: str = None) -> Response:
         pass
 
