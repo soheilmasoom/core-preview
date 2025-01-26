@@ -419,8 +419,8 @@ class Transfer(models.Model):
 
 
 @receiver(post_save, sender=Transfer)
-def handle_transfer_save(sender, instance, created, **kwargs):
-    if instance.status != DONE or settings.DEBUG_OR_TESTING_OR_STAGING:
+def handle_transfer_save(sender, instance: Transfer, created, **kwargs):
+    if instance.status != DONE:
         return
 
     event = TransferEvent(
@@ -433,7 +433,8 @@ def handle_transfer_save(sender, instance, created, **kwargs):
         is_deposit=instance.deposit,
         value_irt=instance.irt_value,
         value_usdt=instance.usdt_value,
-        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(instance.id) + TransferEvent.type + 'crypto')
+        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(instance.id) + TransferEvent.type + 'crypto'),
+        login_activity_id=instance.login_activity_id
     )
 
     get_kafka_producer().produce(event)

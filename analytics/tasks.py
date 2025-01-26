@@ -349,7 +349,7 @@ def trigger_stake_event(threshold=1000):
     tracker, _ = EventTracker.objects.get_or_create(type=EventTracker.STAKING)
     stake_request_list = StakeRequest.objects.filter(
         id__gt=tracker.last_id, status=DONE
-    ).prefetch_related('account', 'stake_request__stake_option__asset').order_by('id')[:threshold]
+    ).prefetch_related('account', 'stake_option__asset').order_by('id')[:threshold]
 
     for stake_request in stake_request_list:
         event = StakeRequestEvent(

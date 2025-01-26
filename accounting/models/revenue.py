@@ -1,6 +1,12 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
+from analytics.event.producer import get_kafka_producer
+from analytics.utils.dto import TradeRevenueEvent
 from ledger.utils.external_price import SELL
 from ledger.utils.fields import get_amount_field, get_group_id_field
 from market.models import BaseTrade
@@ -88,3 +94,27 @@ class TradeRevenue(models.Model):
             gap = -gap
 
         return gap
+
+
+@receiver(post_save, sender=TradeRevenue)
+def handle_trade_revenue_save(sender, instance: TradeRevenue, created, **kwargs):
+
+    event = TradeRevenueEvent(
+        id=instance.id,
+        user_id=instance.account.user_id,
+        amount=instance.amount,
+        price=instance.price,
+        symbol=instance.symbol.name,
+        market='spot' if instance.position_id is None else 'margin',
+        created=instance.created,
+        value_usdt=0 if instance.value_is_fake else instance.value,
+        value_irt=0 if instance.value_is_fake else instance.value_irt,
+        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, f'{TradeRevenueEvent.type}:{instance.id}'),
+        side=instance.side,
+        login_activity_id=instance.login_activity_id,
+        fee_revenue=instance.fee_revenue,
+        gap_revenue=instance.gap_revenue,
+        source=instance.source
+    )
+
+    get_kafka_producer().produce(event)

@@ -493,21 +493,12 @@ class User(AbstractUser):
 
 @receiver(post_save, sender=User)
 def handle_user_save(sender, instance: User, created, **kwargs):
-    if settings.DEBUG_OR_TESTING_OR_STAGING:
-        return
-
     producer = get_kafka_producer()
-    account = instance.get_account()
-
-    if account.type != Account.ORDINARY:
-        return
+    account = getattr(instance, 'account', None)  # type: Account
 
     referrer_id = None
 
-    referrer = account.referred_by and account.referred_by.owner.user
-
-    if referrer:
-        referrer_id = referrer.id
+    referrer = account and account.referred_by and account.referred_by.owner.user_id
 
     if not instance.mission_journey:
         promotion = ''

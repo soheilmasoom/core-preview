@@ -2,16 +2,16 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Union, ClassVar
+from typing import Union, ClassVar, Type
 
 
 @dataclass
 class BaseEvent:
     v: ClassVar[str] = '1'
     created: datetime
-    user_id: Union[int, None]
+    user_id: Union[int, None, Type[int]]
     event_id: uuid
-    login_activity_id: Union[int, None]
+    login_activity_id: Union[int, None, Type[int]]
 
     def serialize(self):
         pass
@@ -70,8 +70,8 @@ class TransferEvent(BaseEvent):
     network: str
     is_deposit: bool
     type: ClassVar[str] = 'transfer'
-    value_irt: str
-    value_usdt: str
+    value_irt: Decimal
+    value_usdt: Decimal
 
     def serialize(self):
         return {
@@ -157,7 +157,7 @@ class TradeRevenueEvent(BaseEvent):
             'value_usdt': str(self.value_usdt),
             'side': self.side,
             'fee_revenue': str(self.fee_revenue),
-            'gap_revenue': str(self.gap_revenue),
+            'gap_revenue': str(self.gap_revenue or 0),
         }
 
 

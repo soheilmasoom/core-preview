@@ -1,8 +1,12 @@
 import logging
+import uuid
+from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
@@ -11,6 +15,8 @@ from accounts.models import Account, EmailNotification, SmsNotification
 from accounts.models import Notification
 from accounts.tasks.send_sms import send_message_by_kavenegar
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
+from analytics.event.producer import get_kafka_producer
+from analytics.utils.dto import TransferEvent
 from financial.exceptions import NoChannelError, ProviderError
 from financial.models.base_transfer import BaseTransfer
 from financial.utils.interface import get_withdraw_channel
@@ -18,6 +24,7 @@ from ledger.models import Trx, Asset
 from ledger.utils.fields import get_status_field, PENDING, CANCELED, DONE, REFUND, PROCESS, UNKNOWN
 from ledger.utils.fraud import verify_fiat_withdraw
 from ledger.utils.precision import humanize_number
+from ledger.utils.price import get_last_price, USDT_IRT
 from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 
@@ -272,23 +279,26 @@ class FiatWithdrawRequest(BaseTransfer):
 
 
 @receiver(post_save, sender=FiatWithdrawRequest)
-def handle_withdraw_request_save(sender, instance, created, **kwargs):
-    if instance.status != DONE or settings.DEBUG_OR_TESTING_OR_STAGING:
+def handle_withdraw_request_save(sender, instance: FiatWithdrawRequest, created, **kwargs):
+    if instance.status != DONE:
         return
 
     usdt_price = get_last_price(USDT_IRT)
 
+    amount = Decimal(instance.amount)
+
     event = TransferEvent(
         id=instance.id,
         user_id=instance.bank_account.user_id,
-        amount=instance.amount,
+        amount=amount,
         coin='IRT',
         network='IRT',
         created=instance.created,
-        value_irt=instance.amount,
-        value_usdt=float(instance.amount) / float(usdt_price),
+        value_irt=amount,
+        value_usdt=amount / usdt_price,
         is_deposit=False,
-        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(instance.id) + TransferEvent.type + 'fiat_withdraw')
+        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(instance.id) + TransferEvent.type + 'fiat_withdraw'),
+        login_activity_id=instance.login_activity_id
     )
 
     get_kafka_producer().produce(event)
