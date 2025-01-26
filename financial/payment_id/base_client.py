@@ -4,6 +4,7 @@ from typing import Union
 
 from accounts.models import User
 from financial.models import PaymentIdRequest, PaymentId, PaymentIdGateway
+from financial.parser.base_parser import TransactionInfo
 
 logger = logging.getLogger(__name__)
 
@@ -37,4 +38,7 @@ class BaseClient:
         raise NotImplementedError
 
     def get_balance(self) -> Decimal:
+        raise NotImplementedError
+
+    def process_new_deposit(self, transaction: TransactionInfo) -> 'PaymentIdRequest':
         raise NotImplementedError

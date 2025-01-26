@@ -1,10 +1,15 @@
+import logging
+
 from django.db import models, transaction
 from django.db.models import FileField
 
+from financial.exceptions import DuplicatedPaymentError
 from financial.parser.base_parser import ParseError
 from financial.parser.parsian.statement_parser import parse_parsian_statement
-from ledger.utils.fields import get_created_field, get_status_field, CANCELED, PENDING, \
-    DONE
+from financial.payment_id import get_payment_id_client
+from ledger.utils.fields import get_created_field, get_status_field, CANCELED, PENDING, DONE
+
+logger = logging.getLogger(__name__)
 
 
 class BankStatement(models.Model):
@@ -24,9 +29,19 @@ class BankStatement(models.Model):
         if self.status != PENDING:
             return
 
+        statement_client = get_payment_id_client(self.gateway)
+
         with transaction.atomic():
             try:
                 transactions = parse_parsian_statement(self.file.read())
+
+                for t in transactions:
+                    try:
+                        statement_client.process_new_deposit(t)
+                    except DuplicatedPaymentError:
+                        logger.info('statement transaction ignored due to duplicated payment')
+                        continue
+
             except ParseError as e:
                 self.message = e.args[0]
                 self.status = CANCELED

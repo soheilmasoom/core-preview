@@ -9,3 +9,7 @@ class NoChannelError(Exception):
 
 class DuplicatedPaymentError(Exception):
     pass
+
+
+class ParseError(Exception):
+    pass
