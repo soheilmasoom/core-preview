@@ -6,7 +6,7 @@ from rest_framework.pagination import LimitOffsetPagination
 
 from accounts.models import LoginActivity, SystemConfig
 from accounts.permissions import IsBasicVerified
-from financial.models import BankCard, PaymentRequest, Payment
+from financial.models import BankCard, PaymentRequest, Payment, PaymentIdRequest
 from financial.models.gateway import GatewayFailed
 from financial.serializers import BankCardSerializer
 from financial.utils.bank import get_bank_from_iban
@@ -93,7 +93,7 @@ class PaymentHistorySerializer(serializers.ModelSerializer):
             return BankCardSerializer(bank_card).data
 
     def get_payment_id(self, payment: Payment):
-        payment_id_request = getattr(payment, 'paymentidrequest', None)
+        payment_id_request = getattr(payment, 'paymentidrequest', None)  # type: PaymentIdRequest
 
         if payment_id_request:
             bank = get_bank_from_iban(payment_id_request.sender_iban)
