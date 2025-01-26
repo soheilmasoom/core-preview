@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from accounts.authentication import CustomTokenAuthentication
-from accounts.models import UserFeedback
+from accounts.models import UserFeedback, Account
 from accounts.models.notification import Notification
 from accounts.utils.validation import parse_positive_int
 
@@ -38,8 +38,10 @@ class NotificationViewSet(ModelViewSet):
         user = self.request.user
         feedback = False
 
-        if user.account:
-            feedback = bool(user.account.trade_volume_irt and not UserFeedback.objects.filter(user=user).exists())
+        account = getattr(user, 'account', None)  # type: Account
+
+        if account:
+            feedback = bool(account.trade_volume_irt and not UserFeedback.objects.filter(user=user).exists())
 
         only_count = request.query_params.get('only_count', default=False)
         unread_count = Notification.objects.filter(
