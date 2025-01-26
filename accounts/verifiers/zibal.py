@@ -8,6 +8,7 @@ from urllib3.exceptions import ReadTimeoutError
 
 from accounts.utils.similarity import split_names
 from accounts.models import User, UserAuthRequest
+from accounts.utils.validation import gregorian_to_jalali_date_str
 from accounts.verifiers.utils import *
 from accounts.verifiers.verification_service import VerificationService
 
@@ -34,6 +35,7 @@ class ZibalRequester(VerificationService):
     }
 
     def __init__(self, user: User):
+        super().__init__(user)
         self._user = user
 
     def collect_api(self, path: str, method: str = 'GET', data=None, weight: int = 0, search_key: str = '') -> Response:
@@ -113,17 +115,31 @@ class ZibalRequester(VerificationService):
 
     def matching(self, phone_number: str = None, national_code: str = None, full_name: str = None,
                  birth_date: datetime = None, card_pan: str = None, iban: str = None) -> Response:
-        params = {
-            "mobile": phone_number,
-            "nationalCode": national_code
-        }
+        endpoint = ''
+        params = {}
+        if national_code and birth_date and card_pan:
+            endpoint = '/v1/facility/checkCardWithNationalCode'
+            birth_date = gregorian_to_jalali_date_str(birth_date).replace('/', '')
+            params = {
+                "nationalCode": national_code,
+                "birthDate": birth_date,
+                "cardNumber": card_pan
+            }
+        if phone_number and national_code:
+            endpoint = '/v1/facility/shahkarInquiry'
+            params = {
+                "mobile": phone_number,
+                "nationalCode": national_code,
+            }
+
+        key = 'matching-' + '-'.join(map(lambda s: s or '', params.values()))
 
         resp = self.collect_api(
             data=params,
-            path='/v1/facility/shahkarInquiry',
+            path=endpoint,
             method='POST',
             weight=UserAuthRequest.JIBIT_ADVANCED_MATCHING if national_code else UserAuthRequest.JIBIT_SIMPLE_MATCHING,
-            search_key=f'shahkar-{phone_number}-{national_code}'
+            search_key=key
         )
         data = resp.data.get('data', {})
         resp.data = MatchingData(
