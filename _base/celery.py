@@ -32,14 +32,6 @@ app.conf.beat_schedule = {
             'expires': 300 * TASK_MULTIPLIER
         }
     },
-    'update_network_fee': {
-        'task': 'ledger.tasks.fee.update_network_fees',
-        'schedule': crontab(minute="*/30"),
-        'options': {
-            'queue': 'celery',
-            'expires': 30 * 60
-        },
-    },
     'auto_clear_debts': {
         'task': 'ledger.tasks.debt.auto_clear_debts',
         'schedule': 60 * TASK_MULTIPLIER,
@@ -74,24 +66,6 @@ app.conf.beat_schedule = {
             'expires': 36000
         },
     },
-
-    'create_stake_revenue': {
-        'task': 'stake.tasks.revenue.create_stake_revenue',
-        'schedule': crontab(hour=22, minute=0),
-        'options': {
-            'queue': 'celery',
-            'expires': 36000
-        },
-    },
-    'handle_stake_requests_status': {
-        'task': 'stake.tasks.status.handle_stake_requests_status',
-        'schedule': crontab(minute=30),
-        'options': {
-            'queue': 'celery',
-            'expires': 3600
-        },
-    },
-
     'free_missing_locks': {
         'task': 'ledger.tasks.locks.free_missing_locks',
         'schedule': 15,
@@ -127,43 +101,6 @@ app.conf.beat_schedule = {
             'expires': 30
         },
     },
-
-    'collect_margin_interest': {
-        'task': 'ledger.tasks.margin.collect_margin_interest',
-        'schedule': crontab(hour='4,12,20', minute=30),
-        'options': {
-            'queue': 'margin',
-            'expires': 3600
-        },
-    },
-
-    'terminate_positions': {
-        'task': 'ledger.tasks.margin.terminate_positions',
-        'schedule': 20 * TASK_MULTIPLIER,
-        'options': {
-            'queue': 'margin',
-            'expires': 20 * TASK_MULTIPLIER
-        },
-    },
-
-    'alert_risky_position': {
-        'task': 'ledger.tasks.margin.alert_risky_position',
-        'schedule': 20 * TASK_MULTIPLIER,
-        'options': {
-            'queue': 'margin',
-            'expires': 20 * TASK_MULTIPLIER
-        },
-    },
-
-    'check_position_health': {
-        'task': 'ledger.tasks.margin.check_position_health',
-        'schedule': 600 * TASK_MULTIPLIER,
-        'options': {
-            'queue': 'margin',
-            'expires': 600 * TASK_MULTIPLIER
-        },
-    },
-
     'fill_trades_revenue': {
         'task': 'accounting.tasks.revenue.fill_revenue_filled_prices',
         'schedule': 120 * TASK_MULTIPLIER,
@@ -242,24 +179,6 @@ app.conf.beat_schedule = {
             'queue': 'history',
         }
     },
-
-    'provider_income': {
-        'task': 'accounting.tasks.provider.fill_provider_incomes',
-        'schedule': crontab(minute=30),
-        'options': {
-            'queue': 'history',
-            'expires': 3600,
-        },
-    },
-    'blocklink_incomes': {
-        'task': 'accounting.tasks.blocklink.fill_blocklink_incomes',
-        'schedule': crontab(minute=30),
-        'options': {
-            'queue': 'history',
-            'expires': 3600,
-        },
-    },
-
     'create_vault_snapshot': {
         'task': 'accounting.tasks.vault.update_vaults',
         'schedule': crontab(minute='*/5'),
@@ -367,30 +286,112 @@ app.conf.beat_schedule = {
             'expires': 3600
         },
     },
-    'network_schedules': {
-        'task': 'ledger.tasks.network.check_network_schedules',
-        'schedule': crontab(minute=35),
-        'options': {
-            'queue': 'celery',
-            'expires': 3 * 3600
-        }
-    },
-    'fetch-one-minute-gold-candles': {
-        'task': 'ohlc.tasks.gold.fetch_and_store_gold_candles',
-        'schedule': crontab(minute='*'),
-        'options': {
-            'queue': 'ohlc',
-        }
-    },
-    'aggregate-candles': {
-        'task': 'ohlc.tasks.gold.refresh_materialized_views',
-        'schedule': crontab(minute='*/30'),
-        'options': {
-            'queue': 'ohlc',
-        }
-    }
 }
 
+# CRYPTO EXCHANGE TASKS
+if settings.EXCHANGE_TYPE.is_crypto:
+    app.conf.beat_schedule.update({
+        'create_stake_revenue': {
+            'task': 'stake.tasks.revenue.create_stake_revenue',
+            'schedule': crontab(hour=22, minute=0),
+            'options': {
+                'queue': 'celery',
+                'expires': 36000
+            },
+        },
+        'handle_stake_requests_status': {
+            'task': 'stake.tasks.status.handle_stake_requests_status',
+            'schedule': crontab(minute=30),
+            'options': {
+                'queue': 'celery',
+                'expires': 3600
+            },
+        },
+        'update_network_fee': {
+            'task': 'ledger.tasks.fee.update_network_fees',
+            'schedule': crontab(minute="*/30"),
+            'options': {
+                'queue': 'celery',
+                'expires': 30 * 60
+            },
+        },
+        'provider_income': {
+            'task': 'accounting.tasks.provider.fill_provider_incomes',
+            'schedule': crontab(minute=30),
+            'options': {
+                'queue': 'history',
+                'expires': 3600,
+            },
+        },
+        'blocklink_incomes': {
+            'task': 'accounting.tasks.blocklink.fill_blocklink_incomes',
+            'schedule': crontab(minute=30),
+            'options': {
+                'queue': 'history',
+                'expires': 3600,
+            },
+        },
+        'network_schedules': {
+            'task': 'ledger.tasks.network.check_network_schedules',
+            'schedule': crontab(minute=35),
+            'options': {
+                'queue': 'celery',
+                'expires': 3 * 3600
+            }
+        },
+        'collect_margin_interest': {
+            'task': 'ledger.tasks.margin.collect_margin_interest',
+            'schedule': crontab(hour='4,12,20', minute=30),
+            'options': {
+                'queue': 'margin',
+                'expires': 3600
+            },
+        },
+        'terminate_positions': {
+            'task': 'ledger.tasks.margin.terminate_positions',
+            'schedule': 20 * TASK_MULTIPLIER,
+            'options': {
+                'queue': 'margin',
+                'expires': 20 * TASK_MULTIPLIER
+            },
+        },
+        'alert_risky_position': {
+            'task': 'ledger.tasks.margin.alert_risky_position',
+            'schedule': 20 * TASK_MULTIPLIER,
+            'options': {
+                'queue': 'margin',
+                'expires': 20 * TASK_MULTIPLIER
+            },
+        },
+        'check_position_health': {
+            'task': 'ledger.tasks.margin.check_position_health',
+            'schedule': 600 * TASK_MULTIPLIER,
+            'options': {
+                'queue': 'margin',
+                'expires': 600 * TASK_MULTIPLIER
+            },
+        },
+    })
+
+# PM EXCHANGE TASKS
+if settings.EXCHANGE_TYPE.is_precious_metals:
+    app.conf.beat_schedule.update({
+        'fetch-one-minute-gold-candles': {
+            'task': 'ohlc.tasks.gold.fetch_and_store_gold_candles',
+            'schedule': crontab(minute='*'),
+            'options': {
+                'queue': 'ohlc',
+            }
+        },
+        'aggregate-candles': {
+            'task': 'ohlc.tasks.gold.refresh_materialized_views',
+            'schedule': crontab(minute='*/30'),
+            'options': {
+                'queue': 'ohlc',
+            }
+        }
+
+    })
 if 'marketing' in settings.INSTALLED_APPS:
     app.conf.beat_schedule.update({
         'fill_ads_reports': {
