@@ -21,5 +21,3 @@ class VerificationService(ABC):
     @abstractmethod
     def get_card_info(self, card_pan: str) -> Response:
         pass
-
-

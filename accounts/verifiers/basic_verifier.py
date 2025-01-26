@@ -3,13 +3,15 @@ import logging
 from django.conf import settings
 from django.template import loader
 
-from accounts.models import User, Notification
+from accounts.models import User, Notification, SystemConfig
 from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.similarity import name_similarity
 from accounts.utils.similarity import split_names
 from accounts.utils.telegram import send_support_message
 from accounts.verifiers.jibit import JibitRequester
 from accounts.verifiers.utils import *
+from accounts.verifiers.verification_service import VerificationService
+from accounts.verifiers.zibal import ZibalRequester
 from financial.models import BankCard, BankAccount
 
 logger = logging.getLogger(__name__)
@@ -36,7 +38,7 @@ def send_shahkar_rejection_message(user):
 
 
 def shahkar_check(user: User, phone: str, national_code: str) -> Union[bool, None]:
-    requester = JibitRequester(user)
+    requester = get_verification_service(user)
     resp = requester.matching(phone_number=phone, national_code=national_code)
     if resp.success:
         if not resp.data.is_matched:
@@ -94,7 +96,7 @@ def verify_name_by_bank_card(bank_card: BankCard, retry: int = 2) -> Union[bool,
     if not bank_card.kyc:
         return False
 
-    requester = JibitRequester(bank_card.user)
+    requester = get_verification_service(bank_card.user)
     user = bank_card.user
 
     if user.first_name_verified and user.last_name_verified:
@@ -165,7 +167,7 @@ def verify_bank_card(bank_card: BankCard, retry: int = 2) -> Union[bool, None]:
         bank_card.reject(BankCard.DUPLICATED)
         return False
 
-    requester = JibitRequester(bank_card.user)
+    requester = get_verification_service(bank_card.user)
 
     try:
         resp = requester.get_card_info(card_pan=bank_card.card_pan)
@@ -221,7 +223,7 @@ def verify_bank_account(bank_account: BankAccount, retry: int = 2) -> Union[bool
         bank_account.reject(BankAccount.DUPLICATED)
         return False
 
-    requester = JibitRequester(bank_account.user)
+    requester = get_verification_service(bank_account.user)
 
     try:
         iban_info = requester.get_iban_info(bank_account.iban)
@@ -279,7 +281,7 @@ def verify_bank_card_by_national_code(bank_card: BankCard, retry: int = 2) -> Un
         user.change_status(User.REJECTED)
         return False
 
-    requester = JibitRequester(user)
+    requester = get_verification_service(user)
 
     try:
         resp = requester.matching(
@@ -353,3 +355,13 @@ def basic_verify(user: User):
             return
 
     user.verify_level2_if_not()
+
+
+def get_verification_service(user: User) -> VerificationService:
+    config = SystemConfig.get_system_config()
+    services = {
+        SystemConfig.JIBIT: JibitRequester,
+        SystemConfig.ZIBAL: ZibalRequester
+    }
+    service_class = services.get(config.kyc_service, JibitRequester)
+    return service_class(user)
