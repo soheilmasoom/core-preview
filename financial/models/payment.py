@@ -227,7 +227,7 @@ class Payment(models.Model):
                     if fast_by_token and fast_by_token.status != FastBuyToken.DONE:
                         return settings.PANEL_URL + self.SUCCESS_PAYMENT_FAIL_FAST_BUY
                     else:
-                        return settings.PANEL_URL + self.SUCCESS_URL
+                        return settings.PANEL_URL + self.SUCCESS_URL + "?id=" + self.group_id
                 else:
                     return settings.PANEL_URL + self.FAIL_URL
 
