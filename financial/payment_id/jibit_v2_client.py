@@ -16,6 +16,7 @@ from financial.models import PaymentIdRequest, PaymentId, BankCard, BankAccount,
 from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
 from financial.utils.date import parse_datetime
+from financial.utils.jibit import get_jibit_error_message
 from ledger.utils.fields import INIT, CANCELED, REFUND
 
 logger = logging.getLogger(__name__)
@@ -335,8 +336,8 @@ class JibitClientV2(JibitClient):
             method='POST'
         )
         if not resp.ok:
-            error = resp.data['errors'][0]['message']
-            payment_request.add_comment(f'Refund failed due to jibit error: "{error}"')
+            error = get_jibit_error_message(resp.data)
+            payment_request.add_comment(f'Refund failed due to jibit error: "{error.message}" ("{error.code})')
             p = self.update_payment_request(payment_request)
             return p.status == REFUND
 
