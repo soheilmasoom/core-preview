@@ -36,13 +36,18 @@ class NotificationViewSet(ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
 
         user = self.request.user
-        feedback = user.account.trade_volume_irt and not UserFeedback.objects.filter(user=user).exists()
+        feedback = False
+
+        if user.account:
+            feedback = bool(user.account.trade_volume_irt and not UserFeedback.objects.filter(user=user).exists())
+
         only_count = request.query_params.get('only_count', default=False)
         unread_count = Notification.objects.filter(
             recipient=self.request.user,
             read=False,
             hidden=False
         ).count()
+
         if only_count == "1":
             return Response({
                 'unread_count': unread_count,
