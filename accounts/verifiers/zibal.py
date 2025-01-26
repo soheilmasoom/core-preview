@@ -119,7 +119,7 @@ class ZibalRequester(VerificationService):
         params = {}
         if national_code and birth_date and card_pan:
             endpoint = '/v1/facility/checkCardWithNationalCode'
-            birth_date = gregorian_to_jalali_date_str(birth_date).replace('/', '')
+            birth_date = gregorian_to_jalali_date_str(birth_date)
             params = {
                 "nationalCode": national_code,
                 "birthDate": birth_date,
