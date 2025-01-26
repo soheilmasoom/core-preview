@@ -416,3 +416,24 @@ class Transfer(models.Model):
 
         return f'{action} {get_presentation_amount(self.amount)} {self.asset}/{self.network} ' \
                f'({get_presentation_amount(self.usdt_value)}$)'
+
+
+@receiver(post_save, sender=Transfer)
+def handle_transfer_save(sender, instance, created, **kwargs):
+    if instance.status != DONE or settings.DEBUG_OR_TESTING_OR_STAGING:
+        return
+
+    event = TransferEvent(
+        id=instance.id,
+        user_id=instance.wallet.account.user_id,
+        amount=instance.amount,
+        coin=instance.wallet.asset.symbol,
+        network=instance.network.symbol if instance.network else 'internal',
+        created=instance.created,
+        is_deposit=instance.deposit,
+        value_irt=instance.irt_value,
+        value_usdt=instance.usdt_value,
+        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(instance.id) + TransferEvent.type + 'crypto')
+    )
+
+    get_kafka_producer().produce(event)
