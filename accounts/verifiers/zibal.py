@@ -133,7 +133,7 @@ class ZibalRequester(VerificationService):
             }
 
         key = 'matching-' + '-'.join(map(lambda s: s or '', params.values()))
-        logger.info(f"Request for {endpoint} {params}")
+
         resp = self.collect_api(
             data=params,
             path=endpoint,
@@ -141,7 +141,7 @@ class ZibalRequester(VerificationService):
             weight=UserAuthRequest.JIBIT_ADVANCED_MATCHING if national_code else UserAuthRequest.JIBIT_SIMPLE_MATCHING,
             search_key=key
         )
-        logger.info(resp.data)
+
         data = resp.data.get('data', {})
         resp.data = MatchingData(
             is_matched=data.get('matched', ''),
