@@ -806,7 +806,7 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
 class BankStatementAdmin(admin.ModelAdmin):
     list_display = ('created', 'gateway', 'title', 'status')
     list_filter = ('gateway', 'status')
-    readonly_fields = ('status', )
+    # readonly_fields = ('status', )
     actions = ('process', )
 
     @admin.action(description='Process')

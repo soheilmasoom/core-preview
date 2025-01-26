@@ -17,6 +17,7 @@ from financial.parser.base_parser import TransactionInfo
 from financial.payment_id.jibit_client import JibitClient
 from financial.utils.date import parse_datetime
 from financial.utils.jibit import get_jibit_error_message
+from financial.utils.payment_id import get_transaction_owner, create_or_update_payment_id_request
 from ledger.utils.fields import INIT, CANCELED, REFUND
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ class JibitClientV2(JibitClient):
 
         for element in reversed(data.get("elements", [])):
             transaction = self._parse_transaction(element)
-            self._process_new_deposit(transaction)
+            self.process_new_deposit(transaction)
 
         recent_init = PaymentIdRequest.objects.filter(
             gateway=self.gateway,
@@ -106,63 +107,7 @@ class JibitClientV2(JibitClient):
             refund_track_id=data['refundTrackId'] or ''
         )
 
-    def _create_or_update_payment_request(self, transaction: TransactionInfo) -> PaymentIdRequest:
-        assert transaction.receiver_iban == self.gateway.iban
-        assert transaction.deposit_type == TransactionInfo.DEPOSIT
-
-        ref_number = transaction.reference_number
-
-        if PaymentIdRequest.objects.filter(
-            bank_transaction_id=transaction.bank_transaction_id
-        ).exclude(
-            external_ref=ref_number
-        ).exists():
-            logger.info('Reject due to duplicate bank_transaction_id')
-            self._fail(external_ref=ref_number)
-            raise DuplicatedPaymentError
-
-        user = self._get_owner(transaction)
-
-        amount = transaction.amount
-        fee = 0
-        # fee = math.ceil(item['balance'] / 10_000_000) * 250
-
-        payment_request_info = {
-            'bank_ref': transaction.bank_reference_number,
-            'bank_transaction_id': transaction.bank_transaction_id,
-            'amount': amount - fee,
-            'fee': fee,
-            'balance': transaction.balance,
-            'user': user,
-            'sender_iban': transaction.sender_iban,
-            'sender_name': transaction.sender_name,
-            'sender_identifier': transaction.sender_identifier,
-            'record_type': transaction.record_type,
-            'kyt_passed': transaction.kyt_passed,
-            'deposit_time': transaction.deposited_at,
-            'raw_payment_id': transaction.deposit_number,
-            'raw_data': transaction.raw_data,
-            'refund_type': transaction.refund_type,
-            'refund_track_id': transaction.refund_track_id,
-        }
-
-        existing = PaymentIdRequest.objects.filter(external_ref=ref_number).first()
-
-        if not existing:
-            return PaymentIdRequest.objects.create(
-                external_ref=ref_number,
-                status=INIT,
-                gateway=self.gateway,
-                **payment_request_info,
-            )
-        else:
-            if existing.gateway != self.gateway:
-                raise DuplicatedPaymentError
-
-            PaymentIdRequest.objects.filter(external_ref=ref_number, gateway=self.gateway).update(**payment_request_info)
-            return PaymentIdRequest.objects.filter(external_ref=ref_number).first()
-
-    def _process_new_deposit(self, transaction: TransactionInfo) -> 'PaymentIdRequest':
+    def process_new_deposit(self, transaction: TransactionInfo) -> 'PaymentIdRequest':
         payment_request = self._process_init_deposit(transaction)
 
         if payment_request == INIT:
@@ -176,7 +121,12 @@ class JibitClientV2(JibitClient):
         return payment_request
 
     def _process_init_deposit(self, transaction: TransactionInfo) -> 'PaymentIdRequest':
-        payment_request = self._create_or_update_payment_request(transaction)
+        try:
+            payment_request = create_or_update_payment_id_request(self.gateway, transaction)
+        except DuplicatedPaymentError:
+            self._fail(external_ref=transaction.reference_number)
+            raise
+
         if payment_request.status != INIT:
             return payment_request
 
@@ -275,37 +225,6 @@ class JibitClientV2(JibitClient):
     def update_payment_request(self, payment_request: PaymentIdRequest) -> PaymentIdRequest:
         transaction = self._fetch_transaction(payment_request.external_ref)
         return self._process_init_deposit(transaction)
-
-    def _get_owner(self, transaction: TransactionInfo) -> Union[User, None]:
-        if self.gateway.type == PaymentIdGateway.PAYMENT_ID:
-            deposit_number = transaction.deposit_number
-
-            if deposit_number:
-                payment_id = PaymentId.objects.filter(gateway=self.gateway, pay_id=deposit_number).first()
-
-                if payment_id:
-                    return payment_id.user
-
-                user = User.objects.filter(level__gte=User.LEVEL2, national_code=deposit_number).first()
-
-                if user:
-                    return user
-
-        if transaction.sender_identifier:
-            if transaction.record_type == PaymentIdRequest.CARD:
-                card = BankCard.live_objects.filter(card_pan=transaction.sender_identifier, verified=True).first()
-                if card:
-                    return card.user
-
-            elif transaction.record_type in (PaymentIdRequest.ACH, PaymentIdRequest.RTGS, PaymentIdRequest.POL):
-                bank_account = BankAccount.live_objects.filter(iban=transaction.sender_identifier, verified=True).first()
-                if bank_account:
-                    return bank_account.user
-
-            elif transaction.record_type == PaymentIdRequest.INTERNAL:
-                bank_account = BankAccount.live_objects.filter(deposit_address=transaction.sender_identifier, verified=True, bank=self.gateway.bank).first()
-                if bank_account:
-                    return bank_account.user
 
     def get_balance(self) -> Decimal:
         resp = self._collect_api(

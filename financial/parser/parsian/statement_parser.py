@@ -1,11 +1,12 @@
+import uuid
 from typing import List
 
 import jdatetime
 import xlrd
+from django.utils import timezone
 
-from accounts.utils.similarity import clean_persian_word
 from financial.parser.base_parser import TransactionInfo, ParseError
-from financial.parser.parsian.description_parser import parse_parsian_description
+from financial.parser.parsian.description_parser import parse_parsian_description, TransactionDescriptionInfo
 
 
 def parse_parsian_statement(statement) -> List[TransactionInfo]:
@@ -34,28 +35,47 @@ def parse_parsian_statement(statement) -> List[TransactionInfo]:
         if not deposit_amount and not withdraw_amount:
             raise ParseError(f'Row {row_idx}: none of deposit and withdraw amounts are present')
 
-        balance = row[6] or 0
-        ref_id = row[7]
-        tracking_id = row[8]
-        branch_name = clean_persian_word(row[9])
+        balance = (row[6] or 0) // 10
+        bank_reference_number = row[7]
 
-        data = parse_parsian_description(description) or {}
+        deposit_type = TransactionInfo.DEPOSIT if deposit_amount else TransactionInfo.WITHDRAW
+        if deposit_type != TransactionInfo.DEPOSIT:
+            continue
+
+        amount = (deposit_amount or withdraw_amount) // 10
+
+        try:
+            description_info = parse_parsian_description(description)
+        except ParseError:
+            description_info = TransactionDescriptionInfo(
+                bank_transaction_id='',
+                sender_identifier='',
+                record_type='',
+                receiver_identifier=''
+            )
+
+        account_iban = sheet.row(2)[4].value
+        ref_number = uuid.uuid5(uuid.NAMESPACE_DNS, f"{bank_reference_number}-{deposit_type}-{amount}-{balance}-{description}")
 
         transactions.append(
             TransactionInfo(
-                created=created,
-                deposit_type='d' if deposit_amount else 'w',
-                amount=deposit_amount or withdraw_amount,
-                reference_number=ref_id,
-                tracking_id=tracking_id,
+                reference_number=str(ref_number),
+                account_iban=account_iban,
+                bank_reference_number=bank_reference_number,
+                bank_transaction_id=description_info.bank_transaction_id,
+                amount=amount,
+                deposit_type=deposit_type,
                 balance=balance,
-                description=description,
-                bank_branch=branch_name,
-                deposit_number=data.get('deposit_number', ''),
-                sender_name=data.get('sender_name', '').replace('*', ' '),
-                sender_iban=data.get('sender_iban', ''),
-                sender_bank=data.get('sender_bank', ''),
-                sender_account=data.get('sender_account', ''),
+                created=timezone.now(),
+                deposited_at=created,
+                deposit_number='',
+                raw_data=description,
+                sender_identifier=description_info.sender_identifier,
+                sender_iban='',
+                sender_name='',
+                record_type=description_info.record_type,
+                receiver_iban=account_iban,
+                kyt_passed=False,
             )
         )
 

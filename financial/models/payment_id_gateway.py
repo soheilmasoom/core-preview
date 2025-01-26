@@ -7,7 +7,7 @@ from ledger.utils.fields import get_iban_field, get_bank_field
 
 
 class PaymentIdGateway(models.Model):
-    CHANNELS = JIBIT_OLD, JIBIT, MANUAL = 'jibit_old', 'jibit', 'manual'
+    CHANNELS = JIBIT_OLD, JIBIT, STATEMENT, MOCK = 'jibit_old', 'jibit', 'statement', 'mock'
     TYPES = PAYMENT_ID, POL, CARD = 'paymentId', 'pol', 'card'
 
     created = models.DateTimeField(auto_now_add=True)
