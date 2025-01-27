@@ -11,7 +11,6 @@ from analytics.models import ActiveTrader, EventTracker, Symbol
 from analytics.utils.dto import LoginEvent, TransferEvent, TrafficSourceEvent, StakeRequestEvent, PrizeEvent, \
     TradeEvent, UserEvent, WalletEvent, TransactionEvent, TradeRevenueEvent
 from financial.models import FiatWithdrawRequest, Payment, PaymentRequest
-    TradeEvent, UserEvent, WalletEvent, TransactionEvent
 from analytics.utils.price_collect import collect_symbol
 from financial.models import FiatWithdrawRequest, Payment
 from ledger.models import Transfer, Prize, OTCTrade, FastBuyToken, Wallet, Trx
