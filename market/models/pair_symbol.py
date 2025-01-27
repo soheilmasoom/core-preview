@@ -21,6 +21,30 @@ class PairSymbol(models.Model):
 
     custom_maker_fee = get_amount_field(null=True)
     custom_taker_fee = get_amount_field(null=True)
+    maker_buy_discount = models.DecimalField(
+        max_digits=3,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MaxValueValidator(100)]
+    )
+    maker_sell_discount = models.DecimalField(
+        max_digits=3,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MaxValueValidator(100)]
+    )
+    taker_buy_discount = models.DecimalField(
+        max_digits=3,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MaxValueValidator(100)]
+    )
+    taker_sell_discount = models.DecimalField(
+        max_digits=3,
+        decimal_places=0,
+        default=Decimal('0'),
+        validators=[MaxValueValidator(100)]
+    )
 
     tick_size = models.PositiveSmallIntegerField(default=2, validators=[MaxValueValidator(8)])
     step_size = models.PositiveSmallIntegerField(default=4, validators=[MaxValueValidator(8)])
@@ -54,10 +78,16 @@ class PairSymbol(models.Model):
     class Meta:
         unique_together = ('asset', 'base_asset')
         constraints = [
-            CheckConstraint(check=Q(min_trade_quantity__gte=0, max_trade_quantity__gte=0,), name='check_market_pairsymbol_amounts', ),
+            CheckConstraint(check=Q(min_trade_quantity__gte=0, max_trade_quantity__gte=0, ),
+                            name='check_market_pairsymbol_amounts', ),
         ]
 
-    def get_fee_rate(self, account: Account, is_maker: bool) -> Decimal:
+    def get_discount(self, is_maker: bool, is_buy: bool) -> Decimal:
+        if is_maker:
+            return self.maker_buy_discount if is_buy else self.maker_sell_discount
+        return self.taker_buy_discount if is_buy else self.taker_sell_discount
+
+    def get_fee_rate(self, account: Account, is_maker: bool, is_buy: bool = None) -> Decimal:
         if account.is_system():
             return Decimal(0)
 
@@ -69,8 +99,15 @@ class PairSymbol(models.Model):
         if fees[0] is None and account.get_voucher_wallet():
             return Decimal(0)
 
+        base_fee = Decimal(0)
         for f in fees:
             if f is not None:
-                return f
+                base_fee = f
+                break
 
-        return Decimal(0)
+        if is_buy is not None:
+            discount = self.get_discount(is_maker, is_buy)
+            discount_multiplier = (100 - discount) / 100
+            return base_fee * discount_multiplier
+
+        return base_fee

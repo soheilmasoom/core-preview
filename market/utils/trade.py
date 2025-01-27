@@ -360,7 +360,7 @@ def _register_trade_base_transaction(pipeline: WalletPipeline, pair: TradesPair)
 
 def get_fee_info(trade: BaseTrade) -> FeeInfo:
     account = trade.account
-    fee_rate = trade.symbol.get_fee_rate(account, trade.is_maker)
+    fee_rate = trade.symbol.get_fee_rate(account, trade.is_maker, trade.side == BUY)
 
     if not fee_rate:
         return FeeInfo()

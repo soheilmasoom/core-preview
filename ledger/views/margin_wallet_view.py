@@ -215,7 +215,7 @@ class MarginBalanceAPIView(APIView):
         if not position or not position.amount:
             return Response({'asset': symbol.asset.symbol, 'balance': get_presentation_amount(Decimal(0))})
 
-        fee_rate = symbol.get_fee_rate(account, is_maker=False)
+        fee_rate = symbol.get_fee_rate(account, is_maker=False, is_buy=position.side == LONG)
 
         return Response({
             'asset': symbol.asset.symbol,

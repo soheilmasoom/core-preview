@@ -166,6 +166,33 @@ class GoldOtcTradeTestCase(TestCase):
         self.assertEqual(self.wallet_xaum.balance, Decimal('41'))
         self.assertEqual(self.wallet_irt.balance, Decimal('46975'))
 
+    def test_buy_with_full_discount(self):
+        self.xaumirt.maker_buy_discount = 100
+        self.xaumirt.taker_buy_discount = 100
+        self.xaumirt.save()
+        self.wallet_irt.airdrop(100_000)
+
+        response = self.client.post('/api/v1/trade/otc/request/',
+                                    {"from_asset": "IRT", "to_asset": "XAUM", "to_amount": "2"})
+
+        self.assert_otc_request(
+            data=response.data,
+            price='5230',
+            fee='0',
+            paying_amount=Decimal('10460'),
+            receiving_amount=Decimal('2'),
+            net_receiving_amount=Decimal('2')
+        )
+
+        token = response.data['token']
+        response = self.client.post('/api/v1/trade/otc/', {"token": token})
+        self.assertEqual(response.data['status'], 'done')
+
+        self.wallet_xaum.refresh_from_db()
+        self.wallet_irt.refresh_from_db()
+        self.assertEqual(self.wallet_xaum.balance, Decimal('2'))
+        self.assertEqual(self.wallet_irt.balance, Decimal('89540'))
+
     def assert_otc_request(self, data, price, fee, paying_amount, receiving_amount, net_receiving_amount):
         self.assertEqual(data['price'], price, f"Expected price {price}, got {data['price']}")
         self.assertEqual(data['fee'], fee, f"Expected fee {fee}, got {data['fee']}")
