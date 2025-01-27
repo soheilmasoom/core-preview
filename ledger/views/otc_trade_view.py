@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from accounts.models import Account, LoginActivity, SystemConfig
 from accounts.permissions import can_trade
+from accounts.utils.numbers import add_commas_to_number
 from analytics.utils.yandex import send_yandex_event
 from ledger.exceptions import InsufficientBalance, SmallAmountTrade, AbruptDecrease, HedgeError, SmallDepthError, \
     NoPriceError, UnableToTradeRightNowError, ExceedsMaximumAmountError, DuplicateAssetsError
@@ -237,7 +238,8 @@ class OTCRequestSerializer(serializers.ModelSerializer):
         except SmallAmountTrade:
             min_amount = SystemConfig.get_system_config().min_otc_irt
             raise ValidationError(
-                f'ارزش معامله، باید حداقل {str(min_amount).translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))} تومان باشد.')
+                f'ارزش معامله، باید حداقل {add_commas_to_number(min_amount)} تومان باشد.'
+            )
         except InsufficientBalance:
             raise ValidationError({'amount': 'موجودی کافی نیست.'})
         except SmallDepthError as exp:
