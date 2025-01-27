@@ -260,23 +260,27 @@ class Payment(models.Model):
 
 
 @receiver(post_save, sender=Payment)
-def handle_payment_save(sender, instance, created, **kwargs):
-    if instance.status != DONE or settings.DEBUG_OR_TESTING_OR_STAGING:
+def handle_payment_save(sender, instance: Payment, created, **kwargs):
+    if instance.status != DONE:
         return
 
     usdt_price = get_last_price(USDT_IRT)
 
+    payment_request: PaymentRequest = getattr(instance, 'paymentrequest', None)
+    amount = Decimal(instance.amount)
+
     event = TransferEvent(
         id=instance.id,
         user_id=instance.user.id,
-        amount=instance.amount,
+        amount=amount,
         coin='IRT',
         network='IRT',
         is_deposit=True,
-        value_usdt=float(instance.amount) / float(usdt_price),
-        value_irt=instance.amount,
+        value_usdt=amount / usdt_price,
+        value_irt=amount,
         created=instance.created,
-        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(instance.id) + TransferEvent.type + 'fiat_deposit')
+        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(instance.id) + TransferEvent.type + 'fiat_deposit'),
+        login_activity_id=payment_request and payment_request.login_activity_id
     )
 
     get_kafka_producer().produce(event)

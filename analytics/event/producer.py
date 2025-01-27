@@ -82,11 +82,9 @@ def handle_event_tracker(data, instance):
     if instance is None:
         return
 
-    _type = data.get('type')
+    event_type = data.get('type')
 
-    if _type == 'user':
-        event_type = EventTracker.USER
-    elif _type == 'transfer':
+    if event_type == 'transfer':
         if data.get('coin') == 'IRT' and data.get('network') == 'IRT':
             if data.get('is_deposit'):
                 event_type = EventTracker.PAYMENT
@@ -94,28 +92,11 @@ def handle_event_tracker(data, instance):
                 event_type = EventTracker.FIAT_WITHDRAW
         else:
             event_type = EventTracker.TRANSFER
-    elif _type == 'trade':
+    elif event_type == 'trade':
         if data.get('trade_type') in ['otc', 'fast_buy']:
             event_type = EventTracker.OTC_TRADE
         else:
             event_type = EventTracker.TRADE
-
-    elif _type == 'login':
-        event_type = EventTracker.LOGIN
-
-    elif _type == 'traffic_source':
-        event_type = EventTracker.TRAFFIC_SOURCE
-
-    elif _type == 'staking':
-        event_type = EventTracker.STAKING
-    elif _type == 'prize':
-        event_type = EventTracker.PRIZE
-    elif _type == 'wallet':
-        event_type = EventTracker.WALLET
-    elif _type == 'transaction':
-        event_type = EventTracker.TRANSACTION
-    else:
-        raise NotImplementedError
 
     tracker, _ = EventTracker.objects.get_or_create(type=event_type)
     tracker.last_id = instance.id

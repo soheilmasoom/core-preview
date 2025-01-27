@@ -2,16 +2,16 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Union, ClassVar
+from typing import Union, ClassVar, Type
 
 
 @dataclass
 class BaseEvent:
     v: ClassVar[str] = '1'
     created: datetime
-    user_id: Union[int, None]
+    user_id: Union[int, None, Type[int]]
     event_id: uuid
-    login_activity_id: int = None
+    login_activity_id: Union[int, None, Type[int]]
 
     def serialize(self):
         pass
@@ -65,13 +65,13 @@ class UserEvent(BaseEvent):
 @dataclass(kw_only=True)
 class TransferEvent(BaseEvent):
     id: int
-    amount: Union[int, float, Decimal]
+    amount: Decimal
     coin: str
     network: str
     is_deposit: bool
     type: ClassVar[str] = 'transfer'
-    value_irt: float
-    value_usdt: float
+    value_irt: Decimal
+    value_usdt: Decimal
 
     def serialize(self):
         return {
@@ -81,26 +81,26 @@ class TransferEvent(BaseEvent):
             'v': self.v,
             'event_id': str(self.event_id),
             'user_id': self.user_id,
-            'amount': float(self.amount),
+            'amount': str(self.amount),
             'coin': self.coin,
             'network': self.network,
             'type': self.type,
             'is_deposit': self.is_deposit,
-            'value_irt': float(self.value_irt),
-            'value_usdt': float(self.value_usdt),
+            'value_irt': str(self.value_irt),
+            'value_usdt': str(self.value_usdt),
         }
 
 
 @dataclass(kw_only=True)
 class TradeEvent(BaseEvent):
     id: int
-    amount: Union[int, float, Decimal]
+    amount: Decimal
     symbol: str
-    price: Union[int, float, Decimal]
+    price: Decimal
     trade_type: str
     market: str
-    value_irt: Union[int, float, Decimal]
-    value_usdt: Union[int, float, Decimal]
+    value_irt: Decimal
+    value_usdt: Decimal
     type: ClassVar[str] = 'trade'
     side: str
 
@@ -112,15 +112,52 @@ class TradeEvent(BaseEvent):
             'v': self.v,
             'event_id': str(self.event_id),
             'user_id': self.user_id,
-            'amount': float(self.amount),
+            'amount': str(self.amount),
             'symbol': self.symbol,
-            'price': float(self.price),
+            'price': str(self.price),
             'type': self.type,
             'trade_type': self.trade_type,
             'market': self.market,
-            'value_irt': float(self.value_irt),
-            'value_usdt': float(self.value_usdt),
+            'value_irt': str(self.value_irt),
+            'value_usdt': str(self.value_usdt),
             'side': self.side
+        }
+
+
+@dataclass(kw_only=True)
+class TradeRevenueEvent(BaseEvent):
+    id: int
+    amount: Decimal
+    symbol: str
+    price: Decimal
+    source: str
+    market: str
+    value_irt: Decimal
+    value_usdt: Decimal
+    type: ClassVar[str] = 'revenue'
+    side: str
+    fee_revenue: Decimal
+    gap_revenue: Decimal
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'type': self.type,
+            'login_activity_id': self.login_activity_id,
+            'created': self.created.isoformat(),
+            'v': self.v,
+            'event_id': str(self.event_id),
+            'user_id': self.user_id,
+            'amount': str(self.amount),
+            'symbol': self.symbol,
+            'price': str(self.price),
+            'source': self.source,
+            'market': self.market,
+            'value_irt': str(self.value_irt),
+            'value_usdt': str(self.value_usdt),
+            'side': self.side,
+            'fee_revenue': str(self.fee_revenue),
+            'gap_revenue': str(self.gap_revenue or 0),
         }
 
 
@@ -207,10 +244,10 @@ class StakeRequestEvent(BaseEvent):
             'type': self.type,
             'stake_request_id': self.stake_request_id,
             'stake_option_id': self.stake_option_id,
-            'amount': float(self.amount),
+            'amount': str(self.amount),
             'status': self.status,
             'coin': self.coin,
-            'apr': float(self.apr)
+            'apr': str(self.apr)
         }
 
 
@@ -233,10 +270,10 @@ class PrizeEvent(BaseEvent):
             'event_id': str(self.event_id),
             'type': self.type,
             'id': self.id,
-            'amount': float(self.amount),
+            'amount': str(self.amount),
             'coin': self.coin,
             'voucher_expiration': self.voucher_expiration.isoformat() if self.voucher_expiration else None,
-            'value': float(self.value),
+            'value': str(self.value),
             'achievement_type': self.achievement_type
         }
 
@@ -260,7 +297,7 @@ class WalletEvent(BaseEvent):
             'id': self.id,
             'coin': self.coin,
             'market': self.market,
-            'balance': float(self.balance),
+            'balance': str(self.balance),
         }
 
 
@@ -282,7 +319,7 @@ class TransactionEvent(BaseEvent):
             'event_id': str(self.event_id),
             'type': self.type,
             'id': self.id,
-            'amount': float(self.amount),
+            'amount': str(self.amount),
             'sender_wallet_id': self.sender_wallet_id,
             'receiver_wallet_id': self.receiver_wallet_id,
             'group_id': str(self.group_id),

@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import UniqueConstraint, Q
 
 from financial.utils.encryption import decrypt
 from financial.utils.manager import ActiveManager
@@ -6,7 +7,7 @@ from ledger.utils.fields import get_iban_field, get_bank_field
 
 
 class PaymentIdGateway(models.Model):
-    CHANNELS = JIBIT_OLD, JIBIT, MANUAL = 'jibit_old', 'jibit', 'manual'
+    CHANNELS = JIBIT_OLD, JIBIT, STATEMENT, MOCK = 'jibit_old', 'jibit', 'statement', 'mock'
     TYPES = PAYMENT_ID, POL, CARD = 'paymentId', 'pol', 'card'
 
     created = models.DateTimeField(auto_now_add=True)
@@ -25,7 +26,7 @@ class PaymentIdGateway(models.Model):
         default=JIBIT_OLD,
     )
 
-    iban = get_iban_field(unique=True)
+    iban = get_iban_field(blank=True)
     card_pan = models.CharField(max_length=20, blank=True)
 
     name = models.CharField(max_length=256, blank=True, verbose_name='نام صاحب حساب',)
@@ -51,6 +52,14 @@ class PaymentIdGateway(models.Model):
 
     class Meta:
         ordering = ('ordering', 'id')
+
+        constraints = [
+            UniqueConstraint(
+                name='uniqueness_paymentidgateway_iban',
+                fields=('iban',),
+                condition=~Q(iban=''),
+            ),
+        ]
 
     @property
     def payment_id_secret(self):

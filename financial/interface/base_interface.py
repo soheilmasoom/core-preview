@@ -17,8 +17,9 @@ class WalletDTO:
 
 @dataclass
 class WithdrawDTO:
-    tracking_id: Union[str, None]
     status: str
+    tracking_id: str = None
+    provider_status: str = ''
     receive_datetime: Union[datetime, None] = None
     message: str = ''
 

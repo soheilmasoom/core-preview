@@ -9,7 +9,8 @@ from financial.exceptions import ProviderError
 from financial.interface.base_interface import BaseChannel, WithdrawDTO, WalletDTO
 from financial.models.withdraw_request import BaseTransfer
 from financial.utils.ach import next_ach_clear_time
-from ledger.utils.fields import PENDING, DONE, CANCELED
+from financial.utils.jibit import get_jibit_error_message
+from ledger.utils.fields import PENDING, DONE, CANCELED, UNKNOWN
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,7 @@ class JibitChannelV2(BaseChannel):
         try:
             resp_json = resp.json()
             if self.verbose:
+                print(data)
                 print(resp_json)
         except JSONDecodeError:
             resp_json = None
@@ -93,40 +95,21 @@ class JibitChannelV2(BaseChannel):
             'amount': transfer.amount * 10,
             'recordTrackId': str(transfer.group_id),
             'transferType': 'NORMAL',
+            'sourceIban': self.gateway.merchant_id,
             'requestDescription': 'پرداخت بابت برداشت کاربران'
         })
 
         if not resp.success:
-            code = resp.data['errors'][0]['code']
-            if code == 'transfer.already_exists':
-                return WithdrawDTO(
-                    tracking_id='',
-                    status=PENDING,
-                )
-
-            elif code == 'transfers.0.source_bank.not_supported':
-                return WithdrawDTO(
-                    tracking_id='',
-                    status=CANCELED,
-                    message=code,
-                )
-
+            error = get_jibit_error_message(resp.data)
+            message = error.message + f' ({error.code})'
+            if resp.status_code == 500:
+                return self.get_withdraw_status(transfer)
             else:
-                raise ProviderError(code)
+                raise ProviderError(message)
 
-        if resp.data.get('referenceNumber', 0) == 0:
-            raise ProviderError('Jibit submission failed')
+        return self._get_withdraw_dto(resp.get_success_data())
 
-        return WithdrawDTO(
-            tracking_id='',
-            status=PENDING,
-            receive_datetime=next_ach_clear_time()
-        )
-
-    def get_withdraw_status(self, transfer: BaseTransfer) -> WithdrawDTO:
-        resp = self._collect_api(f'/v1/orders/settlement/{transfer.group_id}')
-        data = resp.get_success_data()
-
+    def _get_withdraw_dto(self, data: dict) -> WithdrawDTO:
         mapping_status = {
             'CANCELLED': CANCELED,
             'TRANSFERRED': DONE,
@@ -146,4 +129,20 @@ class JibitChannelV2(BaseChannel):
         return WithdrawDTO(
             tracking_id=tracking_id,
             status=status,
+            provider_status=channel_status,
         )
+
+    def get_withdraw_status(self, transfer: BaseTransfer) -> WithdrawDTO:
+        resp = self._collect_api(f'/v1/orders/settlement/{transfer.group_id}')
+
+        if not resp.success:
+            error = get_jibit_error_message(resp.data or {})
+            message = error.message + f' ({error.code})'
+
+            return WithdrawDTO(
+                status=UNKNOWN,
+                message=message
+            )
+
+        data = resp.get_success_data()
+        return self._get_withdraw_dto(data)

@@ -123,7 +123,6 @@ class PaystarChannel(BaseChannel):
             raise ServerError('Paystar withdraw error')
 
         return WithdrawDTO(
-            tracking_id='',
             status=PENDING,
             receive_datetime=next_ach_clear_time()
         )

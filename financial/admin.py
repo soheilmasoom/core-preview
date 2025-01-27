@@ -127,9 +127,9 @@ class FiatWithdrawRequestAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         ('اطلاعات کاربر', {'fields': (
             'get_iban', 'get_withdraw_request_user', 'get_user', 'login_activity'
         )}),
-        ('نظر', {'fields': ('comment', 'group_id')})
+        ('نظر', {'fields': ('comment', 'group_id', 'provider_status')})
     )
-    list_filter = ('status', UserRialWithdrawRequestFilter,)
+    list_filter = ('status', UserRialWithdrawRequestFilter, 'gateway')
     ordering = ('-created',)
     readonly_fields = (
         'created', 'bank_account', 'amount', 'get_iban', 'fee_amount', 'get_risks',
@@ -581,7 +581,7 @@ class PaymentIdRequestAdmin(AdvancedAdmin):
             client = get_payment_id_client(payment_request.gateway)
             client.refund_payment_request(payment_request)
 
-    @admin.action(description='Update with Provider', permissions=['change'])
+    @admin.action(description='Update with Provider', permissions=['view'])
     def update_with_provider(self, request, queryset):
         for payment_request in queryset.filter(status=INIT):  # type: PaymentIdRequest
             client = get_payment_id_client(payment_request.gateway)
@@ -632,7 +632,7 @@ class DirectDebitRequestAdmin(AdvancedAdmin):
 class PaymentIdAdmin(AdvancedAdmin):
     list_display = ('created', 'updated', 'user', 'master', 'pay_id', 'verified', 'deleted')
     search_fields = ('user__phone', 'pay_id', 'master__phone', )
-    list_filter = ('verified', 'deleted')
+    list_filter = ('verified', 'gateway', 'deleted')
     readonly_fields = ('group_id', )
     actions = ('check_status', 'recreate', 'delete_payment_ids', 'undelete_payment_ids')
     raw_id_fields = ('user',)
@@ -806,7 +806,7 @@ class BankPaymentRequestAdmin(ExportMixin, admin.ModelAdmin):
 class BankStatementAdmin(admin.ModelAdmin):
     list_display = ('created', 'gateway', 'title', 'status')
     list_filter = ('gateway', 'status')
-    readonly_fields = ('status', )
+    # readonly_fields = ('status', )
     actions = ('process', )
 
     @admin.action(description='Process')

@@ -98,21 +98,18 @@ class ZibalChannel(BaseChannel):
 
             if 'این درخواست تسویه قبلا ثبت شده است' in message:
                 return WithdrawDTO(
-                    tracking_id='',
                     status=PENDING,
                     receive_datetime=timezone.now() + timedelta(hours=3),
                     message=message,
                 )
             elif 'این حساب مسدود شده و یا قابلیت واریز ندارد' in message:
                 return WithdrawDTO(
-                    tracking_id='',
                     status=CANCELED,
                     receive_datetime=None,
                     message=message,
                 )
             elif 'باقی مانده سقف روزانه تسویه به این شبا' in message:
                 return WithdrawDTO(
-                    tracking_id='',
                     status=CANCELED,
                     receive_datetime=None,
                     message=message,
@@ -137,7 +134,6 @@ class ZibalChannel(BaseChannel):
             })
         except ServerError:
             return WithdrawDTO(
-                tracking_id='',
                 status=UNKNOWN
             )
 

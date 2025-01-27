@@ -1,20 +1,19 @@
 import logging
 import uuid
+from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
+from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
-from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.models import Account, EmailNotification, SmsNotification
 from accounts.models import Notification
 from accounts.tasks.send_sms import send_message_by_kavenegar
-from accounts.utils.telegram import send_system_message
 from accounts.utils.validation import gregorian_to_jalali_datetime_str
 from analytics.event.producer import get_kafka_producer
 from analytics.utils.dto import TransferEvent
@@ -40,6 +39,8 @@ class FiatWithdrawRequest(BaseTransfer):
     fee_amount = models.PositiveIntegerField(verbose_name='کارمزد')
 
     status = get_status_field()
+
+    provider_status = models.CharField(max_length=32, blank=True)
 
     comment = models.TextField(verbose_name='نظر', blank=True)
 
@@ -103,11 +104,13 @@ class FiatWithdrawRequest(BaseTransfer):
 
         try:
             withdraw = api_handler.create_withdraw(transfer=self)
-            to_update = ['withdraw_datetime', 'receive_datetime']
+            to_update = ['withdraw_datetime', 'receive_datetime', 'provider_status']
 
-            if withdraw.tracking_id is not None:
+            if withdraw.tracking_id:
                 self.ref_id = withdraw.tracking_id
                 to_update.append('ref_id')
+
+            self.provider_status = withdraw.provider_status
 
             self.receive_datetime = withdraw.receive_datetime
 
@@ -141,10 +144,14 @@ class FiatWithdrawRequest(BaseTransfer):
         status = withdraw_data.status
 
         if status == UNKNOWN:
+            self.add_comment(withdraw_data.message)
             logger.info(f'Updating fiat withdraw {self.id} ignored due to unknown status')
             return
 
         logger.info(f'FiatRequest {self.id} status: {status}')
+
+        self.provider_status = withdraw_data.provider_status
+        self.save(update_fields=['provider_status'])
 
         if status in (DONE, CANCELED):
             self.change_status(status)
@@ -272,23 +279,26 @@ class FiatWithdrawRequest(BaseTransfer):
 
 
 @receiver(post_save, sender=FiatWithdrawRequest)
-def handle_withdraw_request_save(sender, instance, created, **kwargs):
-    if instance.status != DONE or settings.DEBUG_OR_TESTING_OR_STAGING:
+def handle_withdraw_request_save(sender, instance: FiatWithdrawRequest, created, **kwargs):
+    if instance.status != DONE:
         return
 
     usdt_price = get_last_price(USDT_IRT)
 
+    amount = Decimal(instance.amount)
+
     event = TransferEvent(
         id=instance.id,
         user_id=instance.bank_account.user_id,
-        amount=instance.amount,
+        amount=amount,
         coin='IRT',
         network='IRT',
         created=instance.created,
-        value_irt=instance.amount,
-        value_usdt=float(instance.amount) / float(usdt_price),
+        value_irt=amount,
+        value_usdt=amount / usdt_price,
         is_deposit=False,
-        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(instance.id) + TransferEvent.type + 'fiat_withdraw')
+        event_id=uuid.uuid5(uuid.NAMESPACE_DNS, str(instance.id) + TransferEvent.type + 'fiat_withdraw'),
+        login_activity_id=instance.login_activity_id
     )
 
     get_kafka_producer().produce(event)

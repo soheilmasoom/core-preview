@@ -12,6 +12,7 @@ from ledger.utils.test import generate_otp_code, set_price
 
 User = get_user_model()
 
+
 class WithdrawHistoryViewTestCase(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='1', password='2')

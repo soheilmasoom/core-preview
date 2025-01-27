@@ -56,7 +56,7 @@ def handle_waiting_payment_ids():
     if not SystemConfig.get_system_config().pay_id_requests_process:
         return
 
-    gateways = PaymentIdGateway.live_objects.all()
+    gateways = PaymentIdGateway.live_objects.exclude(iban='')
 
     for gateway in gateways:
         client = get_payment_id_client(gateway)
