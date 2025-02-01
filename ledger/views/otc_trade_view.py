@@ -113,8 +113,8 @@ class OTCInfoView(APIView):
                 min(TARGETED_TRADE_VALUE / otc.price, symbol.max_trade_quantity)
             )
             default_amount = 10 ** math.floor(exponent)
-        buy_discount = otc.symbol.maker_buy_discount
-        sell_discount = otc.symbol.maker_sell_discount
+        buy_discount = otc.symbol.taker_buy_discount
+        sell_discount = otc.symbol.taker_sell_discount
 
         return Response({
             'base_asset': symbol.base_asset.symbol,
