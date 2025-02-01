@@ -22,24 +22,28 @@ class PairSymbol(models.Model):
     custom_maker_fee = get_amount_field(null=True)
     custom_taker_fee = get_amount_field(null=True)
     maker_buy_discount = models.DecimalField(
+        verbose_name="Maker Buy Discount (%)",
         max_digits=3,
         decimal_places=0,
         default=Decimal('0'),
         validators=[MaxValueValidator(100)]
     )
     maker_sell_discount = models.DecimalField(
+        verbose_name="Maker Sell Discount (%)",
         max_digits=3,
         decimal_places=0,
         default=Decimal('0'),
         validators=[MaxValueValidator(100)]
     )
     taker_buy_discount = models.DecimalField(
+        verbose_name="Taker Buy Discount (%)",
         max_digits=3,
         decimal_places=0,
         default=Decimal('0'),
         validators=[MaxValueValidator(100)]
     )
     taker_sell_discount = models.DecimalField(
+        verbose_name="Taker Sell Discount (%)",
         max_digits=3,
         decimal_places=0,
         default=Decimal('0'),
