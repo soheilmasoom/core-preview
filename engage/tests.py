@@ -30,12 +30,6 @@ class HighlightsAPITestCase(APITestCase):
         )
 
     def test_highlights_list_order_and_seen_flags(self):
-        """
-        GET /highlights/ should return the active highlight with:
-         - A highlight-level `seen` flag (False initially, then True once all stories are seen)
-         - Nested stories ordered by `order` (ascending)
-         - Each story with its own `seen` flag (False initially)
-        """
         url = reverse('highlight-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)

@@ -79,7 +79,7 @@ INSTALLED_APPS = [
     'search',
     'ohlc',
     'treasury',
-    'engage'
+    'engage',
     'tinymce',
     'import_export',
     'django_quill',

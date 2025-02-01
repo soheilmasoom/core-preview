@@ -1,4 +1,3 @@
-# models.py
 from django.db import models
 from django.db.models import Manager, Count, Case, When, Value, Q, F, BooleanField
 from multimedia.storage import PublicMediaStorage
