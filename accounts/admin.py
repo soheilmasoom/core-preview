@@ -46,6 +46,7 @@ from .tasks import basic_verify_user
 from .utils.mask import get_masked_phone
 from .utils.validation import gregorian_to_jalali_datetime_str
 from _base.utils import admin_display_for_crypto, admin_register_for_crypto_exchange
+from .models import MeliPayamakTemplate
 
 MANUAL_VERIFY_CONDITION = Q(
     Q(first_name_verified=None) | Q(last_name_verified=None),
@@ -1208,3 +1209,35 @@ class LevelGrantsAdmin(admin.ModelAdmin):
 class SpamPhoneAdmin(admin.ModelAdmin):
     list_display = ('created', 'phone')
     search_fields = ('phone',)
+
+
+from django.contrib import admin
+from django.core.exceptions import ValidationError
+from .models import MeliPayamakTemplate
+
+@admin.register(MeliPayamakTemplate)
+class MeliPayamakTemplateAdmin(admin.ModelAdmin):
+    list_display = ('template_type', 'code_preview', 'updated_at')
+    list_filter = ('template_type',)
+    search_fields = ('template_type', 'code')
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('template_type',)
+
+    def code_preview(self, obj):
+        max_length = 50
+        return (obj.code[:max_length] + '...') if len(obj.code) > max_length else obj.code
+    code_preview.short_description = 'Code Preview'
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        form.base_fields['code'].widget.attrs['rows'] = 5
+        form.base_fields['code'].widget.attrs['cols'] = 60
+        return form
+
+    def save_model(self, request, obj, form, change):
+        try:
+            obj.full_clean()
+            super().save_model(request, obj, form, change)
+        except ValidationError as e:
+            form._errors.update(e.message_dict)
+            return
