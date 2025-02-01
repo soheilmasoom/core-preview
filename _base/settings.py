@@ -77,9 +77,9 @@ INSTALLED_APPS = [
     'gamify',
     'health',
     'search',
-    'treasury',
     'ohlc',
-
+    'treasury',
+    'engage'
     'tinymce',
     'import_export',
     'django_quill',
