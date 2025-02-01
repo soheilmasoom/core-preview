@@ -8,7 +8,7 @@ from django.template import TemplateDoesNotExist
 from django.template.loader import render_to_string
 from kavenegar import KavenegarAPI, APIException, HTTPException
 
-from accounts.models import SystemConfig
+from accounts.models import SystemConfig, TemplateType, MeliPayamakTemplate
 from accounts.utils.melipayamak import MeliPayamak
 from accounts.verifiers.finotech import token_cache
 
@@ -17,28 +17,28 @@ logger = logging.getLogger(__name__)
 SMS_IR_TOKEN_KEY = 'sms-ir-token'
 
 
-def send_message_by_kavenegar(phone: str, template: str, token: str, send_type: str = 'sms'):
+def send_message_by_kavenegar(phone: str, template: TemplateType, token: str, send_type: str = 'sms'):
     send_mode = SystemConfig.get_system_config().otp_send_mode
+    template_str = str(template)
+
+    if not phone or settings.DEBUG_OR_TESTING_OR_STAGING:
+        return
 
     if send_mode == SystemConfig.OTP_KAVENEGAR_EXCLUSIVE:
         try:
             return send_kavenegar_exclusive_sms(
                 phone=phone,
-                content=render_to_string(f"accounts/sms/{template}.txt", {'token': token, 'brand': settings.BRAND})
+                content=render_to_string(f"accounts/sms/{template_str}.txt", {'token': token, 'brand': settings.BRAND})
             )
         except TemplateDoesNotExist:
             logger.info('Sending otp ignored due to no template found!')
-
     elif send_mode == SystemConfig.OTP_KAVENEGAR:
-        if not phone or settings.DEBUG_OR_TESTING_OR_STAGING:
-            return
-
         client = get_kavenegar_client()
 
         try:
             client.verify_lookup({
                 'receptor': phone,
-                'template': template,
+                'template': template_str,
                 'type': send_type,
                 'token': token,
             })
@@ -46,6 +46,14 @@ def send_message_by_kavenegar(phone: str, template: str, token: str, send_type: 
             logger.exception("Failed to send sms by kavenegar")
     elif send_mode == SystemConfig.MELI_PAYAMAK:
         client = get_melipayamak_client()
+        try:
+            body_id = MeliPayamakTemplate.get_template_code(template)
+            if body_id is None:
+                logger.error('MeliPayamak template not found', extra={'template': template})
+                return
+            client.sms().send_by_base_number(bodyId=body_id, text=token, to=phone)
+        except Exception as e:
+            logger.exception("Failed to send sms by melipayamak")
 
 
 def get_kavenegar_client() -> KavenegarAPI:
@@ -56,8 +64,7 @@ def get_kavenegar_client() -> KavenegarAPI:
 def get_melipayamak_client() -> MeliPayamak:
     username = config('MELIPAYAMAK_USERNAME')
     password = config('MELIPAYAMAK_PASSWORD')
-    number = config('MELIPAYAMAK_NUMBER')
-    return MeliPayamak(username, password, number)
+    return MeliPayamak(username, password)
 
 
 def send_kavenegar_exclusive_sms(phone: str, content: str):

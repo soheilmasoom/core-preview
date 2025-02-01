@@ -4,10 +4,9 @@ import requests
 class Rest:
     PATH = "https://rest.payamak-panel.com/api/SendSMS/%s"
 
-    def __init__(self, username, password,number):
+    def __init__(self, username, password):
         self.username = username
         self.password = password
-        self.number = number
 
     def post(self, url, data):
         r = requests.post(url, data)
@@ -19,11 +18,11 @@ class Rest:
             'password': self.password
         }
 
-    def send(self, to, text, isFlash=False):
+    def send(self, to, text, _from, isFlash=False):
         url = self.PATH % ('SendSMS')
         data = {
             'to': to,
-            'from': self.number,
+            'from': _from,
             'text': text,
             'isFlash': isFlash
         }

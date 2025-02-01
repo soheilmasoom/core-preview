@@ -24,8 +24,8 @@ class MeliPayamakTemplate(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "MeliPayamak Template"
-        verbose_name_plural = "MeliPayamak Templates"
+        verbose_name = "الگو ملی پیامک"
+        verbose_name_plural = "الگو های ملی پیامک"
         ordering = ['template_type']
 
     def __str__(self):
