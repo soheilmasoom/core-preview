@@ -46,6 +46,7 @@ class Story(models.Model):
 
     class Meta:
         ordering = ['order']
+        verbose_name_plural = "Stories"
 
 
 class StoryView(models.Model):
