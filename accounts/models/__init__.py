@@ -22,3 +22,4 @@ from .consultation import Consultation
 from .change_requests import Forget2FA, ChangePhone
 from .company import Company
 from .user_feature_perm import UserFeaturePerm
+from .sms import TemplateType, MeliPayamakTemplate

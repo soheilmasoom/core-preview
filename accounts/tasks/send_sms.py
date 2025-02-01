@@ -14,7 +14,6 @@ from accounts.verifiers.finotech import token_cache
 
 logger = logging.getLogger(__name__)
 
-
 SMS_IR_TOKEN_KEY = 'sms-ir-token'
 
 
@@ -53,10 +52,13 @@ def get_kavenegar_client() -> KavenegarAPI:
     api_key = config('KAVENEGAR_KEY')
     return KavenegarAPI(apikey=api_key)
 
-def get_melipayamak_client() ->MeliPayamak:
+
+def get_melipayamak_client() -> MeliPayamak:
     username = config('MELIPAYAMAK_USERNAME')
     password = config('MELIPAYAMAK_PASSWORD')
-    return MeliPayamak(username,password)
+    number = config('MELIPAYAMAK_NUMBER')
+    return MeliPayamak(username, password, number)
+
 
 def send_kavenegar_exclusive_sms(phone: str, content: str):
     if not phone or settings.DEBUG_OR_TESTING_OR_STAGING or not settings.EXCLUSIVE_SMS_NUMBER:
