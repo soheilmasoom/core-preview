@@ -131,6 +131,7 @@ class SignupSerializer(serializers.Serializer):
 
                 if not settings.DEBUG_OR_TESTING_OR_STAGING:
                     basic_verify_user.s(user.id).apply_async(countdown=1)
+                    send_yandex_event(user, 'try_basic_verify')
 
         verification.set_token_used()
         create_traffic_source(self.context['request'], user, utm)
@@ -138,8 +139,6 @@ class SignupSerializer(serializers.Serializer):
         set_missions_to_user(user, promotion)
 
         send_yandex_event(user, 'sign_up', {'id': user.id})
-        if user.verify_status == User.PENDING:
-            send_yandex_event(user, 'try_basic_verify')
 
         tokens = get_tokens_for_user(user)
 
