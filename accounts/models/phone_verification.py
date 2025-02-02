@@ -29,6 +29,7 @@ class VerificationCode(models.Model):
 
     EXPIRATION_TIME = 15 * MINUTES
 
+    SCOPE_PHONE_LOGIN = 'phone_login'
     SCOPE_FORGET_PASSWORD = 'forget'
     SCOPE_VERIFY_PHONE = 'verify'
     SCOPE_VERIFY_PHONE_WIDGET = 'verify_widget'
@@ -48,12 +49,13 @@ class VerificationCode(models.Model):
 
     SCOPES = SCOPE_FORGET_PASSWORD, SCOPE_VERIFY_PHONE, SCOPE_VERIFY_PHONE_WIDGET, SCOPE_CRYPTO_WITHDRAW, \
              SCOPE_TELEPHONE, SCOPE_CHANGE_PASSWORD, SCOPE_CHANGE_PHONE, SCOPE_CHANGE_PHONE_INIT, SCOPE_VERIFY_EMAIL, \
-             SCOPE_FIAT_WITHDRAW, SCOPE_2FA, SCOPE_API_TOKEN, SCOPE_ADDRESS_BOOK, SCOPE_NEW_PHONE, SCOPE_FORGET_2FA,
+             SCOPE_FIAT_WITHDRAW, SCOPE_2FA, SCOPE_API_TOKEN, SCOPE_ADDRESS_BOOK, SCOPE_NEW_PHONE, SCOPE_FORGET_2FA, \
+             SCOPE_PHONE_LOGIN
 
     RESTRICTED_SEND_SCOPES = [SCOPE_NEW_PHONE, SCOPE_FORGET_2FA]
     RESTRICTED_VERIFY_SCOPES = [SCOPE_CHANGE_PHONE_INIT]
 
-    NO_USER_SCOPES = [SCOPE_VERIFY_PHONE, SCOPE_VERIFY_PHONE_WIDGET]
+    NO_USER_SCOPES = [SCOPE_VERIFY_PHONE, SCOPE_VERIFY_PHONE_WIDGET, SCOPE_PHONE_LOGIN]
 
     created = models.DateTimeField(auto_now_add=True)
     expiration = models.DateTimeField(default=fifteen_minutes_later_datetime)
@@ -253,10 +255,11 @@ class VerificationCode(models.Model):
             )
         else:
             from accounts.tasks import send_message_by_kavenegar
+            from accounts.models import TemplateType
             send_message_by_kavenegar(
                 phone=otp_code.phone,
                 token=otp_code.code,
-                template='verify'
+                template=TemplateType.VERIFY
             )
 
         return otp_code

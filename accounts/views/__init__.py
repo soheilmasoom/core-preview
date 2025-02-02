@@ -40,3 +40,4 @@ from .user_widget_view import UserWidgetView
 from .set_password import SetPasswordView
 
 from .telegram_view import GenerateTelegramLinkAPIView, TelegramUserView, GenerateTelegramAccessTokenView
+from .phone_login import PhoneLoginInitView, PhoneLoginVerifyView

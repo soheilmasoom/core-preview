@@ -1,4 +1,4 @@
-from accounts.models import User, Notification
+from accounts.models import User, Notification, TemplateType
 from accounts.tasks import send_message_by_kavenegar
 from ledger.models import Wallet, Trx
 from ledger.utils.precision import get_presentation_amount
@@ -43,6 +43,6 @@ def close_staking(user: User):
     if has_stake_request:
         send_message_by_kavenegar(
             phone=user.phone,
-            template='disable-staking',
+            template=TemplateType.DISABLE_STAKING,
             token='استیکینگ'
         )

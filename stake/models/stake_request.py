@@ -5,7 +5,7 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 
-from accounts.models import Account, User, EmailNotification
+from accounts.models import Account, User, EmailNotification, TemplateType
 from accounts.tasks import send_message_by_kavenegar
 from accounts.admin_guard.html_tags import url_to_edit_object
 from accounts.utils.telegram import send_support_message
@@ -147,7 +147,7 @@ class StakeRequest(models.Model):
                 phone=account.user.phone,
                 token=asset.name_fa,
                 send_type='sms',
-                template='staking-finished'
+                template=TemplateType.STAKING_FINISHED
             )
 
         elif (old_status, new_status) in [(self.PROCESS, self.DONE), (self.PENDING, self.DONE)]:
@@ -159,7 +159,7 @@ class StakeRequest(models.Model):
                 phone=account.user.phone,
                 token=asset.name_fa,
                 send_type='sms',
-                template='staking-activated'
+                template=TemplateType.STAKING_ACTIVATED
             )
 
         elif (old_status, new_status) in [(self.PENDING, self.CANCEL_PROCESS), (self.DONE, self.CANCEL_PROCESS)]:

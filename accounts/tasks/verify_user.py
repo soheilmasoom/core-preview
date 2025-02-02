@@ -1,10 +1,11 @@
 import logging
+from pipes import Template
 
 from celery import shared_task
 from decouple import config
 from django.conf import settings
 
-from accounts.models import Notification
+from accounts.models import Notification, TemplateType
 from accounts.models import User
 from accounts.verifiers.basic_verifier import verify_national_code_with_phone, basic_verify
 from .send_sms import send_message_by_kavenegar
@@ -39,7 +40,7 @@ def alert_user_verify_status(user: User):
             else:
                 notif_message = 'اطلاعات وارد شده نیاز به بازنگری دارد.'
             level = Notification.ERROR
-            template = 'levelup-rejected'
+            template = TemplateType.LEVELUP_REJECTED
             levelup = user.level + 1
         else:
             if user.level == User.LEVEL2:
@@ -50,7 +51,7 @@ def alert_user_verify_status(user: User):
             else:
                 notif_message = 'احراز هویت سطح {} شما با موفقیت انجام شد.'.format(user.level)
             level = Notification.SUCCESS
-            template = 'levelup-accepted'
+            template = TemplateType.LEVELUP_ACCEPTED
             levelup = user.level
         Notification.send(
             recipient=user,

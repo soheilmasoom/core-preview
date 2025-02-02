@@ -3,8 +3,10 @@ from django.urls import path, include
 from rest_framework import routers
 
 from accounts import views
+from accounts.views import PhoneLoginInitView, PhoneLoginVerifyView
 from accounts.views.jwt_views import CustomTokenObtainPairView, InternalTokenObtainPairView, TokenLogoutView, \
     SessionTokenObtainPairView, JWTTokenRefreshView
+from accounts.views.phone_signup import PhoneSignupView
 from accounts.views.user_view import CreateAuthToken
 
 router = routers.DefaultRouter()
@@ -17,6 +19,10 @@ urlpatterns = [
     path('token/logout/', TokenLogoutView.as_view(), name='token_logout'),
 
     path('internal-token/', InternalTokenObtainPairView.as_view(), name='obtain_token_internal'),
+
+    path('auth/phone/init/', PhoneLoginInitView.as_view(), name='phone_login_init'),
+    path('auth/phone/verify/', PhoneLoginVerifyView.as_view(), name='phone_login_verify'),
+    path('auth/phone/signup/', PhoneSignupView.as_view(), name='phone_login_signup'),
 
     path('login/', views.LoginView.as_view()),
     path('logout/', views.LogoutView.as_view()),
