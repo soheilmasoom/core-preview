@@ -8,8 +8,10 @@ from django.utils import timezone
 from accounts.models import User, Account, UserAuthRequest, Referral
 from accounts.models.phone_verification import VerificationCode
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
+from accounts.utils.login import set_login_activity
 from accounts.utils.signup import create_traffic_source, set_missions_to_user
 from accounts.utils.similarity import clean_persian_word
+from accounts.views.phone_login import get_tokens_for_user
 from analytics.utils.yandex import send_yandex_event
 from financial.models import BankCard
 from financial.validators import bank_card_pan_validator
@@ -20,6 +22,7 @@ class SignupSerializer(serializers.Serializer):
     # Verification
     token = serializers.UUIDField(write_only=True, required=True)
 
+    client_info = serializers.JSONField(required=False)
     # Optional KYC data
     first_name = serializers.CharField(required=False)
     last_name = serializers.CharField(required=False)
@@ -67,6 +70,7 @@ class SignupSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         token = validated_data.pop('token')
+        client_info = validated_data.pop('client_info', None)
         verification = VerificationCode.get_by_token(token, VerificationCode.SCOPE_PHONE_LOGIN)
 
         if not verification:
@@ -137,7 +141,18 @@ class SignupSerializer(serializers.Serializer):
         if user.verify_status == User.PENDING:
             send_yandex_event(user, 'try_basic_verify')
 
-        return user
+        tokens = get_tokens_for_user(user)
+
+        set_login_activity(
+                request=self.context['request'],
+                user=user,
+                client_info=client_info,
+                refresh_token=tokens['refresh']
+            )
+        return {
+            'user': user,
+            **tokens
+        }
 
 
 class PhoneSignupView(CreateAPIView):
