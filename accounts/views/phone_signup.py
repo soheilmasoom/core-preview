@@ -1,5 +1,5 @@
 from django.conf import settings
-from rest_framework import serializers
+from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from django.db import transaction
@@ -11,6 +11,7 @@ from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.utils.login import set_login_activity
 from accounts.utils.signup import create_traffic_source, set_missions_to_user
 from accounts.utils.similarity import clean_persian_word
+from rest_framework.response import Response
 from accounts.views.phone_login import get_tokens_for_user
 from analytics.utils.yandex import send_yandex_event
 from financial.models import BankCard
@@ -143,11 +144,14 @@ class SignupSerializer(serializers.Serializer):
         tokens = get_tokens_for_user(user)
 
         set_login_activity(
-                request=self.context['request'],
-                user=user,
-                client_info=client_info,
-                refresh_token=tokens['refresh']
-            )
+            request=self.context['request'],
+            user=user,
+            client_info=client_info,
+            refresh_token=tokens['refresh']
+        )
+        print("-----")
+        print(user)
+        print(tokens)
         return {
             'user': user,
             **tokens
@@ -158,3 +162,16 @@ class PhoneSignupView(CreateAPIView):
     permission_classes = []
     throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
     serializer_class = SignupSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save()
+
+        return Response(
+            {
+                'refresh': result['refresh'],
+                'access': result['access'],
+            },
+            status=status.HTTP_201_CREATED
+        )
