@@ -258,13 +258,17 @@ class User(AbstractUser):
             'brand': settings.BRAND,
             'duration': duration
         }
-        content = loader.render_to_string('accounts/notif/sms/user_suspended_message.txt', context=context)
-        Notification.send(
-            recipient=self,
-            title='محدودیت برداشت',
-            message=f'برداشت‌های رمزارزی شما به دلیل {reason} تا {duration} آینده محدود شده است.',
-        )
-        send_kavenegar_exclusive_sms(self.phone, content=content)
+        if settings.EXCHANGE_TYPE.is_crypto:
+            content = loader.render_to_string('accounts/notif/sms/user_suspended_message.txt', context=context)
+            Notification.send(
+                recipient=self,
+                title='محدودیت برداشت',
+                message=f'برداشت‌های رمزارزی شما به دلیل {reason} تا {duration} آینده محدود شده است.',
+            )
+            send_kavenegar_exclusive_sms(self.phone, content=content)
+        else:
+            # todo complete for pm exchange
+            pass
 
     @property
     def is_suspended(self):
