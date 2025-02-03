@@ -85,7 +85,7 @@ class SignupSerializer(serializers.Serializer):
             raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید. لطفا از قسمت ورود، وارد شوید.'})
 
         promotion = validated_data.get('promotion', '')
-        utm = validated_data.get('utm', {})
+        utm = validated_data.get('utm') or {}
 
         with transaction.atomic():
             user = User.objects.create_user(
