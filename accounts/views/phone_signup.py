@@ -149,9 +149,6 @@ class SignupSerializer(serializers.Serializer):
             client_info=client_info,
             refresh_token=tokens['refresh']
         )
-        print("-----")
-        print(user)
-        print(tokens)
         return {
             'user': user,
             **tokens

@@ -55,11 +55,9 @@ class PhoneLoginVerifySerializer(serializers.Serializer):
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
 
-    # Add account_id to token payload
     account = Account.objects.get(user_id=user.pk)
     refresh['account_id'] = account.id
 
-    # Create refresh token model
     refresh_token_model, _ = RefreshTokenModel.objects.get_or_create(token=str(refresh))
     refresh['refresh_id'] = refresh_token_model.id
 
