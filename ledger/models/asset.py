@@ -6,12 +6,15 @@ from uuid import UUID
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.db import models
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
 from simple_history.models import HistoricalRecords
 
 from ledger.models import Wallet
+from ledger.utils.external_price import get_price_redis
 from ledger.utils.fields import get_amount_field
+from ledger.utils.precision import decimal_to_str
 from ledger.validators import no_whitespace
 from multimedia.storage import PublicMediaStorage
 
@@ -29,6 +32,8 @@ class Asset(models.Model):
     IRT = 'IRT'
     USDT = 'USDT'
     SHIB = 'SHIB'
+
+    MANUAL_PREFIX = 'manual'
 
     OTC_STATUSES = ACTIVE, DISABLED, BUY, SELL, COMING_SOON = 'active', 'disabled', 'buy', 'sell', 'soon'
     OTC_TRADE_ACTIVE_STATUSES = ACTIVE, BUY, SELL
@@ -169,6 +174,38 @@ class Asset(models.Model):
         else:
             return 1
 
+    def is_manual_pricing(self) -> bool:
+        return bool(self.external_price_symbol and self.external_price_symbol.startswith(self.MANUAL_PREFIX))
+
+    def set_manual_pricing(self, price: Decimal) -> None:
+        if not self.is_manual_pricing():
+            self.external_price_symbol = f"{self.MANUAL_PREFIX}{self.external_price_symbol}"
+            self.save()
+        key = 'price:' + self.external_price_symbol.lower()
+        stale_key = key + ':stale'
+        values = {
+            'a': decimal_to_str(price),
+            'b': decimal_to_str(price),
+            't': timezone.now().timestamp()
+        }
+
+        pipe = get_price_redis(False).pipeline(transaction=False)
+        pipe.hset(name=key, mapping=values)
+        pipe.hset(name=stale_key, mapping=values)
+        # No expiration set for manual prices
+        pipe.execute()
+
+    def revert_manual_pricing(self):
+        if not self.is_manual_pricing():
+            return
+        key = 'price:' + self.external_price_symbol.lower()
+        stale_key = key + ':stale'
+        self.external_price_symbol = self.external_price_symbol[len(self.MANUAL_PREFIX):]
+        self.save()
+        pipe = get_price_redis(False).pipeline(transaction=False)
+        pipe.delete(key)
+        pipe.delete(stale_key)
+        pipe.execute()
 
 class AssetVariant(models.Model):
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='variants')

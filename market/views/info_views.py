@@ -34,7 +34,7 @@ class AssetListSerializer(serializers.ModelSerializer):
         ref_name = 'market asset'
 
 
-@method_decorator(cache_page(60), name='dispatch')
+@method_decorator(cache_page(60, key_prefix='market_irt'), name='dispatch')
 class MarketIRTInfoView(ListAPIView):
     queryset = Asset.live_objects.filter(otc_status__in=Asset.OTC_TRADE_ACTIVE_STATUSES).exclude(symbol=Asset.IRT)
     serializer_class = AssetListSerializer
