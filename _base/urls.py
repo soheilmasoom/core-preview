@@ -3,16 +3,19 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.generic import TemplateView
-from django_otp.admin import OTPAdminSite
 from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
 from rest_framework import permissions
 
+from _base.admin import CoreAdminSite, DevAdminSite
 from accounts.views import SystemConfigView
 from accounts.views.dashboard import dashboard
 
 if not settings.DEBUG_OR_TESTING_OR_STAGING:
-    admin.site.__class__ = OTPAdminSite
+    admin.site.__class__ = CoreAdminSite
+else:
+    admin.site.__class__ = DevAdminSite
+
 
 
 schema_view = get_schema_view(

@@ -1,7 +1,26 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static %}
 
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static "admin/css/dashboard.css" %}">{% endblock %}
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static "admin/css/dashboard.css" %}">
+    <style>
+        .manual-pricing-box {
+            padding: 20px;
+            margin-bottom: 20px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .form-row {
+            margin-bottom: 10px;
+        }
+        .current-status {
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+    </style>
+{% endblock %}
 
 {% block coltype %}colMS{% endblock %}
 
@@ -13,7 +32,8 @@
 
 {% block content %}
 <div id="content-main">
-  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+    {% include "admin/xaum_pricing.html" %}
+    {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
 </div>
 {% endblock %}
 

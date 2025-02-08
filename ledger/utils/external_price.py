@@ -70,9 +70,6 @@ SIDE_MAP = {
     SELL: 'a'
 }
 
-_price_redis = None
-_master_price_redis = None
-
 
 def split_symbol(symbol: str):
     return (symbol[:-4], symbol[-4:]) if symbol.endswith('USDT') else (symbol[:-3], symbol[-3:])

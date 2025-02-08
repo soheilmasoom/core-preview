@@ -4,6 +4,7 @@ from typing import Union
 from uuid import UUID
 
 from django.conf import settings
+from django.core.cache import cache
 from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
@@ -181,7 +182,7 @@ class Asset(models.Model):
         if not self.is_manual_pricing():
             self.external_price_symbol = f"{self.MANUAL_PREFIX}{self.external_price_symbol}"
             self.save()
-        key = 'price:' + self.external_price_symbol.lower()
+        key = 'price:' + self.external_price_symbol.lower() + "irt"
         stale_key = key + ':stale'
         values = {
             'a': decimal_to_str(price),
@@ -194,6 +195,9 @@ class Asset(models.Model):
         pipe.hset(name=stale_key, mapping=values)
         # No expiration set for manual prices
         pipe.execute()
+        header_keys = cache.client.keys('views.decorators.cache.cache_header.market_irt*')
+        for key in header_keys:
+            cache.delete(key)
 
     def revert_manual_pricing(self):
         if not self.is_manual_pricing():
@@ -206,6 +210,7 @@ class Asset(models.Model):
         pipe.delete(key)
         pipe.delete(stale_key)
         pipe.execute()
+
 
 class AssetVariant(models.Model):
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='variants')

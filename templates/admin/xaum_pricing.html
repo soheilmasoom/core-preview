@@ -1,0 +1,55 @@
+{% if xaum_asset %}
+<div class="module">
+    <h2>قیمت هر میلی گرم طلا</h2>
+    <div class="description">
+        {% if xaum_price %}
+            <p>قیمت فعلی: {{ xaum_price|floatformat:0 }} ریال</p>
+        {% endif %}
+        <p class="help">وضعیت فعلی: <strong>{% if xaum_asset.is_manual_pricing %}قیمت دستی{% else %}قیمت خودکار{% endif %}</strong></p>
+    </div>
+    <form method="post" class="aligned">
+        {% csrf_token %}
+        <fieldset class="module aligned">
+            <div class="form-row field-manual_pricing">
+                <div class="checkbox-row">
+                    <input type="checkbox" name="manual_pricing" id="id_manual_pricing" {% if xaum_asset.is_manual_pricing %}checked{% endif %}>
+                    <label for="id_manual_pricing" class="vCheckboxLabel">فعال کردن قیمت دستی</label>
+                </div>
+            </div>
+
+            <div class="form-row field-price">
+                <div>
+                    <label for="id_price" class="required">قیمت (ریال):</label>
+                    <input type="number"
+                           name="price"
+                           id="id_price"
+                           step="1"
+                           class="vTextField"
+                           value="{{ current_price|default:'' }}"
+                           {% if not xaum_asset.is_manual_pricing %}disabled{% endif %}>
+                    {% if xaum_price %}
+                    <div class="help">آخرین قیمت ثبت شده: {{ xaum_price|floatformat:0 }} ریال</div>
+                    {% endif %}
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="ذخیره" class="default" name="_save">
+            {% if xaum_asset.is_manual_pricing %}
+                <input type="submit" name="revert" value="بازگشت به قیمت خودکار" class="deletelink" style="background: #666;">
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('id_manual_pricing').addEventListener('change', function() {
+    var priceInput = document.getElementById('id_price');
+    priceInput.disabled = !this.checked;
+    if (this.checked) {
+        priceInput.focus();
+    }
+});
+</script>
+{% endif %}
