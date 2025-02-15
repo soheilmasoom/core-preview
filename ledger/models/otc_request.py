@@ -59,7 +59,8 @@ class OTCRequest(BaseTrade):
     @classmethod
     def new_trade(cls, account: Account, market: str, from_asset: Asset, to_asset: Asset, order_type: str,
                   from_amount: Decimal = None, to_amount: Decimal = None,
-                  check_enough_balance: bool = True, gtd: datetime = None, price: Decimal = None) -> 'OTCRequest':
+                  check_enough_balance: bool = True, gtd: datetime = None, price: Decimal = None,
+                  preview: bool = False) -> 'OTCRequest':
 
         assert order_type in cls.ORDER_TYPES
         assert from_amount or to_amount
@@ -101,7 +102,8 @@ class OTCRequest(BaseTrade):
         if otc_request.symbol.asset.otc_status not in (Asset.ACTIVE, otc_request.side):
             raise UnableToTradeError(side=otc_request.side, asset=otc_request.symbol.asset)
 
-        otc_request.save()
+        if not preview:
+            otc_request.save()
 
         return otc_request
 
@@ -177,7 +179,9 @@ class OTCRequest(BaseTrade):
         return otc_request
 
     def get_expire_time(self) -> datetime:
-        return self.created + timedelta(seconds=OTCRequest.EXPIRATION_TIME)
+        if self.created:
+            return self.created + timedelta(seconds=OTCRequest.EXPIRATION_TIME)
+        return timezone.now() + timedelta(seconds=OTCRequest.EXPIRATION_TIME)
 
     def get_receiving_amount(self):
         if self.side == SELL:

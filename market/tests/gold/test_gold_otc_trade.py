@@ -6,7 +6,7 @@ from django.test import TestCase, Client, override_settings
 from _base import settings
 from _base.utils import ExchangeType
 from accounts.models import Account, SystemConfig
-from ledger.models import Asset, AssetSpreadCategory, CategorySpread, Trx, Wallet
+from ledger.models import Asset, AssetSpreadCategory, CategorySpread, Trx, Wallet, OTCRequest
 from ledger.utils.external_price import USDT, BUY, SELL
 from ledger.utils.test import new_account, set_price
 from market.models import PairSymbol
@@ -192,6 +192,27 @@ class GoldOtcTradeTestCase(TestCase):
         self.wallet_irt.refresh_from_db()
         self.assertEqual(self.wallet_xaum.balance, Decimal('2'))
         self.assertEqual(self.wallet_irt.balance, Decimal('89540'))
+
+    def test_otc_preview(self):
+        self.wallet_irt.airdrop(100_000)
+        self.wallet_xaum.airdrop(50)
+
+        initial_otc_count = OTCRequest.objects.count()
+
+        response = self.client.get('/api/v1/trade/otc/request/',
+                                   {'from_asset': 'IRT', 'to_asset': 'XAUM', 'to_amount': '2'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assert_otc_request(
+            data=response.data,
+            price='5230',
+            fee='21',
+            paying_amount=Decimal('10481'),
+            receiving_amount=Decimal('2'),
+            net_receiving_amount=Decimal('2')
+        )
+
+        self.assertEqual(OTCRequest.objects.count(), initial_otc_count)
 
     def assert_otc_request(self, data, price, fee, paying_amount, receiving_amount, net_receiving_amount):
         self.assertEqual(data['price'], price, f"Expected price {price}, got {data['price']}")

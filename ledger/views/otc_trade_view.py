@@ -201,6 +201,7 @@ class OTCRequestSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context['request']
         account = request.user.get_account()
+        preview = self.context.get('preview', False)
 
         if not can_trade(request):
             raise ValidationError('در حال حاضر امکان معامله وجود ندارد.')
@@ -228,10 +229,12 @@ class OTCRequestSerializer(serializers.ModelSerializer):
                 market=Wallet.SPOT,
                 order_type=order_type,
                 gtd=gtd,
-                price=price
+                price=price,
+                preview=preview
             )
-            otc_request.login_activity = LoginActivity.from_request(request=request)
-            otc_request.save(update_fields=['login_activity'])
+            if not preview:
+                otc_request.login_activity = LoginActivity.from_request(request=request)
+                otc_request.save(update_fields=['login_activity'])
             return otc_request
         except InvalidAmount as e:
             raise ValidationError(str(e))
@@ -270,9 +273,31 @@ class OTCRequestSerializer(serializers.ModelSerializer):
                   'net_receiving_amount', 'fee', 'type', 'gtd')
 
 
-class OTCTradeRequestView(CreateAPIView):
+class OTCTradeRequestView(APIView):
     serializer_class = OTCRequestSerializer
 
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data, context={'request': request, 'preview': False})
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        return Response(serializer.data)
+
+    def get(self, request):
+        data = {
+            'from_asset': request.query_params.get('from_asset'),
+            'to_asset': request.query_params.get('to_asset'),
+            'from_amount': request.query_params.get('from_amount'),
+            'to_amount': request.query_params.get('to_amount'),
+            'type': request.query_params.get('type', OTCRequest.MARKET)
+        }
+
+        serializer = self.serializer_class(
+            data=data,
+            context={'request': request, 'preview': True}
+        )
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        return Response(serializer.data)
 
 class OTCTradeSerializer(serializers.ModelSerializer):
     token = serializers.CharField(write_only=True)
