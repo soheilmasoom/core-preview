@@ -276,21 +276,29 @@ class OTCRequestSerializer(serializers.ModelSerializer):
 class OTCTradeRequestView(APIView):
     serializer_class = OTCRequestSerializer
 
+    def get_data_from_request(self, request, is_get=False):
+        if is_get:
+            params = request.query_params
+        else:
+            params = request.data
+
+        return {
+            'from_asset': params.get('from_asset'),
+            'to_asset': params.get('to_asset'),
+            'from_amount': params.get('from_amount'),
+            'to_amount': params.get('to_amount'),
+            'type': params.get('type', OTCRequest.MARKET)
+        }
+
     def post(self, request):
-        serializer = self.serializer_class(data=request.data, context={'request': request, 'preview': False})
+        data = self.get_data_from_request(request)
+        serializer = self.serializer_class(data=data, context={'request': request, 'preview': False})
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
         return Response(serializer.data)
 
     def get(self, request):
-        data = {
-            'from_asset': request.query_params.get('from_asset'),
-            'to_asset': request.query_params.get('to_asset'),
-            'from_amount': request.query_params.get('from_amount'),
-            'to_amount': request.query_params.get('to_amount'),
-            'type': request.query_params.get('type', OTCRequest.MARKET)
-        }
-
+        data = self.get_data_from_request(request, is_get=True)
         serializer = self.serializer_class(
             data=data,
             context={'request': request, 'preview': True}
@@ -298,6 +306,7 @@ class OTCTradeRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
         return Response(serializer.data)
+
 
 class OTCTradeSerializer(serializers.ModelSerializer):
     token = serializers.CharField(write_only=True)
