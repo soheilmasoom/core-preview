@@ -67,9 +67,10 @@ class OTCInfoView(APIView):
             else:
                 to_amount = Decimal(1)
 
+        account = Account.get_for(self.request.user)
         try:
             otc = OTCRequest.get_otc_request(
-                account=Account.get_for(self.request.user),
+                account=account,
                 from_asset=from_asset,
                 to_asset=to_asset,
                 from_amount=from_amount,
@@ -116,6 +117,8 @@ class OTCInfoView(APIView):
         buy_discount = otc.symbol.taker_buy_discount
         sell_discount = otc.symbol.taker_sell_discount
 
+        buy_fee = otc.symbol.get_fee_rate(account=account, is_maker=False, is_buy=True, include_discount=False)
+        sell_fee = otc.symbol.get_fee_rate(account=account, is_maker=False, is_buy=False, include_discount=False)
         return Response({
             'base_asset': symbol.base_asset.symbol,
             'asset': symbol.asset.symbol,
@@ -128,7 +131,9 @@ class OTCInfoView(APIView):
             'price_precision': symbol.tick_size,
             'default_amount': str(default_amount),
             'buy_discount': int(buy_discount),
-            'sell_discount': int(sell_discount)
+            'sell_discount': int(sell_discount),
+            'buy_fee': buy_fee,
+            'sell_fee': sell_fee
         })
 
 

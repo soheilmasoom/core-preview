@@ -91,7 +91,8 @@ class PairSymbol(models.Model):
             return self.maker_buy_discount if is_buy else self.maker_sell_discount
         return self.taker_buy_discount if is_buy else self.taker_sell_discount
 
-    def get_fee_rate(self, account: Account, is_maker: bool, is_buy: bool = None) -> Decimal:
+    def get_fee_rate(self, account: Account, is_maker: bool, is_buy: bool = None,
+                     include_discount: bool = False) -> Decimal:
         if account.is_system():
             return Decimal(0)
 
@@ -109,7 +110,7 @@ class PairSymbol(models.Model):
                 base_fee = f
                 break
 
-        if is_buy is not None:
+        if include_discount and is_buy is not None:
             discount = self.get_discount(is_maker, is_buy)
             discount_multiplier = (100 - discount) / 100
             return base_fee * discount_multiplier
