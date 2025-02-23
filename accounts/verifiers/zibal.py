@@ -161,13 +161,18 @@ class ZibalRequester(VerificationService):
             search_key=f'iban-{iban}'
         )
         data = resp.data.get('data', {})
+        code = ZibalRequester.RESULT_MAP.get(resp.data.get('result', ''), '')
+        deposit_status = 'UNKNOWN'
+        if code == 'SUCCESSFUL':
+            deposit_status = 'ACTIVE'
         resp.data = IBANInfoData(
             bank_name=data.get('bankName', ''),
             owners=[{
                 'firstName': split_names(data.get('name', ''))[0],
                 'lastName': split_names(data.get('name', ''))[1]
             }],
-            code=ZibalRequester.RESULT_MAP.get(resp.data.get('result', ''), '')
+            code=code,
+            deposit_status=deposit_status
         )
         return resp
 
