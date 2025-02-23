@@ -119,6 +119,7 @@ class OTCInfoView(APIView):
 
         buy_fee = otc.symbol.get_fee_rate(account=account, is_maker=False, is_buy=True, include_discount=False)
         sell_fee = otc.symbol.get_fee_rate(account=account, is_maker=False, is_buy=False, include_discount=False)
+
         return Response({
             'base_asset': symbol.base_asset.symbol,
             'asset': symbol.asset.symbol,
@@ -132,8 +133,8 @@ class OTCInfoView(APIView):
             'default_amount': str(default_amount),
             'buy_discount': int(buy_discount),
             'sell_discount': int(sell_discount),
-            'buy_fee': buy_fee,
-            'sell_fee': sell_fee
+            'buy_fee': get_presentation_amount(buy_fee * 100),
+            'sell_fee': get_presentation_amount(sell_fee * 100)
         })
 
 
