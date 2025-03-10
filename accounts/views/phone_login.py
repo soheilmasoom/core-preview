@@ -114,7 +114,8 @@ class PhoneLoginVerifyView(APIView):
             #     user.suspend(timedelta(hours=1), 'ورود از دستگاه جدید')
             return Response({
                 **tokens,
-                'is_registered': True
+                'is_registered': True,
+                'user': {'id': user.id}
             })
         else:
             # New user flow - return verification token
