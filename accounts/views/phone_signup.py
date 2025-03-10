@@ -169,6 +169,7 @@ class PhoneSignupView(CreateAPIView):
             {
                 'refresh': result['refresh'],
                 'access': result['access'],
+                'user': {'id': result['user'].id}
             },
             status=status.HTTP_201_CREATED
         )
