@@ -17,7 +17,7 @@ class Command(BaseCommand):
 
     def fetch_data(self, chart_type: str):
         response = requests.get(
-            'https://api.wallgold.ir/api/chart',
+            'https://api.wallgold.ir/api/v1/chart',
             params={
                 'symbol': 'GLD_18C_750TMN',
                 'chartType': chart_type
