@@ -24,7 +24,7 @@ class Command(BaseCommand):
             }
         )
         if response.ok and response.json().get('success'):
-            return response.json()['result']['data']
+            return response.json()['result']['chart']['data']
         return None
 
     def cleanUp(self):
