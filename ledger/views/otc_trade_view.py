@@ -236,7 +236,8 @@ class OTCRequestSerializer(serializers.ModelSerializer):
                 order_type=order_type,
                 gtd=gtd,
                 price=price,
-                preview=preview
+                preview=preview,
+                check_enough_balance=False
             )
             if not preview:
                 otc_request.login_activity = LoginActivity.from_request(request=request)
