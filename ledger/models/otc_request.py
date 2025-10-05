@@ -185,7 +185,8 @@ class OTCRequest(BaseTrade):
 
     def get_receiving_amount(self):
         if self.side == SELL:
-            return self.amount * self.price
+            receiving_amount = self.amount * self.price
+            return floor_precision(receiving_amount, self.symbol.base_asset.get_precision())
         else:
             return self.amount
 
