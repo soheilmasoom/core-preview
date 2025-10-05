@@ -192,12 +192,15 @@ class OTCRequest(BaseTrade):
     def get_paying_amount(self):
         if is_fee_type_add_paying():
             if self.side == BUY:
-                return self.amount * self.price + self.fee_amount
+                base_amount = self.amount * self.price
+                base_amount = floor_precision(base_amount, self.symbol.base_asset.get_precision())
+                return base_amount + self.fee_amount
             else:
                 return self.amount
         else:
             if self.side == BUY:
-                return self.amount * self.price
+                base_amount = self.amount * self.price
+                return floor_precision(base_amount, self.symbol.base_asset.get_precision())
             else:
                 return self.amount
 
