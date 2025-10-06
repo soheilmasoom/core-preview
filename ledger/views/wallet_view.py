@@ -317,12 +317,7 @@ class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
     def get_queryset(self):
         account = self.request.user.get_account()
 
-        disabled_assets = Wallet.objects.filter(
-            account=account,
-            asset__enable=False
-        ).exclude(balance=0).values_list('asset_id', flat=True)
-
-        assets = Asset.objects.filter(Q(enable=True) | Q(id__in=disabled_assets)).exclude(otc_status=Asset.COMING_SOON)
+        assets = Asset.objects.filter(Q(enable=True)).exclude(otc_status=Asset.COMING_SOON)
 
         only_coin = self.request.query_params.get('coin') == '1'
         if only_coin:
@@ -347,7 +342,7 @@ class WalletViewSet(ModelViewSet, DelegatedAccountMixin):
             asset_ids = Wallet.objects.filter(
                 market=Wallet.SPOT,
                 account=account,
-                balance__gt=0
+                balance__gt=0,
             ).values_list('asset_id', flat=True)
 
             assets = assets.filter(id__in=asset_ids)
