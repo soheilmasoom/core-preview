@@ -92,7 +92,7 @@ class OTCRequest(BaseTrade):
             available_balance = from_wallet.get_free()
 
             # If paying amount exceeds balance, adjust down to max affordable
-            if paying_amount > available_balance:
+            if paying_amount <= available_balance * Decimal('0.005'):
                 fee_rate = otc_request.symbol.get_fee_rate(account, is_maker=False, is_buy=True)
 
                 # Calculate max base amount: available_balance / (1 + fee_rate)
