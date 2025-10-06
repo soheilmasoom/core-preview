@@ -68,7 +68,34 @@ class OTCRequest(BaseTrade):
 
         config = SystemConfig.get_system_config()
 
-        # First, create the OTC request to calculate fees
+        # Auto-adjust logic for BUY orders with from_amount ≤ balance
+        if (from_amount and
+                is_fee_type_add_paying() and
+                from_asset.symbol in Asset.IRT):
+
+            from_wallet = from_asset.get_wallet(account, market)
+            available_balance = from_wallet.get_free()
+
+            # If user enters amount ≤ their balance, adjust to max affordable (accounting for fees)
+            if from_amount <= available_balance:
+                fee_rate = None
+
+                pair = get_trading_pair(from_asset, to_asset, from_amount, to_amount)
+                if pair.side == BUY:
+                    from market.models import PairSymbol
+                    symbol = PairSymbol.objects.get(asset=pair.coin, base_asset=pair.base)
+                    fee_rate = symbol.get_fee_rate(account, is_maker=False, is_buy=True)
+
+                if fee_rate:
+                    # Calculate max base amount: available_balance / (1 + fee_rate)
+                    max_base_amount = floor_precision(
+                        available_balance / (1 + fee_rate),
+                        from_asset.get_precision()
+                    )
+
+                    from_amount = max_base_amount
+
+        # Create the OTC request (with potentially adjusted from_amount)
         otc_request = cls.get_otc_request(
             account=account,
             from_asset=from_asset,
@@ -81,40 +108,6 @@ class OTCRequest(BaseTrade):
             price=price,
         )
 
-        # Auto-adjust if from_amount would exceed balance due to fees (fee_add_paying BUY only)
-        if (not preview and from_amount and
-                is_fee_type_add_paying() and
-                otc_request.side == BUY and
-                from_asset.symbol in (Asset.IRT, Asset.USDT)):
-
-            from_wallet = from_asset.get_wallet(account, market)
-            paying_amount = otc_request.get_paying_amount()
-            available_balance = from_wallet.get_free()
-
-            # If paying amount exceeds balance, adjust down to max affordable
-            if paying_amount > available_balance:
-                fee_rate = otc_request.symbol.get_fee_rate(account, is_maker=False, is_buy=True)
-
-                # Calculate max base amount: available_balance / (1 + fee_rate)
-                max_base_amount = floor_precision(
-                    available_balance / (1 + fee_rate),
-                    from_asset.get_precision()
-                )
-
-                # Recreate OTC request with adjusted amount
-                otc_request = cls.get_otc_request(
-                    account=account,
-                    from_asset=from_asset,
-                    to_asset=to_asset,
-                    from_amount=max_base_amount,
-                    to_amount=None,
-                    market=market,
-                    order_type=order_type,
-                    gtd=gtd,
-                    price=price,
-                )
-
-        # Continue with existing validation
         otc_irt_value = otc_request.irt_value
 
         if otc_irt_value < config.min_otc_irt * Decimal('0.8'):
