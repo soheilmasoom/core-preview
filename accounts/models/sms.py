@@ -2,7 +2,7 @@ from django.db import models
 
 
 class TemplateType(models.TextChoices):
-    VERIFY = 'verify', 'Verify'
+    VERIFY = 'verify-code', 'Verify'
     WITHDRAW_ACCEPTED = 'withdraw-accepted', 'Withdraw Accepted'
     WITHDRAW_REJECTED = 'withdraw-rejected', 'Withdraw Rejected'
     DISABLE_STAKING = 'disable-staking', 'Disable Staking'
