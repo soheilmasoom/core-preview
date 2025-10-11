@@ -9,7 +9,7 @@ from accounts.models import SystemConfig
 from ledger.utils.wallet_pipeline import WalletPipeline
 from .models import Treasury, PhysicalWithdraw, PhysicalWithdrawStatus
 from ledger.exceptions import InsufficientBalance
-from .serializers import PhysicalWithdrawSerializer, TreasurySerializer
+from .serializers import PhysicalWithdrawSerializer, TreasurySerializer, PhysicalWithdrawPreviewSerializer
 
 
 class TreasuryListView(APIView):
@@ -103,5 +103,28 @@ class PhysicalWithdrawInitView(APIView):
         config = SystemConfig.get_system_config()
         return Response({
             'min_physical_gold_withdraw': config.min_physical_gold_withdraw,
-            'min_physical_silver_withdraw': config.min_physical_silver_withdraw
+            'min_physical_silver_withdraw': config.min_physical_silver_withdraw,
+            'physical_withdraw_fee_percentage': config.physical_withdraw_fee_percentage
         })
+
+
+class PhysicalWithdrawPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = PhysicalWithdrawPreviewSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            preview_data = serializer.to_representation(serializer.validated_data)
+            return Response(preview_data, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            error_msg = str(e.detail[0]) if isinstance(e.detail, list) else str(e.detail)
+            return Response(
+                {'error': error_msg},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )

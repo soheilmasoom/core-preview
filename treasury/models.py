@@ -76,6 +76,13 @@ class PhysicalWithdraw(models.Model):
         validators=[MinValueValidator(0)],
         verbose_name="Amount (grams)"
     )
+    fee_amount = models.DecimalField(
+        max_digits=20,
+        decimal_places=3,
+        validators=[MinValueValidator(0)],
+        verbose_name="Fee Amount (grams)",
+        default=0
+    )
     status = models.CharField(
         max_length=10,
         choices=PhysicalWithdrawStatus.CHOICES,
@@ -84,6 +91,10 @@ class PhysicalWithdraw(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     lock_id = models.UUIDField(unique=True)
+
+    def get_total_amount(self):
+        """Returns the total amount including fee"""
+        return self.amount + self.fee_amount
 
     def approve(self) -> bool:
         if self.status != PhysicalWithdrawStatus.PENDING:
@@ -117,10 +128,11 @@ class PhysicalWithdraw(models.Model):
                 user_wallet = self.asset.get_wallet(self.account, market=Wallet.SPOT, variant=None)
                 out_wallet = self.asset.get_wallet(Account.out(), market=Wallet.SPOT, variant=None)
 
+                # Transfer the total amount (base + fee) to out wallet
                 pipeline.new_trx(
                     sender=user_wallet,
                     receiver=out_wallet,
-                    amount=self.amount,
+                    amount=self.get_total_amount(),
                     scope=Trx.TRANSFER,
                     group_id=uuid4()
                 )

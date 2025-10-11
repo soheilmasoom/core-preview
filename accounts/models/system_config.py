@@ -113,6 +113,15 @@ class SystemConfig(models.Model):
         )
     )
 
+    physical_withdraw_fee_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('3.00'),
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="Physical Withdraw Fee Percentage",
+        help_text="Fee percentage for physical withdrawals (e.g., 3 for 3%)"
+    )
+
     def __str__(self):
         return self.name
 

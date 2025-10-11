@@ -285,10 +285,10 @@ class AdminTrackerAdmin(AdvancedAdmin):
 class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
     list_display = ('name', 'active', 'withdraw_status', 'deposit_status', 'disable_trade_with_api',
                     'withdraw_amount_min', 'withdraw_amount_max',
-                    'min_physical_gold_withdraw', 'min_physical_silver_withdraw')
+                    'min_physical_gold_withdraw', 'min_physical_silver_withdraw', 'physical_withdraw_fee_percentage')
     list_editable = (
         'withdraw_status', 'deposit_status', 'withdraw_amount_min', 'withdraw_amount_max', 'min_physical_gold_withdraw',
-        'min_physical_silver_withdraw')
+        'min_physical_silver_withdraw', 'physical_withdraw_fee_percentage')
 
     default_edit_condition = M.superuser
 
@@ -302,6 +302,7 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         'withdraw_amount_max': True,
         'min_physical_gold_withdraw': True,
         'min_physical_silver_withdraw': True,
+        'physical_withdraw_fee_percentage': True,
         'commission_type': True
     }
 
@@ -317,7 +318,6 @@ class SystemConfigAdmin(SimpleHistoryAdmin, AdvancedAdmin):
         MarginLeverage.objects.update(
             leverage=min(system_config.default_margin_leverage, system_config.max_margin_leverage)
         )
-
 
 if settings.EXCHANGE_TYPE.is_precious_metals:
     from .admin_pm import PreciousMetalsUserAdmin
