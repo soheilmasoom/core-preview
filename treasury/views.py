@@ -83,15 +83,20 @@ class PhysicalWithdrawDetailView(APIView):
             )
 
         try:
-            with WalletPipeline() as pipeline:
-                pipeline.release_lock(withdraw.lock_id)
-                withdraw.delete()
+            withdraw.reject()
+            return Response(
+                PhysicalWithdrawSerializer(withdraw).data,
+                status=status.HTTP_200_OK
+            )
 
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             return Response(
-                {'error': f'Failed to delete withdrawal: {str(e)}'},
+                {'error': f'Failed to reject withdrawal: {str(e)}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
