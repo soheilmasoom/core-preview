@@ -68,7 +68,7 @@ class OTCRequest(BaseTrade):
 
         config = SystemConfig.get_system_config()
 
-        # Auto-adjust logic for BUY orders with from_amount ≤ balance
+        # Auto-adjust logic for BUY orders when actual cost + fees > balance
         if (from_amount and
                 is_fee_type_add_paying() and
                 from_asset.symbol in Asset.IRT):
@@ -76,24 +76,42 @@ class OTCRequest(BaseTrade):
             from_wallet = from_asset.get_wallet(account, market)
             available_balance = from_wallet.get_free()
 
-            # If user enters amount ≤ their balance, adjust to max affordable (accounting for fees)
+            # Only adjust if the entered amount is within balance range
             if from_amount <= available_balance:
-                fee_rate = None
-
                 pair = get_trading_pair(from_asset, to_asset, from_amount, to_amount)
+
                 if pair.side == BUY:
                     from market.models import PairSymbol
                     symbol = PairSymbol.objects.get(asset=pair.coin, base_asset=pair.base)
                     fee_rate = symbol.get_fee_rate(account, is_maker=False, is_buy=True)
 
-                if fee_rate:
-                    # Calculate max base amount: available_balance / (1 + fee_rate)
-                    max_base_amount = floor_precision(
-                        available_balance / (1 + fee_rate),
-                        from_asset.get_precision()
-                    )
+                    if fee_rate:
+                        # Get the price to calculate actual coin amount
+                        other_side = get_other_side(pair.side)
+                        if order_type == cls.MARKET:
+                            temp_price = get_price(symbol.name, side=other_side)
+                        else:
+                            temp_price = price
 
-                    from_amount = max_base_amount
+                        if temp_price:
+                            # Calculate coin amount with step_size rounding
+                            coin_amount = floor_precision(from_amount / temp_price, symbol.step_size)
+
+                            # Calculate actual base cost after rounding
+                            actual_base_cost = coin_amount * temp_price
+                            actual_base_cost = floor_precision(actual_base_cost, from_asset.get_precision())
+
+                            # Calculate total cost with fees
+                            total_cost_with_fee = actual_base_cost * (1 + fee_rate)
+
+                            # Only adjust if total cost exceeds balance
+                            if total_cost_with_fee > available_balance:
+                                # Calculate max base amount: available_balance / (1 + fee_rate)
+                                max_base_amount = floor_precision(
+                                    available_balance / (1 + fee_rate),
+                                    from_asset.get_precision()
+                                )
+                                from_amount = max_base_amount
 
         # Create the OTC request (with potentially adjusted from_amount)
         otc_request = cls.get_otc_request(
