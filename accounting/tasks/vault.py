@@ -16,10 +16,8 @@ def update_vaults():
     now = timezone.now().replace(second=0, microsecond=0)
 
     update_provider_vaults(now, prices)
-    update_hot_wallet_vault(now, prices)
     update_gateway_vaults(now, prices)
     update_pay_id_gateway_vaults(now, prices)
-    update_cold_wallet_vaults(now, prices)
     update_service_vaults(now, prices)
 
     update_reserved_assets_value(now, prices)
