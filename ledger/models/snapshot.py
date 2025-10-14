@@ -35,7 +35,7 @@ class SystemSnapshot(models.Model):
     exchange = get_amount_field(validators=())
     reserved = get_amount_field(validators=())
 
-    margin_insurance = get_amount_field(validators=())
+    margin_insurance = get_amount_field(validators=(), default=0)
     prize = get_amount_field()
 
     verified = models.BooleanField(default=False)
