@@ -1,8 +1,8 @@
 from celery.app import shared_task
 from django.utils import timezone
 
-from accounting.utils.vault import update_provider_vaults, update_hot_wallet_vault, update_gateway_vaults, \
-    update_asset_prices, update_cold_wallet_vaults, update_reserved_assets_value, update_service_vaults, \
+from accounting.utils.vault import update_provider_vaults, update_gateway_vaults, \
+    update_asset_prices, update_reserved_assets_value, update_service_vaults, \
     update_pay_id_gateway_vaults
 from ledger.models import Asset
 from ledger.tasks import create_snapshot
