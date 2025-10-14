@@ -141,4 +141,5 @@ class AssetOverview:
         return self.get_all_real_assets_value() - self.get_all_users_asset_value() - self.get_unknown_asset_value()
 
     def get_margin_insurance_balance(self):
-        return Asset.get(Asset.USDT).get_wallet(settings.MARGIN_INSURANCE_ACCOUNT).balance
+        # return Asset.get(Asset.USDT).get_wallet(settings.MARGIN_INSURANCE_ACCOUNT).balance
+        return 0

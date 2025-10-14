@@ -22,7 +22,7 @@ def create_snapshot(now: datetime, prices: dict):
         users=overview.get_all_users_asset_value(),
         exchange=overview.get_exchange_assets_usdt(),
         reserved=overview.get_total_reserved_assets_value(),
-
+        margin_insurance=overview.get_margin_insurance_balance(),
         prize=overview.get_all_prize_value(),
 
         binance_margin_ratio=overview.get_binance_margin_ratio() or 0,
