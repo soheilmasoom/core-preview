@@ -238,7 +238,7 @@ def fetch_external_redis_prices(coins: Union[list, set], side: str = None, allow
 
 def _fetch_external_depth(symbol: str, side: str) -> str:
     key = SIDE_MAP[side]
-    data = _get_price_redis(False).hgetall(name=f'depth:{_get_external_symbol(symbol).lower()}')
+    data = _get_price_redis(False).hgetall(name=f'depth:{symbol.lower()}')
 
     if data and _check_price_dict_time_frame(data):
         return data[key]
