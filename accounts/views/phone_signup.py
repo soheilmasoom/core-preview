@@ -1,12 +1,11 @@
 from django.conf import settings
 from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import CreateAPIView
-from django.db import transaction
+from rest_framework.views import APIView
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 
-from accounts.models import User, Account, UserAuthRequest, Referral
-from accounts.models.phone_verification import VerificationCode
+from accounts.models import User, Account, Referral
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.utils.login import set_login_activity
 from accounts.utils.signup import create_traffic_source, set_missions_to_user
@@ -17,13 +16,15 @@ from analytics.utils.yandex import send_yandex_event
 from financial.models import BankCard
 from financial.validators import bank_card_pan_validator
 from accounts.tasks import basic_verify_user
+from accounts.models.phone_verification import VerificationCode
 
 
 class SignupSerializer(serializers.Serializer):
-    # Verification
-    token = serializers.UUIDField(write_only=True, required=True)
+    # Token is optional - either token OR authenticated user
+    token = serializers.UUIDField(write_only=True, required=False)
 
     client_info = serializers.JSONField(required=False)
+
     # Optional KYC data
     first_name = serializers.CharField(required=False)
     last_name = serializers.CharField(required=False)
@@ -69,107 +70,153 @@ class SignupSerializer(serializers.Serializer):
 
         return data
 
-    def create(self, validated_data):
-        token = validated_data.pop('token')
-        client_info = validated_data.pop('client_info', None)
-        verification = VerificationCode.get_by_token(token, VerificationCode.SCOPE_PHONE_LOGIN)
 
-        if not verification:
-            raise ValidationError({'token': 'توکن نامعتبر است.'})
+class PhoneSignupView(APIView):
+    permission_classes = []
+    throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
 
-        if verification.token_used:
-            raise ValidationError({'token': 'این توکن قبلا استفاده شده است.'})
+    def post(self, request):
+        serializer = SignupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        phone = verification.phone
-        if User.objects.filter(phone=phone).exists():
-            raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید. لطفا از قسمت ورود، وارد شوید.'})
+        data = serializer.validated_data
+        token = data.get('token')
 
-        promotion = validated_data.get('promotion', '')
-        utm = validated_data.get('utm') or {}
-
-        with transaction.atomic():
-            user = User.objects.create_user(
-                username=phone,
-                phone=phone,
+        # Determine which flow: token-based or authenticated user
+        if token:
+            # Flow 1: Token provided (immediate signup after OTP)
+            verification = VerificationCode.get_by_token(
+                token,
+                VerificationCode.SCOPE_PHONE_LOGIN
             )
 
-            account = Account.objects.create(user=user)
+            if not verification:
+                raise ValidationError({'token': 'توکن نامعتبر است.'})
 
-            if validated_data.get('referral_code'):
-                account.referred_by = Referral.objects.get(code=validated_data['referral_code'])
-                account.save()
+            if verification.token_used:
+                raise ValidationError({'token': 'این توکن قبلا استفاده شده است.'})
 
-                from gamify.utils import check_prize_achievements, Task
-                check_prize_achievements(account.referred_by.owner, Task.REFERRAL)
+            phone = verification.phone
 
-            kyc_fields = {'national_code', 'birth_date', 'card_pan', 'first_name', 'last_name'}
-            if any(field in validated_data for field in kyc_fields):
-                user.first_name = clean_persian_word(validated_data.get('first_name', ''))
-                user.last_name = clean_persian_word(validated_data.get('last_name', ''))
-                user.national_code = validated_data.get('national_code')
-                user.birth_date = validated_data.get('birth_date')
+            # Check if user exists
+            if User.objects.filter(phone=phone).exists():
+                raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید. لطفا از قسمت ورود، وارد شوید.'})
 
-                if user.national_code:
-                    user.national_code_verified = None
-                if user.first_name:
+            user = None
+            is_new_user = True
+
+        elif request.user.is_authenticated:
+            # Flow 2: Authenticated user (skipped signup, now completing)
+            user = request.user
+
+            if user.level > User.LEVEL1:
+                return Response({
+                    'msg': 'شما قبلا اطلاعات خود را تکمیل کرده‌اید.',
+                    'code': -1
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            verification = None
+            is_new_user = False
+
+        else:
+            return Response({
+                'msg': 'توکن یا احراز هویت الزامی است.',
+                'code': -1
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        client_info = data.get('client_info')
+        promotion = data.get('promotion', '')
+        utm = data.get('utm') or {}
+
+        try:
+            with transaction.atomic():
+                # Create or update user
+                if is_new_user:
+                    # Flow 1: Create new user
+                    user, created = User.objects.get_or_create(
+                        phone=phone,
+                        defaults={'username': phone}
+                    )
+
+                    if not created:
+                        # Race condition: user was created between check and get_or_create
+                        raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید.'})
+
+                    account = Account.objects.create(user=user)
+                else:
+                    # Flow 2: Get existing account
+                    account = user.get_account()
+
+                # Update user with KYC data (only if provided)
+                if 'first_name' in data:
+                    user.first_name = clean_persian_word(data.get('first_name', ''))
                     user.first_name_verified = None
-                if user.last_name:
+
+                if 'last_name' in data:
+                    user.last_name = clean_persian_word(data.get('last_name', ''))
                     user.last_name_verified = None
-                if user.birth_date:
+
+                if 'national_code' in data:
+                    user.national_code = data.get('national_code')
+                    user.national_code_verified = None
+
+                if 'birth_date' in data:
+                    user.birth_date = data.get('birth_date')
                     user.birth_date_verified = None
 
                 user.save()
 
-                if 'card_pan' in validated_data:
+                if 'card_pan' in data:
                     BankCard.objects.create(
                         user=user,
-                        card_pan=validated_data['card_pan'],
+                        card_pan=data['card_pan'],
                         kyc=True,
                         verified=None
                     )
 
                 user.change_status(User.PENDING)
 
+                # Set referral if provided and not already set
+                if data.get('referral_code') and not account.referred_by:
+                    account.referred_by = Referral.objects.get(code=data['referral_code'])
+                    account.save()
+
+                    from gamify.utils import check_prize_achievements, Task
+                    check_prize_achievements(account.referred_by.owner, Task.REFERRAL)
+
                 if not settings.DEBUG_OR_TESTING_OR_STAGING:
                     basic_verify_user.s(user.id).apply_async(countdown=1)
                     send_yandex_event(user, 'try_basic_verify')
 
-        verification.set_token_used()
-        create_traffic_source(self.context['request'], user, utm)
+                # Mark verification token as used (Flow 1 only)
+                if verification:
+                    verification.set_token_used()
 
+        except IntegrityError:
+            return Response({
+                'msg': 'خطایی در ثبت اطلاعات رخ داد. لطفا دوباره تلاش کنید.',
+                'code': -1
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # These happen outside transaction
+        create_traffic_source(request, user, utm)
         set_missions_to_user(user, promotion)
-
         send_yandex_event(user, 'sign_up', {'id': user.id})
 
         tokens = get_tokens_for_user(user)
 
         set_login_activity(
-            request=self.context['request'],
+            request=request,
             user=user,
             client_info=client_info,
             refresh_token=tokens['refresh']
         )
-        return {
-            'user': user,
-            **tokens
-        }
-
-
-class PhoneSignupView(CreateAPIView):
-    permission_classes = []
-    throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
-    serializer_class = SignupSerializer
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        result = serializer.save()
 
         return Response(
             {
-                'refresh': result['refresh'],
-                'access': result['access'],
-                'user': {'id': result['user'].id}
+                'refresh': tokens['refresh'],
+                'access': tokens['access'],
+                'user': {'id': user.id}
             },
             status=status.HTTP_201_CREATED
         )

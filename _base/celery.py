@@ -374,24 +374,24 @@ if settings.EXCHANGE_TYPE.is_crypto:
     })
 
 # PM EXCHANGE TASKS
-if settings.EXCHANGE_TYPE.is_precious_metals:
-    app.conf.beat_schedule.update({
-        'fetch-one-minute-gold-candles': {
-            'task': 'ohlc.tasks.gold.fetch_and_store_gold_candles',
-            'schedule': crontab(minute='*'),
-            'options': {
-                'queue': 'ohlc',
-            }
-        },
-        'aggregate-candles': {
-            'task': 'ohlc.tasks.gold.refresh_materialized_views',
-            'schedule': crontab(minute='*/30'),
-            'options': {
-                'queue': 'ohlc',
-            }
-        }
-
-    })
+# if settings.EXCHANGE_TYPE.is_precious_metals:
+#     app.conf.beat_schedule.update({
+#         'fetch-one-minute-gold-candles': {
+#             'task': 'ohlc.tasks.gold.fetch_and_store_gold_candles',
+#             'schedule': crontab(minute='*'),
+#             'options': {
+#                 'queue': 'ohlc',
+#             }
+#         },
+#         'aggregate-candles': {
+#             'task': 'ohlc.tasks.gold.refresh_materialized_views',
+#             'schedule': crontab(minute='*/30'),
+#             'options': {
+#                 'queue': 'ohlc',
+#             }
+#         }
+#
+#     })
 if 'marketing' in settings.INSTALLED_APPS:
     app.conf.beat_schedule.update({
         'fill_ads_reports': {

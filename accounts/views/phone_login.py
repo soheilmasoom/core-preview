@@ -55,7 +55,7 @@ class PhoneLoginVerifySerializer(serializers.Serializer):
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
 
-    account = Account.objects.get(user_id=user.pk)
+    account, _ = Account.objects.get_or_create(user=user)  # FIXED: Added underscore
     refresh['account_id'] = account.id
 
     refresh_token_model, _ = RefreshTokenModel.objects.get_or_create(token=str(refresh))
@@ -109,9 +109,6 @@ class PhoneLoginVerifyView(APIView):
                 refresh_token=tokens['refresh']
             )
 
-            # if (not login_activity.is_sign_up and
-            #         LoginActivity.objects.filter(user=user, device=login_activity.device).count() == 1):
-            #     user.suspend(timedelta(hours=1), 'ورود از دستگاه جدید')
             return Response({
                 **tokens,
                 'is_registered': True,

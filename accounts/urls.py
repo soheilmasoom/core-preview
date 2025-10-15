@@ -7,6 +7,7 @@ from accounts.views import PhoneLoginInitView, PhoneLoginVerifyView
 from accounts.views.jwt_views import CustomTokenObtainPairView, InternalTokenObtainPairView, TokenLogoutView, \
     SessionTokenObtainPairView, JWTTokenRefreshView
 from accounts.views.phone_signup import PhoneSignupView
+from accounts.views.skip_signup import SkipSignupView
 from accounts.views.user_view import CreateAuthToken
 
 router = routers.DefaultRouter()
@@ -22,6 +23,7 @@ urlpatterns = [
 
     path('auth/phone/init/', PhoneLoginInitView.as_view(), name='phone_login_init'),
     path('auth/phone/verify/', PhoneLoginVerifyView.as_view(), name='phone_login_verify'),
+    path('auth/phone/skip-signup/', SkipSignupView.as_view(), name='phone_skip_signup'),
     path('auth/phone/signup/', PhoneSignupView.as_view(), name='phone_login_signup'),
 
     path('login/', views.LoginView.as_view()),
