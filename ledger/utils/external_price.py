@@ -24,7 +24,7 @@ def get_price_redis(allow_stale: bool):
     if _master_price_redis and not allow_stale:
         return _master_price_redis
 
-    return _price_redis
+    return _master_price_redis
 
 
 def get_master_price_redis():
