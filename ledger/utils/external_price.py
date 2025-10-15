@@ -105,7 +105,6 @@ def _get_external_price_multiplier(coin: str) -> Decimal:
 
 
 def _get_price_redis(allow_stale: bool):
-    allow_stale = True
 
     global _price_redis
     global _master_price_redis
