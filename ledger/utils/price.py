@@ -233,10 +233,7 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
             spread += extra_spread
 
         else:
-            if settings.EXCHANGE_TYPE.is_crypto:
-                price = get_price(f'{coin}USDT', side)
-            else:
-                price = get_price(symbol, side)
+            price = get_price(symbol, side)
             if not price:
                 raise SmallDepthError(0)
 
