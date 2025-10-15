@@ -127,11 +127,11 @@ def _get_redis_price_key(coin: str, market: str = None):
     prefix = 'price:'
     if market:
         prefix = prefix + 'f:'
-    from _base import settings
-    if settings.EXCHANGE_TYPE.is_crypto:
-        base = 'usdt'
-    else:
-        base = 'irt'
+    # from _base import settings
+    # if settings.EXCHANGE_TYPE.is_crypto:
+    base = 'usdt'
+    # else:
+    #     base = 'irt'
     return prefix + _get_external_coin(coin).lower() + base
 
 

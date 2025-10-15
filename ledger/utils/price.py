@@ -71,7 +71,7 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
             if base == IRT:
                 ext_price = fetch_external_price_by_symbol(symbol, side=side, allow_stale=allow_stale)
                 if ext_price:
-                    prices[symbol] = ext_price * otc_spreads.get(symbol, 1)
+                    prices[symbol] = ext_price * otc_spreads.get(symbol, 1) * prices[USDT_IRT]
                     remaining_symbols.remove(symbol)
 
         # For remaining symbols, use the original USDT conversion logic
