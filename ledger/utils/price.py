@@ -138,7 +138,7 @@ def get_last_prices(symbols: List[str]):
             else:
                 last_price = external_prices.get(coin)
 
-                if settings.EXCHANGE_TYPE.is_crypto and last_price and base == IRT:
+                if last_price and base == IRT:
                     last_price *= last_prices[USDT_IRT]
 
             if last_price:
