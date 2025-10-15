@@ -208,11 +208,10 @@ def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool =
         coin, base = split_symbol(symbol)
         base_price = 1
 
-        if base == IRT and settings.EXCHANGE_TYPE.is_crypto:
+        if base == IRT:
             symbol = f'{coin}USDT'
             base_price = get_price(USDT_IRT, side)
         else:
-            # because we fetch all metal prices from IRT base
             symbol = f'{coin}{base}'
 
         try:
