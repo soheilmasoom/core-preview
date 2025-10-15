@@ -56,7 +56,6 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
     if USDT_IRT not in symbols:
         symbols.append(USDT_IRT)
 
-
     prices = dict()
 
     prices[USDT_IRT] = get_price_tether_irt(side=side, allow_stale=allow_stale)
@@ -121,7 +120,7 @@ def get_last_prices(symbols: List[str]):
     ).values_list('name', 'last_trade_price'))
 
     if USDT_IRT not in last_prices:
-        last_prices[USDT_IRT] = fetch_external_price_by_symbol(USDT_IRT, side=SELL, allow_stale=True)
+        last_prices[USDT_IRT] = get_price_tether_irt(side=SELL, allow_stale=True)
 
     remaining_symbols = set(symbols) - set(last_prices)
 
