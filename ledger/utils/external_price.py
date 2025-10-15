@@ -12,6 +12,7 @@ from ledger.utils.depth import decode_depth, THRESHOLD_SPREADS as DEPTH_THRESHOL
 
 logger = logging.getLogger(__name__)
 
+usdt_irt_client = Redis.from_url(settings.TICKER_REDIS, decode_responses=True)
 _price_redis = Redis.from_url(settings.PRICE_CACHE_LOCATION, decode_responses=True)
 _master_price_redis = None
 
@@ -139,13 +140,21 @@ def _check_price_dict_time_frame(data: dict, allow_stale: bool = False):
     return allow_stale or data.get('s') == 'c' or not data.get('t') or now - 30 <= float(data.get('t')) <= now
 
 
+def get_price_tether_irt(side: str, allow_stale: bool = False):
+    data = usdt_irt_client.hgetall("ticker:usdtirt:default")
+    if not data:
+        return 0
+    if side == SELL:
+        return Decimal(data['b'])
+    return Decimal(data['a'])
+
+
 def fetch_external_price_by_symbol(symbol: str, side: str, allow_stale: bool = False) -> Decimal:
     allow_stale = True
 
     side = SIDE_MAP[side]
 
     coin, base = split_symbol(symbol)
-    symbol = _get_external_coin(coin) + base
 
     name = f'price:{symbol.lower()}'
     price = _get_price_redis(allow_stale).hget(name=name, key=side)

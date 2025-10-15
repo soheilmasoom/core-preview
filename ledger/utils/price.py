@@ -10,7 +10,7 @@ from ledger.exceptions import SmallDepthError
 from ledger.utils.cache import cache_for
 from ledger.utils.depth import NoDepthError
 from ledger.utils.external_price import fetch_external_redis_prices, BUY, SELL, get_other_side, \
-    IRT, USDT, fetch_external_price_by_symbol, split_symbol, get_depth_base_price_and_spread
+    IRT, USDT, fetch_external_price_by_symbol, split_symbol, get_depth_base_price_and_spread, get_price_tether_irt
 from ledger.utils.otc import spread_to_multiplier, get_otc_spread
 from ledger.utils.precision import floor_precision, ceil_precision
 
@@ -53,32 +53,13 @@ def get_all_otc_spreads(side):
 
 def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict[str, Decimal]:
     assert side in (BUY, SELL)
-    from market.models import Order
-
     if USDT_IRT not in symbols:
         symbols.append(USDT_IRT)
 
-    if side == BUY:
-        annotate_func = Max
-    else:
-        annotate_func = Min
 
-    internal_symbols = symbols
-    if not SystemConfig.get_system_config().hedge_coin_otc_from_internal_market:
+    prices = dict()
 
-        if USDT_IRT in internal_symbols:
-            internal_symbols = [USDT_IRT]
-        else:
-            internal_symbols = []
-
-    prices = dict(Order.open_objects.filter(
-        side=side,
-        symbol__enable=True,
-        symbol__name__in=internal_symbols
-    ).values('symbol__name').annotate(p=annotate_func('price')).values_list('symbol__name', 'p'))
-
-    if USDT_IRT not in prices:
-        prices[USDT_IRT] = fetch_external_price_by_symbol(USDT_IRT, side=side, allow_stale=allow_stale)
+    prices[USDT_IRT] = get_price_tether_irt(side=side, allow_stale=allow_stale)
 
     if len(symbols) != len(prices):
         otc_spreads = get_all_otc_spreads(side)
@@ -200,7 +181,6 @@ def get_last_price(symbol: str) -> Decimal:
 
 
 def get_depth_price(symbol: str, side: str, amount: Decimal, depth_check: bool = True) -> Decimal:
-
     from market.models import Order, PairSymbol
     pair_symbol = PairSymbol.objects.filter(name=symbol).first()
 
