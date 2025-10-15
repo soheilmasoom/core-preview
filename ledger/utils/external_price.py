@@ -155,8 +155,9 @@ def fetch_external_price_by_symbol(symbol: str, side: str, allow_stale: bool = F
     side = SIDE_MAP[side]
 
     coin, base = split_symbol(symbol)
-
-    name = f'price:{symbol.lower()}'
+    if base == IRT:
+        base = USDT
+    name = f'price:{coin.lower()}{base.lower()}'
     price = _get_price_redis(allow_stale).hget(name=name, key=side)
 
     if not price and allow_stale:
