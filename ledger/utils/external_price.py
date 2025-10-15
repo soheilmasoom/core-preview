@@ -120,7 +120,7 @@ def _get_price_redis(allow_stale: bool):
         if _master_price_redis and not _price_redis.hgetall('price:btcusdt'):
             return _master_price_redis
 
-    return _price_redis
+    return _master_price_redis
 
 
 def _get_redis_price_key(coin: str, market: str = None):
