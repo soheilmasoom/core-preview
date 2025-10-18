@@ -149,10 +149,7 @@ def get_last_prices(symbols: List[str]):
 
 @cache_for()
 def get_base_coins():
-    if settings.EXCHANGE_TYPE.is_crypto:
-        return IRT, USDT
-    else:
-        return IRT,
+    return IRT, USDT
 
 
 def get_coins_symbols(coins: List[str], only_base: str = None) -> List[str]:
