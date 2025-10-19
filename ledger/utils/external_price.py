@@ -145,8 +145,8 @@ def get_price_tether_irt(side: str, allow_stale: bool = False):
     if not data:
         return 0
     if side == SELL:
-        return Decimal(data['b'])
-    return Decimal(data['a'])
+        return Decimal(data['a'])
+    return Decimal(data['b'])
 
 
 def fetch_external_price_by_symbol(symbol: str, side: str, allow_stale: bool = False) -> Decimal:
