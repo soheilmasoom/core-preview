@@ -7,6 +7,7 @@ from django.conf import settings
 from django.utils import timezone
 from redis import Redis
 
+from accounts.models import SystemConfig
 from ledger.utils.cache import cache_for
 from ledger.utils.depth import decode_depth, THRESHOLD_SPREADS as DEPTH_THRESHOLD_SPREADS, NoDepthError, BID
 
@@ -105,7 +106,6 @@ def _get_external_price_multiplier(coin: str) -> Decimal:
 
 
 def _get_price_redis(allow_stale: bool):
-
     global _price_redis
     global _master_price_redis
 
@@ -141,7 +141,14 @@ def _check_price_dict_time_frame(data: dict, allow_stale: bool = False):
 
 
 def get_price_tether_irt(side: str, allow_stale: bool = False):
-    data = usdt_irt_client.hgetall("ticker:usdtirt:default")
+    config = SystemConfig.get_system_config()
+
+    if config.pricing_currency == SystemConfig.DOLLAR:
+        ticker_key = "tickr:usdirt:default"
+    else:
+        ticker_key = "tickr:usdtirt:default"
+
+    data = usdt_irt_client.hgetall(ticker_key)
     if not data:
         return 0
     if side == SELL:
