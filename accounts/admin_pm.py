@@ -620,3 +620,9 @@ class PreciousMetalsUserAdmin(ModelAdminJalaliMixin, SimpleHistoryAdmin, Advance
     def ban_credit_deposit(self, request, queryset):
         for user in queryset:
             user.ban_deposit_by_credit_cards()
+
+    def save_model(self, request, obj, form, change):
+        from .models import SystemConfig
+        super().save_model(request, obj, form, change)
+        if isinstance(obj, SystemConfig):
+            SystemConfig.clear_cache()

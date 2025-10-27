@@ -1,8 +1,8 @@
 from datetime import timedelta
-from enum import Enum
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.core.cache import cache
 from simple_history.models import HistoricalRecords
 
 from ledger.utils.fields import get_amount_field
@@ -21,6 +21,7 @@ class SystemConfig(models.Model):
 
     PLATFORM_TYPES = CRYPTO, GOLD = 'crypto', 'gold'
     COMMISSION_TYPES = FEE_DEDUCT_RECEIVING, FEE_ADD_PAYING = 'fee_deduct_receiving', 'fee_add_paying'
+    PRICING_CURRENCIES = DOLLAR, TETHER = 'dollar', 'tether'
 
     platform_type = models.CharField(max_length=16, choices=[(p, p) for p in PLATFORM_TYPES], default=CRYPTO)
 
@@ -122,11 +123,34 @@ class SystemConfig(models.Model):
         help_text="Fee percentage for physical withdrawals (e.g., 3 for 3%)"
     )
 
+    pricing_currency = models.CharField(
+        max_length=16,
+        choices=[(c, c) for c in PRICING_CURRENCIES],
+        default=TETHER,
+        verbose_name="Pricing Currency",
+        help_text="Select the currency used for pricing: dollar or tether (USDT)"
+    )
+
     def __str__(self):
         return self.name
 
     @classmethod
     def get_system_config(cls) -> 'SystemConfig':
-        return SystemConfig.objects.filter(
-            active=True
-        ).first() or SystemConfig()
+        cache_key = 'system_config_active'
+        config = cache.get(cache_key)
+        if config is None:
+            config = SystemConfig.objects.filter(active=True).first() or SystemConfig()
+            cache.set(cache_key, config, 86400)
+        return config
+
+    @classmethod
+    def clear_cache(cls):
+        cache.delete('system_config_active')
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.clear_cache()
+
+    def delete(self, *args, **kwargs):
+        super().delete(*args, **kwargs)
+        self.clear_cache()
