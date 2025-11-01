@@ -141,7 +141,7 @@ def _check_price_dict_time_frame(data: dict, allow_stale: bool = False):
     return True
 
 
-def get_price_tether_irt(side: str, allow_stale: bool = False):
+def get_price_tether_irt():
     config = SystemConfig.get_system_config()
 
     if config.pricing_currency in [SystemConfig.PAXG_DOLLAR, SystemConfig.TGJU_GOLD18]:
@@ -170,7 +170,8 @@ def fetch_gold_price_from_tickr(base: str, allow_stale: bool = False) -> Decimal
 
 def fetch_external_price_by_symbol(symbol: str, side: str, allow_stale: bool = False) -> Decimal:
     allow_stale = True
-
+    # always use ask
+    side = SELL
     side = SIDE_MAP[side]
 
     coin, base = split_symbol(symbol)

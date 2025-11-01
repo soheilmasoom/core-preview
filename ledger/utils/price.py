@@ -59,7 +59,7 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
 
     prices = dict()
 
-    prices[USDT_IRT] = get_price_tether_irt(side=side, allow_stale=allow_stale)
+    prices[USDT_IRT] = get_price_tether_irt()
 
     if len(symbols) != len(prices):
         otc_spreads = get_all_otc_spreads(side)
@@ -77,7 +77,7 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
                     remaining_symbols.remove(symbol)
 
             if base == IRT and config in [SystemConfig.PAXG_TETHER, SystemConfig.PAXG_DOLLAR]:
-                ext_price = fetch_external_price_by_symbol(symbol, side=side, allow_stale=allow_stale)
+                ext_price = fetch_external_price_by_symbol(symbol, side=SELL, allow_stale=allow_stale)
                 if ext_price:
                     prices[symbol] = ext_price * otc_spreads.get(symbol, 1) * prices[USDT_IRT]
                     remaining_symbols.remove(symbol)
@@ -96,7 +96,7 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
 
                 if symbol == 'IRTUSDT':
                     usdt_price_other_side = \
-                        get_prices([USDT_IRT], side=get_other_side(side), allow_stale=allow_stale)[USDT_IRT]
+                        get_prices([USDT_IRT], side=SELL, allow_stale=allow_stale)[USDT_IRT]
                     if usdt_price_other_side:
                         ext_price = Decimal(1) / usdt_price_other_side
                     else:
@@ -122,7 +122,7 @@ def get_last_prices(symbols: List[str]):
     last_prices = dict()
     config = SystemConfig.get_system_config().pricing_currency
     if USDT_IRT not in last_prices:
-        last_prices[USDT_IRT] = get_price_tether_irt(side=SELL, allow_stale=True)
+        last_prices[USDT_IRT] = get_price_tether_irt()
 
     remaining_symbols = set(symbols) - set(last_prices)
 
