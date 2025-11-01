@@ -11,7 +11,7 @@ from ledger.models import Asset, Wallet
 from ledger.utils.external_price import get_other_side, BUY, SELL
 from ledger.utils.fields import get_amount_field
 from ledger.utils.otc import get_trading_pair
-from ledger.utils.precision import floor_precision, get_presentation_amount, humanize_number
+from ledger.utils.precision import floor_precision, get_presentation_amount, humanize_number, ceil_precision
 from ledger.utils.price import get_price, USDT_IRT
 from ledger.utils.random import secure_uuid4
 from market.models import BaseTrade
@@ -204,7 +204,7 @@ class OTCRequest(BaseTrade):
 
         if otc_request.type == OTCRequest.MARKET:
             # price = get_depth_price(symbol.name, side=other_side, amount=coin_amount)
-            price = get_price(symbol.name, side=other_side)
+            price = ceil_precision(get_price(symbol.name, side=other_side), symbol.tick_size)
 
         if price is None:
             raise NoPriceError
