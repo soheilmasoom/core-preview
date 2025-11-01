@@ -33,6 +33,7 @@ class Asset(models.Model):
     IRT = 'IRT'
     USDT = 'USDT'
     SHIB = 'SHIB'
+    GOLD = 'GOLD75'
 
     MANUAL_PREFIX = 'manual'
 

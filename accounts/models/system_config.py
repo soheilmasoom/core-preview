@@ -21,7 +21,7 @@ class SystemConfig(models.Model):
 
     PLATFORM_TYPES = CRYPTO, GOLD = 'crypto', 'gold'
     COMMISSION_TYPES = FEE_DEDUCT_RECEIVING, FEE_ADD_PAYING = 'fee_deduct_receiving', 'fee_add_paying'
-    PRICING_CURRENCIES = DOLLAR, TETHER = 'dollar', 'tether'
+    PRICING_CURRENCIES = PAXG_TETHER, PAXG_DOLLAR, TGJU_GOLD18 = 'paxg-tether', 'paxg-dollar', 'tgju-gold18'
 
     platform_type = models.CharField(max_length=16, choices=[(p, p) for p in PLATFORM_TYPES], default=CRYPTO)
 
@@ -126,9 +126,9 @@ class SystemConfig(models.Model):
     pricing_currency = models.CharField(
         max_length=16,
         choices=[(c, c) for c in PRICING_CURRENCIES],
-        default=TETHER,
+        default=PAXG_TETHER,
         verbose_name="Pricing Currency",
-        help_text="Select the currency used for pricing: dollar or tether (USDT)"
+        help_text="Select the currency used for pricing: PAXG-Tether, PAXG-Dollar, or TGJU Gold 18"
     )
 
     def __str__(self):

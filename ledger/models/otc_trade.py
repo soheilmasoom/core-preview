@@ -19,7 +19,7 @@ from ledger.utils.external_price import SELL, BUY
 from ledger.utils.external_price import get_other_side
 from ledger.utils.fields import get_amount_field
 from ledger.utils.precision import floor_precision, get_symbol_presentation_price
-from ledger.utils.price import get_depth_price
+from ledger.utils.price import get_price
 from ledger.utils.revert import revert_trx_group
 from ledger.utils.wallet_pipeline import WalletPipeline
 from market.models import Trade, PairSymbol
@@ -144,8 +144,9 @@ class OTCTrade(models.Model):
     def handle_trigger_price(cls, symbol: str, side: str, current_price: Decimal):
         def is_triggered_price(otc_request: OTCRequest) -> bool:
             try:
-                current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side),
-                                                amount=otc_request.amount)
+                # current_price = get_depth_price(otc_request.symbol.name, side=get_other_side(otc_request.side),
+                #                                 amount=otc_request.amount)
+                current_price = get_price(otc_request.symbol.name, side=get_other_side(otc_request.side))
             except SmallDepthError as e:
                 logger.info('Error in get_depth_price in limit otc', extra={
                     'exp': e

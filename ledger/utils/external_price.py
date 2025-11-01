@@ -13,7 +13,7 @@ from ledger.utils.depth import decode_depth, THRESHOLD_SPREADS as DEPTH_THRESHOL
 
 logger = logging.getLogger(__name__)
 
-usdt_irt_client = Redis.from_url(settings.TICKER_REDIS, decode_responses=True)
+tickr = Redis.from_url(settings.TICKER_REDIS, decode_responses=True)
 _price_redis = Redis.from_url(settings.PRICE_CACHE_LOCATION, decode_responses=True)
 _master_price_redis = None
 
@@ -41,6 +41,7 @@ BINANCE = 'binance'
 NOBITEX = 'nobitex'
 
 USDT = 'USDT'
+USD = 'USD'
 IRT = 'IRT'
 
 SIDES = BUY, SELL = 'buy', 'sell'
@@ -143,17 +144,27 @@ def _check_price_dict_time_frame(data: dict, allow_stale: bool = False):
 def get_price_tether_irt(side: str, allow_stale: bool = False):
     config = SystemConfig.get_system_config()
 
-    if config.pricing_currency == SystemConfig.DOLLAR:
+    if config.pricing_currency in [SystemConfig.PAXG_DOLLAR, SystemConfig.TGJU_GOLD18]:
         ticker_key = "tickr:usdirt:default"
     else:
         ticker_key = "tickr:usdtirt:default"
 
-    data = usdt_irt_client.hgetall(ticker_key)
+    data = tickr.hgetall(ticker_key)
     if not data:
         return 0
-    # if side == SELL:
-    #     return Decimal(data['a'])
-    # just return ask price
+    return Decimal(data['a'])
+
+
+def fetch_gold_price_from_tickr(base: str, allow_stale: bool = False) -> Decimal:
+    b = USD
+    if base == IRT:
+        b = IRT
+    ticker_key = f'tickr:gold75{b.lower()}:default'
+    data = tickr.hgetall(ticker_key)
+    if not data and allow_stale:
+        ticker_key += ':stale'
+        data = tickr.hgetall(ticker_key)
+
     return Decimal(data['a'])
 
 

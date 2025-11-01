@@ -2,19 +2,20 @@ import logging
 from decimal import Decimal
 from typing import List, Dict, Union
 
-from django.db.models import Min, Max, F
+from django.db.models import F
 
-from _base import settings
 from accounts.models import SystemConfig
 from ledger.exceptions import SmallDepthError
 from ledger.utils.cache import cache_for
 from ledger.utils.depth import NoDepthError
 from ledger.utils.external_price import fetch_external_redis_prices, BUY, SELL, get_other_side, \
-    IRT, USDT, fetch_external_price_by_symbol, split_symbol, get_depth_base_price_and_spread, get_price_tether_irt
+    IRT, USDT, fetch_external_price_by_symbol, split_symbol, get_depth_base_price_and_spread, get_price_tether_irt, \
+    fetch_gold_price_from_tickr
 from ledger.utils.otc import spread_to_multiplier, get_otc_spread
 from ledger.utils.precision import floor_precision, ceil_precision
 
 USDT_IRT = 'USDTIRT'
+GOLD75IRT = 'GOLD75IRT'
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +64,19 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
     if len(symbols) != len(prices):
         otc_spreads = get_all_otc_spreads(side)
         remaining_symbols = set(symbols) - set(prices)
-
+        config = SystemConfig.get_system_config().pricing_currency
         # First try to get prices for IRT pairs directly from Redis
         for symbol in list(remaining_symbols):
             coin, base = split_symbol(symbol)
 
-            if base == IRT:
+            from ledger.models import Asset
+            if coin == Asset.GOLD and config in [SystemConfig.TGJU_GOLD18]:
+                ext_price = fetch_gold_price_from_tickr(base, allow_stale=allow_stale)
+                if ext_price:
+                    prices[symbol] = ext_price * otc_spreads.get(symbol, 1)
+                    remaining_symbols.remove(symbol)
+
+            if base == IRT and config in [SystemConfig.PAXG_TETHER, SystemConfig.PAXG_DOLLAR]:
                 ext_price = fetch_external_price_by_symbol(symbol, side=side, allow_stale=allow_stale)
                 if ext_price:
                     prices[symbol] = ext_price * otc_spreads.get(symbol, 1) * prices[USDT_IRT]
@@ -108,17 +116,11 @@ def get_prices(symbols: List[str], side: str, allow_stale: bool = False) -> Dict
 
 
 def get_last_prices(symbols: List[str]):
-    from market.models import PairSymbol
-
     if USDT_IRT not in symbols:
         symbols.append(USDT_IRT)
 
-    last_prices = dict(PairSymbol.objects.filter(
-        name__in=symbols,
-        enable=True,
-        last_trade_price__isnull=False,
-    ).values_list('name', 'last_trade_price'))
-
+    last_prices = dict()
+    config = SystemConfig.get_system_config().pricing_currency
     if USDT_IRT not in last_prices:
         last_prices[USDT_IRT] = get_price_tether_irt(side=SELL, allow_stale=True)
 
@@ -136,11 +138,13 @@ def get_last_prices(symbols: List[str]):
             elif coin == base:
                 last_price = Decimal(1)
             else:
-                last_price = external_prices.get(coin)
+                if config in [SystemConfig.PAXG_TETHER, SystemConfig.PAXG_DOLLAR]:
+                    last_price = external_prices.get(coin)
 
-                if last_price and base == IRT:
-                    last_price *= last_prices[USDT_IRT]
-
+                    if last_price and base == IRT:
+                        last_price *= last_prices[USDT_IRT]
+                else: # SystemConfig.TGJU_GOLD18
+                    last_price = fetch_gold_price_from_tickr(base, True)
             if last_price:
                 last_prices[symbol] = last_price
 
