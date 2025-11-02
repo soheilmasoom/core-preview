@@ -32,7 +32,7 @@ class SignupSerializer(serializers.Serializer):
     birth_date = serializers.DateField(required=False)
     card_pan = serializers.CharField(required=False, validators=[bank_card_pan_validator])
 
-    # Additional data
+    # Additional data - these might come from verify endpoint
     referral_code = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
     promotion = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
@@ -125,8 +125,12 @@ class PhoneSignupView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         client_info = data.get('client_info')
+
+        # Promotion priority: request data > existing user journey
+        # Only set if user doesn't have one already (99.99% comes from verify)
         promotion = data.get('promotion', '')
         utm = data.get('utm') or {}
+        referral_code = data.get('referral_code')
 
         try:
             with transaction.atomic():
@@ -177,9 +181,9 @@ class PhoneSignupView(APIView):
                 user.change_status(User.PENDING)
 
                 # Set referral if provided and not already set
-                if data.get('referral_code') and not account.referred_by:
-                    account.referred_by = Referral.objects.get(code=data['referral_code'])
-                    account.save()
+                if referral_code and not account.referred_by:
+                    account.referred_by = Referral.objects.get(code=referral_code)
+                    account.save(update_fields=['referred_by'])
 
                     from gamify.utils import check_prize_achievements, Task
                     check_prize_achievements(account.referred_by.owner, Task.REFERRAL)
@@ -199,8 +203,14 @@ class PhoneSignupView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # These happen outside transaction
-        create_traffic_source(request, user, utm)
-        set_missions_to_user(user, promotion)
+        # Only create traffic source if it doesn't exist
+        if not hasattr(user, 'traffic_source'):
+            create_traffic_source(request, user, utm)
+
+        # Only set mission journey if user doesn't have one (99.99% set in verify)
+        if promotion and not user.mission_journey:
+            set_missions_to_user(user, promotion)
+
         send_yandex_event(user, 'sign_up', {'id': user.id})
 
         tokens = get_tokens_for_user(user)

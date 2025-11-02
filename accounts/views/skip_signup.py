@@ -8,11 +8,14 @@ from accounts.models.phone_verification import VerificationCode
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.views.phone_login import get_tokens_for_user
 from accounts.utils.login import set_login_activity
+from accounts.utils.signup import create_traffic_source, set_missions_to_user
 
 
 class SkipSignupSerializer(serializers.Serializer):
     token = serializers.UUIDField(required=True)
     client_info = serializers.JSONField(required=False)
+    promotion = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
+    utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
 
 
 class SkipSignupView(APIView):
@@ -25,6 +28,8 @@ class SkipSignupView(APIView):
 
         token = serializer.validated_data['token']
         client_info = serializer.validated_data.get('client_info')
+        promotion = serializer.validated_data.get('promotion', '')
+        utm = serializer.validated_data.get('utm') or {}
 
         verification = VerificationCode.get_by_token(
             token,
@@ -66,6 +71,11 @@ class SkipSignupView(APIView):
                 'msg': 'شما قبلا در سیستم ثبت‌نام کرده‌اید.',
                 'code': -1
             }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Set traffic source and missions outside transaction
+        create_traffic_source(request, user, utm)
+        if promotion:
+            set_missions_to_user(user, promotion)
 
         tokens = get_tokens_for_user(user)
 
