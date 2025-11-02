@@ -38,7 +38,7 @@ class SignupSerializer(serializers.Serializer):
     # Additional data - optional, non-blocking
     referral_code = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
-    promotion = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
+    rewards = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
 
     def validate(self, data):
         kyc_fields = {'national_code', 'birth_date', 'card_pan', 'first_name', 'last_name'}
@@ -122,7 +122,7 @@ class PhoneSignupView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         client_info = data.get('client_info')
-        promotion = (data.get('promotion') or '').strip()
+        rewards = (data.get('rewards') or '').strip()
         utm = data.get('utm') or {}
         referral_code = (data.get('referral_code') or '').strip()
 
@@ -208,12 +208,12 @@ class PhoneSignupView(APIView):
             except Exception as e:
                 logger.warning(f'Failed to create traffic source for user {user.id}: {e}')
 
-        # Set mission journey if not exists - non-blocking
-        if promotion and not user.mission_journey:
+        # Set mission journey if not exists - non-blocking (99.99% already set in verify)
+        if rewards and not user.mission_journey:
             try:
-                set_missions_to_user(user, promotion)
+                set_missions_to_user(user, rewards)
             except Exception as e:
-                logger.warning(f'Failed to set missions for user {user.id}: {e}')
+                logger.warning(f'Failed to set rewards for user {user.id}: {e}')
 
         # Basic verification - non-blocking
         if not settings.DEBUG_OR_TESTING_OR_STAGING:

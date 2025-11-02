@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class SkipSignupSerializer(serializers.Serializer):
     token = serializers.UUIDField(required=True)
     client_info = serializers.JSONField(required=False)
-    promotion = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
+    rewards = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
 
 
@@ -31,7 +31,7 @@ class SkipSignupView(APIView):
 
         token = serializer.validated_data['token']
         client_info = serializer.validated_data.get('client_info')
-        promotion = (serializer.validated_data.get('promotion') or '').strip()
+        rewards = (serializer.validated_data.get('rewards') or '').strip()
         utm = serializer.validated_data.get('utm') or {}
 
         verification = VerificationCode.get_by_token(
@@ -81,11 +81,11 @@ class SkipSignupView(APIView):
         except Exception as e:
             logger.warning(f'Failed to create traffic source for user {user.id}: {e}')
 
-        if promotion:
+        if rewards:
             try:
-                set_missions_to_user(user, promotion)
+                set_missions_to_user(user, rewards)
             except Exception as e:
-                logger.warning(f'Failed to set missions for user {user.id}: {e}')
+                logger.warning(f'Failed to set rewards for user {user.id}: {e}')
 
         tokens = get_tokens_for_user(user)
 

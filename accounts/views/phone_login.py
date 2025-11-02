@@ -54,7 +54,7 @@ class PhoneLoginVerifySerializer(serializers.Serializer):
     phone = serializers.CharField(required=True, validators=[mobile_number_validator])
     code = serializers.CharField(required=True)
     client_info = serializers.JSONField(required=False)
-    promotion = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
+    rewards = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
     referral_code = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
 
@@ -88,7 +88,7 @@ class PhoneLoginVerifyView(APIView):
         phone = serializer.validated_data['phone']
         code = serializer.validated_data['code']
         client_info = serializer.validated_data.get('client_info')
-        promotion = (serializer.validated_data.get('promotion') or '').strip()
+        rewards = (serializer.validated_data.get('rewards') or '').strip()
         utm = serializer.validated_data.get('utm') or {}
         referral_code = (serializer.validated_data.get('referral_code') or '').strip()
 
@@ -110,12 +110,12 @@ class PhoneLoginVerifyView(APIView):
             # Existing user flow - return JWT tokens
             otp_code.set_code_used()
 
-            # Handle promotion for existing users (if not set) - non-blocking
-            if promotion and not user.mission_journey:
+            # Handle rewards for existing users (if not set) - non-blocking
+            if rewards and not user.mission_journey:
                 try:
-                    set_missions_to_user(user, promotion)
+                    set_missions_to_user(user, rewards)
                 except Exception as e:
-                    logger.warning(f'Failed to set promotion for user {user.id}: {e}')
+                    logger.warning(f'Failed to set rewards for user {user.id}: {e}')
 
             # Create traffic source if not exists - non-blocking
             if not hasattr(user, 'traffic_source'):
