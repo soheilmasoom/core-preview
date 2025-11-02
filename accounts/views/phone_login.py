@@ -56,7 +56,7 @@ class PhoneLoginVerifySerializer(serializers.Serializer):
     phone = serializers.CharField(required=True, validators=[mobile_number_validator])
     code = serializers.CharField(required=True)
     client_info = serializers.JSONField(required=False)
-    rewards = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
+    promotion = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
     referral_code = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
 
@@ -90,7 +90,7 @@ class PhoneLoginVerifyView(APIView):
         phone = serializer.validated_data['phone']
         code = serializer.validated_data['code']
         client_info = serializer.validated_data.get('client_info')
-        rewards = (serializer.validated_data.get('rewards') or '').strip()
+        promotion = (serializer.validated_data.get('promotion') or '').strip()
         utm = serializer.validated_data.get('utm') or {}
         referral_code = (serializer.validated_data.get('referral_code') or '').strip()
 
@@ -127,7 +127,7 @@ class PhoneLoginVerifyView(APIView):
                 'user': {'id': user.id}
             })
         else:
-            # ===== NEW USER - CREATE USER HERE AND SET REWARDS/REFERRAL =====
+            # ===== NEW USER - CREATE USER HERE AND SET PROMOTION/REFERRAL =====
             otp_code.set_code_used()
 
             try:
@@ -150,7 +150,7 @@ class PhoneLoginVerifyView(APIView):
                     'code': -1
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Non-blocking operations - set rewards/referral/utm for NEW user
+            # Non-blocking operations - set promotion/referral/utm for NEW user
 
             # Set referral if provided
             if referral_code:
@@ -174,13 +174,13 @@ class PhoneLoginVerifyView(APIView):
             except Exception as e:
                 logger.warning(f'Failed to create traffic source for user {user.id}: {e}')
 
-            # Set mission journey (rewards)
-            if rewards:
+            # Set mission journey (promotion)
+            if promotion:
                 try:
-                    set_missions_to_user(user, rewards)
-                    logger.info(f'Set rewards "{rewards}" for new user {user.id}')
+                    set_missions_to_user(user, promotion)
+                    logger.info(f'Set promotion "{promotion}" for new user {user.id}')
                 except Exception as e:
-                    logger.warning(f'Failed to set rewards for user {user.id}: {e}')
+                    logger.warning(f'Failed to set promotion for user {user.id}: {e}')
 
             # Send signup event
             try:
