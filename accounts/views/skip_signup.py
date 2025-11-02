@@ -2,6 +2,7 @@ from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db import transaction, IntegrityError
+import logging
 
 from accounts.models import User, Account
 from accounts.models.phone_verification import VerificationCode
@@ -9,6 +10,8 @@ from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.views.phone_login import get_tokens_for_user
 from accounts.utils.login import set_login_activity
 from accounts.utils.signup import create_traffic_source, set_missions_to_user
+
+logger = logging.getLogger(__name__)
 
 
 class SkipSignupSerializer(serializers.Serializer):
@@ -28,7 +31,7 @@ class SkipSignupView(APIView):
 
         token = serializer.validated_data['token']
         client_info = serializer.validated_data.get('client_info')
-        promotion = serializer.validated_data.get('promotion', '')
+        promotion = (serializer.validated_data.get('promotion') or '').strip()
         utm = serializer.validated_data.get('utm') or {}
 
         verification = VerificationCode.get_by_token(
@@ -72,10 +75,17 @@ class SkipSignupView(APIView):
                 'code': -1
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Set traffic source and missions outside transaction
-        create_traffic_source(request, user, utm)
+        # Non-blocking operations
+        try:
+            create_traffic_source(request, user, utm)
+        except Exception as e:
+            logger.warning(f'Failed to create traffic source for user {user.id}: {e}')
+
         if promotion:
-            set_missions_to_user(user, promotion)
+            try:
+                set_missions_to_user(user, promotion)
+            except Exception as e:
+                logger.warning(f'Failed to set missions for user {user.id}: {e}')
 
         tokens = get_tokens_for_user(user)
 

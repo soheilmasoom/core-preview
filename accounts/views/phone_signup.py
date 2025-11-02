@@ -4,6 +4,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from django.db import transaction, IntegrityError
 from django.utils import timezone
+import logging
 
 from accounts.models import User, Account, Referral
 from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
@@ -17,6 +18,8 @@ from financial.models import BankCard
 from financial.validators import bank_card_pan_validator
 from accounts.tasks import basic_verify_user
 from accounts.models.phone_verification import VerificationCode
+
+logger = logging.getLogger(__name__)
 
 
 class SignupSerializer(serializers.Serializer):
@@ -32,16 +35,10 @@ class SignupSerializer(serializers.Serializer):
     birth_date = serializers.DateField(required=False)
     card_pan = serializers.CharField(required=False, validators=[bank_card_pan_validator])
 
-    # Additional data - these might come from verify endpoint
+    # Additional data - optional, non-blocking
     referral_code = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
     promotion = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
-
-    @staticmethod
-    def validate_referral_code(code):
-        if code and not Referral.objects.filter(code=code).exists():
-            raise ValidationError('کد معرف نامعتبر است.')
-        return code
 
     def validate(self, data):
         kyc_fields = {'national_code', 'birth_date', 'card_pan', 'first_name', 'last_name'}
@@ -125,12 +122,9 @@ class PhoneSignupView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         client_info = data.get('client_info')
-
-        # Promotion priority: request data > existing user journey
-        # Only set if user doesn't have one already (99.99% comes from verify)
-        promotion = data.get('promotion', '')
+        promotion = (data.get('promotion') or '').strip()
         utm = data.get('utm') or {}
-        referral_code = data.get('referral_code')
+        referral_code = (data.get('referral_code') or '').strip()
 
         try:
             with transaction.atomic():
@@ -180,18 +174,6 @@ class PhoneSignupView(APIView):
 
                 user.change_status(User.PENDING)
 
-                # Set referral if provided and not already set
-                if referral_code and not account.referred_by:
-                    account.referred_by = Referral.objects.get(code=referral_code)
-                    account.save(update_fields=['referred_by'])
-
-                    from gamify.utils import check_prize_achievements, Task
-                    check_prize_achievements(account.referred_by.owner, Task.REFERRAL)
-
-                if not settings.DEBUG_OR_TESTING_OR_STAGING:
-                    basic_verify_user.s(user.id).apply_async(countdown=1)
-                    send_yandex_event(user, 'try_basic_verify')
-
                 # Mark verification token as used (Flow 1 only)
                 if verification:
                     verification.set_token_used()
@@ -202,16 +184,49 @@ class PhoneSignupView(APIView):
                 'code': -1
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # These happen outside transaction
-        # Only create traffic source if it doesn't exist
+        # Non-blocking operations - failures should not block signup
+
+        # Set referral if provided and not already set - non-blocking
+        if referral_code and not account.referred_by:
+            try:
+                referral = Referral.objects.filter(code=referral_code).first()
+                if referral:
+                    account.referred_by = referral
+                    account.save(update_fields=['referred_by'])
+
+                    from gamify.utils import check_prize_achievements, Task
+                    check_prize_achievements(account.referred_by.owner, Task.REFERRAL)
+                else:
+                    logger.warning(f'Invalid referral code: {referral_code}')
+            except Exception as e:
+                logger.warning(f'Failed to set referral for user {user.id}: {e}')
+
+        # Create traffic source if not exists - non-blocking
         if not hasattr(user, 'traffic_source'):
-            create_traffic_source(request, user, utm)
+            try:
+                create_traffic_source(request, user, utm)
+            except Exception as e:
+                logger.warning(f'Failed to create traffic source for user {user.id}: {e}')
 
-        # Only set mission journey if user doesn't have one (99.99% set in verify)
+        # Set mission journey if not exists - non-blocking
         if promotion and not user.mission_journey:
-            set_missions_to_user(user, promotion)
+            try:
+                set_missions_to_user(user, promotion)
+            except Exception as e:
+                logger.warning(f'Failed to set missions for user {user.id}: {e}')
 
-        send_yandex_event(user, 'sign_up', {'id': user.id})
+        # Basic verification - non-blocking
+        if not settings.DEBUG_OR_TESTING_OR_STAGING:
+            try:
+                basic_verify_user.s(user.id).apply_async(countdown=1)
+                send_yandex_event(user, 'try_basic_verify')
+            except Exception as e:
+                logger.warning(f'Failed to trigger basic verify for user {user.id}: {e}')
+
+        try:
+            send_yandex_event(user, 'sign_up', {'id': user.id})
+        except Exception as e:
+            logger.warning(f'Failed to send yandex event for user {user.id}: {e}')
 
         tokens = get_tokens_for_user(user)
 

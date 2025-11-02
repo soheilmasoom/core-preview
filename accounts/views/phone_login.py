@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
+import logging
 
 from accounts.models import User, Account, RefreshToken as RefreshTokenModel, Referral
 from accounts.models.phone_verification import VerificationCode
@@ -10,6 +11,8 @@ from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.validators import mobile_number_validator
 from accounts.utils.login import set_login_activity
 from accounts.utils.signup import create_traffic_source, set_missions_to_user
+
+logger = logging.getLogger(__name__)
 
 
 class PhoneLoginInitSerializer(serializers.Serializer):
@@ -55,12 +58,6 @@ class PhoneLoginVerifySerializer(serializers.Serializer):
     utm = serializers.JSONField(allow_null=True, required=False, write_only=True)
     referral_code = serializers.CharField(allow_null=True, required=False, write_only=True, allow_blank=True)
 
-    @staticmethod
-    def validate_referral_code(code):
-        if code and not Referral.objects.filter(code=code).exists():
-            raise ValidationError('کد معرف نامعتبر است.')
-        return code
-
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -91,9 +88,9 @@ class PhoneLoginVerifyView(APIView):
         phone = serializer.validated_data['phone']
         code = serializer.validated_data['code']
         client_info = serializer.validated_data.get('client_info')
-        promotion = serializer.validated_data.get('promotion', '')
+        promotion = (serializer.validated_data.get('promotion') or '').strip()
         utm = serializer.validated_data.get('utm') or {}
-        referral_code = serializer.validated_data.get('referral_code')
+        referral_code = (serializer.validated_data.get('referral_code') or '').strip()
 
         otp_code = VerificationCode.get_by_code(
             code=code,
@@ -113,27 +110,40 @@ class PhoneLoginVerifyView(APIView):
             # Existing user flow - return JWT tokens
             otp_code.set_code_used()
 
-            # Handle promotion and traffic source for existing users (if not set)
+            # Handle promotion for existing users (if not set) - non-blocking
             if promotion and not user.mission_journey:
-                set_missions_to_user(user, promotion)
+                try:
+                    set_missions_to_user(user, promotion)
+                except Exception as e:
+                    logger.warning(f'Failed to set promotion for user {user.id}: {e}')
 
-            # Create traffic source if not exists
+            # Create traffic source if not exists - non-blocking
             if not hasattr(user, 'traffic_source'):
-                create_traffic_source(request, user, utm)
+                try:
+                    create_traffic_source(request, user, utm)
+                except Exception as e:
+                    logger.warning(f'Failed to create traffic source for user {user.id}: {e}')
 
-            # Handle referral code for existing users (if not already referred)
+            # Handle referral code for existing users - non-blocking
             if referral_code:
-                account = user.get_account()
-                if not account.referred_by:
-                    account.referred_by = Referral.objects.get(code=referral_code)
-                    account.save(update_fields=['referred_by'])
+                try:
+                    account = user.get_account()
+                    if not account.referred_by:
+                        referral = Referral.objects.filter(code=referral_code).first()
+                        if referral:
+                            account.referred_by = referral
+                            account.save(update_fields=['referred_by'])
 
-                    from gamify.utils import check_prize_achievements, Task
-                    check_prize_achievements(account.referred_by.owner, Task.REFERRAL)
+                            from gamify.utils import check_prize_achievements, Task
+                            check_prize_achievements(account.referred_by.owner, Task.REFERRAL)
+                        else:
+                            logger.warning(f'Invalid referral code: {referral_code}')
+                except Exception as e:
+                    logger.warning(f'Failed to set referral for user {user.id}: {e}')
 
             tokens = get_tokens_for_user(user)
 
-            login_activity = set_login_activity(
+            set_login_activity(
                 request=request,
                 user=user,
                 client_info=client_info,
@@ -146,13 +156,9 @@ class PhoneLoginVerifyView(APIView):
                 'user': {'id': user.id}
             })
         else:
-            # New user flow - return verification token with metadata
-            # Store promotion, utm, and referral_code in the context for signup
+            # New user flow - just return token
             return Response({
                 'is_registered': False,
                 'token': str(otp_code.token),
-                'scope': VerificationCode.SCOPE_PHONE_LOGIN,
-                'promotion': promotion,
-                'utm': utm,
-                'referral_code': referral_code
+                'scope': VerificationCode.SCOPE_PHONE_LOGIN
             })
