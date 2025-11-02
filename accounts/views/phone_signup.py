@@ -186,13 +186,15 @@ class PhoneSignupView(APIView):
 
         # Non-blocking operations - failures should not block signup
 
-        # Set referral if provided and not already set - non-blocking
-        if referral_code and not account.referred_by:
+        # Set referral if provided (from signup form) - overrides any previous setting
+        # User can provide referral_code in signup even if they didn't in verify
+        if referral_code:
             try:
                 referral = Referral.objects.filter(code=referral_code).first()
                 if referral:
                     account.referred_by = referral
                     account.save(update_fields=['referred_by'])
+                    logger.info(f'Set referral "{referral_code}" for user {user.id} from signup')
 
                     from gamify.utils import check_prize_achievements, Task
                     check_prize_achievements(account.referred_by.owner, Task.REFERRAL)
@@ -208,10 +210,11 @@ class PhoneSignupView(APIView):
             except Exception as e:
                 logger.warning(f'Failed to create traffic source for user {user.id}: {e}')
 
-        # Set mission journey if not exists - non-blocking (99.99% already set in verify)
+        # Set mission journey if not exists - non-blocking
         if rewards and not user.mission_journey:
             try:
                 set_missions_to_user(user, rewards)
+                logger.info(f'Set rewards "{rewards}" for user {user.id}')
             except Exception as e:
                 logger.warning(f'Failed to set rewards for user {user.id}: {e}')
 

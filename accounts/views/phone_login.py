@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.db import transaction, IntegrityError
 import logging
 
 from accounts.models import User, Account, RefreshToken as RefreshTokenModel, Referral
@@ -11,6 +12,7 @@ from accounts.throttle import BurstRateThrottle, SustainedRateThrottle
 from accounts.validators import mobile_number_validator
 from accounts.utils.login import set_login_activity
 from accounts.utils.signup import create_traffic_source, set_missions_to_user
+from analytics.utils.yandex import send_yandex_event
 
 logger = logging.getLogger(__name__)
 
@@ -107,39 +109,8 @@ class PhoneLoginVerifyView(APIView):
         user = User.objects.filter(phone=phone).first()
 
         if user:
-            # Existing user flow - return JWT tokens
+            # ===== EXISTING USER - JUST LOGIN =====
             otp_code.set_code_used()
-
-            # Handle rewards for existing users (if not set) - non-blocking
-            if rewards and not user.mission_journey:
-                try:
-                    set_missions_to_user(user, rewards)
-                except Exception as e:
-                    logger.warning(f'Failed to set rewards for user {user.id}: {e}')
-
-            # Create traffic source if not exists - non-blocking
-            if not hasattr(user, 'traffic_source'):
-                try:
-                    create_traffic_source(request, user, utm)
-                except Exception as e:
-                    logger.warning(f'Failed to create traffic source for user {user.id}: {e}')
-
-            # Handle referral code for existing users - non-blocking
-            if referral_code:
-                try:
-                    account = user.get_account()
-                    if not account.referred_by:
-                        referral = Referral.objects.filter(code=referral_code).first()
-                        if referral:
-                            account.referred_by = referral
-                            account.save(update_fields=['referred_by'])
-
-                            from gamify.utils import check_prize_achievements, Task
-                            check_prize_achievements(account.referred_by.owner, Task.REFERRAL)
-                        else:
-                            logger.warning(f'Invalid referral code: {referral_code}')
-                except Exception as e:
-                    logger.warning(f'Failed to set referral for user {user.id}: {e}')
 
             tokens = get_tokens_for_user(user)
 
@@ -156,9 +127,80 @@ class PhoneLoginVerifyView(APIView):
                 'user': {'id': user.id}
             })
         else:
-            # New user flow - just return token
+            # ===== NEW USER - CREATE USER HERE AND SET REWARDS/REFERRAL =====
+            otp_code.set_code_used()
+
+            try:
+                with transaction.atomic():
+                    # Create new user
+                    user, created = User.objects.get_or_create(
+                        phone=phone,
+                        defaults={'username': phone}
+                    )
+
+                    if not created:
+                        # Race condition
+                        raise ValidationError({'phone': 'شما قبلا در سیستم ثبت‌نام کرده‌اید.'})
+
+                    account = Account.objects.create(user=user)
+
+            except IntegrityError:
+                return Response({
+                    'msg': 'شما قبلا در سیستم ثبت‌نام کرده‌اید.',
+                    'code': -1
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Non-blocking operations - set rewards/referral/utm for NEW user
+
+            # Set referral if provided
+            if referral_code:
+                try:
+                    referral = Referral.objects.filter(code=referral_code).first()
+                    if referral:
+                        account.referred_by = referral
+                        account.save(update_fields=['referred_by'])
+                        logger.info(f'Set referral "{referral_code}" for new user {user.id}')
+
+                        from gamify.utils import check_prize_achievements, Task
+                        check_prize_achievements(account.referred_by.owner, Task.REFERRAL)
+                    else:
+                        logger.warning(f'Invalid referral code: {referral_code}')
+                except Exception as e:
+                    logger.warning(f'Failed to set referral for user {user.id}: {e}')
+
+            # Create traffic source
+            try:
+                create_traffic_source(request, user, utm)
+            except Exception as e:
+                logger.warning(f'Failed to create traffic source for user {user.id}: {e}')
+
+            # Set mission journey (rewards)
+            if rewards:
+                try:
+                    set_missions_to_user(user, rewards)
+                    logger.info(f'Set rewards "{rewards}" for new user {user.id}')
+                except Exception as e:
+                    logger.warning(f'Failed to set rewards for user {user.id}: {e}')
+
+            # Send signup event
+            try:
+                send_yandex_event(user, 'sign_up', {'id': user.id})
+            except Exception as e:
+                logger.warning(f'Failed to send yandex event for user {user.id}: {e}')
+
+            # Get tokens
+            tokens = get_tokens_for_user(user)
+
+            set_login_activity(
+                request=request,
+                user=user,
+                client_info=client_info,
+                refresh_token=tokens['refresh'],
+                is_sign_up=True
+            )
+
             return Response({
-                'is_registered': False,
-                'token': str(otp_code.token),
-                'scope': VerificationCode.SCOPE_PHONE_LOGIN
+                **tokens,
+                'is_registered': False,  # First time user
+                'user': {'id': user.id}
             })
