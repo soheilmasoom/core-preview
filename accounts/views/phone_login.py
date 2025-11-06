@@ -175,12 +175,11 @@ class PhoneLoginVerifyView(APIView):
                 logger.warning(f'Failed to create traffic source for user {user.id}: {e}')
 
             # Set mission journey (promotion)
-            if promotion:
-                try:
-                    set_missions_to_user(user, promotion)
-                    logger.info(f'Set promotion "{promotion}" for new user {user.id}')
-                except Exception as e:
-                    logger.warning(f'Failed to set promotion for user {user.id}: {e}')
+            try:
+                set_missions_to_user(user, promotion)
+                logger.info(f'Set promotion "{promotion}" for new user {user.id}')
+            except Exception as e:
+                logger.warning(f'Failed to set promotion for user {user.id}: {e}')
 
             # Send signup event
             try:
