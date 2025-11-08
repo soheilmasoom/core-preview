@@ -41,7 +41,7 @@ def alert_user_verify_status(user: User):
                 notif_message = 'اطلاعات وارد شده نیاز به بازنگری دارد.'
             level = Notification.ERROR
             template = TemplateType.LEVELUP_REJECTED
-            levelup = user.level + 1
+            levelup = ''
         else:
             if user.level == User.LEVEL2:
                 if settings.EXCHANGE_TYPE.is_crypto:
@@ -52,7 +52,7 @@ def alert_user_verify_status(user: User):
                 notif_message = 'احراز هویت سطح {} شما با موفقیت انجام شد.'.format(user.level)
             level = Notification.SUCCESS
             template = TemplateType.LEVELUP_ACCEPTED
-            levelup = user.level
+            levelup = ''
         Notification.send(
             recipient=user,
             title=title,

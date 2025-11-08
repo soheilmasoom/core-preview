@@ -1,11 +1,13 @@
 from django.conf import settings
 from django.utils import timezone
-from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from rest_framework import serializers, status
+from rest_framework.exceptions import ValidationError, Throttled
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import User, UserAuthRequest
 from accounts.tasks import basic_verify_user
+from accounts.throttle import BasicVerifyRateThrottle, BasicVerifyDailyThrottle
 from accounts.utils.similarity import clean_persian_word
 from analytics.utils.yandex import send_yandex_event
 from financial.models import BankCard
@@ -147,6 +149,35 @@ class BasicInfoSerializer(serializers.ModelSerializer):
 class BasicInfoVerificationViewSet(ModelViewSet):
     serializer_class = BasicInfoSerializer
     queryset = User.objects.all()
+    throttle_classes = [BasicVerifyRateThrottle, BasicVerifyDailyThrottle]
 
     def get_object(self):
         return self.request.user
+
+    def handle_exception(self, exc):
+        if isinstance(exc, Throttled):
+            wait = exc.wait
+
+            if wait is not None:
+                # Calculate time in appropriate unit
+                if wait < 60:
+                    time_msg = f'{int(wait)} ثانیه'
+                elif wait < 3600:
+                    time_msg = f'{int(wait / 60)} دقیقه'
+                else:
+                    time_msg = f'{int(wait / 3600)} ساعت'
+
+                if wait < 3600:  # Less than an hour suggests minute limit
+                    message = f'تعداد درخواست‌های شما بیش از حد مجاز است. لطفا {time_msg} دیگر تلاش کنید.'
+                else:  # Daily limit
+                    message = f'شما به حداکثر تعداد تلاش‌های روزانه رسیده‌اید. لطفا {time_msg} دیگر تلاش کنید.'
+            else:
+                message = 'تعداد درخواست‌های شما بیش از حد مجاز است.'
+
+            return Response(
+                [message],
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+
+        # Call parent handler for other exceptions
+        return super().handle_exception(exc)

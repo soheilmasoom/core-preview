@@ -315,6 +315,8 @@ REST_FRAMEWORK = {
         'auth_sustained': '500/day',
         'api_burst': '60/min',
         'api_sustained': '10000/day',  # only for custom token
+        'basic_verify': '3/minute',
+        'basic_verify_daily': '10/day',
     },
     'EXCEPTION_HANDLER': 'accounts.throttle.custom_exception_handler'
 }

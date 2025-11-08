@@ -1,8 +1,7 @@
 import logging
 
 from rest_framework.exceptions import Throttled
-from rest_framework.throttling import UserRateThrottle
-
+from rest_framework.throttling import UserRateThrottle, SimpleRateThrottle
 
 from accounts.authentication import CustomTokenAuthentication
 from rest_framework.views import exception_handler
@@ -63,3 +62,33 @@ class SustainedAPIRateThrottle(CustomUserRateThrottle):
             return super().allow_request(request, view)
         else:
             return True
+
+
+class BasicVerifyRateThrottle(SimpleRateThrottle):
+    scope = 'basic_verify'
+
+    def get_cache_key(self, request, view):
+        if request.user.is_authenticated:
+            ident = request.user.pk
+        else:
+            ident = self.get_ident(request)
+
+        return self.cache_format % {
+            'scope': self.scope,
+            'ident': ident
+        }
+
+
+class BasicVerifyDailyThrottle(SimpleRateThrottle):
+    scope = 'basic_verify_daily'
+
+    def get_cache_key(self, request, view):
+        if request.user.is_authenticated:
+            ident = request.user.pk
+        else:
+            ident = self.get_ident(request)
+
+        return self.cache_format % {
+            'scope': self.scope,
+            'ident': ident
+        }
