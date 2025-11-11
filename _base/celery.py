@@ -181,7 +181,7 @@ app.conf.beat_schedule = {
     },
     'create_vault_snapshot': {
         'task': 'accounting.tasks.vault.update_vaults',
-        'schedule': crontab(minute='*/5'),
+        'schedule': crontab(minute='0', hour='*'),
         'options': {
             'queue': 'vault',
             'expires': 200
