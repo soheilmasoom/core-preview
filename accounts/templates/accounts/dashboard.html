@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
+          integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <meta charset="UTF-8">
+    <title>داشبورد</title>
+</head>
+<body>
+<div class="card" style="width: 80%; margin-left: 10%;margin-top: 10%">
+    <div class="card-header" style="text-align: center">
+        <h5>داشبورد {{ brand }}</h5>
+    </div>
+    <div style="width: 90%; margin-left: 5%; margin-top: 2%">
+        <a type="button" href="/admin/accounts/user/"
+           class="btn btn-secondary btn-lg btn-block" target="_blank">
+            ({{ user_count }}) کاربران
+        </a>
+        <br>
+        <a type="button" href="/admin/accounts/user/?level__exact=1&status_is_pending_or_rejected=1&archived__exact=0"
+           class="btn btn-warning btn-lg btn-block" target="_blank">
+            ({{ pending_or_reject_level_2_users }}) کاربران منتظر تایید سطح ۲
+        </a>
+        <br>
+        <a type="button" href="/admin/accounts/user/?level__exact=2&status_is_pending=1&archived__exact=0"
+           class="btn btn-secondary btn-lg btn-block" target="_blank">
+            ({{ pending_level_3_users }}) کاربران منتظر تایید سطح ۳
+        </a>
+        <br>
+        <a type="button" href="/admin/accounts/user/?level__exact=2&national_code_phone_verified__exact=0"
+           class="btn btn-warning btn-lg btn-block" target="_blank">
+            ({{ shahkar_rejected }}) شاهکار رد شده
+        </a>
+        <br>
+        <a type="button" href="/admin/ledger/transfer/?status__exact=init"
+           class="btn btn-secondary btn-lg btn-block" target="_blank">
+            ({{ crypto_withdraw_count }}) برداشت رمزارز منتظر تایید
+        </a>
+        <br>
+        <a type="button" href="/admin/financial/fiatwithdrawrequest/?status__exact=init"
+           class="btn btn-warning btn-lg btn-block" target="_blank">
+            ({{ init_withdraw_requests }}) برداشت‌های ریالی در انتظار تایید
+        </a>
+        <br>
+        <a type="button" href="/admin/financial/fiatwithdrawrequest/?status__exact=process"
+           class="btn btn-secondary btn-lg btn-block" target="_blank">
+            ({{ process_withdraw_requests }}) برداشت‌های ریالی منتظر
+        </a>
+        <br>
+        <a type="button" href="/admin/accounts/user/?archived__exact=1"
+           class="btn btn-warning btn-lg btn-block" target="_blank">
+            ({{ archived_users }}) کاربران بایگانی شده
+        </a>
+        <br>
+        <a type="button" href="/admin/accounts/forget2fa/?status__exact=pending"
+           class="btn btn-secondary btn-lg btn-block" target="_blank">
+            ({{ forget_2fa_count }}) درخواست‌های فراموشی شناسه دوعاملی
+        </a>
+        <br>
+        <a type="button" href="/admin/accounts/changephone/?status__exact=pending"
+           class="btn btn-warning btn-lg btn-block" target="_blank">
+            ({{ phone_change_count }}) درخواست‌های تغییر شماره موبایل
+        </a>
+        <br>
+        <a type="button" href="/admin/accounts/company/?status__exact=pending"
+           class="btn btn-secondary btn-lg btn-block" target="_blank">
+            ({{ pending_companies_count }}) شرکت‌های در انتظار تایید
+        </a>
+        <br>
+    </div>
+</div>
+</body>
+</html>

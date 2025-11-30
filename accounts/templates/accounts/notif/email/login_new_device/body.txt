@@ -1,0 +1,8 @@
+از دستگاه و آی‌پی جدیدی به حساب کاربری‌تان وارد شدید.
+تاریخ: {{now}}
+آی‌پی: {{ip}}
+{% if  country != "" and city != "" %} مکان: {{country}} / {{city}} {% endif %}
+
+تغییر رمز عبور:
+{{site_url}}/account/security
+{{brand}}
