@@ -110,3 +110,8 @@ public/
 
 .env
 dump.rdb
+
+
+# firebase config
+firebase_credentials_base64.txt
+tmp*.json

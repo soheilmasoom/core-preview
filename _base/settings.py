@@ -5,6 +5,8 @@ from datetime import timedelta
 from enum import Enum
 from pathlib import Path
 
+import json
+import base64
 import sentry_sdk
 from decouple import Csv, config
 from sentry_sdk.integrations.django import DjangoIntegration
@@ -12,6 +14,58 @@ from sentry_sdk.integrations.django import DjangoIntegration
 from _base.utils import ExchangeType
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+def get_firebase_credentials_path():
+    import tempfile
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    base64_file_path = BASE_DIR / 'firebase_credentials_base64.txt'
+    if base64_file_path.exists():
+        try:
+            with open(base64_file_path, 'r') as f:
+                credentials_base64 = f.read().strip()
+            
+            credentials_json = base64.b64decode(credentials_base64).decode('utf-8')
+            credentials_dict = json.loads(credentials_json)
+            
+            temp_file = tempfile.NamedTemporaryFile(
+                mode='w',
+                suffix='.json',
+                delete=False,
+                dir=BASE_DIR
+            )
+            json.dump(credentials_dict, temp_file)
+            temp_file.flush()
+            temp_file.close()
+            
+            logger.info("Firebase credentials loaded from firebase_credentials_base64.txt")
+            return temp_file.name
+            
+        except Exception as e:
+            logger.error(f"Failed to read firebase_credentials_base64.txt: {e}")
+    
+    raise ValueError(
+        "Firebase credentials not found!\n"
+        "Please provide credentials via one of these methods:\n"
+        "1. Create firebase_credentials_base64.txt in project root\n"
+    )
+
+
+try:
+    FIREBASE_CREDENTIALS_PATH = get_firebase_credentials_path()
+except ValueError as e:
+    import sys
+    print(f"❌ {e}")
+    if 'runserver' not in sys.argv and 'shell' not in sys.argv:
+        raise
+
+
+FCM_CACHE_LOCATION = config('REDIS_URL', default='redis://localhost:6379/1')
+
+KAFTAR_HOST_URL = config('KAFTAR_HOST_URL', default='https://kaftar.raastinwallet.com')
+KAFTAR_TOKEN = config('KAFTAR_TOKEN', default='')
 
 SECRET_KEY = config('SECRET_KEY')
 OTP_TOTP_THROTTLE_FACTOR = 1
@@ -36,9 +90,6 @@ PANEL_URL = config('PANEL_URL', default='https://raastin.com')
 CELERY_TASK_ALWAYS_EAGER = config('CELERY_ALWAYS_EAGER', default=False)
 
 KAFKA_HOST_URL = config('KAFKA_HOST_URL', default='')
-
-KAFTAR_HOST_URL = config('KAFTAR_HOST_URL', default='https://kaftar.raastinwallet.com')
-KAFTAR_TOKEN = config('KAFTAR_TOKEN', default='')
 
 BRAND_EN = config('BRAND_EN', default='')
 BRAND = config('BRAND', default='')
@@ -68,7 +119,7 @@ INSTALLED_APPS = [
     'analytics',
     'financial',
     'multimedia',
-    'accounts',
+    'accounts', # check!: accountConfig
     'accounting',
     'ledger',
     'market',
